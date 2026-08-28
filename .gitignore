@@ -3,3 +3,4 @@ urbit-agent/
 urbit-mcp/
 *.pyc
 bus/
+quick-js-emcc.wasm

@@ -116,6 +116,53 @@
   ?:  (lth (lent (retained items.v)) (lent items.v))
     `[%compact ~]
   `[%turn ~]
+::  +js-loop-guard: reject the canonical unbounded-loop spellings.
+::  the wasm runtime has no preemption, so a tight infinite loop wedges
+::  the whole ship for the duration of its (single, blocking) event. a
+::  behn watchdog catches loops that YIELD; this catches the ones that
+::  don't, before any thread is spawned. coarse but cheap, and the model
+::  gets a clear error to correct against
+::
+++  js-loop-guard
+  |=  code=@t
+  ^-  (unit @t)
+  =/  flat  (normalize code)
+  =/  bad=(list @t)
+    :~  'while(true)'  'while(1)'  'while(!0)'
+        'for(;;)'  'do{'
+    ==
+  ?:  (lien bad |=(pat=@t (find-sub pat flat)))
+    :-  ~
+    %+  rap  3
+    :~  'rejected: unbounded loop construct detected. this runtime '
+        'cannot be interrupted, so infinite loops are not allowed. '
+        'use a loop with an explicit bound instead.'
+    ==
+  ~
+::  +normalize: lowercase and strip ascii whitespace, for pattern search
+::
+++  normalize
+  |=  t=@t
+  ^-  @t
+  %-  crip
+  %+  murn  (trip t)
+  |=  c=@t
+  ^-  (unit @t)
+  ?:  ?|(=(' ' c) =('\09' c) =('\0a' c) =('\0d' c))  ~
+  `?:(&((gte c 'A') (lte c 'Z')) (add c 32) c)
+::  +find-sub: does needle occur in haystack?
+::
+++  find-sub
+  |=  [needle=@t haystack=@t]
+  ^-  ?
+  =/  nl  (met 3 needle)
+  =/  hl  (met 3 haystack)
+  ?:  (gth nl hl)  |
+  =/  i  0
+  |-  ^-  ?
+  ?:  (gth i (sub hl nl))  |
+  ?:  =(needle (cut 3 [i nl] haystack))  &
+  $(i +(i))
 ::  +clip: cap a cord's byte length, marking truncation
 ::
 ++  clip
@@ -305,6 +352,23 @@
             'delete_skill'
           'Delete a named skill from your skill library'
         ~[['name' 'the skill name']]
+    ==
+  ::
+      %code
+    :_  ~
+    %^    fun-json
+        'run_js'
+      %-  crip
+      %-  zing
+      ^-  (list tape)
+      :~  "Run a JavaScript snippet on the ship and get its result. "
+          "The code MUST assign a function to module.exports; its return "
+          "value (JSON.stringify objects) is the result. Available: "
+          "console.*, fetch_sync(url), require('urbit_thread') for file "
+          "i/o. No unbounded loops (while(true), for(;;)): the runtime "
+          "cannot be preempted, so use a bounded loop or you are rejected."
+      ==
+    :~  ['code' 'the javascript source; must set module.exports to a function']
     ==
   ::
       %peers

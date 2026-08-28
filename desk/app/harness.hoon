@@ -6,8 +6,8 @@
 ::    scries at /x/sessions and /x/session/[sid]. the chat ui is
 ::    served from /web by %harness-fileserver.
 ::
-/-  h=harness
-/+  hl=harness, default-agent, dbug
+/-  h=harness, spider
+/+  hl=harness, default-agent, dbug, tbjs=thread-builder-js
 |%
 ::  no state versioning during prototyping: on a schema change,
 ::  |nuke %harness and |revive to start fresh
@@ -28,6 +28,9 @@
       peer-base=(unit config:h)
       asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
       serving=(map session-id:h (list [=ship id=ask-id:h]))
+      ::  in-flight run_js threads, keyed by spider tid
+      ::
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
   ==
 +$  card  card:agent:gall
 --
@@ -155,6 +158,47 @@
   ::
       [%a2a %answer @ ~]
     `this
+  ::
+      [%jspoke @ ~]
+    ?.  ?=(%poke-ack -.sign)  (on-agent:def wire sign)
+    ?~  p.sign  `this
+    ::  spider refused to start the thread
+    ::
+    =^  cards  state  (finish-js:hc i.t.wire 'error: could not start js thread')
+    [cards this]
+  ::
+      [%jswatch @ ~]
+    =/  tid=@ta  i.t.wire
+    ?+  -.sign  (on-agent:def wire sign)
+        %kick  `this
+        %watch-ack  `this
+        %fact
+      =/  body=@t
+        ?+  p.cage.sign  'error: unexpected thread result'
+            %thread-fail
+          =+  !<([=term =tang] q.cage.sign)
+          %+  rap  3
+          :~  'error: js thread failed: '  term
+              '\0a'
+              %-  crip
+              %-  zing
+              (turn tang |=(=tank (weld `tape`~(ram re tank) `tape`"\0a")))
+          ==
+        ::
+            %thread-done
+          =/  parsed
+            %-  mole  |.
+            !<([%0 out=(each cord [err=cord where=cord])] q.cage.sign)
+          ?~  parsed  'error: could not read thread result'
+          ?:  ?=(%& -.out.u.parsed)  (clip:hl p.out.u.parsed 8.000)
+          %+  rap  3
+          :~  'js error: '  err.p.out.u.parsed
+              ' ('  where.p.out.u.parsed  ')'
+          ==
+        ==
+      =^  cards  state  (finish-js:hc tid body)
+      [cards this]
+    ==
   ==
 ::
 ++  on-arvo
@@ -194,6 +238,11 @@
     ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
     =^  cards  state
       (fail-ask:hc (slav %uv i.t.wire) 'peer timed out')
+    [cards this]
+  ::
+      [%jsdog @ ~]
+    ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+    =^  cards  state  (watchdog-js:hc i.t.wire)
     [cards this]
   ==
 ::
@@ -338,7 +387,80 @@
             %arvo  %b  %wait  (add now.bowl ~m2)
         ==
     ==
+  ::
+      %run-js
+    ::  internal, from our own drive loop: build the js thread and run it
+    ::  through spider under a tid we own, with a behn watchdog for the
+    ::  (yielding) hang case. tight non-yielding loops are caught earlier
+    ::  by the static guard; a computed one that slips through blocks a
+    ::  single event and is the documented residual risk
+    ::
+    ?>  =(our.bowl src.bowl)
+    =/  tid=@ta  (cat 3 'harness_js_' (scot %uv (end [3 16] (shas %js eny.bowl))))
+    =/  deadline=@da  (add now.bowl js-timeout)
+    =.  jobs  (~(put by jobs) tid [sid.act call-id.act deadline])
+    =/  =shed:khan  (tbjs code.act)
+    =/  args=inline-args:spider  [~ `tid [our.bowl q.byk.bowl da+now.bowl] shed]
+    :_  state
+    :~  :*  %pass  `wire`[%jswatch tid ~]
+            %agent  [our.bowl %spider]  %watch  /thread-result/[tid]
+        ==
+        :*  %pass  `wire`[%jspoke tid ~]
+            %agent  [our.bowl %spider]  %poke
+            %spider-inline  !>(args)
+        ==
+        [%pass `wire`[%jsdog tid ~] %arvo %b %wait deadline]
+    ==
   ==
+::  +js-timeout: watchdog deadline for a run_js thread
+::
+++  js-timeout  ~s30
+::  +watchdog-js: the deadline fired before the thread returned. stop
+::  the spider thread and report a timeout. NB this only unwedges the
+::  ship if the thread is between events (an i/o wait or a yielding
+::  loop); a tight compute loop blocks until its event finishes
+::
+++  watchdog-js
+  |=  tid=@ta
+  ^-  (quip card _state)
+  ?.  (~(has by jobs) tid)  `state
+  =/  stop=card
+    :*  %pass  `wire`[%jsstop tid ~]
+        %agent  [our.bowl %spider]  %poke
+        %spider-stop  !>([tid &])
+    ==
+  =^  cs  state
+    (finish-js tid (rap 3 'error: js thread timed out after ' (scot %ud (div js-timeout ~s1)) 's' ~))
+  ::  finish-js queues a %rest for the (already-fired) dog; harmless.
+  ::  prepend the stop so the thread is actually killed
+  ::
+  [[stop cs] state]
+::  +run-js-poke: a run_js tool call becomes a poke to ourselves
+::
+++  run-js-poke
+  |=  [sid=session-id:h call-id=@t code=@t]
+  ^-  card
+  :*  %pass  `wire`[%runjs `@ta`sid `@ta`call-id ~]
+      %agent  [our.bowl dap.bowl]  %poke
+      %harness-action  !>(`action:h`[%run-js sid call-id code])
+  ==
+::  +finish-js: deliver a run_js result (or error) as a tool event,
+::  clear the job, and cancel its watchdog
+::
+++  finish-js
+  |=  [tid=@ta body=@t]
+  ^-  (quip card _state)
+  =/  job  (~(get by jobs) tid)
+  ?~  job  `state
+  =.  jobs  (~(del by jobs) tid)
+  =/  stop=card  [%pass `wire`[%jsdog tid ~] %arvo %b %rest deadline.u.job]
+  =/  mses  (~(get by sessions) sid.u.job)
+  ?~  mses  [~[stop] state]
+  =^  cs1  u.mses
+    %^  record-all  sid.u.job  u.mses
+    ~[[%tool-completed call-id.u.job 'run_js' body]]
+  =^  cs2  state  (drive-put sid.u.job u.mses)
+  [:(weld ~[stop] cs1 cs2) state]
 ::
 ++  wait-card
   |=  [sid=session-id:h name=@ta at=@da]
@@ -441,6 +563,21 @@
           sk   (~(del by sk.acc) u.nam)
           evs  %+  snoc  evs.acc
                `event:h`[%tool-completed id.c name.c (rap 3 'skill \'' u.nam '\' deleted' ~)]
+        ==
+      ::  run_js: reject synchronously on the loop guard or bad args so
+      ::  the model gets immediate feedback; otherwise self-poke to spawn
+      ::  the thread (needs state access to record the tid)
+      ::
+      ?:  =(name.c 'run_js')
+        =/  code  (tool-str args.c 'code')
+        ?~  code
+          acc(evs (snoc evs.acc [%tool-completed id.c name.c 'error: need code argument']))
+        =/  reject  (js-loop-guard:hl u.code)
+        ?^  reject
+          acc(evs (snoc evs.acc [%tool-completed id.c name.c u.reject]))
+        %=  acc
+          evs     (snoc evs.acc `event:h`[%tool-requested id.c name.c])
+          tcards  (snoc tcards.acc (run-js-poke sid id.c u.code))
         ==
       =/  async=(unit (unit card))
         ?:  =(name.c 'http_fetch')     `(fetch-card sid c)

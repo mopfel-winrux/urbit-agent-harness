@@ -109,6 +109,9 @@
       ::  internal: an ask_peer tool call, sent by the agent to itself
       ::
       [%ask-peer sid=session-id call-id=@t =ship prompt=@t]
+      ::  internal: a run_js tool call, sent by the agent to itself
+      ::
+      [%run-js sid=session-id call-id=@t code=@t]
   ==
 ::  facts
 ::
