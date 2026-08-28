@@ -37,6 +37,7 @@
       [%llm-failed req=@ud err=@t]
       [%tool-completed call-id=@t name=@t body=@t]
       [%compaction-completed req=@ud summary=@t]
+      [%retried ~]
   ==
 ::  a session: the log is the state, newest event first
 ::
@@ -66,6 +67,7 @@
       [%fork from=session-id to=session-id]
       [%compact sid=session-id]
       [%cancel sid=session-id]
+      [%retry sid=session-id]
       [%config sid=session-id =config]
   ==
 ::  facts

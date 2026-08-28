@@ -148,11 +148,19 @@
     :-  ~
     state(sessions (~(put by sessions) sid.act [clean next-req.ses]))
   ::
+      %retry
+    =/  ses  (need-session sid.act)
+    =^  cs1  ses  (record-all sid.act ses ~[[%retried ~]])
+    =^  cs2  ses  (drive sid.act ses)
+    :-  (weld cs1 cs2)
+    state(sessions (~(put by sessions) sid.act ses))
+  ::
       %config
     =/  ses  (need-session sid.act)
-    =^  cards  ses
+    =^  cs1  ses
       (record-all sid.act ses ~[[%config-replaced config.act]])
-    :-  cards
+    =^  cs2  ses  (drive sid.act ses)
+    :-  (weld cs1 cs2)
     state(sessions (~(put by sessions) sid.act ses))
   ==
 ::

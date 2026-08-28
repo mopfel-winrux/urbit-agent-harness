@@ -15,11 +15,12 @@
   |=  [e=event:h v=view:h]
   ^-  view:h
   ?-  -.e
-    %config-replaced       v(config config.e)
+    %config-replaced       v(config config.e, err ~)
     %input-admitted        v(items (snoc items.v item.e), err ~)
     %llm-requested         v(pending `[req.e kind.e])
     %llm-failed            v(pending ~, err `err.e)
     %tool-completed        v(items (snoc items.v [%tool call-id.e name.e body.e]))
+    %retried               v(err ~)
   ::
       %llm-completed
     %=  v
@@ -324,6 +325,9 @@
     :~  ['type' %s 'compaction']
         ['summary' %s summary.e]
     ==
+  ::
+      %retried
+    (pairs:enjs:format ~[['type' %s 'retried']])
   ==
 ::
 ++  update-json
@@ -349,6 +353,7 @@
       fork+(ot ~[from+so to+so])
       compact+(ot ~[sid+so])
       cancel+(ot ~[sid+so])
+      retry+(ot ~[sid+so])
       config+(ot ~[sid+so config+json-config])
   ==
 ::
