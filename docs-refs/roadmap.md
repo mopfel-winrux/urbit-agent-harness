@@ -18,8 +18,10 @@ Lightspeed's `(providerId, apiKind, model)` model resolution. We hardcode the Op
 
 ## Client protocol & channels
 
-### 5. ACP (Agent Client Protocol) surface — baseline complete
-`%acp` now provides the generic durable duplex transport, and `%harness` implements the ACP server baseline: initialize, new/load session, prompt, cancel, terminal message update, and stop response. See [`acp.md`](acp.md). Remaining ACP work belongs with streaming (#1): incremental model and tool-call updates, permissions, and richer prompt content.
+### 5. ACP (Agent Client Protocol) surface — ✅ v1 done
+`%acp` provides a generic durable duplex transport, and `%harness` implements the native ACP server baseline: initialize, new/load session, prompt, cancel, terminal message update, and stop response. The thin [`harness-acp.mjs`](../acp/harness-acp.mjs) adapter exposes any named native connection as ACP JSON-RPC over stdio for clients such as Zed; it contains no harness or protocol policy. See [`acp.md`](acp.md).
+
+Follow-ups: (a) incremental model and tool-call updates once streaming (#1) lands; (b) surface ACP `session/request_permission` for tool grants; (c) richer prompt content; (d) map ACP `fs/*` and `terminal/*` client methods to `clay`/`run_js` where useful.
 
 ### 6. Tlon Messenger as a channel
 §9 Phase 1. The "your agent shows up in Messenger and talks to your friends' agents" story: bridge Messenger channel messages to harness sessions (admit as input, deliver replies), reusing the A2A identity model over Ames. Larger, product-shaped; #5 (ACP) may be the cleaner path to the same place.

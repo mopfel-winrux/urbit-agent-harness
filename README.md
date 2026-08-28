@@ -61,7 +61,7 @@ It follows the ["Urbit is for your personal agent harness"](urbit-agent/README.m
 - **Scry namespace** — `/x/sessions`, `/x/session/[sid]`, `/x/skills`, `/x/staged`, `/x/timers`, `/x/peers`, `/x/tools`, `/x/status`. The session view is legible JSON; any front-end renders from it.
 - **Webhooks** — `POST /harness-api/webhook/[sid]` with `{"text": …}` admits external input.
 - **urbit-mcp** — drive it from an MCP client via pokes/scries.
-- **ACP clients** — send to and subscribe through `%acp` at connection `harness`.
+- **ACP clients** — use the dependency-free [`acp/harness-acp.mjs`](acp/harness-acp.mjs) stdio adapter, or send to and subscribe through `%acp` directly at connection `harness`.
 
 ## Layout
 
@@ -76,7 +76,7 @@ desk/
   web/index.html          the chat UI
   mar/harness/{action,update,a2a-0}.hoon   marks
   lib/wasm/*, sur/wasm/*, lib/thread-builder-js.hoon, quick-js-emcc.wasm
-                          vendored JS-on-wasm runtime (for run_js)
+                          imported JS-on-wasm runtime in the assembled desk
 docs-refs/                design docs and spike notes (see below)
 ```
 
@@ -97,6 +97,9 @@ zig build -Ddesk=/path/to/zod/harness
 
 Use `zig build` to assemble into `zig-out/`, `zig build clean` to remove the
 install tree, and `zig build clear` to also clear cached dependency imports.
+The dependency files intentionally do not live under the tracked `desk/` tree:
+the build pins and imports them into the complete desk, including the unchanged
+WASM runner used by `run_js`.
 
 Open `http://localhost:8081/harness` (fakezod code `lidlut-tabwed-pillex-ridrup`), click **set key** to store an OpenRouter key, then **new** to start a session. Reliable test model: `openai/gpt-4o-mini`. Free models on OpenRouter (`minimax/minimax-m3:free`, etc.) work but rate-limit heavily.
 
