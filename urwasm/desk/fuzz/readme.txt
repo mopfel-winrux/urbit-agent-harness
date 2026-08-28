@@ -1,1 +1,0 @@
-Fuzzing corpus from https://github.com/wasmx/wasm-fuzzing-corpus

@@ -4,3 +4,6 @@ urbit-mcp/
 *.pyc
 bus/
 quick-js-emcc.wasm
+orchestra/
+threads-js/
+urwasm/
