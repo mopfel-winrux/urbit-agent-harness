@@ -64,6 +64,7 @@
       [%tool-completed call-id=@t name=@t body=@t]
       [%compaction-completed req=@ud summary=@t]
       [%retried ~]
+      [%halted reason=@t]
   ==
 ::  a session: the log is the state, newest event first
 ::
@@ -85,6 +86,7 @@
   $%  [%turn ~]
       [%compact ~]
       [%tools calls=(list tool-call)]
+      [%halt reason=@t]
   ==
 ::  pokes
 ::
@@ -100,6 +102,7 @@
       [%timer-cancel sid=session-id name=@ta]
       [%skill-add name=@t desc=@t body=@t]
       [%skill-del name=@t]
+      [%set-key key=@t]
       [%grant =ship grant=peer-grant]
       [%revoke =ship]
       [%peer-config =config]

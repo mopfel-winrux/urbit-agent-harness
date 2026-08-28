@@ -21,6 +21,7 @@
     %llm-failed            v(pending ~, err `err.e)
     %tool-requested        v(wait (~(put in wait.v) call-id.e))
     %retried               v(err ~)
+    %halted                v(pending ~, err `reason.e)
   ::
       %tool-completed
     %=  v
@@ -81,6 +82,48 @@
   ?:  ?=(%assistant -.i.rev)
     [calls.i.rev after]
   $(rev t.rev, after [i.rev after])
+::  loop-guard thresholds
+::
+++  max-fails  4    ::  consecutive failing tool results before halting
+++  max-steps  24   ::  assistant turns since last input before halting
+::  +is-error: does a tool result body read as an error, by convention?
+::
+++  is-error
+  |=  body=@t
+  ^-  ?
+  ?|  =('error: ' (end [3 7] body))
+      =('js error: ' (end [3 10] body))
+      =('rejected: ' (end [3 10] body))
+      =('peer error: ' (end [3 12] body))
+  ==
+::  +trailing-fails: length of the trailing run of failing tool
+::  results (skipping the assistant turns between them)
+::
+++  trailing-fails
+  |=  items=(list item:h)
+  ^-  @ud
+  =/  rev  (flop items)
+  =|  n=@ud
+  |-  ^-  @ud
+  ?~  rev  n
+  ?-  -.i.rev
+    %assistant  $(rev t.rev)
+    %user       n
+    %tool       ?.((is-error body.i.rev) n $(rev t.rev, n +(n)))
+  ==
+::  +steps-since-input: assistant turns since the last admitted input
+::  (a %user item; tool results do not count as input)
+::
+++  steps-since-input
+  |=  items=(list item:h)
+  ^-  @ud
+  =/  rev  (flop items)
+  =|  n=@ud
+  |-  ^-  @ud
+  ?~  rev  n
+  ?:  ?=(%user -.i.rev)  n
+  ?:  ?=(%assistant -.i.rev)  $(rev t.rev, n +(n))
+  $(rev t.rev)
 ::  +decide: what happens next; ~ means idle.
 ::  skills come from agent state (they shape the request context,
 ::  hence the token estimate); the lib stays pure
@@ -108,6 +151,29 @@
   ?^  todo  `[%tools todo]
   =/  last=item:h  (rear items.v)
   ?:  ?=(%assistant -.last)  ~
+  ::  loop guards: halt a stuck agent before it burns the budget.
+  ::  a run of failing tool results means it is repeating a mistake;
+  ::  too many turns since the last input means it is not converging.
+  ::  either way, halt with a reason; a new input clears it and resumes
+  ::
+  =/  fails  (trailing-fails items.v)
+  ?:  (gte fails max-fails)
+    :-  ~
+    :-  %halt
+    %+  rap  3
+    :~  'loop guard: '  (scot %ud fails)
+        ' tool calls in a row failed. stopping so you can rethink or '
+        'ask for help — send a new message to continue.'
+    ==
+  =/  since  (steps-since-input items.v)
+  ?:  (gte since max-steps)
+    :-  ~
+    :-  %halt
+    %+  rap  3
+    :~  'loop guard: '  (scot %ud since)
+        ' turns without resolving the request. stopping to avoid a '
+        'runaway — send a new message to continue.'
+    ==
   ?.  (gth (est-tokens v skills) max-context.config.v)
     `[%turn ~]
   ::  compact only when it would actually shed items; an over-budget
@@ -587,6 +653,12 @@
   ::
       %retried
     (pairs:enjs:format ~[['type' %s 'retried']])
+  ::
+      %halted
+    %-  pairs:enjs:format
+    :~  ['type' %s 'halted']
+        ['reason' %s reason.e]
+    ==
   ==
 ::
 ++  update-json
@@ -619,6 +691,7 @@
       timer-cancel+(ot ~[sid+so name+(su sym)])
       skill-add+(ot ~[name+so desc+so body+so])
       skill-del+(ot ~[name+so])
+      set-key+(ot ~[key+so])
   ==
 ::
 ++  json-config

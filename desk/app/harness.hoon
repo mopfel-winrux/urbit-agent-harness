@@ -31,6 +31,11 @@
       ::  in-flight run_js threads, keyed by spider tid
       ::
       jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      ::  agent-level default api key; a session whose config key is
+      ::  blank falls back to this, resolved at send time so the key
+      ::  need never enter a session log
+      ::
+      api-key=@t
   ==
 +$  card  card:agent:gall
 --
@@ -111,6 +116,11 @@
     =/  ses  (~(get by sessions) sid)
     ?~  ses  [~ ~]
     ``json+!>((view-json:hl (play:hl log.u.ses)))
+  ::
+      [%x %status ~]
+    :^  ~  ~  %json
+    !>  ^-  json
+    (pairs:enjs:format ~[['has-key' %b !=('' api-key)]])
   ::
       [%x %skills ~]
     ``json+!>((skills-json:hl skills))
@@ -368,6 +378,9 @@
       %revoke
     `state(peers (~(del by peers) ship.act))
   ::
+      %set-key
+    `state(api-key key.act)
+  ::
       %peer-config
     `state(peer-base `config.act)
   ::
@@ -606,6 +619,12 @@
       %compact
     =^  cs  ses  (issue-llm sid ses %compaction v)
     $(cards (weld cards cs))
+  ::
+      %halt
+    ::  record the halt (sets err, stops the loop) and stop driving
+    ::
+    =^  cs  ses  (record-all sid ses ~[[%halted reason.u.stp]])
+    [(weld cards cs) ses skills]
   ==
 ::  +issue-llm: record the request marker and pass to iris
 ::
@@ -621,11 +640,14 @@
   |=  [sid=session-id:h req=@ud kind=request-kind:h v=view:h]
   ^-  card
   =/  body=@t  (en:json:html (request-body:hl v kind (skills-visible sid skills)))
+  ::  blank session key falls back to the agent-level default
+  ::
+  =/  eff-key=@t  ?:(=('' key.config.v) api-key key.config.v)
   =/  =request:http
     :*  %'POST'
         url.config.v
         :~  ['content-type' 'application/json']
-            ['authorization' (cat 3 'Bearer ' key.config.v)]
+            ['authorization' (cat 3 'Bearer ' eff-key)]
         ==
         `(as-octs:mimes:html body)
     ==

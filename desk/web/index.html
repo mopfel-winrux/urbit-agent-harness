@@ -60,6 +60,7 @@
   <button id="compact">compact</button>
   <button id="retry">retry</button>
   <button id="cancel">cancel</button>
+  <button id="setkey">set key</button>
   <span id="status">connecting…</span>
 </header>
 <div id="log"></div>
@@ -74,7 +75,8 @@
     <label>endpoint url</label>
     <input id="f-url" value="https://openrouter.ai/api/v1/chat/completions">
     <label>model</label><input id="f-model" value="openai/gpt-4o-mini">
-    <label>api key</label><input id="f-key" type="password" placeholder="sk-or-…">
+    <label>api key <span style="color:var(--dim)">(blank = use ship default)</span></label>
+    <input id="f-key" type="password" placeholder="leave blank to use the stored ship key">
     <label>system prompt</label>
     <textarea id="f-system" rows="3">You are a helpful agent living on an Urbit ship. Be concise.</textarea>
     <label>max context (tokens, compaction threshold)</label>
@@ -177,6 +179,9 @@
         break;
       case 'config': note(`config set (${ev.model})`); break;
       case 'retried': note('— retrying —'); break;
+      case 'halted':
+        hideSpinner(); note(`⚠ ${ev.reason}`, true); setStatus('halted');
+        break;
     }
   }
 
@@ -250,13 +255,12 @@
   }
 
   $('new').onclick = () => {
-    $('f-key').value = localStorage.getItem('harness-key') || '';
+    $('f-key').value = '';
     $('newdlg').showModal();
   };
   $('newdlg').addEventListener('close', async () => {
     if ($('newdlg').returnValue !== 'ok') return;
     const key = $('f-key').value.trim();
-    try { localStorage.setItem('harness-key', key); } catch (e) {}
     const config = {
       url: $('f-url').value.trim(),
       model: $('f-model').value.trim(),
@@ -279,6 +283,12 @@
     await refreshSessions(to);
   };
   $('compact').onclick = () => sid && poke({ compact: { sid } });
+  $('setkey').onclick = async () => {
+    const key = prompt('OpenRouter API key (stored on the ship; used by any session with a blank key):');
+    if (key === null) return;
+    await poke({ 'set-key': { key: key.trim() } });
+    setStatus(key.trim() ? 'ship key set' : 'ship key cleared');
+  };
   $('retry').onclick = () => sid && poke({ retry: { sid } });
   $('cancel').onclick = async () => {
     if (!sid) return;
