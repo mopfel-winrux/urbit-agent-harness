@@ -18,8 +18,10 @@ Lightspeed's `(providerId, apiKind, model)` model resolution. We hardcode the Op
 
 ## Client protocol & channels
 
-### 5. ACP (Agent Client Protocol) surface
-Reid's [`reid/tlon-acp`](https://github.com/tloncorp/tlon-apps/compare/develop...reid/tlon-acp) branch (an ACP node package + gall agent + standalone demo, bridging Tlon channels to an ACP agent) is the model. [ACP](https://agentclientprotocol.com) is a standard JSON-RPC protocol between clients (editors like Zed, chat surfaces) and agents — session/new, session/prompt, streamed updates, surfaced tool calls, permission prompts. Implementing the **ACP server side** in the harness would give us a real, standard client boundary — better than our ad-hoc pokes/webhooks — and let any ACP client (Zed, the Tlon bridge) drive an on-ship session. Pairs naturally with #1 (streaming) since ACP is built around streamed session updates. *(Reid's branch probably won't ship in Tlon, but it's the reference implementation to study.)*
+### 5. ACP (Agent Client Protocol) surface — ✅ v1 done
+A node ACP server bridge lives in [`../acp/`](../acp/) (`harness-acp.mjs`). It speaks ACP JSON-RPC over stdio to a client (Zed, etc.) and drives `%harness` over the Eyre airlock — `session/new`→`%new`, `session/prompt`→`%send` with the transcript streamed back as `session/update` notifications, `session/cancel`→`%cancel`. No ship-side changes. Verified end-to-end: initialize → session/new → session/prompt with streamed tool_call/tool_call_update/agent_message_chunk and a final `stopReason`.
+
+Follow-ups: (a) finer streaming once token streaming (#1) lands — same channel, no protocol change; (b) surface ACP `session/request_permission` for tool grants; (c) map ACP `fs/*` and `terminal/*` client methods to `clay`/`run_js` if useful; (d) study Reid's ship-side `%acp` agent + `@tloncorp/acp` package if we want a first-class on-ship ACP endpoint instead of an external bridge.
 
 ### 6. Tlon Messenger as a channel
 §9 Phase 1. The "your agent shows up in Messenger and talks to your friends' agents" story: bridge Messenger channel messages to harness sessions (admit as input, deliver replies), reusing the A2A identity model over Ames. Larger, product-shaped; #5 (ACP) may be the cleaner path to the same place.
