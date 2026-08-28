@@ -353,7 +353,7 @@
 ++  all-tools
   ^-  (list term)
   :~  %ship-time  %clay  %web  %code  %skills  %skill-write
-      %subagents  %peers
+      %author  %subagents  %peers
   ==
 ::  +tool-defs: schemas for granted tool families
 ::
@@ -427,6 +427,50 @@
             'delete_skill'
           'Delete a named skill from your skill library'
         ~[['name' 'the skill name']]
+    ==
+  ::
+      %author
+    :~  %^    fun-json
+            'propose_skill'
+          %-  crip
+          %-  zing
+          ^-  (list tape)
+          :~  "Stage a new or revised skill WITHOUT making it live. Use "
+              "this to author a skill, then rehearse_skill to test it, "
+              "then commit_skill only if the test succeeds."
+          ==
+        :~  ['name' 'the skill name']
+            ['description' 'one line for the skill catalog']
+            ['body' 'the full skill text']
+        ==
+      ::
+        %^    fun-json
+            'rehearse_skill'
+          %-  crip
+          %-  zing
+          ^-  (list tape)
+          :~  "Test a staged skill in a fresh sandboxed rehearsal "
+              "session that can see it, by giving it a sample task. "
+              "Returns what the rehearsal produced. Nothing you do here "
+              "touches your real state — if it fails, just revise and "
+              "rehearse again before committing."
+          ==
+        :~  ['name' 'the staged skill to test']
+            ['input' 'a sample task to try the skill on']
+        ==
+      ::
+        %^    fun-json
+            'commit_skill'
+          %-  crip
+          %+  weld
+            "Promote a staged skill to your live library, where future "
+          "sessions can use it. Do this only after a successful rehearsal."
+        ~[['name' 'the staged skill to commit']]
+      ::
+        %^    fun-json
+            'discard_skill'
+          'Drop a staged skill without committing it'
+        ~[['name' 'the staged skill to discard']]
     ==
   ::
       %code
@@ -702,6 +746,8 @@
       skill-add+(ot ~[name+so desc+so body+so])
       skill-del+(ot ~[name+so])
       set-key+(ot ~[key+so])
+      commit-skill+(ot ~[name+so])
+      discard-skill+(ot ~[name+so])
   ==
 ::
 ++  json-config

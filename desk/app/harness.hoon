@@ -9,11 +9,24 @@
 /-  h=harness, spider
 /+  hl=harness, default-agent, dbug, tbjs=thread-builder-js
 |%
-::  no state versioning during prototyping: on a schema change,
-::  |nuke %harness and |revive to start fresh
++$  versioned-state  $%(state-0 state-1)
+::  state-0: the shape before the governed self-modification loop
 ::
 +$  state-0
   $:  %0
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+  ==
++$  state-1
+  $:  %1
       sessions=(map session-id:h session:h)
       timers=(map [session-id:h @ta] timer:h)
       ::  child session -> the parent tool call awaiting its answer
@@ -22,6 +35,12 @@
       ::  agent-level skill library, shared by all sessions
       ::
       skills=(map @t skill:h)
+      ::  proposed skills, staged for rehearsal before they go live
+      ::
+      staged=(map @t skill:h)
+      ::  rehearsal child session -> the staged skill it is testing
+      ::
+      rehearsals=(map session-id:h @t)
       ::  a2a: identity-based grants, outgoing asks, incoming queues
       ::
       peers=(map ship peer-grant:h)
@@ -40,7 +59,7 @@
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-0
+=|  state-1
 =*  state  -
 ^-  agent:gall
 =<
@@ -59,13 +78,32 @@
 ++  on-load
   |=  old-vase=vase
   ^-  (quip card _this)
-  ::  no state versioning while prototyping: an incompatible saved
-  ::  state is dropped and we start fresh (the log is on the ship,
-  ::  not in this agent's future). rebinding every load is idempotent.
+  ::  migrate a saved state forward, preserving sessions. only a state
+  ::  that matches no known version is dropped (starts fresh)
   ::
-  =/  old  (mole |.(!<(state-0 old-vase)))
-  ~?  =(~ old)  [dap.bowl %incompatible-state-dropped]
-  :_  this(state (fall old *state-0))
+  =/  mold  (mole |.(!<(versioned-state old-vase)))
+  =/  new=state-1
+    ?~  mold
+      ~?  &  [dap.bowl %incompatible-state-dropped]
+      *state-1
+    ?-  -.u.mold
+        %1  u.mold
+        %0
+      =/  base  *state-1
+      %=  base
+        sessions    sessions.u.mold
+        timers      timers.u.mold
+        subs        subs.u.mold
+        skills      skills.u.mold
+        peers       peers.u.mold
+        peer-base   peer-base.u.mold
+        asks        asks.u.mold
+        serving     serving.u.mold
+        jobs        jobs.u.mold
+        api-key     api-key.u.mold
+      ==
+    ==
+  :_  this(state new)
   ~[[%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]]
 ::
 ++  on-poke
@@ -129,6 +167,9 @@
   ::
       [%x %skills ~]
     ``json+!>((skills-json:hl skills))
+  ::
+      [%x %staged ~]
+    ``json+!>((skills-json:hl staged))
   ::
       [%x %peers ~]
     :^  ~  ~  %json
@@ -402,6 +443,64 @@
     =^  cards  state  (drive-put csid cses)
     [cards state]
   ::
+      %rehearse
+    ::  internal, from our own drive loop: spawn a rehearsal child that
+    ::  can see the staged skill under test. it is an ordinary subagent
+    ::  (answer returns to the parent's tool call via +settle) plus an
+    ::  entry in `rehearsals` so +skills-visible shows it the staged skill
+    ::
+    ?>  =(our.bowl src.bowl)
+    ?.  (~(has by staged) name.act)
+      ::  nothing staged by that name: answer the tool call immediately
+      =/  pses  (~(get by sessions) sid.act)
+      ?~  pses  `state
+      =^  cs1  u.pses
+        %^  record-all  sid.act  u.pses
+        ~[[%tool-completed call-id.act 'rehearse_skill' (cat 3 'error: no staged skill named ' name.act)]]
+      =^  cs2  state  (drive-put sid.act u.pses)
+      [(weld cs1 cs2) state]
+    =/  pses  (~(get by sessions) sid.act)
+    ?~  pses  `state
+    =/  pv  (play:hl log.u.pses)
+    =/  csid=session-id:h  (rap 3 'rehearse--' sid.act '--' call-id.act ~)
+    =/  ccfg=config:h
+      %=  config.pv
+        ::  a rehearsal is sandboxed: it can read skills and run code,
+        ::  but never mutate the live library, spawn, or reach peers
+        ::
+        tools   %+  skip  tools.config.pv
+                |=(t=term ?=(?(%author %skill-write %subagents %peers) t))
+        system  %+  rap  3
+                :~  system.config.pv
+                    ' You are a rehearsal: a sandboxed test of a skill named "'
+                    name.act  '". Follow the skill and complete the task; '
+                    'reply with only your final result.'
+                ==
+      ==
+    =/  cses=session:h
+      :_  0
+      :~  [%input-admitted [%user input.act]]
+          [%config-replaced ccfg]
+      ==
+    =.  subs  (~(put by subs) csid [sid.act call-id.act])
+    =.  rehearsals  (~(put by rehearsals) csid name.act)
+    =^  cards  state  (drive-put csid cses)
+    [cards state]
+  ::
+      %commit-skill
+    ::  promote a staged skill into the live library
+    ::
+    =/  s  (~(get by staged) name.act)
+    ?~  s  `state
+    :-  ~
+    %=  state
+      skills  (~(put by skills) name.act u.s)
+      staged  (~(del by staged) name.act)
+    ==
+  ::
+      %discard-skill
+    `state(staged (~(del by staged) name.act))
+  ::
       %timer-set
     =/  key  [sid.act name.act]
     =/  at=@da  (add now.bowl in.act)
@@ -512,6 +611,15 @@
       %agent  [our.bowl dap.bowl]  %poke
       %harness-action  !>(`action:h`[%run-js sid call-id code])
   ==
+::  +rehearse-poke: a rehearse_skill tool call becomes a poke to ourselves
+::
+++  rehearse-poke
+  |=  [sid=session-id:h call-id=@t name=@t input=@t]
+  ^-  card
+  :*  %pass  `wire`[%reh `@ta`sid `@ta`call-id ~]
+      %agent  [our.bowl dap.bowl]  %poke
+      %harness-action  !>(`action:h`[%rehearse sid call-id name input])
+  ==
 ::  +finish-js: deliver a run_js result (or error) as a tool event,
 ::  clear the job, and cancel its watchdog
 ::
@@ -558,6 +666,7 @@
     ~[[%input-admitted [%user (rap 3 '[timer %' name ' fired] ' prompt.u.mt ~)]]]
   =/  dr  (drive sid ses)
   =.  skills  sk.dr
+  =.  staged  stg.dr
   =.  ses  ses.dr
   =/  rearm=[cs=(list card) nt=_timers]
     ?~  every.u.mt
@@ -580,12 +689,12 @@
 ::
 ++  drive
   |=  [sid=session-id:h ses=session:h]
-  ^-  [cards=(list card) ses=session:h sk=(map @t skill:h)]
+  ^-  [cards=(list card) ses=session:h sk=(map @t skill:h) stg=(map @t skill:h)]
   =|  cards=(list card)
-  |-  ^-  [cards=(list card) ses=session:h sk=(map @t skill:h)]
+  |-  ^-  [cards=(list card) ses=session:h sk=(map @t skill:h) stg=(map @t skill:h)]
   =/  v=view:h  (play:hl log.ses)
   =/  stp  (decide:hl v (skills-visible sid skills))
-  ?~  stp  [cards ses skills]
+  ?~  stp  [cards ses skills staged]
   ?-  -.u.stp
       %tools
     ::  sync tools run on-ship now; async tools (iris) record a
@@ -596,7 +705,7 @@
     ::
     =/  acc
       %+  roll  calls.u.stp
-      |:  [c=*tool-call:h acc=[evs=*(list event:h) tcards=*(list card) sk=skills]]
+      |:  [c=*tool-call:h acc=[evs=*(list event:h) tcards=*(list card) sk=skills stg=staged]]
       ^+  acc
       ?:  =(name.c 'write_skill')
         =/  nam  (tool-str args.c 'name')
@@ -632,6 +741,51 @@
           evs  %+  snoc  evs.acc
                `event:h`[%tool-completed id.c name.c (rap 3 'skill \'' u.nam '\' deleted' ~)]
         ==
+      ::  governed self-modification: propose stages a skill, commit
+      ::  promotes staged->live, discard drops it. rehearse is async
+      ::  (spawns a sandboxed child) and self-pokes below
+      ::
+      ?:  =(name.c 'propose_skill')
+        =/  nam  (tool-str args.c 'name')
+        =/  dsc  (tool-str args.c 'description')
+        =/  bod  (tool-str args.c 'body')
+        ?.  &(?=(^ nam) ?=(^ dsc) ?=(^ bod))
+          acc(evs (snoc evs.acc [%tool-completed id.c name.c 'error: need name, description, body']))
+        %=  acc
+          stg  (~(put by stg.acc) u.nam [u.dsc u.bod])
+          evs  %+  snoc  evs.acc
+               `event:h`[%tool-completed id.c name.c (rap 3 'skill \'' u.nam '\' staged — rehearse it before committing' ~)]
+        ==
+      ?:  =(name.c 'commit_skill')
+        =/  nam  (tool-str args.c 'name')
+        ?~  nam
+          acc(evs (snoc evs.acc [%tool-completed id.c name.c 'error: bad name argument']))
+        ?.  (~(has by stg.acc) u.nam)
+          acc(evs (snoc evs.acc [%tool-completed id.c name.c (cat 3 'error: nothing staged named ' u.nam)]))
+        %=  acc
+          sk   (~(put by sk.acc) u.nam (~(got by stg.acc) u.nam))
+          stg  (~(del by stg.acc) u.nam)
+          evs  %+  snoc  evs.acc
+               `event:h`[%tool-completed id.c name.c (rap 3 'skill \'' u.nam '\' committed to the live library' ~)]
+        ==
+      ?:  =(name.c 'discard_skill')
+        =/  nam  (tool-str args.c 'name')
+        ?~  nam
+          acc(evs (snoc evs.acc [%tool-completed id.c name.c 'error: bad name argument']))
+        %=  acc
+          stg  (~(del by stg.acc) u.nam)
+          evs  %+  snoc  evs.acc
+               `event:h`[%tool-completed id.c name.c (rap 3 'staged skill \'' u.nam '\' discarded' ~)]
+        ==
+      ?:  =(name.c 'rehearse_skill')
+        =/  nam  (tool-str args.c 'name')
+        =/  inp  (tool-str args.c 'input')
+        ?.  &(?=(^ nam) ?=(^ inp))
+          acc(evs (snoc evs.acc [%tool-completed id.c name.c 'error: need name and input']))
+        %=  acc
+          evs     (snoc evs.acc `event:h`[%tool-requested id.c name.c])
+          tcards  (snoc tcards.acc (rehearse-poke sid id.c u.nam u.inp))
+        ==
       ::  run_js: reject synchronously on the loop guard or bad args so
       ::  the model gets immediate feedback; otherwise self-poke to spawn
       ::  the thread (needs state access to record the tid)
@@ -664,6 +818,7 @@
         tcards  (snoc tcards.acc u.u.async)
       ==
     =.  skills  sk.acc
+    =.  staged  stg.acc
     =^  cs  ses  (record-all sid ses evs.acc)
     $(cards :(weld cards cs tcards.acc))
   ::
@@ -679,7 +834,7 @@
     ::  record the halt (sets err, stops the loop) and stop driving
     ::
     =^  cs  ses  (record-all sid ses ~[[%halted reason.u.stp]])
-    [(weld cards cs) ses skills]
+    [(weld cards cs) ses skills staged]
   ==
 ::  +issue-llm: record the request marker and pass to iris
 ::
@@ -916,6 +1071,7 @@
   ^-  (quip card _state)
   =/  dr  (drive sid ses)
   =.  skills  sk.dr
+  =.  staged  stg.dr
   =.  sessions  (~(put by sessions) sid ses.dr)
   =^  cs2  state  (settle sid)
   [(weld cards.dr cs2) state]
@@ -948,14 +1104,25 @@
       `body.last
     ~
   ?~  result  `state
+  ::  a rehearsal child answers a rehearse_skill call and is disposable;
+  ::  an ordinary subagent answers run_subagent and is kept
+  ::
+  =/  reh  (~(get by rehearsals) sid)
+  =/  tool-name=@t  ?~(reh 'run_subagent' 'rehearse_skill')
   =.  subs  (~(del by subs) sid)
+  =?  rehearsals  ?=(^ reh)  (~(del by rehearsals) sid)
+  =?  sessions    ?=(^ reh)  (~(del by sessions) sid)
   =/  mp  (~(get by sessions) parent.u.link)
   ?~  mp  `state
   =^  cs1  u.mp
     %^  record-all  parent.u.link  u.mp
-    ~[[%tool-completed call-id.u.link 'run_subagent' u.result]]
+    ~[[%tool-completed call-id.u.link tool-name u.result]]
   =^  cs2  state  (drive-put parent.u.link u.mp)
-  [(weld cs1 cs2) state]
+  ::  kick the disposed rehearsal child's ui subscription
+  =/  kick=(list card)
+    ?~  reh  ~
+    ~[[%give %kick ~[`path`[%session `@ta`sid ~]] ~]]
+  [:(weld kick cs1 cs2) state]
 ::  +settle-asks: answer every peer ask queued against an idle session
 ::
 ++  settle-asks
@@ -1090,11 +1257,19 @@
       %agent  [our.bowl dap.bowl]  %poke
       %harness-action  !>(`action:h`[%ask-peer sid id.c u.who u.prm])
   ==
-::  +skills-visible: a peer session sees only its grant's inflows
+::  +skills-visible: what skills a session may see.
+::  - a rehearsal child additionally sees the one staged skill it tests
+::  - a peer session sees only its grant's inflows
+::  - any other session sees the full live library
 ::
 ++  skills-visible
   |=  [sid=session-id:h sk=(map @t skill:h)]
   ^-  (map @t skill:h)
+  =/  reh  (~(get by rehearsals) sid)
+  ?^  reh
+    =/  staged-one  (~(get by staged) u.reh)
+    ?~  staged-one  sk
+    (~(put by sk) u.reh u.staged-one)
   ?.  =('peer--' (end [3 6] sid))  sk
   =/  pship  (slaw %p (rsh [3 6] sid))
   ?~  pship  ~

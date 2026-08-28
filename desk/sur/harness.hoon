@@ -104,6 +104,10 @@
       [%skill-add name=@t desc=@t body=@t]
       [%skill-del name=@t]
       [%set-key key=@t]
+      ::  governance: a human can promote or drop a proposed skill
+      ::
+      [%commit-skill name=@t]
+      [%discard-skill name=@t]
       [%grant =ship grant=peer-grant]
       [%revoke =ship]
       [%peer-config =config]
@@ -116,6 +120,10 @@
       ::  internal: a run_js tool call, sent by the agent to itself
       ::
       [%run-js sid=session-id call-id=@t code=@t]
+      ::  internal: a rehearse_skill tool call — spawn a rehearsal child
+      ::  session that sees the staged skill, to test it before committing
+      ::
+      [%rehearse sid=session-id call-id=@t name=@t input=@t]
   ==
 ::  facts
 ::
