@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>harness</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --line: #262b36;
+    --fg: #d7dae0; --dim: #8a90a0; --accent: #7aa2f7;
+    --user: #1f2937; --tool: #172a22; --err: #b3505a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 14px/1.5 "Iosevka", "JetBrains Mono", ui-monospace, monospace;
+    display: flex; flex-direction: column; height: 100vh;
+  }
+  header {
+    display: flex; gap: 8px; align-items: center; padding: 10px 14px;
+    background: var(--panel); border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  header .title { font-weight: 700; color: var(--accent); margin-right: 6px; }
+  select, input, button, textarea {
+    background: var(--bg); color: var(--fg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 9px; font: inherit;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  #status { color: var(--dim); font-size: 12px; margin-left: auto; }
+  #log { flex: 1; overflow-y: auto; padding: 16px; }
+  .msg { max-width: 46rem; margin: 0 auto 12px; padding: 10px 14px;
+         border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; }
+  .msg .who { font-size: 11px; color: var(--dim); margin-bottom: 4px; }
+  .user      { background: var(--user); }
+  .assistant { background: var(--panel); }
+  .tool      { background: var(--tool); font-size: 13px; }
+  .note      { color: var(--dim); text-align: center; font-size: 12px;
+               max-width: 46rem; margin: 0 auto 12px; }
+  .error     { color: var(--err); }
+  #composer { display: flex; gap: 8px; padding: 12px 16px;
+              background: var(--panel); border-top: 1px solid var(--line); }
+  #text { flex: 1; resize: none; height: 60px; }
+  dialog { background: var(--panel); color: var(--fg); border: 1px solid var(--line);
+           border-radius: 10px; min-width: 420px; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog label { display: block; margin: 10px 0 2px; color: var(--dim); font-size: 12px; }
+  dialog input, dialog textarea { width: 100%; }
+  dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  .spin { color: var(--dim); font-style: italic; }
+</style>
+</head>
+<body>
+<header>
+  <span class="title">%harness</span>
+  <select id="sessions"></select>
+  <button id="new">new</button>
+  <button id="fork">fork</button>
+  <button id="compact">compact</button>
+  <button id="cancel">cancel</button>
+  <span id="status">connecting…</span>
+</header>
+<div id="log"></div>
+<div id="composer">
+  <textarea id="text" placeholder="say something… (enter to send)"></textarea>
+  <button id="send">send</button>
+</div>
+
+<dialog id="newdlg">
+  <form method="dialog">
+    <label>session id</label><input id="f-sid" value="main">
+    <label>endpoint url</label>
+    <input id="f-url" value="https://openrouter.ai/api/v1/chat/completions">
+    <label>model</label><input id="f-model" value="openai/gpt-4o-mini">
+    <label>api key</label><input id="f-key" type="password" placeholder="sk-or-…">
+    <label>system prompt</label>
+    <textarea id="f-system" rows="3">You are a helpful agent living on an Urbit ship. Be concise.</textarea>
+    <label>max context (tokens, compaction threshold)</label>
+    <input id="f-max" type="number" value="12000">
+    <label><input id="f-tools" type="checkbox" style="width:auto" checked>
+      grant %ship-time tool</label>
+    <div class="row">
+      <button value="cancel">cancel</button>
+      <button id="f-ok" value="ok">create</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const logEl = $('log');
+  let ship = null;
+  let sid = null;
+  let eventId = 0;
+  let subId = null;
+  const channelId = `${Date.now()}-harness`;
+  const channelUrl = () => `/~/channel/${channelId}`;
+
+  function setStatus(t) { $('status').textContent = t; }
+
+  async function put(actions) {
+    const res = await fetch(channelUrl(), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(actions),
+    });
+    if (!res.ok) throw new Error(`channel ${res.status}`);
+  }
+  function poke(json) {
+    return put([{ id: ++eventId, action: 'poke', ship, app: 'harness',
+                  mark: 'harness-action', json }]);
+  }
+
+  function el(cls, who, body) {
+    const d = document.createElement('div');
+    d.className = `msg ${cls}`;
+    if (who) {
+      const w = document.createElement('div');
+      w.className = 'who'; w.textContent = who; d.appendChild(w);
+    }
+    const b = document.createElement('div');
+    b.textContent = body; d.appendChild(b);
+    logEl.appendChild(d);
+    logEl.scrollTop = logEl.scrollHeight;
+    return d;
+  }
+  function note(t, isErr) {
+    const d = document.createElement('div');
+    d.className = 'note' + (isErr ? ' error' : '');
+    d.textContent = t;
+    logEl.appendChild(d);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  let spinner = null;
+  function showSpinner() {
+    if (spinner) return;
+    spinner = el('assistant spin', null, 'thinking…');
+  }
+  function hideSpinner() {
+    if (spinner) { spinner.remove(); spinner = null; }
+  }
+
+  function renderItem(it) {
+    if (it.role === 'user') el('user', 'you', it.body);
+    else if (it.role === 'assistant') {
+      if (it.body) el('assistant', 'agent', it.body);
+      (it.calls || []).forEach((c) =>
+        el('tool', 'tool call', `${c.name}(${c.args})`));
+    } else if (it.role === 'tool') el('tool', `tool result · ${it.name}`, it.body);
+  }
+
+  function handleEvent(ev) {
+    switch (ev.type) {
+      case 'input': renderItem(ev.item); break;
+      case 'llm-requested':
+        showSpinner();
+        setStatus(ev.kind === 'compaction' ? 'compacting…' : 'thinking…');
+        break;
+      case 'llm-completed':
+        hideSpinner(); renderItem(ev.item);
+        setStatus(`ok · ${ev.usage.prompt}+${ev.usage.completion} tok`);
+        break;
+      case 'llm-failed':
+        hideSpinner(); note(`error: ${ev.err}`, true); setStatus('error');
+        break;
+      case 'tool': el('tool', `tool result · ${ev.name}`, ev.body); break;
+      case 'compaction':
+        hideSpinner();
+        note('— context compacted —');
+        el('assistant', 'summary', ev.summary);
+        setStatus('compacted');
+        break;
+      case 'config': note(`config set (${ev.model})`); break;
+    }
+  }
+
+  async function subscribe(newSid) {
+    if (subId !== null) {
+      await put([{ id: ++eventId, action: 'unsubscribe', subscription: subId }]);
+      subId = null;
+    }
+    sid = newSid;
+    if (!sid) return;
+    subId = ++eventId;
+    await put([{ id: subId, action: 'subscribe', ship, app: 'harness',
+                 path: `/session/${sid}` }]);
+    await loadSession();
+  }
+
+  async function loadSession() {
+    logEl.innerHTML = ''; hideSpinner();
+    if (!sid) return;
+    const res = await fetch(`/~/scry/harness/session/${sid}.json`);
+    if (!res.ok) { note('could not load session', true); return; }
+    const v = await res.json();
+    note(`${v.model} · budget ${v['max-context']} tok`);
+    if (v.summary) { note('— earlier context compacted —');
+                     el('assistant', 'summary', v.summary); }
+    (v.items || []).forEach(renderItem);
+    if (v.err) note(`error: ${v.err}`, true);
+    if (v.pending) showSpinner();
+    setStatus(`${v.usage.prompt}+${v.usage.completion} tok total`);
+  }
+
+  async function refreshSessions(prefer) {
+    const res = await fetch('/~/scry/harness/sessions.json');
+    const sids = res.ok ? await res.json() : [];
+    const sel = $('sessions');
+    sel.innerHTML = '';
+    sids.forEach((s) => {
+      const o = document.createElement('option');
+      o.value = s; o.textContent = s; sel.appendChild(o);
+    });
+    const want = prefer || sid || sids[0];
+    if (want && sids.includes(want)) sel.value = want;
+    if (sel.value && sel.value !== sid) await subscribe(sel.value);
+    else if (!sids.length) { sid = null; logEl.innerHTML = '';
+                             note('no sessions — create one'); }
+  }
+
+  function openChannel() {
+    const es = new EventSource(channelUrl(), { withCredentials: true });
+    es.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      put([{ id: ++eventId, action: 'ack', 'event-id': msg.id }]).catch(() => {});
+      if (msg.response === 'diff' && msg.json && msg.json.event) {
+        handleEvent(msg.json.event);
+      }
+      if (msg.response === 'quit') subscribe(sid).catch(() => {});
+    };
+    es.onerror = () => setStatus('channel error — reload?');
+  }
+
+  // wiring
+  $('send').onclick = send;
+  $('text').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  async function send() {
+    const t = $('text').value.trim();
+    if (!t || !sid) return;
+    $('text').value = '';
+    await poke({ send: { sid, text: t } });
+  }
+
+  $('new').onclick = () => {
+    $('f-key').value = localStorage.getItem('harness-key') || '';
+    $('newdlg').showModal();
+  };
+  $('newdlg').addEventListener('close', async () => {
+    if ($('newdlg').returnValue !== 'ok') return;
+    const key = $('f-key').value.trim();
+    try { localStorage.setItem('harness-key', key); } catch (e) {}
+    const config = {
+      url: $('f-url').value.trim(),
+      model: $('f-model').value.trim(),
+      key,
+      system: $('f-system').value,
+      'max-context': parseInt($('f-max').value, 10) || 12000,
+      tools: $('f-tools').checked ? ['ship-time'] : [],
+    };
+    const newSid = $('f-sid').value.trim() || 'main';
+    await poke({ new: { sid: newSid, config } });
+    await refreshSessions(newSid);
+  });
+
+  $('sessions').onchange = (e) => subscribe(e.target.value);
+  $('fork').onclick = async () => {
+    if (!sid) return;
+    const to = prompt('fork to session id:', `${sid}-fork`);
+    if (!to) return;
+    await poke({ fork: { from: sid, to } });
+    await refreshSessions(to);
+  };
+  $('compact').onclick = () => sid && poke({ compact: { sid } });
+  $('cancel').onclick = async () => {
+    if (!sid) return;
+    await poke({ cancel: { sid } });
+    await loadSession();
+  };
+
+  // boot
+  (async () => {
+    ship = (window.ship) ||
+      (document.cookie.match(/urbauth-~([a-z-]+)/) || [])[1] || 'zod';
+    await put([{ id: ++eventId, action: 'poke', ship, app: 'hood',
+                 mark: 'helm-hi', json: 'harness ui connected' }]);
+    openChannel();
+    setStatus('connected');
+    await refreshSessions();
+  })().catch((e) => setStatus(`boot failed: ${e.message}`));
+})();
+</script>
+</body>
+</html>

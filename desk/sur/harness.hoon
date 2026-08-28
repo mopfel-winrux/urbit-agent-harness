@@ -1,0 +1,76 @@
+::  harness: types for the head of an on-ship agent harness
+::
+::    the session log is the state: a closed vocabulary of events,
+::    replayed into a view, from which a decider plans the next step.
+::    provider shape is openai chat-completions (openrouter).
+::
+|%
++$  session-id  @t
++$  request-kind  ?(%turn %compaction)
++$  stop-reason  ?(%stop %tool-calls %length %error)
++$  tool-call  [id=@t name=@t args=@t]
++$  usage  [prompt=@ud completion=@ud]
+::  context items, provider-native shape
+::
++$  item
+  $%  [%user body=@t]
+      [%assistant body=@t calls=(list tool-call)]
+      [%tool call-id=@t name=@t body=@t]
+  ==
+::  config is data; capabilities absent by default (tools=~)
+::
++$  config
+  $:  url=@t              ::  chat-completions endpoint
+      model=@t
+      key=@t              ::  NB: enters event log; fakezod-only posture
+      system=@t
+      max-context=@ud     ::  rough token budget before compaction
+      tools=(list term)   ::  granted tool families
+  ==
+::  the closed event vocabulary
+::
++$  event
+  $%  [%config-replaced =config]
+      [%input-admitted =item]
+      [%llm-requested req=@ud kind=request-kind]
+      [%llm-completed req=@ud stop=stop-reason =usage =item]
+      [%llm-failed req=@ud err=@t]
+      [%tool-completed call-id=@t name=@t body=@t]
+      [%compaction-completed req=@ud summary=@t]
+  ==
+::  a session: the log is the state, newest event first
+::
++$  session  [log=(list event) next-req=@ud]
+::  derived view, a fold over the log
+::
++$  view
+  $:  =config
+      summary=(unit @t)
+      items=(list item)
+      pending=(unit [req=@ud kind=request-kind])
+      total=usage
+      err=(unit @t)
+  ==
+::  the decider's output
+::
++$  step
+  $%  [%turn ~]
+      [%compact ~]
+      [%tools calls=(list tool-call)]
+  ==
+::  pokes
+::
++$  action
+  $%  [%new sid=session-id =config]
+      [%send sid=session-id text=@t]
+      [%fork from=session-id to=session-id]
+      [%compact sid=session-id]
+      [%cancel sid=session-id]
+      [%config sid=session-id =config]
+  ==
+::  facts
+::
++$  update
+  $%  [%event sid=session-id =event]
+  ==
+--
