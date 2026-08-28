@@ -122,6 +122,11 @@
     !>  ^-  json
     (pairs:enjs:format ~[['has-key' %b !=('' api-key)]])
   ::
+      [%x %tools ~]
+    :^  ~  ~  %json
+    !>  ^-  json
+    [%a (turn all-tools:hl |=(t=term `json`[%s t]))]
+  ::
       [%x %skills ~]
     ``json+!>((skills-json:hl skills))
   ::

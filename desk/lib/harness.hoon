@@ -346,6 +346,15 @@
         ['content' %s body.it]
     ==
   ==
+::  +all-tools: the canonical tool families, in code so a new session
+::  can default to the full set without re-granting after a state wipe.
+::  (peer sessions do NOT use this — their grant is explicit)
+::
+++  all-tools
+  ^-  (list term)
+  :~  %ship-time  %clay  %web  %code  %skills  %skill-write
+      %subagents  %peers
+  ==
 ::  +tool-defs: schemas for granted tool families
 ::
 ++  tool-defs

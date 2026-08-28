@@ -82,8 +82,8 @@
     <textarea id="f-system" rows="3">You are a helpful agent living on an Urbit ship. Be concise.</textarea>
     <label>max context (tokens, compaction threshold)</label>
     <input id="f-max" type="number" value="12000">
-    <label><input id="f-tools" type="checkbox" style="width:auto" checked>
-      grant %ship-time tool</label>
+    <label>granted tools</label>
+    <div id="f-tools" style="display:flex;flex-wrap:wrap;gap:4px 14px"></div>
     <div class="row">
       <button value="cancel">cancel</button>
       <button id="f-ok" value="ok">create</button>
@@ -255,8 +255,22 @@
     await poke({ send: { sid, text: t } });
   }
 
-  $('new').onclick = () => {
+  async function populateTools() {
+    const box = $('f-tools');
+    if (box.dataset.loaded) return;
+    let tools = [];
+    try {
+      const res = await fetch('/~/scry/harness/tools.json');
+      if (res.ok) tools = await res.json();
+    } catch (e) {}
+    box.innerHTML = tools.map((t) =>
+      `<label style="width:auto"><input type="checkbox" value="${t}" checked style="width:auto"> ${t}</label>`
+    ).join('');
+    box.dataset.loaded = '1';
+  }
+  $('new').onclick = async () => {
     $('f-key').value = '';
+    await populateTools();
     $('newdlg').showModal();
   };
   $('newdlg').addEventListener('close', async () => {
@@ -268,7 +282,7 @@
       key,
       system: $('f-system').value,
       'max-context': parseInt($('f-max').value, 10) || 12000,
-      tools: $('f-tools').checked ? ['ship-time'] : [],
+      tools: [...$('f-tools').querySelectorAll('input:checked')].map((c) => c.value),
     };
     const newSid = $('f-sid').value.trim() || 'main';
     await poke({ new: { sid: newSid, config } });
