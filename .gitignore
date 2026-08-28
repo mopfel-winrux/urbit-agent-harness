@@ -2,3 +2,4 @@ zod/
 urbit-agent/
 urbit-mcp/
 *.pyc
+bus/

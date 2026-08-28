@@ -35,6 +35,23 @@
 ::  %skills family is granted; bodies are read on demand
 ::
 +$  skill  [desc=@t body=@t]
+::  agent-to-agent over ames: peer-as-tool. identity-based grants;
+::  asks land in a durable sandboxed session per peer. the answer
+::  crosses the wire; the data doesn't
+::
++$  ask-id  @uv
++$  peer-grant
+  $:  tools=(list term)     ::  ~ for strangers
+      model=(unit @t)       ::  override; cheap model for low-trust
+      budget=@ud            ::  lifetime token cap for their session; 0 = no cap
+      inflows=(set @t)      ::  skill names their session may see
+  ==
+::  the wire protocol: mark %harness-a2a-0, typed and growable
+::
++$  a2a
+  $%  [%ask id=ask-id kind=%text prompt=@t]
+      [%answer id=ask-id result=(each @t @t)]
+  ==
 ::  the closed event vocabulary
 ::
 +$  event
@@ -83,9 +100,15 @@
       [%timer-cancel sid=session-id name=@ta]
       [%skill-add name=@t desc=@t body=@t]
       [%skill-del name=@t]
+      [%grant =ship grant=peer-grant]
+      [%revoke =ship]
+      [%peer-config =config]
       ::  internal: session spawning, sent by the agent to itself
       ::
       [%spawn parent=session-id call-id=@t prompt=@t system=(unit @t)]
+      ::  internal: an ask_peer tool call, sent by the agent to itself
+      ::
+      [%ask-peer sid=session-id call-id=@t =ship prompt=@t]
   ==
 ::  facts
 ::

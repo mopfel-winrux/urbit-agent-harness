@@ -22,6 +22,12 @@
       ::  agent-level skill library, shared by all sessions
       ::
       skills=(map @t skill:h)
+      ::  a2a: identity-based grants, outgoing asks, incoming queues
+      ::
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
   ==
 +$  card  card:agent:gall
 --
@@ -70,6 +76,10 @@
     =+  !<([eyre-id=@ta req=inbound-request:eyre] vase)
     =^  cards  state  (serve:hc eyre-id req)
     [cards this]
+  ::
+      %harness-a2a-0
+    =^  cards  state  (handle-a2a:hc src.bowl !<(a2a:h vase))
+    [cards this]
   ==
 ::
 ++  on-watch
@@ -102,6 +112,20 @@
       [%x %skills ~]
     ``json+!>((skills-json:hl skills))
   ::
+      [%x %peers ~]
+    :^  ~  ~  %json
+    !>  ^-  json
+    :-  %a
+    %+  turn  ~(tap by peers)
+    |=  [=ship g=peer-grant:h]
+    ^-  json
+    %-  pairs:enjs:format
+    :~  ['ship' %s (scot %p ship)]
+        ['tools' %a (turn tools.g |=(t=term `json`[%s t]))]
+        ['budget' (numb:enjs:format budget.g)]
+        ['inflows' %a (turn ~(tap in inflows.g) |=(n=@t `json`[%s n]))]
+    ==
+  ::
       [%x %timers ~]
     :^  ~  ~  %json
     !>  ^-  json
@@ -118,7 +142,20 @@
     ==
   ==
 ::
-++  on-agent  |=([wire sign:agent:gall] (on-agent:def +<))
+++  on-agent
+  |=  [=wire =sign:agent:gall]
+  ^-  (quip card _this)
+  ?+  wire  (on-agent:def wire sign)
+      [%a2a %ask @ ~]
+    ?.  ?=(%poke-ack -.sign)  (on-agent:def wire sign)
+    ?~  p.sign  `this
+    =^  cards  state
+      (fail-ask:hc (slav %uv i.t.t.wire) 'peer rejected the ask')
+    [cards this]
+  ::
+      [%a2a %answer @ ~]
+    `this
+  ==
 ::
 ++  on-arvo
   |=  [=wire sign=sign-arvo]
@@ -151,6 +188,12 @@
     =/  name=@ta  i.t.t.wire
     ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
     =^  cards  state  (handle-timer-fire:hc sid name error.sign)
+    [cards this]
+  ::
+      [%a2a-timeout @ ~]
+    ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+    =^  cards  state
+      (fail-ask:hc (slav %uv i.t.wire) 'peer timed out')
     [cards this]
   ==
 ::
@@ -269,6 +312,32 @@
   ::
       %skill-del
     `state(skills (~(del by skills) name.act))
+  ::
+      %grant
+    `state(peers (~(put by peers) ship.act grant.act))
+  ::
+      %revoke
+    `state(peers (~(del by peers) ship.act))
+  ::
+      %peer-config
+    `state(peer-base `config.act)
+  ::
+      %ask-peer
+    ::  internal, from our own drive loop: send a typed ask over ames
+    ::  and start the timeout clock
+    ::
+    ?>  =(our.bowl src.bowl)
+    =/  id=ask-id:h  `@uv`(end [3 16] (shas %a2a-ask eny.bowl))
+    =.  asks  (~(put by asks) id [sid.act call-id.act ship.act])
+    :_  state
+    :~  :*  %pass  `wire`[%a2a %ask (scot %uv id) ~]
+            %agent  [ship.act dap.bowl]  %poke
+            %harness-a2a-0  !>(`a2a:h`[%ask id %text prompt.act])
+        ==
+        :*  %pass  `wire`[%a2a-timeout (scot %uv id) ~]
+            %arvo  %b  %wait  (add now.bowl ~m2)
+        ==
+    ==
   ==
 ::
 ++  wait-card
@@ -325,7 +394,7 @@
   =|  cards=(list card)
   |-  ^-  [cards=(list card) ses=session:h sk=(map @t skill:h)]
   =/  v=view:h  (play:hl log.ses)
-  =/  stp  (decide:hl v skills)
+  =/  stp  (decide:hl v (skills-visible sid skills))
   ?~  stp  [cards ses skills]
   ?-  -.u.stp
       %tools
@@ -376,9 +445,10 @@
       =/  async=(unit (unit card))
         ?:  =(name.c 'http_fetch')     `(fetch-card sid c)
         ?:  =(name.c 'run_subagent')   `(spawn-card sid c)
+        ?:  =(name.c 'ask_peer')       `(ask-peer-card sid c)
         ~
       ?~  async
-        acc(evs (snoc evs.acc (run-tool c sk.acc)))
+        acc(evs (snoc evs.acc (run-tool c (skills-visible sid sk.acc))))
       ?~  u.async
         %=  acc  evs
           %+  snoc  evs.acc
@@ -413,7 +483,7 @@
 ++  llm-card
   |=  [sid=session-id:h req=@ud kind=request-kind:h v=view:h]
   ^-  card
-  =/  body=@t  (en:json:html (request-body:hl v kind skills))
+  =/  body=@t  (en:json:html (request-body:hl v kind (skills-visible sid skills)))
   =/  =request:http
     :*  %'POST'
         url.config.v
@@ -616,7 +686,13 @@
       ?~  full-file.res  ''
       (clip:hl q.data.u.full-file.res 8.000)
     (rap 3 'HTTP ' (scot %ud status) '\0a\0a' txt ~)
-  =^  cs1  ses  (record-all sid ses ~[[%tool-completed call-id 'http_fetch' body]])
+  =/  tname=@t
+    |-  ^-  @t
+    ?~  log.ses  'http_fetch'
+    ?:  ?&(?=(%tool-requested -.i.log.ses) =(call-id call-id.i.log.ses))
+      name.i.log.ses
+    $(log.ses t.log.ses)
+  =^  cs1  ses  (record-all sid ses ~[[%tool-completed call-id tname body]])
   =^  cs2  state  (drive-put sid ses)
   [(weld cs1 cs2) state]
 ::  +drive-put: drive a session, store it, then settle subagent links
@@ -629,10 +705,18 @@
   =.  sessions  (~(put by sessions) sid ses.dr)
   =^  cs2  state  (settle sid)
   [(weld cards.dr cs2) state]
-::  +settle: if sid is a finished subagent, deliver its answer to the
-::  parent's awaiting tool call, cascading upward
+::  +settle: when a session goes idle, deliver what it owes:
+::  a finished subagent's answer to its parent, and answers for
+::  any peer asks queued against it
 ::
 ++  settle
+  |=  sid=session-id:h
+  ^-  (quip card _state)
+  =^  cs1  state  (settle-sub sid)
+  =^  cs2  state  (settle-asks sid)
+  [(weld cs1 cs2) state]
+::
+++  settle-sub
   |=  sid=session-id:h
   ^-  (quip card _state)
   =/  link  (~(get by subs) sid)
@@ -658,6 +742,154 @@
     ~[[%tool-completed call-id.u.link 'run_subagent' u.result]]
   =^  cs2  state  (drive-put parent.u.link u.mp)
   [(weld cs1 cs2) state]
+::  +settle-asks: answer every peer ask queued against an idle session
+::
+++  settle-asks
+  |=  sid=session-id:h
+  ^-  (quip card _state)
+  =/  q  (~(get by serving) sid)
+  ?~  q  `state
+  ?~  u.q  `state(serving (~(del by serving) sid))
+  =/  mses  (~(get by sessions) sid)
+  ?~  mses  `state
+  =/  v  (play:hl log.u.mses)
+  ?^  pending.v  `state
+  ?.  =(~ wait.v)  `state
+  =/  result=(unit (each @t @t))
+    ?^  err.v  `[%| (cat 3 'error: ' u.err.v)]
+    ?~  items.v  ~
+    =/  last  (rear items.v)
+    ?:  &(?=(%assistant -.last) =(~ calls.last))
+      `[%& body.last]
+    ~
+  ?~  result  `state
+  :_  state(serving (~(del by serving) sid))
+  %+  turn  u.q
+  |=  [=ship id=ask-id:h]
+  (answer-card ship id u.result)
+::  +handle-a2a: the wire protocol, both directions
+::
+++  handle-a2a
+  |=  [src=ship msg=a2a:h]
+  ^-  (quip card _state)
+  ?-  -.msg
+      %answer
+    =/  ma  (~(get by asks) id.msg)
+    ?~  ma  `state
+    ?.  =(src ship.u.ma)  `state
+    =.  asks  (~(del by asks) id.msg)
+    =/  mses  (~(get by sessions) sid.u.ma)
+    ?~  mses  `state
+    =/  body=@t
+      ?:  ?=(%& -.result.msg)  p.result.msg
+      (cat 3 'peer error: ' p.result.msg)
+    =^  cs1  u.mses
+      %^  record-all  sid.u.ma  u.mses
+      ~[[%tool-completed call-id.u.ma 'ask_peer' body]]
+    =^  cs2  state  (drive-put sid.u.ma u.mses)
+    [(weld cs1 cs2) state]
+  ::
+      %ask
+    ::  identity is the permission: no grant, no service
+    ::
+    =/  g  (~(get by peers) src)
+    ?~  g
+      [~[(answer-card src id.msg [%| 'no grant for your ship'])] state]
+    =/  mbase  peer-base
+    ?~  mbase
+      [~[(answer-card src id.msg [%| 'peer serving not configured'])] state]
+    =/  base  u.mbase
+    =/  sid=session-id:h  (cat 3 'peer--' (scot %p src))
+    =/  mses  (~(get by sessions) sid)
+    ?:  ?&  !=(0 budget.u.g)
+            ?=(^ mses)
+            =/  v  (play:hl log.u.mses)
+            (gte (add prompt.total.v completion.total.v) budget.u.g)
+        ==
+      [~[(answer-card src id.msg [%| 'budget exhausted'])] state]
+    ::  the durable per-peer session runs under the grant, refreshed
+    ::  each ask so grant changes take effect
+    ::
+    =/  cfg=config:h
+      %=  base
+        model   (fall model.u.g model.base)
+        tools   tools.u.g
+        system  %+  rap  3
+                :~  system.base
+                    ' You are answering an ask from the agent of '
+                    (scot %p src)
+                ==
+      ==
+    =/  ses=session:h  (fall mses [~[[%config-replaced cfg]] 0])
+    =^  cs1  ses
+      %^  record-all  sid  ses
+      ?~  mses
+        ~[[%input-admitted [%user prompt.msg]]]
+      :~  [%config-replaced cfg]
+          [%input-admitted [%user prompt.msg]]
+      ==
+    =.  serving
+      %+  ~(put by serving)  sid
+      [[src id.msg] (fall (~(get by serving) sid) ~)]
+    =^  cs2  state  (drive-put sid ses)
+    [(weld cs1 cs2) state]
+  ==
+::  +answer-card: send a typed answer back over ames
+::
+++  answer-card
+  |=  [=ship id=ask-id:h result=(each @t @t)]
+  ^-  card
+  :*  %pass  `wire`[%a2a %answer (scot %uv id) ~]
+      %agent  [ship dap.bowl]  %poke
+      %harness-a2a-0  !>(`a2a:h`[%answer id result])
+  ==
+::  +fail-ask: a nack or timeout becomes an error tool result
+::
+++  fail-ask
+  |=  [id=ask-id:h why=@t]
+  ^-  (quip card _state)
+  =/  ma  (~(get by asks) id)
+  ?~  ma  `state
+  =.  asks  (~(del by asks) id)
+  =/  mses  (~(get by sessions) sid.u.ma)
+  ?~  mses  `state
+  =^  cs1  u.mses
+    %^  record-all  sid.u.ma  u.mses
+    ~[[%tool-completed call-id.u.ma 'ask_peer' (cat 3 'error: ' why)]]
+  =^  cs2  state  (drive-put sid.u.ma u.mses)
+  [(weld cs1 cs2) state]
+::  +ask-peer-card: an ask_peer tool call becomes a poke to ourselves
+::
+++  ask-peer-card
+  |=  [sid=session-id:h c=tool-call:h]
+  ^-  (unit card)
+  =/  shp  (tool-str args.c 'ship')
+  =/  prm  (tool-str args.c 'prompt')
+  ?~  shp  ~
+  ?~  prm  ~
+  =/  who=(unit @p)
+    %+  slaw  %p
+    ?:(=('~' (end [3 1] u.shp)) u.shp (cat 3 '~' u.shp))
+  ?~  who  ~
+  :-  ~
+  :*  %pass  `wire`[%aski `@ta`sid `@ta`id.c ~]
+      %agent  [our.bowl dap.bowl]  %poke
+      %harness-action  !>(`action:h`[%ask-peer sid id.c u.who u.prm])
+  ==
+::  +skills-visible: a peer session sees only its grant's inflows
+::
+++  skills-visible
+  |=  [sid=session-id:h sk=(map @t skill:h)]
+  ^-  (map @t skill:h)
+  ?.  =('peer--' (end [3 6] sid))  sk
+  =/  pship  (slaw %p (rsh [3 6] sid))
+  ?~  pship  ~
+  =/  g  (~(get by peers) u.pship)
+  ?~  g  ~
+  %-  malt
+  %+  skim  ~(tap by sk)
+  |=  [n=@t s=skill:h]
+  (~(has in inflows.u.g) n)
 ::  +spawn-card: a run_subagent tool call becomes a poke to ourselves
 ::
 ++  spawn-card

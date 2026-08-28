@@ -307,6 +307,18 @@
         ~[['name' 'the skill name']]
     ==
   ::
+      %peers
+    :_  ~
+    %^    fun-json
+        'ask_peer'
+      %-  crip
+      %+  weld
+        "Ask another ship's agent a question over the urbit network. "
+      "Their agent answers from their own knowledge; expect a delay."
+    :~  ['ship' 'the ship to ask, e.g. ~sampel-palnet']
+        ['prompt' 'the question or task']
+    ==
+  ::
       %subagents
     :_  ~
     %^    fun-json
