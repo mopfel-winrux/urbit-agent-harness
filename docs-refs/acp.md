@@ -51,17 +51,19 @@ The `harness` connection currently implements ACP protocol version 1:
 - `session/load`
 - `session/prompt`
 - `session/cancel`
-- `session/update` notifications with `agent_message_chunk`
+- `session/update` notifications with `agent_message_chunk`, `tool_call`, and
+  `tool_call_update`
 
 New ACP sessions use the same OpenRouter defaults as the web UI and resolve a
 blank session key through the harness-level key set by `%set-key`. Text prompt
 blocks are admitted directly. Resource-link blocks are preserved as textual
 resource references. Other content block types are not advertised.
 
-The current provider call is non-streaming, so the server emits one terminal
-`agent_message_chunk` followed by the `session/prompt` response. The transport
-and ACP boundary already support multiple updates; provider token streaming can
-be added without changing `%acp`.
+The current provider call is non-streaming, so assistant text is emitted at
+message granularity. Tool calls and results are emitted as their transcript
+items settle, using the harness's real tool-call ids, followed by the terminal
+`session/prompt` response. The transport and ACP boundary already support finer
+updates; provider token streaming can be added without changing `%acp`.
 
 Cancellation removes the harness request marker and replies to the original
 prompt request with `stopReason: "cancelled"`. Provider failures become JSON-RPC
@@ -75,4 +77,3 @@ A harness chooses a stable connection id, opens it, watches its `%agent` queue,
 and implements whichever ACP capabilities it advertises. It sends client-bound
 frames back through `%send`, then acknowledges each admitted agent-bound
 sequence. No changes to `%acp`, its marks, or another harness are required.
-

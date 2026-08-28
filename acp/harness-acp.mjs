@@ -62,7 +62,8 @@ async function poke(action) {
 }
 
 async function clientQueue() {
-  const path = `x/v1/${ACP_CONNECTION}/client`;
+  // Eyre supplies Gall's leading %x namespace for HTTP scries.
+  const path = `v1/${ACP_CONNECTION}/client`;
   const res = await fetch(`${SHIP_URL}/~/scry/acp/${path}.json`, {
     headers: { cookie },
   });

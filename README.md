@@ -48,7 +48,7 @@ It follows the ["Urbit is for your personal agent harness"](urbit-agent/README.m
 
 **Agent-to-agent over Ames** — `ask_peer(ship, prompt)` sends a typed ask (`%harness-a2a-0` mark) to another ship's harness. The answer crosses the wire; the data doesn't. The serving side runs the ask in a **durable, sandboxed per-peer session** under an **identity-based grant** (`peer-grant`: which tools, which model, a token budget, which skills are visible). Absent grant = refused. Verified across two fakeships, including grant/revoke.
 
-**Agent Client Protocol** — `%acp` is a harness-neutral, durable duplex transport for opaque ACP JSON-RPC frames. `%harness` uses the `harness` connection as an ACP server and supports initialization, new/load session, text and resource-link prompts, cancellation, terminal message updates, and stop responses. Other native or external harnesses can use their own connection id without changing `%acp`; see [`docs-refs/acp.md`](docs-refs/acp.md).
+**Agent Client Protocol** — `%acp` is a harness-neutral, durable duplex transport for opaque ACP JSON-RPC frames. `%harness` uses the `harness` connection as an ACP server and supports initialization, new/load session, text and resource-link prompts, cancellation, agent-message and tool-call updates, and stop responses. Other native or external harnesses can use their own connection id without changing `%acp`; see [`docs-refs/acp.md`](docs-refs/acp.md).
 
 **Timers** — `%timer-set` schedules a Behn wakeup whose prompt is admitted as input; the agent can wake itself.
 

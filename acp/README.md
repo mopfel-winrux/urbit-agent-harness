@@ -48,4 +48,4 @@ node acp/harness-acp.mjs
 {"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"<from step 2>","prompt":[{"type":"text","text":"what time is it on the ship?"}]}}
 ```
 
-The native `%harness` implementation currently supports initialize, new/load session, text and resource-link prompts, cancellation, terminal message chunks, and stop responses. See [`../docs-refs/acp.md`](../docs-refs/acp.md) for the transport and server contract.
+The native `%harness` implementation currently supports initialize, new/load session, text and resource-link prompts, cancellation, agent-message and tool-call updates, and stop responses. See [`../docs-refs/acp.md`](../docs-refs/acp.md) for the transport and server contract.

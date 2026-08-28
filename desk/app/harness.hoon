@@ -26,10 +26,27 @@
       acp-prompts=(map session-id:h json)
       acp-through=@ud
   ==
++$  state-1
+  $:  %1
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [request-id=json cursor=@ud])
+      acp-through=@ud
+  ==
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-0
+=|  state-1
 =*  state  -
 ^-  agent:gall
 =<
@@ -50,19 +67,18 @@
 ++  on-load
   |=  old-vase=vase
   ^-  (quip card _this)
-  ::  This prototype intentionally has one state mold. Reset incompatible
-  ::  state instead of carrying a migration ladder while the shape is fluid.
-  ::
-  =/  loaded  (mule |.(!<(state-0 old-vase)))
-  =/  new=state-0
-    ?:  ?=(%& -.loaded)  p.loaded
+  =/  current  (mule |.(!<(state-1 old-vase)))
+  =/  new=state-1
+    ?:  ?=(%& -.current)  p.current
+    =/  previous  (mule |.(!<(state-0 old-vase)))
+    ?:  ?=(%& -.previous)
+      (migrate-0:hc p.previous)
     ~?  &  [dap.bowl %incompatible-state-dropped]
-    *state-0
+    *state-1
   :_  this(state new)
   :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
       acp-open-card:hc
   ==
-::
 ++  on-poke
   |=  [=mark =vase]
   ^-  (quip card _this)
@@ -297,6 +313,33 @@
 ::  connection id and implements the protocol methods behind that queue.
 ::
 ++  acp-id  'harness'
+++  migrate-0
+  |=  old=state-0
+  ^-  state-1
+  =/  prompts=(map session-id:h [request-id=json cursor=@ud])
+    %+  roll  ~(tap by acp-prompts.old)
+    |=  [[sid=session-id:h request-id=json] acc=(map session-id:h [request-id=json cursor=@ud])]
+    =/  maybe-session  (~(get by sessions.old) sid)
+    =/  cursor=@ud
+      ?~  maybe-session  0
+      (lent items:(play:hl log.u.maybe-session))
+    (~(put by acc) sid [request-id cursor])
+  :*  %1
+      sessions.old
+      timers.old
+      subs.old
+      skills.old
+      staged.old
+      rehearsals.old
+      peers.old
+      peer-base.old
+      asks.old
+      serving.old
+      jobs.old
+      api-key.old
+      prompts
+      acp-through.old
+  ==
 ++  acp-open-card
   ^-  card
   :*  %pass  /acp/open
@@ -393,7 +436,9 @@
       [~[(acp-error-card u.id '-32602' 'Unknown session')] state]
     ?:  (~(has by acp-prompts) u.sid)
       [~[(acp-error-card u.id '-32600' 'A prompt is already running')] state]
-    =.  acp-prompts  (~(put by acp-prompts) u.sid u.id)
+    =/  current=session:h  (need (~(get by sessions) u.sid))
+    =/  cursor=@ud  (lent items:(play:hl log.current))
+    =.  acp-prompts  (~(put by acp-prompts) u.sid [u.id cursor])
     (handle-action [%send u.sid u.text])
   ::
       %'session/cancel'
@@ -404,7 +449,7 @@
     =^  cancelled  state  (handle-action [%cancel u.sid])
     =.  acp-prompts  (~(del by acp-prompts) u.sid)
     =/  result=json  (pairs:enjs:format ~[['stopReason' %s 'cancelled']])
-    [:(weld cancelled ~[(acp-result-card u.pending result)]) state]
+    [:(weld cancelled ~[(acp-result-card request-id.u.pending result)]) state]
   ==
 ::
 ++  acp-config
@@ -476,6 +521,10 @@
     :~  ['sessionUpdate' %s 'agent_message_chunk']
         ['content' content]
     ==
+  (acp-session-update-card sid update)
+++  acp-session-update-card
+  |=  [sid=session-id:h update=json]
+  ^-  card
   =/  params=json
     (pairs:enjs:format ~[['sessionId' %s sid] ['update' update]])
   =/  frame=json
@@ -485,6 +534,54 @@
         ['params' params]
     ==
   (acp-send-card (en:json:html frame))
+++  acp-tool-call-card
+  |=  [sid=session-id:h call=tool-call:h]
+  ^-  card
+  =/  parsed  (de:json:html args.call)
+  =/  raw-input=json
+    ?~  parsed
+      (pairs:enjs:format ~[['raw' %s args.call]])
+    u.parsed
+  =/  update=json
+    %-  pairs:enjs:format
+    :~  ['sessionUpdate' %s 'tool_call']
+        ['toolCallId' %s id.call]
+        ['title' %s name.call]
+        ['status' %s 'in_progress']
+        ['rawInput' raw-input]
+    ==
+  (acp-session-update-card sid update)
+++  acp-tool-result-card
+  |=  [sid=session-id:h call-id=@t body=@t]
+  ^-  card
+  =/  text=json
+    (pairs:enjs:format ~[['type' %s 'text'] ['text' %s body]])
+  =/  content=json
+    (pairs:enjs:format ~[['type' %s 'content'] ['content' text]])
+  =/  update=json
+    %-  pairs:enjs:format
+    :~  ['sessionUpdate' %s 'tool_call_update']
+        ['toolCallId' %s call-id]
+        ['status' %s 'completed']
+        ['content' %a ~[content]]
+    ==
+  (acp-session-update-card sid update)
+++  acp-item-cards
+  |=  [sid=session-id:h cursor=@ud items=(list item:h)]
+  ^-  (list card)
+  %-  zing
+  %+  turn  (slag cursor items)
+  |=  item=item:h
+  ^-  (list card)
+  ?-  -.item
+      %user  ~
+      %assistant
+    =/  message-cards=(list card)
+      ?:(=(0 body.item) ~ ~[(acp-update-card sid body.item)])
+    (weld message-cards (turn calls.item |=(call=tool-call:h (acp-tool-call-card sid call))))
+      %tool
+    ~[(acp-tool-result-card sid call-id.item body.item)]
+  ==
 ::
 ++  acp-param-string
   |=  [params=(unit json) key=@t]
@@ -1298,26 +1395,28 @@
 ++  settle-acp
   |=  sid=session-id:h
   ^-  (quip card _state)
-  =/  request-id  (~(get by acp-prompts) sid)
-  ?~  request-id  `state
+  =/  prompt  (~(get by acp-prompts) sid)
+  ?~  prompt  `state
   =/  mses  (~(get by sessions) sid)
   ?~  mses  `state(acp-prompts (~(del by acp-prompts) sid))
   =/  v  (play:hl log.u.mses)
-  ?^  pending.v  `state
-  ?.  =(~ wait.v)  `state
+  =/  updates  (acp-item-cards sid cursor.u.prompt items.v)
+  =.  acp-prompts
+    (~(put by acp-prompts) sid [request-id.u.prompt (lent items.v)])
+  ?^  pending.v  [updates state]
+  ?.  =(~ wait.v)  [updates state]
   =.  acp-prompts  (~(del by acp-prompts) sid)
   ?^  err.v
-    [~[(acp-error-card u.request-id '-32603' u.err.v)] state]
+    [(weld updates ~[(acp-error-card request-id.u.prompt '-32603' u.err.v)]) state]
   ?~  items.v
-    [~[(acp-error-card u.request-id '-32603' 'Prompt ended without a response')] state]
+    [(weld updates ~[(acp-error-card request-id.u.prompt '-32603' 'Prompt ended without a response')]) state]
   =/  last  (rear items.v)
   ?.  ?=([%assistant * ~] last)
-    [~[(acp-error-card u.request-id '-32603' 'Prompt ended without a response')] state]
+    [(weld updates ~[(acp-error-card request-id.u.prompt '-32603' 'Prompt ended without a response')]) state]
   =/  stop=@t  (acp-stop-reason log.u.mses)
   =/  result=json  (pairs:enjs:format ~[['stopReason' %s stop]])
-  =/  finish=card  (acp-result-card u.request-id result)
-  ?:  =(0 body.last)  [~[finish] state]
-  [[(acp-update-card sid body.last) finish ~] state]
+  =/  finish=card  (acp-result-card request-id.u.prompt result)
+  [(weld updates ~[finish]) state]
 ::
 ++  acp-stop-reason
   |=  log=(list event:h)
