@@ -685,6 +685,7 @@
       fork+(ot ~[from+so to+so])
       compact+(ot ~[sid+so])
       cancel+(ot ~[sid+so])
+      delete+(ot ~[sid+so])
       retry+(ot ~[sid+so])
       config+(ot ~[sid+so config+json-config])
       timer-set+(ot ~[sid+so name+(su sym) in+secs every+(mu secs) prompt+so])

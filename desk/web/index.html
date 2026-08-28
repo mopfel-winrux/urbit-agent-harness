@@ -57,6 +57,7 @@
   <select id="sessions"></select>
   <button id="new">new</button>
   <button id="fork">fork</button>
+  <button id="delete">delete</button>
   <button id="compact">compact</button>
   <button id="retry">retry</button>
   <button id="cancel">cancel</button>
@@ -281,6 +282,18 @@
     if (!to) return;
     await poke({ fork: { from: sid, to } });
     await refreshSessions(to);
+  };
+  $('delete').onclick = async () => {
+    if (!sid) return;
+    if (!confirm(`Delete session "${sid}"? This cannot be undone.`)) return;
+    await poke({ delete: { sid } });
+    const gone = sid; sid = null;
+    if (subId !== null) {
+      try { await put([{ id: ++eventId, action: 'unsubscribe', subscription: subId }]); } catch (e) {}
+      subId = null;
+    }
+    await refreshSessions();
+    setStatus(`deleted ${gone}`);
   };
   $('compact').onclick = () => sid && poke({ compact: { sid } });
   $('setkey').onclick = async () => {

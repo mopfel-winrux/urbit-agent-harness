@@ -96,6 +96,7 @@
       [%fork from=session-id to=session-id]
       [%compact sid=session-id]
       [%cancel sid=session-id]
+      [%delete sid=session-id]
       [%retry sid=session-id]
       [%config sid=session-id =config]
       [%timer-set sid=session-id name=@ta in=@dr every=(unit @dr) prompt=@t]

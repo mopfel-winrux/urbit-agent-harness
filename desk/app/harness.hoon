@@ -309,6 +309,56 @@
     :-  ~
     state(sessions (~(put by sessions) sid.act [clean next-req.ses]))
   ::
+      %delete
+    ::  drop the session and everything scoped to it: pending timers
+    ::  (cancel their behn), subagent links (as child or parent),
+    ::  peer-serving queue, in-flight js jobs (stop the thread), and
+    ::  outgoing asks. late results for any of these no-op on lookup.
+    ::  a fork is an independent copy, so deleting never orphans one
+    ::
+    =/  sid  sid.act
+    ?.  (~(has by sessions) sid)  `state
+    =|  cards=(list card)
+    ::  timers
+    =/  tkeys  (skim ~(tap in ~(key by timers)) |=([s=session-id:h *] =(s sid)))
+    =.  cards
+      %+  weld  cards
+      %+  turn  tkeys
+      |=  [s=session-id:h name=@ta]
+      (rest-card s name at:(~(got by timers) [s name]))
+    =.  timers
+      %-  ~(gas by *(map [session-id:h @ta] timer:h))
+      (skip ~(tap by timers) |=([[s=session-id:h @ta] timer:h] =(s sid)))
+    ::  subagent links (this session as child, or as parent)
+    =.  subs
+      %-  ~(gas by *(map session-id:h [session-id:h @t]))
+      %+  skip  ~(tap by subs)
+      |=  [child=session-id:h parent=session-id:h *]
+      |(=(child sid) =(parent sid))
+    ::  peer-serving queue
+    =.  serving  (~(del by serving) sid)
+    ::  in-flight js jobs for this session: stop the thread, drop the job
+    =/  jkeys  (skim ~(tap by jobs) |=([tid=@ta s=session-id:h *] =(s sid)))
+    =.  cards
+      %+  weld  cards
+      %+  turn  jkeys
+      |=  [tid=@ta *]
+      ^-  card
+      :*  %pass  `wire`[%jsstop tid ~]
+          %agent  [our.bowl %spider]  %poke  %spider-stop  !>([tid &])
+      ==
+    =.  jobs
+      %-  ~(gas by *(map @ta [session-id:h @t @da]))
+      (skip ~(tap by jobs) |=([tid=@ta s=session-id:h *] =(s sid)))
+    ::  outgoing asks originated by this session
+    =.  asks
+      %-  ~(gas by *(map ask-id:h [session-id:h @t ship]))
+      (skip ~(tap by asks) |=([id=ask-id:h s=session-id:h *] =(s sid)))
+    =.  sessions  (~(del by sessions) sid)
+    ::  close the ui subscription for this session
+    :_  state
+    (snoc cards [%give %kick ~[`path`[%session `@ta`sid ~]] ~])
+  ::
       %retry
     =/  ses  (need-session sid.act)
     =^  cs1  ses  (record-all sid.act ses ~[[%retried ~]])
