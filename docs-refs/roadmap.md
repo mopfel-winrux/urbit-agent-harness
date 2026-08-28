@@ -18,8 +18,8 @@ Lightspeed's `(providerId, apiKind, model)` model resolution. We hardcode the Op
 
 ## Client protocol & channels
 
-### 5. ACP (Agent Client Protocol) surface
-Reid's [`reid/tlon-acp`](https://github.com/tloncorp/tlon-apps/compare/develop...reid/tlon-acp) branch (an ACP node package + gall agent + standalone demo, bridging Tlon channels to an ACP agent) is the model. [ACP](https://agentclientprotocol.com) is a standard JSON-RPC protocol between clients (editors like Zed, chat surfaces) and agents — session/new, session/prompt, streamed updates, surfaced tool calls, permission prompts. Implementing the **ACP server side** in the harness would give us a real, standard client boundary — better than our ad-hoc pokes/webhooks — and let any ACP client (Zed, the Tlon bridge) drive an on-ship session. Pairs naturally with #1 (streaming) since ACP is built around streamed session updates. *(Reid's branch probably won't ship in Tlon, but it's the reference implementation to study.)*
+### 5. ACP (Agent Client Protocol) surface — baseline complete
+`%acp` now provides the generic durable duplex transport, and `%harness` implements the ACP server baseline: initialize, new/load session, prompt, cancel, terminal message update, and stop response. See [`acp.md`](acp.md). Remaining ACP work belongs with streaming (#1): incremental model and tool-call updates, permissions, and richer prompt content.
 
 ### 6. Tlon Messenger as a channel
 §9 Phase 1. The "your agent shows up in Messenger and talks to your friends' agents" story: bridge Messenger channel messages to harness sessions (admit as input, deliver replies), reusing the A2A identity model over Ames. Larger, product-shaped; #5 (ACP) may be the cleaner path to the same place.

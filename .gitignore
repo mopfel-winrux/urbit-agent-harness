@@ -7,3 +7,5 @@ quick-js-emcc.wasm
 orchestra/
 threads-js/
 urwasm/
+.zig-cache/
+zig-out/
