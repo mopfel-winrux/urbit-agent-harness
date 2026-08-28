@@ -19,6 +19,9 @@
       ::  child session -> the parent tool call awaiting its answer
       ::
       subs=(map session-id:h [parent=session-id:h call-id=@t])
+      ::  agent-level skill library, shared by all sessions
+      ::
+      skills=(map @t skill:h)
   ==
 +$  card  card:agent:gall
 --
@@ -95,6 +98,9 @@
     =/  ses  (~(get by sessions) sid)
     ?~  ses  [~ ~]
     ``json+!>((view-json:hl (play:hl log.u.ses)))
+  ::
+      [%x %skills ~]
+    ``json+!>((skills-json:hl skills))
   ::
       [%x %timers ~]
     :^  ~  ~  %json
@@ -257,6 +263,12 @@
     ?~  old  `state
     :-  ~[(rest-card sid.act name.act at.u.old)]
     state(timers (~(del by timers) key))
+  ::
+      %skill-add
+    `state(skills (~(put by skills) name.act [desc.act body.act]))
+  ::
+      %skill-del
+    `state(skills (~(del by skills) name.act))
   ==
 ::
 ++  wait-card
@@ -285,14 +297,16 @@
   =^  cs1  ses
     %^  record-all  sid  ses
     ~[[%input-admitted [%user (rap 3 '[timer %' name ' fired] ' prompt.u.mt ~)]]]
-  =^  cs2  ses  (drive sid ses)
+  =/  dr  (drive sid ses)
+  =.  skills  sk.dr
+  =.  ses  ses.dr
   =/  rearm=[cs=(list card) nt=_timers]
     ?~  every.u.mt
       [~ (~(del by timers) key)]
     =/  at2=@da  (add now.bowl u.every.u.mt)
     :-  ~[(wait-card sid name at2)]
     (~(put by timers) key [at2 every.u.mt prompt.u.mt])
-  :-  :(weld cs1 cs2 cs.rearm)
+  :-  :(weld cs1 cards.dr cs.rearm)
   state(sessions (~(put by sessions) sid ses), timers nt.rearm)
 ::
 ++  need-session
@@ -300,30 +314,71 @@
   ^-  session:h
   ~|  [%no-such-session sid]
   (~(got by sessions) sid)
-::  +drive: replay, decide, act; loop until idle or pending
+::  +drive: replay, decide, act; loop until idle or pending.
+::  skill-writing tools mutate the agent-level library, so drive
+::  mutates the subject's skills as it loops (later iterations see
+::  the update) and returns the final map for the caller to persist
 ::
 ++  drive
   |=  [sid=session-id:h ses=session:h]
-  ^-  [(list card) session:h]
+  ^-  [cards=(list card) ses=session:h sk=(map @t skill:h)]
   =|  cards=(list card)
-  |-  ^-  [(list card) session:h]
+  |-  ^-  [cards=(list card) ses=session:h sk=(map @t skill:h)]
   =/  v=view:h  (play:hl log.ses)
-  =/  stp  (decide:hl v)
-  ?~  stp  [cards ses]
+  =/  stp  (decide:hl v skills)
+  ?~  stp  [cards ses skills]
   ?-  -.u.stp
       %tools
     ::  sync tools run on-ship now; async tools (iris) record a
-    ::  request marker and their results re-enter as events
+    ::  request marker and their results re-enter as events.
+    ::  skill mutations fold through the accumulator so a write is
+    ::  visible to a read later in the same batch; only the event
+    ::  enters the log (skill content lives in state, that's the point)
     ::
     =/  acc
       %+  roll  calls.u.stp
-      |=  [c=tool-call:h acc=[evs=(list event:h) tcards=(list card)]]
+      |:  [c=*tool-call:h acc=[evs=*(list event:h) tcards=*(list card) sk=skills]]
+      ^+  acc
+      ?:  =(name.c 'write_skill')
+        =/  nam  (tool-str args.c 'name')
+        =/  dsc  (tool-str args.c 'description')
+        =/  bod  (tool-str args.c 'body')
+        =/  bad
+          %=  acc  evs
+            %+  snoc  evs.acc
+            `event:h`[%tool-completed id.c name.c 'error: need name, description, body']
+          ==
+        ?~  nam  bad
+        ?~  dsc  bad
+        ?~  bod  bad
+        %=  acc
+          sk   (~(put by sk.acc) u.nam [u.dsc u.bod])
+          evs  %+  snoc  evs.acc
+               `event:h`[%tool-completed id.c name.c (rap 3 'skill \'' u.nam '\' written' ~)]
+        ==
+      ?:  =(name.c 'delete_skill')
+        =/  nam  (tool-str args.c 'name')
+        ?~  nam
+          %=  acc  evs
+            %+  snoc  evs.acc
+            `event:h`[%tool-completed id.c name.c 'error: bad name argument']
+          ==
+        ?.  (~(has by sk.acc) u.nam)
+          %=  acc  evs
+            %+  snoc  evs.acc
+            `event:h`[%tool-completed id.c name.c (cat 3 'error: no such skill: ' u.nam)]
+          ==
+        %=  acc
+          sk   (~(del by sk.acc) u.nam)
+          evs  %+  snoc  evs.acc
+               `event:h`[%tool-completed id.c name.c (rap 3 'skill \'' u.nam '\' deleted' ~)]
+        ==
       =/  async=(unit (unit card))
         ?:  =(name.c 'http_fetch')     `(fetch-card sid c)
         ?:  =(name.c 'run_subagent')   `(spawn-card sid c)
         ~
       ?~  async
-        acc(evs (snoc evs.acc (run-tool c)))
+        acc(evs (snoc evs.acc (run-tool c sk.acc)))
       ?~  u.async
         %=  acc  evs
           %+  snoc  evs.acc
@@ -333,6 +388,7 @@
         evs     (snoc evs.acc `event:h`[%tool-requested id.c name.c])
         tcards  (snoc tcards.acc u.u.async)
       ==
+    =.  skills  sk.acc
     =^  cs  ses  (record-all sid ses evs.acc)
     $(cards :(weld cards cs tcards.acc))
   ::
@@ -357,7 +413,7 @@
 ++  llm-card
   |=  [sid=session-id:h req=@ud kind=request-kind:h v=view:h]
   ^-  card
-  =/  body=@t  (en:json:html (request-body:hl v kind))
+  =/  body=@t  (en:json:html (request-body:hl v kind skills))
   =/  =request:http
     :*  %'POST'
         url.config.v
@@ -433,10 +489,12 @@
                  %harness-update  !>(`update:h`[%event sid i.evs])
              ==
   ==
-::  +run-tool: sync tools execute on-ship, immediately
+::  +run-tool: sync tools execute on-ship, immediately.
+::  sk is the current skill library (possibly mutated earlier in the
+::  same tool batch), so reads see fresh writes
 ::
 ++  run-tool
-  |=  c=tool-call:h
+  |=  [c=tool-call:h sk=(map @t skill:h)]
   ^-  event:h
   =/  out=@t
     ?:  =(name.c 'get_ship_time')
@@ -445,8 +503,30 @@
       (read-desk-file args.c)
     ?:  =(name.c 'list_desk_files')
       (list-desk-files args.c)
+    ?:  =(name.c 'read_skill')
+      (read-skill args.c sk)
     (cat 3 'unknown tool: ' name.c)
   [%tool-completed id.c name.c out]
+::  +read-skill: fetch a skill body from the library
+::
+++  read-skill
+  |=  [args=@t sk=(map @t skill:h)]
+  ^-  @t
+  =/  nam  (tool-str args 'name')
+  ?~  nam  'error: bad name argument'
+  =/  s  (~(get by sk) u.nam)
+  ?~  s  (cat 3 'error: no such skill: ' u.nam)
+  body.u.s
+::  +tool-str: pull a string field out of tool-call arguments
+::
+++  tool-str
+  |=  [args=@t key=@t]
+  ^-  (unit @t)
+  =/  jon  (de:json:html args)
+  ?~  jon  ~
+  ?.  ?=([%o *] u.jon)  ~
+  =/  v  (~(get by p.u.jon) key)
+  ?:(?=([~ %s *] v) `p.u.v ~)
 ::  +tool-path: pull a clay path out of tool-call arguments
 ::
 ++  tool-path
@@ -544,10 +624,11 @@
 ++  drive-put
   |=  [sid=session-id:h ses=session:h]
   ^-  (quip card _state)
-  =^  cs  ses  (drive sid ses)
-  =.  sessions  (~(put by sessions) sid ses)
+  =/  dr  (drive sid ses)
+  =.  skills  sk.dr
+  =.  sessions  (~(put by sessions) sid ses.dr)
   =^  cs2  state  (settle sid)
-  [(weld cs cs2) state]
+  [(weld cards.dr cs2) state]
 ::  +settle: if sid is a finished subagent, deliver its answer to the
 ::  parent's awaiting tool call, cascading upward
 ::

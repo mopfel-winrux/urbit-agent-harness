@@ -81,10 +81,12 @@
   ?:  ?=(%assistant -.i.rev)
     [calls.i.rev after]
   $(rev t.rev, after [i.rev after])
-::  +decide: what happens next; ~ means idle
+::  +decide: what happens next; ~ means idle.
+::  skills come from agent state (they shape the request context,
+::  hence the token estimate); the lib stays pure
 ::
 ++  decide
-  |=  v=view:h
+  |=  [v=view:h skills=(map @t skill:h)]
   ^-  (unit step:h)
   ?^  pending.v  ~
   ::  async tool results still in flight
@@ -106,7 +108,7 @@
   ?^  todo  `[%tools todo]
   =/  last=item:h  (rear items.v)
   ?:  ?=(%assistant -.last)  ~
-  ?.  (gth (est-tokens v) max-context.config.v)
+  ?.  (gth (est-tokens v skills) max-context.config.v)
     `[%turn ~]
   ::  compact only when it would actually shed items; an over-budget
   ::  irreducible tail proceeds rather than compacting forever
@@ -124,13 +126,13 @@
 ::  +est-tokens: crude budget: request bytes / 4
 ::
 ++  est-tokens
-  |=  v=view:h
+  |=  [v=view:h skills=(map @t skill:h)]
   ^-  @ud
-  (div (met 3 (en:json:html (request-body v %turn))) 4)
+  (div (met 3 (en:json:html (request-body v %turn skills))) 4)
 ::  +request-body: assemble the provider-native request
 ::
 ++  request-body
-  |=  [v=view:h kind=request-kind:h]
+  |=  [v=view:h kind=request-kind:h skills=(map @t skill:h)]
   ^-  json
   =/  msgs=(list json)
     %-  zing
@@ -141,6 +143,13 @@
         :_  ~
         %+  msg-json  'system'
         (cat 3 'Summary of the conversation so far: ' u.summary.v)
+      ::
+        ::  the skill catalog rides along whenever %skills is granted;
+        ::  names and descriptions only, bodies are read on demand
+        ::
+        ?.  &((lien tools.config.v |=(t=term =(%skills t))) !=(~ skills))
+          ~
+        ~[(msg-json 'system' (skills-catalog skills))]
       ::
         (turn items.v item-json)
       ::
@@ -161,6 +170,31 @@
   =?  base  &(=(%turn kind) !=(~ tools.config.v))
     (snoc base ['tools' (tool-defs tools.config.v)])
   (pairs:enjs:format base)
+::  +skills-catalog: the system message advertising available skills
+::
+++  skills-catalog
+  |=  skills=(map @t skill:h)
+  ^-  @t
+  %+  rap  3
+  :-  '''
+      You have a library of skills: named instructions for handling
+      particular kinds of task. When a task matches a skill, read its
+      body with the read_skill tool and follow it. Available skills:
+
+      '''
+  %+  turn  ~(tap by skills)
+  |=  [name=@t s=skill:h]
+  (rap 3 '- ' name ': ' desc.s '\0a' ~)
+::  +skills-json: the catalog for the ui (bodies withheld)
+::
+++  skills-json
+  |=  skills=(map @t skill:h)
+  ^-  json
+  :-  %a
+  %+  turn  ~(tap by skills)
+  |=  [name=@t s=skill:h]
+  ^-  json
+  (pairs:enjs:format ~[['name' %s name] ['desc' %s desc.s]])
 ::
 ++  msg-json
   |=  [role=@t content=@t]
@@ -243,6 +277,34 @@
     :~  ['url' 'the url to fetch']
         ['method' 'GET or POST; defaults to GET']
         ['body' 'optional request body']
+    ==
+  ::
+      %skills
+    :_  ~
+    %^    fun-json
+        'read_skill'
+      %-  crip
+      %+  weld
+        "Read the full body of a named skill from your skill library. "
+      "The catalog of available skills is in your context."
+    ~[['name' 'the skill name']]
+  ::
+      %skill-write
+    :~  %^    fun-json
+            'write_skill'
+          %-  crip
+          %+  weld
+            "Create or update a named skill in your persistent skill "
+          "library. Skills survive across sessions."
+        :~  ['name' 'the skill name']
+            ['description' 'one line shown in the skill catalog']
+            ['body' 'the full skill text']
+        ==
+      ::
+        %^    fun-json
+            'delete_skill'
+          'Delete a named skill from your skill library'
+        ~[['name' 'the skill name']]
     ==
   ::
       %subagents
@@ -479,6 +541,8 @@
       config+(ot ~[sid+so config+json-config])
       timer-set+(ot ~[sid+so name+(su sym) in+secs every+(mu secs) prompt+so])
       timer-cancel+(ot ~[sid+so name+(su sym)])
+      skill-add+(ot ~[name+so desc+so body+so])
+      skill-del+(ot ~[name+so])
   ==
 ::
 ++  json-config

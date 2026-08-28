@@ -30,6 +30,11 @@
 ::  a self-scheduled wakeup: when it fires, prompt enters the session
 ::
 +$  timer  [at=@da every=(unit @dr) prompt=@t]
+::  a skill: agent-level knowledge, stored in state (not the desk).
+::  the catalog (names + descs) is injected into context when the
+::  %skills family is granted; bodies are read on demand
+::
++$  skill  [desc=@t body=@t]
 ::  the closed event vocabulary
 ::
 +$  event
@@ -76,6 +81,8 @@
       [%config sid=session-id =config]
       [%timer-set sid=session-id name=@ta in=@dr every=(unit @dr) prompt=@t]
       [%timer-cancel sid=session-id name=@ta]
+      [%skill-add name=@t desc=@t body=@t]
+      [%skill-del name=@t]
       ::  internal: session spawning, sent by the agent to itself
       ::
       [%spawn parent=session-id call-id=@t prompt=@t system=(unit @t)]
