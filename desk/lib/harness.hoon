@@ -106,7 +106,12 @@
   ?^  todo  `[%tools todo]
   =/  last=item:h  (rear items.v)
   ?:  ?=(%assistant -.last)  ~
-  ?:  (gth (est-tokens v) max-context.config.v)
+  ?.  (gth (est-tokens v) max-context.config.v)
+    `[%turn ~]
+  ::  compact only when it would actually shed items; an over-budget
+  ::  irreducible tail proceeds rather than compacting forever
+  ::
+  ?:  (lth (lent (retained items.v)) (lent items.v))
     `[%compact ~]
   `[%turn ~]
 ::  +clip: cap a cord's byte length, marking truncation
@@ -238,6 +243,18 @@
     :~  ['url' 'the url to fetch']
         ['method' 'GET or POST; defaults to GET']
         ['body' 'optional request body']
+    ==
+  ::
+      %subagents
+    :_  ~
+    %^    fun-json
+        'run_subagent'
+      %-  crip
+      %+  weld
+        "Delegate a task to a fresh subagent session with no history. "
+      "It runs until done and its final answer is returned to you."
+    :~  ['prompt' 'the task for the subagent']
+        ['system' 'optional system prompt for the subagent']
     ==
   ==
 ::  +fun-json: an openai function schema; first param is required

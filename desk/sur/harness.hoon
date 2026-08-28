@@ -76,6 +76,9 @@
       [%config sid=session-id =config]
       [%timer-set sid=session-id name=@ta in=@dr every=(unit @dr) prompt=@t]
       [%timer-cancel sid=session-id name=@ta]
+      ::  internal: session spawning, sent by the agent to itself
+      ::
+      [%spawn parent=session-id call-id=@t prompt=@t system=(unit @t)]
   ==
 ::  facts
 ::

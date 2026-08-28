@@ -9,20 +9,21 @@
 /-  h=harness
 /+  hl=harness, default-agent, dbug
 |%
-+$  versioned-state
-  $%  state-0
-      state-1
-  ==
-+$  state-0  [%0 sessions=(map session-id:h session:h)]
-+$  state-1
-  $:  %1
+::  no state versioning during prototyping: on a schema change,
+::  |nuke %harness and |revive to start fresh
+::
++$  state-0
+  $:  %0
       sessions=(map session-id:h session:h)
       timers=(map [session-id:h @ta] timer:h)
+      ::  child session -> the parent tool call awaiting its answer
+      ::
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
   ==
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-1
+=|  state-0
 =*  state  -
 ^-  agent:gall
 =<
@@ -33,18 +34,22 @@
 ::
 ++  on-init
   ^-  (quip card _this)
-  [~ this]
+  :_  this
+  ~[[%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]]
 ::
 ++  on-save  !>(state)
 ::
 ++  on-load
   |=  old-vase=vase
   ^-  (quip card _this)
-  =/  old  !<(versioned-state old-vase)
-  ?-  -.old
-    %0  `this(state [%1 sessions.old ~])
-    %1  `this(state old)
-  ==
+  ::  no state versioning while prototyping: an incompatible saved
+  ::  state is dropped and we start fresh (the log is on the ship,
+  ::  not in this agent's future). rebinding every load is idempotent.
+  ::
+  =/  old  (mole |.(!<(state-0 old-vase)))
+  ~?  =(~ old)  [dap.bowl %incompatible-state-dropped]
+  :_  this(state (fall old *state-0))
+  ~[[%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]]
 ::
 ++  on-poke
   |=  [=mark =vase]
@@ -57,13 +62,19 @@
       %noun
     =^  cards  state  (handle-action:hc ;;(action:h q.vase))
     [cards this]
+  ::
+      %handle-http-request
+    =+  !<([eyre-id=@ta req=inbound-request:eyre] vase)
+    =^  cards  state  (serve:hc eyre-id req)
+    [cards this]
   ==
 ::
 ++  on-watch
   |=  =path
   ^-  (quip card _this)
   ?+  path  (on-watch:def path)
-    [%session @ ~]  `this
+    [%session @ ~]       `this
+    [%http-response *]   `this
   ==
 ::
 ++  on-leave  |=(path `this)
@@ -107,6 +118,11 @@
   |=  [=wire sign=sign-arvo]
   ^-  (quip card _this)
   ?+  wire  (on-arvo:def wire sign)
+      [%eyre %connect ~]
+    ?.  ?=([%eyre %bound *] sign)  (on-arvo:def wire sign)
+    ~?  !accepted.sign  [dap.bowl %eyre-bind-failed binding.sign]
+    `this
+  ::
       [%llm @ @ @ ~]
     =/  sid=session-id:h  i.t.wire
     =/  req=@ud  (slav %ud i.t.t.wire)
@@ -146,17 +162,15 @@
   ?-  -.act
       %new
     =/  ses=session:h  [~[[%config-replaced config.act]] 0]
-    =^  cards  ses  (drive sid.act ses)
-    :-  cards
-    state(sessions (~(put by sessions) sid.act ses))
+    =^  cards  state  (drive-put sid.act ses)
+    [cards state]
   ::
       %send
     =/  ses  (need-session sid.act)
     =^  cs1  ses
       (record-all sid.act ses ~[[%input-admitted [%user text.act]]])
-    =^  cs2  ses  (drive sid.act ses)
-    :-  (weld cs1 cs2)
-    state(sessions (~(put by sessions) sid.act ses))
+    =^  cs2  state  (drive-put sid.act ses)
+    [(weld cs1 cs2) state]
   ::
       %fork
     =/  ses  (need-session from.act)
@@ -190,17 +204,40 @@
       %retry
     =/  ses  (need-session sid.act)
     =^  cs1  ses  (record-all sid.act ses ~[[%retried ~]])
-    =^  cs2  ses  (drive sid.act ses)
-    :-  (weld cs1 cs2)
-    state(sessions (~(put by sessions) sid.act ses))
+    =^  cs2  state  (drive-put sid.act ses)
+    [(weld cs1 cs2) state]
   ::
       %config
     =/  ses  (need-session sid.act)
     =^  cs1  ses
       (record-all sid.act ses ~[[%config-replaced config.act]])
-    =^  cs2  ses  (drive sid.act ses)
-    :-  (weld cs1 cs2)
-    state(sessions (~(put by sessions) sid.act ses))
+    =^  cs2  state  (drive-put sid.act ses)
+    [(weld cs1 cs2) state]
+  ::
+      %spawn
+    ::  internal, from our own drive loop: create the child session
+    ::  from the parent's current config, sans %subagents (depth 1)
+    ::
+    ?>  =(our.bowl src.bowl)
+    =/  pses  (~(get by sessions) parent.act)
+    ?~  pses  `state
+    =/  pv  (play:hl log.u.pses)
+    =/  csid=session-id:h  (rap 3 parent.act '--' call-id.act ~)
+    =/  ccfg=config:h
+      %=  config.pv
+        tools   (skip tools.config.pv |=(t=term =(%subagents t)))
+        system  %+  fall  system.act
+                %^  cat  3  system.config.pv
+                ' You are a subagent: complete the task and reply with only your final answer.'
+      ==
+    =/  cses=session:h
+      :_  0
+      :~  [%input-admitted [%user prompt.act]]
+          [%config-replaced ccfg]
+      ==
+    =.  subs  (~(put by subs) csid [parent.act call-id.act])
+    =^  cards  state  (drive-put csid cses)
+    [cards state]
   ::
       %timer-set
     =/  key  [sid.act name.act]
@@ -281,17 +318,20 @@
     =/  acc
       %+  roll  calls.u.stp
       |=  [c=tool-call:h acc=[evs=(list event:h) tcards=(list card)]]
-      ?.  =(name.c 'http_fetch')
+      =/  async=(unit (unit card))
+        ?:  =(name.c 'http_fetch')     `(fetch-card sid c)
+        ?:  =(name.c 'run_subagent')   `(spawn-card sid c)
+        ~
+      ?~  async
         acc(evs (snoc evs.acc (run-tool c)))
-      =/  fc  (fetch-card sid c)
-      ?~  fc
+      ?~  u.async
         %=  acc  evs
           %+  snoc  evs.acc
-          `event:h`[%tool-completed id.c name.c 'error: bad http_fetch arguments']
+          `event:h`[%tool-completed id.c name.c 'error: bad tool arguments']
         ==
       %=  acc
         evs     (snoc evs.acc `event:h`[%tool-requested id.c name.c])
-        tcards  (snoc tcards.acc u.fc)
+        tcards  (snoc tcards.acc u.u.async)
       ==
     =^  cs  ses  (record-all sid ses evs.acc)
     $(cards :(weld cards cs tcards.acc))
@@ -375,9 +415,8 @@
       [%compaction-completed req body.it.p.out]
     [%llm-completed req stop.p.out u.p.out it.p.out]
   =^  cs1  ses  (record-all sid ses ~[ev])
-  =^  cs2  ses  (drive sid ses)
-  :-  (weld cs1 cs2)
-  state(sessions (~(put by sessions) sid ses))
+  =^  cs2  state  (drive-put sid ses)
+  [(weld cs1 cs2) state]
 ::  +record-all: append events to the log, give facts to subscribers
 ::
 ++  record-all
@@ -495,10 +534,114 @@
     =/  status  status-code.response-header.res
     =/  txt=@t
       ?~  full-file.res  ''
-      (clip:hl q.data.u.full-file.res 30.000)
+      (clip:hl q.data.u.full-file.res 8.000)
     (rap 3 'HTTP ' (scot %ud status) '\0a\0a' txt ~)
   =^  cs1  ses  (record-all sid ses ~[[%tool-completed call-id 'http_fetch' body]])
-  =^  cs2  ses  (drive sid ses)
-  :-  (weld cs1 cs2)
-  state(sessions (~(put by sessions) sid ses))
+  =^  cs2  state  (drive-put sid ses)
+  [(weld cs1 cs2) state]
+::  +drive-put: drive a session, store it, then settle subagent links
+::
+++  drive-put
+  |=  [sid=session-id:h ses=session:h]
+  ^-  (quip card _state)
+  =^  cs  ses  (drive sid ses)
+  =.  sessions  (~(put by sessions) sid ses)
+  =^  cs2  state  (settle sid)
+  [(weld cs cs2) state]
+::  +settle: if sid is a finished subagent, deliver its answer to the
+::  parent's awaiting tool call, cascading upward
+::
+++  settle
+  |=  sid=session-id:h
+  ^-  (quip card _state)
+  =/  link  (~(get by subs) sid)
+  ?~  link  `state
+  =/  mses  (~(get by sessions) sid)
+  ?~  mses  `state
+  =/  v  (play:hl log.u.mses)
+  ?^  pending.v  `state
+  ?.  =(~ wait.v)  `state
+  =/  result=(unit @t)
+    ?^  err.v  `(cat 3 'subagent error: ' u.err.v)
+    ?~  items.v  ~
+    =/  last  (rear items.v)
+    ?:  &(?=(%assistant -.last) =(~ calls.last))
+      `body.last
+    ~
+  ?~  result  `state
+  =.  subs  (~(del by subs) sid)
+  =/  mp  (~(get by sessions) parent.u.link)
+  ?~  mp  `state
+  =^  cs1  u.mp
+    %^  record-all  parent.u.link  u.mp
+    ~[[%tool-completed call-id.u.link 'run_subagent' u.result]]
+  =^  cs2  state  (drive-put parent.u.link u.mp)
+  [(weld cs1 cs2) state]
+::  +spawn-card: a run_subagent tool call becomes a poke to ourselves
+::
+++  spawn-card
+  |=  [sid=session-id:h c=tool-call:h]
+  ^-  (unit card)
+  =/  jon  (de:json:html args.c)
+  ?~  jon  ~
+  ?.  ?=([%o *] u.jon)  ~
+  =/  p  (~(get by p.u.jon) 'prompt')
+  ?.  ?=([~ %s *] p)  ~
+  =/  sys=(unit @t)
+    =/  s  (~(get by p.u.jon) 'system')
+    ?:(?=([~ %s *] s) `p.u.s ~)
+  :-  ~
+  :*  %pass  `wire`[%spawn `@ta`sid `@ta`id.c ~]
+      %agent  [our.bowl dap.bowl]  %poke
+      %harness-action  !>(`action:h`[%spawn sid id.c p.u.p sys])
+  ==
+::  eyre: webhooks admit input from the outside world
+::
+++  serve
+  |=  [eyre-id=@ta req=inbound-request:eyre]
+  ^-  (quip card _state)
+  =/  bad
+    |=  [code=@ud msg=@t]
+    ^-  (quip card _state)
+    [(give-http eyre-id [code ~] `(as-octs:mimes:html msg)) state]
+  ?.  =(%'POST' method.request.req)  (bad 405 'POST only')
+  =/  parsed=(unit [[ext=(unit @ta) site=(list @t)] args=(list [@t @t])])
+    %+  rush  url.request.req
+    ;~(plug apat:de-purl:html yque:de-purl:html)
+  ?~  parsed  (bad 400 'bad url')
+  =/  site=(list @t)  site.u.parsed
+  ?.  ?=([%'harness-api' %webhook @ ~] site)
+    (bad 404 'not found')
+  =/  sid=session-id:h  i.t.t.site
+  =/  mses  (~(get by sessions) sid)
+  ?~  mses  (bad 404 'no such session')
+  =/  txt=(unit @t)
+    ?~  body.request.req  ~
+    =/  jon  (de:json:html q.u.body.request.req)
+    ?~  jon  ~
+    ?.  ?=([%o *] u.jon)  ~
+    =/  t  (~(get by p.u.jon) 'text')
+    ?:(?=([~ %s *] t) `p.u.t ~)
+  ?~  txt  (bad 400 'body must be json with a "text" field')
+  =/  ses  u.mses
+  =^  cs1  ses
+    %^  record-all  sid  ses
+    ~[[%input-admitted [%user (cat 3 '[webhook] ' u.txt)]]]
+  =^  cs2  state  (drive-put sid ses)
+  :_  state
+  %+  weld  (weld cs1 cs2)
+  %^  give-http  eyre-id
+    [200 ~[['content-type' 'application/json']]]
+  `(as-octs:mimes:html '{"ok":true}')
+::
+++  give-http
+  |=  [eyre-id=@ta [status=@ud headers=header-list:http] body=(unit octs)]
+  ^-  (list card)
+  =/  pax=path  /http-response/[eyre-id]
+  :~  :*  %give  %fact  ~[pax]
+          %http-response-header  !>(`response-header:http`[status headers])
+      ==
+      [%give %fact ~[pax] %http-response-data !>(body)]
+      [%give %kick ~[pax] ~]
+  ==
 --
