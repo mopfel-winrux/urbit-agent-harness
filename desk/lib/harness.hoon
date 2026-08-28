@@ -19,8 +19,14 @@
     %input-admitted        v(items (snoc items.v item.e), err ~)
     %llm-requested         v(pending `[req.e kind.e])
     %llm-failed            v(pending ~, err `err.e)
-    %tool-completed        v(items (snoc items.v [%tool call-id.e name.e body.e]))
+    %tool-requested        v(wait (~(put in wait.v) call-id.e))
     %retried               v(err ~)
+  ::
+      %tool-completed
+    %=  v
+      wait   (~(del in wait.v) call-id.e)
+      items  (snoc items.v [%tool call-id.e name.e body.e])
+    ==
   ::
       %llm-completed
     %=  v
@@ -34,7 +40,7 @@
     %=  v
       pending  ~
       summary  `summary.e
-      items    (unanswered items.v)
+      items    (retained items.v)
     ==
   ==
 ::  +unanswered: trailing items with no assistant response yet
@@ -48,27 +54,68 @@
   ?~  rev  ~
   ?:  ?=(%assistant -.i.rev)  ~
   [i.rev $(rev t.rev)]
+::  +retained: what compaction keeps verbatim: the unanswered tail,
+::  plus up to +keep-tail recent items, never splitting a tool flow
+::
+++  keep-tail  6
+++  retained
+  |=  items=(list item:h)
+  ^-  (list item:h)
+  =/  n  (lent items)
+  =/  keep  (max (lent (unanswered items)) (min keep-tail n))
+  |-  ^-  (list item:h)
+  ?:  (gte keep n)  items
+  =/  sl  (slag (sub n keep) items)
+  ?:  ?=([[%tool *] *] sl)  $(keep +(keep))
+  sl
+::  +last-calls: the last assistant item's tool calls,
+::  and the items that came after it
+::
+++  last-calls
+  |=  items=(list item:h)
+  ^-  [calls=(list tool-call:h) after=(list item:h)]
+  =/  rev  (flop items)
+  =|  after=(list item:h)
+  |-  ^-  [calls=(list tool-call:h) after=(list item:h)]
+  ?~  rev  [~ after]
+  ?:  ?=(%assistant -.i.rev)
+    [calls.i.rev after]
+  $(rev t.rev, after [i.rev after])
 ::  +decide: what happens next; ~ means idle
 ::
 ++  decide
   |=  v=view:h
   ^-  (unit step:h)
   ?^  pending.v  ~
-  ::  a failure halts the loop; the next admitted input clears it
+  ::  async tool results still in flight
+  ::
+  ?.  =(~ wait.v)  ~
+  ::  a failure halts the loop; retry or new input clears it
   ::
   ?^  err.v  ~
   ?~  items.v  ~
-  =/  last=item:h  (rear items.v)
-  ?-  -.last
-      %assistant
-    ?~  calls.last  ~
-    `[%tools calls.last]
+  ::  outstanding tool calls from the last assistant turn
   ::
-      ?(%user %tool)
-    ?:  (gth (est-tokens v) max-context.config.v)
-      `[%compact ~]
-    `[%turn ~]
-  ==
+  =/  lc  (last-calls items.v)
+  =/  todo=(list tool-call:h)
+    =/  done=(set @t)
+      %-  ~(gas in *(set @t))
+      %+  murn  after.lc
+      |=(it=item:h ?:(?=(%tool -.it) `call-id.it ~))
+    (skip calls.lc |=(c=tool-call:h (~(has in done) id.c)))
+  ?^  todo  `[%tools todo]
+  =/  last=item:h  (rear items.v)
+  ?:  ?=(%assistant -.last)  ~
+  ?:  (gth (est-tokens v) max-context.config.v)
+    `[%compact ~]
+  `[%turn ~]
+::  +clip: cap a cord's byte length, marking truncation
+::
+++  clip
+  |=  [t=@t cap=@ud]
+  ^-  @t
+  ?:  (lte (met 3 t) cap)  t
+  (cat 3 (end [3 cap] t) ' ...(truncated)')
 ::  +est-tokens: crude budget: request bytes / 4
 ::
 ++  est-tokens
@@ -153,26 +200,76 @@
   |=  tools=(list term)
   ^-  json
   :-  %a
-  %+  murn  tools
+  %-  zing
+  %+  turn  tools
   |=  t=term
-  ^-  (unit json)
+  ^-  (list json)
   ?+  t  ~
       %ship-time
-    :-  ~
-    %-  pairs:enjs:format
-    :~  ['type' %s 'function']
-        :-  'function'
-        %-  pairs:enjs:format
-        :~  ['name' %s 'get_ship_time']
-            ['description' %s 'Get the current time on the urbit ship hosting this agent']
-            :-  'parameters'
-            %-  pairs:enjs:format
-            :~  ['type' %s 'object']
-                ['properties' %o ~]
-                ['required' %a ~]
-            ==
-        ==
+    :_  ~
+    %^    fun-json
+        'get_ship_time'
+      'Get the current time on the urbit ship hosting this agent'
+    ~
+  ::
+      %clay
+    :~  %^    fun-json
+            'read_desk_file'
+          %-  crip
+          %+  weld
+            "Read a file from the ship's filesystem (clay). "
+          "Path is /desk/spur, e.g. /harness/lib/harness/hoon"
+        ~[['path' 'the file path, as /desk/spur/file/ext']]
+      ::
+        %^    fun-json
+            'list_desk_files'
+          'List files under a clay directory. Path is /desk or /desk/spur'
+        ~[['path' 'the directory path, as /desk/spur']]
     ==
+  ::
+      %web
+    :_  ~
+    %^    fun-json
+        'http_fetch'
+      %-  crip
+      %+  weld
+        "Fetch a url over http(s). Optional method (GET or POST) "
+      "and body (sent as json when present)."
+    :~  ['url' 'the url to fetch']
+        ['method' 'GET or POST; defaults to GET']
+        ['body' 'optional request body']
+    ==
+  ==
+::  +fun-json: an openai function schema; first param is required
+::
+++  fun-json
+  |=  [name=@t desc=@t params=(list [@t @t])]
+  ^-  json
+  %-  pairs:enjs:format
+  :~  ['type' %s 'function']
+      :-  'function'
+      %-  pairs:enjs:format
+      :~  ['name' %s name]
+          ['description' %s desc]
+          :-  'parameters'
+          =/  props=json
+            :-  %o
+            %-  ~(gas by *(map @t json))
+            %+  turn  params
+            |=  [pn=@t pd=@t]
+            ^-  [@t json]
+            :-  pn
+            (pairs:enjs:format ~[['type' %s 'string'] ['description' %s pd]])
+          =/  req=json
+            :-  %a
+            ?~  params  ~
+            ~[`json`[%s -.i.params]]
+          %-  pairs:enjs:format
+          :~  ['type' %s 'object']
+              ['properties' props]
+              ['required' req]
+          ==
+      ==
   ==
 ::  +parse-response: digest a chat-completions response into branch fields
 ::
@@ -237,6 +334,7 @@
       ['summary' ?~(summary.v ~ [%s u.summary.v])]
       ['items' %a (turn items.v item-ui-json)]
       ['pending' %b !=(~ pending.v)]
+      ['wait' %a (turn ~(tap in wait.v) |=(id=@t `json`[%s id]))]
       ['err' ?~(err.v ~ [%s u.err.v])]
       :-  'usage'
       %-  pairs:enjs:format
@@ -313,6 +411,12 @@
         ['err' %s err.e]
     ==
   ::
+      %tool-requested
+    %-  pairs:enjs:format
+    :~  ['type' %s 'tool-requested']
+        ['name' %s name.e]
+    ==
+  ::
       %tool-completed
     %-  pairs:enjs:format
     :~  ['type' %s 'tool']
@@ -346,6 +450,7 @@
   |=  jon=json
   ^-  action:h
   =,  dejs:format
+  =/  secs  (cu |=(s=@ud `@dr`(mul s ~s1)) ni)
   %.  jon
   %-  of
   :~  new+(ot ~[sid+so config+json-config])
@@ -355,6 +460,8 @@
       cancel+(ot ~[sid+so])
       retry+(ot ~[sid+so])
       config+(ot ~[sid+so config+json-config])
+      timer-set+(ot ~[sid+so name+(su sym) in+secs every+(mu secs) prompt+so])
+      timer-cancel+(ot ~[sid+so name+(su sym)])
   ==
 ::
 ++  json-config

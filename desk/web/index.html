@@ -166,7 +166,9 @@
       case 'llm-failed':
         hideSpinner(); note(`error: ${ev.err}`, true); setStatus('error');
         break;
-      case 'tool': el('tool', `tool result · ${ev.name}`, ev.body); break;
+      case 'tool': hideSpinner(); el('tool', `tool result · ${ev.name}`, ev.body); break;
+      case 'tool-requested':
+        showSpinner(); setStatus(`running ${ev.name}…`); break;
       case 'compaction':
         hideSpinner();
         note('— context compacted —');

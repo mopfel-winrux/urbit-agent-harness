@@ -27,6 +27,9 @@
       max-context=@ud     ::  rough token budget before compaction
       tools=(list term)   ::  granted tool families
   ==
+::  a self-scheduled wakeup: when it fires, prompt enters the session
+::
++$  timer  [at=@da every=(unit @dr) prompt=@t]
 ::  the closed event vocabulary
 ::
 +$  event
@@ -35,6 +38,7 @@
       [%llm-requested req=@ud kind=request-kind]
       [%llm-completed req=@ud stop=stop-reason =usage =item]
       [%llm-failed req=@ud err=@t]
+      [%tool-requested call-id=@t name=@t]
       [%tool-completed call-id=@t name=@t body=@t]
       [%compaction-completed req=@ud summary=@t]
       [%retried ~]
@@ -49,6 +53,7 @@
       summary=(unit @t)
       items=(list item)
       pending=(unit [req=@ud kind=request-kind])
+      wait=(set @t)                    ::  async tool calls in flight
       total=usage
       err=(unit @t)
   ==
@@ -69,6 +74,8 @@
       [%cancel sid=session-id]
       [%retry sid=session-id]
       [%config sid=session-id =config]
+      [%timer-set sid=session-id name=@ta in=@dr every=(unit @dr) prompt=@t]
+      [%timer-cancel sid=session-id name=@ta]
   ==
 ::  facts
 ::

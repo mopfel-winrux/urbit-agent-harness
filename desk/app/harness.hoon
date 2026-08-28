@@ -11,12 +11,18 @@
 |%
 +$  versioned-state
   $%  state-0
+      state-1
   ==
 +$  state-0  [%0 sessions=(map session-id:h session:h)]
++$  state-1
+  $:  %1
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+  ==
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-0
+=|  state-1
 =*  state  -
 ^-  agent:gall
 =<
@@ -36,7 +42,8 @@
   ^-  (quip card _this)
   =/  old  !<(versioned-state old-vase)
   ?-  -.old
-    %0  `this(state old)
+    %0  `this(state [%1 sessions.old ~])
+    %1  `this(state old)
   ==
 ::
 ++  on-poke
@@ -77,6 +84,21 @@
     =/  ses  (~(get by sessions) sid)
     ?~  ses  [~ ~]
     ``json+!>((view-json:hl (play:hl log.u.ses)))
+  ::
+      [%x %timers ~]
+    :^  ~  ~  %json
+    !>  ^-  json
+    :-  %a
+    %+  turn  ~(tap by timers)
+    |=  [[sid=session-id:h name=@ta] t=timer:h]
+    ^-  json
+    %-  pairs:enjs:format
+    :~  ['sid' %s sid]
+        ['name' %s name]
+        ['at' %s (scot %da at.t)]
+        ['every' ?~(every.t ~ [%s (scot %dr u.every.t)])]
+        ['prompt' %s prompt.t]
+    ==
   ==
 ::
 ++  on-agent  |=([wire sign:agent:gall] (on-agent:def +<))
@@ -92,6 +114,21 @@
     ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
     =^  cards  state
       (handle-llm-response:hc sid req kind client-response.sign)
+    [cards this]
+  ::
+      [%tool @ @ ~]
+    =/  sid=session-id:h  i.t.wire
+    =/  call-id=@t  i.t.t.wire
+    ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
+    =^  cards  state
+      (handle-tool-response:hc sid call-id client-response.sign)
+    [cards this]
+  ::
+      [%timer @ @ ~]
+    =/  sid=session-id:h  i.t.wire
+    =/  name=@ta  i.t.t.wire
+    ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+    =^  cards  state  (handle-timer-fire:hc sid name error.sign)
     [cards this]
   ==
 ::
@@ -127,7 +164,8 @@
     ::  everything else is shared structure, copied for free
     ::
     =/  clean=(list event:h)
-      (skip log.ses |=(e=event:h ?=(%llm-requested -.e)))
+      %+  skip  log.ses
+      |=(e=event:h ?=(?(%llm-requested %tool-requested) -.e))
     :-  ~
     state(sessions (~(put by sessions) to.act [clean next-req.ses]))
   ::
@@ -144,7 +182,8 @@
     ::  a late response will mismatch the (now absent) pending marker
     ::
     =/  clean=(list event:h)
-      (skip log.ses |=(e=event:h ?=(%llm-requested -.e)))
+      %+  skip  log.ses
+      |=(e=event:h ?=(?(%llm-requested %tool-requested) -.e))
     :-  ~
     state(sessions (~(put by sessions) sid.act [clean next-req.ses]))
   ::
@@ -162,7 +201,62 @@
     =^  cs2  ses  (drive sid.act ses)
     :-  (weld cs1 cs2)
     state(sessions (~(put by sessions) sid.act ses))
+  ::
+      %timer-set
+    =/  key  [sid.act name.act]
+    =/  at=@da  (add now.bowl in.act)
+    =/  old  (~(get by timers) key)
+    :_  state(timers (~(put by timers) key [at every.act prompt.act]))
+    %-  zing
+    :~  ?~  old  ~
+        ~[(rest-card sid.act name.act at.u.old)]
+      ::
+        ~[(wait-card sid.act name.act at)]
+    ==
+  ::
+      %timer-cancel
+    =/  key  [sid.act name.act]
+    =/  old  (~(get by timers) key)
+    ?~  old  `state
+    :-  ~[(rest-card sid.act name.act at.u.old)]
+    state(timers (~(del by timers) key))
   ==
+::
+++  wait-card
+  |=  [sid=session-id:h name=@ta at=@da]
+  ^-  card
+  [%pass `wire`[%timer `@ta`sid name ~] %arvo %b %wait at]
+::
+++  rest-card
+  |=  [sid=session-id:h name=@ta at=@da]
+  ^-  card
+  [%pass `wire`[%timer `@ta`sid name ~] %arvo %b %rest at]
+::  +handle-timer-fire: a wakeup becomes ordinary admitted input
+::
+++  handle-timer-fire
+  |=  [sid=session-id:h name=@ta err=(unit tang)]
+  ^-  (quip card _state)
+  =/  key  [sid name]
+  =/  mt  (~(get by timers) key)
+  ?~  mt  `state
+  ?^  err
+    ~&  [%harness-timer-error sid name]
+    `state
+  =/  mses  (~(get by sessions) sid)
+  ?~  mses  `state(timers (~(del by timers) key))
+  =/  ses  u.mses
+  =^  cs1  ses
+    %^  record-all  sid  ses
+    ~[[%input-admitted [%user (rap 3 '[timer %' name ' fired] ' prompt.u.mt ~)]]]
+  =^  cs2  ses  (drive sid ses)
+  =/  rearm=[cs=(list card) nt=_timers]
+    ?~  every.u.mt
+      [~ (~(del by timers) key)]
+    =/  at2=@da  (add now.bowl u.every.u.mt)
+    :-  ~[(wait-card sid name at2)]
+    (~(put by timers) key [at2 every.u.mt prompt.u.mt])
+  :-  :(weld cs1 cs2 cs.rearm)
+  state(sessions (~(put by sessions) sid ses), timers nt.rearm)
 ::
 ++  need-session
   |=  sid=session-id:h
@@ -181,9 +275,26 @@
   ?~  stp  [cards ses]
   ?-  -.u.stp
       %tools
-    =/  evs=(list event:h)  (turn calls.u.stp run-tool)
-    =^  cs  ses  (record-all sid ses evs)
-    $(cards (weld cards cs))
+    ::  sync tools run on-ship now; async tools (iris) record a
+    ::  request marker and their results re-enter as events
+    ::
+    =/  acc
+      %+  roll  calls.u.stp
+      |=  [c=tool-call:h acc=[evs=(list event:h) tcards=(list card)]]
+      ?.  =(name.c 'http_fetch')
+        acc(evs (snoc evs.acc (run-tool c)))
+      =/  fc  (fetch-card sid c)
+      ?~  fc
+        %=  acc  evs
+          %+  snoc  evs.acc
+          `event:h`[%tool-completed id.c name.c 'error: bad http_fetch arguments']
+        ==
+      %=  acc
+        evs     (snoc evs.acc `event:h`[%tool-requested id.c name.c])
+        tcards  (snoc tcards.acc u.fc)
+      ==
+    =^  cs  ses  (record-all sid ses evs.acc)
+    $(cards :(weld cards cs tcards.acc))
   ::
       %turn
     =^  cs  ses  (issue-llm sid ses %turn v)
@@ -283,12 +394,111 @@
                  %harness-update  !>(`update:h`[%event sid i.evs])
              ==
   ==
-::  +run-tool: phase-0 tools execute on-ship, synchronously
+::  +run-tool: sync tools execute on-ship, immediately
 ::
 ++  run-tool
   |=  c=tool-call:h
   ^-  event:h
-  ?:  =(name.c 'get_ship_time')
-    [%tool-completed id.c name.c (scot %da now.bowl)]
-  [%tool-completed id.c name.c (cat 3 'unknown tool: ' name.c)]
+  =/  out=@t
+    ?:  =(name.c 'get_ship_time')
+      (scot %da now.bowl)
+    ?:  =(name.c 'read_desk_file')
+      (read-desk-file args.c)
+    ?:  =(name.c 'list_desk_files')
+      (list-desk-files args.c)
+    (cat 3 'unknown tool: ' name.c)
+  [%tool-completed id.c name.c out]
+::  +tool-path: pull a clay path out of tool-call arguments
+::
+++  tool-path
+  |=  args=@t
+  ^-  (unit path)
+  =/  jon  (de:json:html args)
+  ?~  jon  ~
+  ?.  ?=([%o *] u.jon)  ~
+  =/  p  (~(get by p.u.jon) 'path')
+  ?.  ?=([~ %s *] p)  ~
+  (rush p.u.p stap)
+::
+++  read-desk-file
+  |=  args=@t
+  ^-  @t
+  =/  pax  (tool-path args)
+  ?~  pax  'error: bad path argument'
+  ?.  ?=([@ @ *] u.pax)  'error: path must be /desk/spur/file/ext'
+  =/  bas=path  /(scot %p our.bowl)/[i.u.pax]/(scot %da now.bowl)
+  =/  spur=path  t.u.pax
+  =/  res
+    %-  mole  |.
+    ?.  .^(? %cu (weld bas spur))  'error: no such file'
+    =/  ext  (rear spur)
+    =/  =tube:clay  .^(tube:clay %cc (weld bas /[ext]/mime))
+    =/  =mime  !<(mime (tube .^(vase %cr (weld bas spur))))
+    (clip:hl q.q.mime 50.000)
+  ?~  res  'error: could not read file'
+  u.res
+::
+++  list-desk-files
+  |=  args=@t
+  ^-  @t
+  =/  pax  (tool-path args)
+  ?~  pax  'error: bad path argument'
+  ?~  u.pax  'error: need at least /desk'
+  =/  bas=path  /(scot %p our.bowl)/[i.u.pax]/(scot %da now.bowl)
+  =/  res
+    %-  mole  |.
+    =/  paths  .^((list path) %ct (weld bas t.u.pax))
+    %+  clip:hl
+      (crip (zing (turn paths |=(p=path (weld (spud p) "\0a")))))
+    50.000
+  ?~  res  'error: could not list directory'
+  u.res
+::  +fetch-card: an http_fetch tool call becomes an iris request
+::
+++  fetch-card
+  |=  [sid=session-id:h c=tool-call:h]
+  ^-  (unit card)
+  =/  jon  (de:json:html args.c)
+  ?~  jon  ~
+  ?.  ?=([%o *] u.jon)  ~
+  =/  url  (~(get by p.u.jon) 'url')
+  ?.  ?=([~ %s *] url)  ~
+  =/  method=method:http
+    =/  m  (~(get by p.u.jon) 'method')
+    ?:(&(?=([~ %s *] m) =('POST' p.u.m)) %'POST' %'GET')
+  =/  body=(unit octs)
+    =/  b  (~(get by p.u.jon) 'body')
+    ?.  ?=([~ %s *] b)  ~
+    `(as-octs:mimes:html p.u.b)
+  =/  hdrs=header-list:http
+    ?~(body ~ ~[['content-type' 'application/json']])
+  =/  =request:http  [method p.u.url hdrs body]
+  :-  ~
+  :*  %pass  `wire`[%tool `@ta`sid `@ta`id.c ~]
+      %arvo  %i  %request  request  *outbound-config:iris
+  ==
+::  +handle-tool-response: an async tool result re-enters as an event
+::
+++  handle-tool-response
+  |=  [sid=session-id:h call-id=@t res=client-response:iris]
+  ^-  (quip card _state)
+  ?:  ?=(%progress -.res)  `state
+  =/  mses  (~(get by sessions) sid)
+  ?~  mses  `state
+  =/  ses  u.mses
+  =/  v  (play:hl log.ses)
+  ::  ignore stale results (cancelled or forked-away requests)
+  ::
+  ?.  (~(has in wait.v) call-id)  `state
+  =/  body=@t
+    ?:  ?=(%cancel -.res)  'error: request cancelled by runtime'
+    =/  status  status-code.response-header.res
+    =/  txt=@t
+      ?~  full-file.res  ''
+      (clip:hl q.data.u.full-file.res 30.000)
+    (rap 3 'HTTP ' (scot %ud status) '\0a\0a' txt ~)
+  =^  cs1  ses  (record-all sid ses ~[[%tool-completed call-id 'http_fetch' body]])
+  =^  cs2  ses  (drive sid ses)
+  :-  (weld cs1 cs2)
+  state(sessions (~(put by sessions) sid ses))
 --
