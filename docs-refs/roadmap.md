@@ -1,6 +1,6 @@
 # Roadmap
 
-What's next, roughly in priority order. See [`../README.md`](../README.md) for what already works and [`../urbit-agent/harness-design-notes.md`](../urbit-agent/harness-design-notes.md) for the design these trace back to.
+What's next, roughly in priority order. See [`../README.md`](../README.md) for what already works and the [harness design notes](https://github.com/lukebuehler/urbit-agent/blob/main/harness-design-notes.md) for the design these trace back to.
 
 ## Near term
 

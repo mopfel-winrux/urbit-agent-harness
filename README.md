@@ -2,7 +2,7 @@
 
 An **AI agent harness that runs as a Gall agent on Urbit** — the durable, event-sourced *head* of an agent loop, with the heavy *hands* (LLM calls, code execution, web) borrowed from the runtime and other ships.
 
-It follows the ["Urbit is for your personal agent harness"](urbit-agent/README.md) proposal: the agent loop is a deterministic state machine over an event log — exactly Arvo's shape — so the parts that make Urbit awkward for ordinary apps (one event log, computation split from I/O, state as a value) are precisely what a long-lived, forkable, self-modifying agent wants.
+It follows the ["Urbit is for your personal agent harness"](https://github.com/lukebuehler/urbit-agent/blob/main/README.md) proposal: the agent loop is a deterministic state machine over an event log — exactly Arvo's shape — so the parts that make Urbit awkward for ordinary apps (one event log, computation split from I/O, state as a value) are precisely what a long-lived, forkable, self-modifying agent wants.
 
 > Working name of the desk is `%harness`. It'll probably get a better one.
 
@@ -93,8 +93,8 @@ Open `http://localhost:8081/harness` (fakezod code `lidlut-tabwed-pillex-ridrup`
 
 ## Design docs
 
-- [`urbit-agent/README.md`](urbit-agent/README.md) — the proposal
-- [`urbit-agent/harness-design-notes.md`](urbit-agent/harness-design-notes.md) — the technical design this implements
+- [lukebuehler/urbit-agent — README](https://github.com/lukebuehler/urbit-agent/blob/main/README.md) — the proposal
+- [lukebuehler/urbit-agent — harness-design-notes](https://github.com/lukebuehler/urbit-agent/blob/main/harness-design-notes.md) — the technical design this implements
 - [`docs-refs/lightspeed-design.md`](docs-refs/lightspeed-design.md) — the prior-art harness (Rust/Temporal) whose invariants we follow
 - [`docs-refs/a2a-design.md`](docs-refs/a2a-design.md) — the agent-to-agent design
 - [`docs-refs/threads-substrate-notes.md`](docs-refs/threads-substrate-notes.md) — the wasm-threads spike behind `run_js`
