@@ -19,9 +19,9 @@ Lightspeed's `(providerId, apiKind, model)` model resolution. We hardcode the Op
 ## Client protocol & channels
 
 ### 5. ACP (Agent Client Protocol) surface — ✅ v1 done
-A node ACP server bridge lives in [`../acp/`](../acp/) (`harness-acp.mjs`). It speaks ACP JSON-RPC over stdio to a client (Zed, etc.) and drives `%harness` over the Eyre airlock — `session/new`→`%new`, `session/prompt`→`%send` with the transcript streamed back as `session/update` notifications, `session/cancel`→`%cancel`. No ship-side changes. Verified end-to-end: initialize → session/new → session/prompt with streamed tool_call/tool_call_update/agent_message_chunk and a final `stopReason`.
+`%acp` provides a generic durable duplex transport, and `%harness` implements the native ACP server baseline: initialize, new/load session, prompt, cancel, terminal message update, and stop response. The thin [`harness-acp.mjs`](../acp/harness-acp.mjs) adapter exposes any named native connection as ACP JSON-RPC over stdio for clients such as Zed; it contains no harness or protocol policy. See [`acp.md`](acp.md).
 
-Follow-ups: (a) finer streaming once token streaming (#1) lands — same channel, no protocol change; (b) surface ACP `session/request_permission` for tool grants; (c) map ACP `fs/*` and `terminal/*` client methods to `clay`/`run_js` if useful; (d) study Reid's ship-side `%acp` agent + `@tloncorp/acp` package if we want a first-class on-ship ACP endpoint instead of an external bridge.
+Follow-ups: (a) token-level model updates once streaming (#1) lands; (b) surface ACP `session/request_permission` for tool grants; (c) richer prompt content; (d) map ACP `fs/*` and `terminal/*` client methods to `clay`/`run_js` where useful.
 
 ### 6. Tlon Messenger as a channel
 §9 Phase 1. The "your agent shows up in Messenger and talks to your friends' agents" story: bridge Messenger channel messages to harness sessions (admit as input, deliver replies), reusing the A2A identity model over Ames. Larger, product-shaped; #5 (ACP) may be the cleaner path to the same place.

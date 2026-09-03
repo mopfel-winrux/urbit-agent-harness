@@ -1,49 +1,41 @@
 #!/usr/bin/env node
-// harness-acp: an Agent Client Protocol (agentclientprotocol.com) server
-// that bridges an ACP client (Zed, etc.) to the %harness agent on an Urbit
-// ship. Speaks newline-delimited JSON-RPC over stdio to the client, and
-// drives %harness over the Eyre airlock (pokes + scries).
-//
-// No ship-side changes: an ACP session is a %harness session, session/prompt
-// is a %send, session/cancel is a %cancel, and %harness's transcript is
-// polled and translated into ACP session/update notifications.
-//
-// env:
-//   SHIP_URL    default http://localhost:8081
-//   SHIP_CODE   default lidlut-tabwed-pillex-ridrup   (fakezod +code)
-//   HARNESS_URL provider endpoint (default OpenRouter chat-completions)
-//   HARNESS_MODEL default openai/gpt-4o-mini
-//   The session's api key is left blank, so the ship's stored key (set via
-//   the %harness "set key" button / %set-key) is used.
+// Thin Agent Client Protocol stdio adapter for the generic on-ship %acp
+// transport. ACP JSON-RPC is implemented by the harness behind the selected
+// connection; this process only moves durable frames between stdio and Eyre.
+
 import { createInterface } from 'node:readline';
+import { once } from 'node:events';
 
 const SHIP_URL = process.env.SHIP_URL || 'http://localhost:8081';
 const SHIP_CODE = process.env.SHIP_CODE || 'lidlut-tabwed-pillex-ridrup';
-const PROVIDER_URL =
-  process.env.HARNESS_URL || 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL = process.env.HARNESS_MODEL || 'openai/gpt-4o-mini';
-const SYSTEM =
-  process.env.HARNESS_SYSTEM ||
-  'You are a helpful agent living on an Urbit ship, reached over ACP. Be concise.';
+const ACP_CONNECTION = process.env.ACP_CONNECTION || 'harness';
+const POLL_MS = Number(process.env.ACP_POLL_MS || 100);
 
-// ---- airlock -------------------------------------------------------------
+if (!/^[a-z0-9-]{1,128}$/.test(ACP_CONNECTION)) {
+  throw new Error('ACP_CONNECTION must contain 1-128 lowercase letters, digits, or hyphens');
+}
+if (!Number.isFinite(POLL_MS) || POLL_MS < 10) {
+  throw new Error('ACP_POLL_MS must be a number of at least 10');
+}
 
 let cookie = null;
 let shipName = 'zod';
-let channelId = `acp-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+const channelId = `acp-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 let eventId = 0;
+let running = true;
 
 async function login() {
   const res = await fetch(`${SHIP_URL}/~/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: `password=${SHIP_CODE}`,
+    body: `password=${encodeURIComponent(SHIP_CODE)}`,
   });
   if (!res.ok) throw new Error(`login failed: ${res.status}`);
-  const setc = res.headers.get('set-cookie') || '';
-  cookie = setc.split(';')[0];
-  const m = cookie.match(/urbauth-~([\w-]+)/);
-  if (m) shipName = m[1];
+
+  const setCookie = res.headers.get('set-cookie') || '';
+  cookie = setCookie.split(';')[0];
+  const match = cookie.match(/urbauth-~([\w-]+)/);
+  if (match) shipName = match[1];
   if (!cookie) throw new Error('login: no cookie');
 }
 
@@ -53,8 +45,8 @@ async function poke(action) {
       id: ++eventId,
       action: 'poke',
       ship: shipName,
-      app: 'harness',
-      mark: 'harness-action',
+      app: 'acp',
+      mark: 'acp-action-1',
       json: action,
     },
   ];
@@ -63,238 +55,116 @@ async function poke(action) {
     headers: { 'content-type': 'application/json', cookie },
     body: JSON.stringify(body),
   });
-  if (res.status !== 204 && res.status !== 200)
-    throw new Error(`poke failed: ${res.status}`);
+  if (res.status !== 204 && res.status !== 200) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`%acp poke failed: ${res.status}${detail ? ` ${detail}` : ''}`);
+  }
 }
 
-async function scry(path) {
-  const res = await fetch(`${SHIP_URL}/~/scry/harness/${path}.json`, {
+async function clientQueue() {
+  // Eyre supplies Gall's leading %x namespace for HTTP scries.
+  const path = `v1/${ACP_CONNECTION}/client`;
+  const res = await fetch(`${SHIP_URL}/~/scry/acp/${path}.json`, {
     headers: { cookie },
   });
-  if (!res.ok) return null;
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`%acp scry failed: ${res.status}`);
   return res.json();
 }
 
-async function allTools() {
-  const t = await scry('tools');
-  return Array.isArray(t) && t.length
-    ? t
-    : ['ship-time', 'clay', 'web', 'code', 'skills', 'subagents', 'peers'];
-}
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// ---- jsonrpc over stdio --------------------------------------------------
-
-function send(msg) {
-  process.stdout.write(`${JSON.stringify(msg)}\n`);
-}
-function reply(id, result) {
-  send({ jsonrpc: '2.0', id, result });
-}
-function replyErr(id, code, message) {
-  send({ jsonrpc: '2.0', id, error: { code, message } });
-}
-function notify(method, params) {
-  send({ jsonrpc: '2.0', method, params });
-}
-
-// ---- session state -------------------------------------------------------
-
-// sessionId -> { seen: number(items already streamed), cancelled: bool }
-const sessions = new Map();
-
-function textOf(item) {
-  return item?.body || '';
-}
-
-// translate transcript items [seen..] into ACP session/update notifications
-function streamItems(sessionId, items, from) {
-  for (let i = from; i < items.length; i++) {
-    const it = items[i];
-    if (it.role === 'assistant') {
-      if (it.body) {
-        notify('session/update', {
-          sessionId,
-          update: {
-            sessionUpdate: 'agent_message_chunk',
-            content: { type: 'text', text: it.body },
-          },
-        });
-      }
-      for (const call of it.calls || []) {
-        notify('session/update', {
-          sessionId,
-          update: {
-            sessionUpdate: 'tool_call',
-            toolCallId: `${sessionId}-${i}-${call.name}`,
-            title: call.name,
-            status: 'in_progress',
-            rawInput: safeJson(call.args),
-          },
-        });
-      }
-    } else if (it.role === 'tool') {
-      notify('session/update', {
-        sessionId,
-        update: {
-          sessionUpdate: 'tool_call_update',
-          toolCallId: `${sessionId}-tool-${i}-${it.name}`,
-          status: 'completed',
-          content: [{ type: 'content', content: { type: 'text', text: textOf(it) } }],
-        },
-      });
-    }
-  }
-  return items.length;
-}
-
-function safeJson(s) {
-  try {
-    return JSON.parse(s);
-  } catch {
-    return { raw: s };
-  }
-}
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-// poll the session until the turn ends, streaming updates as items arrive
-async function driveTurn(sessionId) {
-  const st = sessions.get(sessionId);
-  const deadline = Date.now() + 5 * 60 * 1000;
-  while (Date.now() < deadline) {
-    if (st.cancelled) return 'cancelled';
-    const v = await scry(`session/${sessionId}`);
-    if (!v) return 'refusal';
-    st.seen = streamItems(sessionId, v.items || [], st.seen);
-    const busy = v.pending || (v.wait && v.wait.length);
-    if (!busy) {
-      if (v.err) {
-        notify('session/update', {
-          sessionId,
-          update: {
-            sessionUpdate: 'agent_message_chunk',
-            content: { type: 'text', text: `⚠ ${v.err}` },
-          },
-        });
-        return 'refusal';
-      }
-      const last = (v.items || [])[v.items.length - 1];
-      if (last && last.role === 'assistant' && !(last.calls || []).length)
-        return 'end_turn';
-    }
-    await sleep(600);
-  }
-  return 'max_tokens';
-}
-
-// ---- method handlers -----------------------------------------------------
-
-async function onInitialize(id) {
-  reply(id, {
-    protocolVersion: 1,
-    agentCapabilities: { loadSession: true, promptCapabilities: { image: false } },
-    agentInfo: { name: 'harness-acp', title: 'Urbit %harness (ACP)', version: '0.1.0' },
-    authMethods: [],
-  });
-}
-
-async function onNewSession(id, params) {
-  const sessionId = `acp-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-  const tools = await allTools();
+async function sendToAgent(payload) {
   await poke({
-    new: {
-      sid: sessionId,
-      config: {
-        url: PROVIDER_URL,
-        model: MODEL,
-        key: '',
-        system: SYSTEM,
-        'max-context': 12000,
-        tools,
-      },
+    send: {
+      connection: ACP_CONNECTION,
+      target: 'agent',
+      payload,
     },
   });
-  sessions.set(sessionId, { seen: 0, cancelled: false });
-  reply(id, { sessionId });
 }
 
-async function onLoadSession(id, params) {
-  const sessionId = params?.sessionId;
-  const v = sessionId && (await scry(`session/${sessionId}`));
-  if (!v) return replyErr(id, -32602, 'no such session');
-  sessions.set(sessionId, { seen: (v.items || []).length, cancelled: false });
-  reply(id, {});
+async function acknowledgeClient(through) {
+  await poke({
+    ack: {
+      connection: ACP_CONNECTION,
+      target: 'client',
+      through,
+    },
+  });
 }
 
-async function onPrompt(id, params) {
-  const sessionId = params?.sessionId;
-  const st = sessions.get(sessionId);
-  if (!st) return replyErr(id, -32602, 'unknown session');
-  st.cancelled = false;
-  const text = (params.prompt || [])
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n')
-    .trim();
-  if (!text) return replyErr(id, -32602, 'empty prompt');
-  // sync seen to current transcript so we only stream this turn's items
-  const before = await scry(`session/${sessionId}`);
-  st.seen = before ? (before.items || []).length : st.seen;
-  await poke({ send: { sid: sessionId, text } });
-  const stopReason = await driveTurn(sessionId);
-  reply(id, { stopReason });
-}
+async function pumpClientQueue() {
+  let through = 0;
 
-async function onCancel(params) {
-  const sessionId = params?.sessionId;
-  const st = sessions.get(sessionId);
-  if (st) st.cancelled = true;
-  if (sessionId) await poke({ cancel: { sid: sessionId } }).catch(() => {});
-}
+  while (running) {
+    const update = await clientQueue();
+    const messages = Array.isArray(update?.messages) ? update.messages : [];
+    messages.sort((a, b) => Number(a.sequence) - Number(b.sequence));
 
-// ---- main loop -----------------------------------------------------------
+    for (const message of messages) {
+      const sequence = Number(message.sequence);
+      if (!Number.isSafeInteger(sequence) || sequence <= through) continue;
+      if (typeof message.payload !== 'string') {
+        throw new Error(`%acp returned a non-string payload at sequence ${sequence}`);
+      }
 
-async function handle(req) {
-  try {
-    switch (req.method) {
-      case 'initialize':
-        return onInitialize(req.id);
-      case 'authenticate':
-        return reply(req.id, {});
-      case 'session/new':
-        return onNewSession(req.id, req.params);
-      case 'session/load':
-        return onLoadSession(req.id, req.params);
-      case 'session/prompt':
-        return onPrompt(req.id, req.params);
-      case 'session/cancel':
-        return onCancel(req.params);
-      default:
-        if (req.id !== undefined)
-          replyErr(req.id, -32601, `method not found: ${req.method}`);
+      // stdout is exclusively ACP NDJSON. Acknowledge only after handing the
+      // complete frame to the client-side stream.
+      if (!process.stdout.write(`${message.payload}\n`)) {
+        await once(process.stdout, 'drain');
+      }
+      through = sequence;
+      await acknowledgeClient(through);
     }
-  } catch (e) {
-    if (req.id !== undefined) replyErr(req.id, -32603, String(e?.message || e));
+
+    await sleep(POLL_MS);
   }
+}
+
+function parseError() {
+  process.stdout.write(
+    `${JSON.stringify({
+      jsonrpc: '2.0',
+      id: null,
+      error: { code: -32700, message: 'Parse error' },
+    })}\n`,
+  );
 }
 
 async function main() {
   await login();
+
+  // Opening is idempotent when the native harness already owns the connection.
+  await poke({ open: { connection: ACP_CONNECTION } });
+
   const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
-  for await (const line of lines) {
-    if (!line.trim()) continue;
-    let req;
-    try {
-      req = JSON.parse(line);
-    } catch {
-      send({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
-      continue;
+  let pumpError = null;
+  const pump = pumpClientQueue().catch((error) => {
+    pumpError = error;
+    running = false;
+    lines.close();
+  });
+
+  try {
+    for await (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        JSON.parse(line);
+      } catch {
+        parseError();
+        continue;
+      }
+      await sendToAgent(line);
     }
-    handle(req);
+  } finally {
+    running = false;
+    await pump;
   }
+  if (pumpError) throw pumpError;
 }
 
-main().catch((e) => {
-  process.stderr.write(`harness-acp fatal: ${e?.stack || e}\n`);
+main().catch((error) => {
+  process.stderr.write(`harness-acp fatal: ${error?.stack || error}\n`);
   process.exit(1);
 });
