@@ -1,13 +1,9 @@
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-function webConnection() {
-  if (typeof sessionStorage === 'undefined') return 'harness'
-  let connection = sessionStorage.getItem('harness-acp-connection')
-  if (!connection) {
-    connection = `harness-web-${crypto.randomUUID().replaceAll('-', '').slice(0, 20)}`
-    sessionStorage.setItem('harness-acp-connection', connection)
-  }
-  return connection
+export function webConnection() {
+  const random = globalThis.crypto?.randomUUID?.().replaceAll('-', '').slice(0, 20)
+    || `${Date.now()}${Math.floor(Math.random() * 1e9)}`
+  return `harness-web-${random}`
 }
 
 class AcpClient extends EventTarget {
@@ -95,7 +91,10 @@ class AcpClient extends EventTarget {
   async poll() {
     while (this.running) {
       try {
-        const response = await fetch(`/~/scry/acp/v1/${this.connection}/client.json`, { credentials: 'same-origin' })
+        const response = await fetch(`/~/scry/acp/v1/${this.connection}/client.json?_=${Date.now()}`, {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        })
         if (response.status === 404) {
           await this.recover()
           await sleep(100)
