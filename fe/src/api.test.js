@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { defaultConfig, paths, scryUrl } from './api.js'
+import { DEFAULT_SYSTEM_PROMPT, defaultConfig, paths, scryUrl } from './api.js'
 
 test('native Harness scries encode the typed Gall namespace', () => {
   assert.equal(scryUrl('session/research-notes'), '/~/scry/harness/session/research-notes.json')
@@ -24,4 +24,12 @@ test('new conversations default to an OpenAI-compatible endpoint', () => {
   const config = defaultConfig()
   assert.match(config.url, /openrouter\.ai/)
   assert.deepEqual(config.headers, [])
+})
+
+test('the default context presents Harness as a durable, bounded agent', () => {
+  const config = defaultConfig()
+  assert.equal(config.system, DEFAULT_SYSTEM_PROMPT)
+  assert.match(config.system, /continuity across conversations, clients, and time/)
+  assert.match(config.system, /Tool grants are authoritative/)
+  assert.match(config.system, /reusable knowledge and skills/)
 })

@@ -810,7 +810,7 @@
       'openai/gpt-4o-mini'
       ''
       ~
-      'You are a helpful agent living on an Urbit ship. Be concise.'
+      default-system:hl
       12.000
       all-tools:hl
   ==
