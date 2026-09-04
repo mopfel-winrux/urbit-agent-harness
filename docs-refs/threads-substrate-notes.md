@@ -1,8 +1,8 @@
 # WASM threads as an execution substrate for agent-authored code
 
-Spike date: 2026-08-28. Ship: fakezod `zod/` (base `[%zuse 408]`), vere 4.6 release
-binary (`/home/amadeo/urbit/vere-v4.6-linux-x86_64`). Repos vendored (tarballs, no
-git) into `orchestra/`, `threads-js/`, `urwasm/` in this working dir.
+The evaluation used a fakezod on base `[%zuse 408]` with vere 4.6. The relevant
+repositories were supplied as source trees for `orchestra`, `threads-js`, and
+`urwasm`.
 
 ## Verdict: VIABLE — proven end-to-end, fast enough today
 

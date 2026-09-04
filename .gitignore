@@ -9,3 +9,6 @@ threads-js/
 urwasm/
 .zig-cache/
 zig-out/
+/desk-deps/
+/fe/node_modules/
+/desk/web/*

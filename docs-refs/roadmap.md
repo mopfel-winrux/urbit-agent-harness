@@ -1,51 +1,115 @@
 # Roadmap
 
-What's next, roughly in priority order. See [`../README.md`](../README.md) for what already works and [`../urbit-agent/harness-design-notes.md`](../urbit-agent/harness-design-notes.md) for the design these trace back to.
+This is both a capability ledger and the forward work list. A checked item is
+part of the pinned Grubbery substrate or this distribution; unchecked details
+remain requirements even when the implementation shape evolves.
+
+## Foundation
+
+- [x] Durable multi-chat agent state with interrupt and restart support.
+- [x] Complete retained transcripts with a token-bounded model window.
+- [x] Full-history search, selective recall, and targeted summarization.
+- [x] Anthropic and OpenRouter proxy applications with shared credentials,
+  usage state, and prompt-cache-aware requests.
+- [x] Inspectable namespace/tree and ball APIs.
+- [x] Isolated child-agent tasks with durable completion output.
+- [x] Runtime-authored, compiled Hoon tools and application nexuses.
+- [x] Cron-style prompts and autonomous scheduled assistants.
+- [x] Optional channel nexuses with narrow inbox/send contracts.
+- [x] ACP initialize, session create/list/load/replay/resume/close/delete,
+  prompt, cancel, message updates, and tool updates over the same durable native
+  chats used by the UI.
 
 ## Near term
 
-### 1. Streaming to the UI
-Design note §6.9: tokens should stream executor→UI, and only terminal results become events. Today a turn is a single blocking Iris request and the UI only updates when it lands, so the chat feels laggy. Stream partial frames from the provider to the browser (via a side channel / SSE), keeping the event log terminal-only. Highest UX payoff.
+### 1. Conformance tests
 
-### 2. Prompt-cache-stable prefixes
-Invariant 9 / §6.4. Provider prompt caching only fires when the context *prefix* is byte-identical turn to turn. Right now the compaction summary and the skills catalog are injected as system messages that can shift the prefix. Make the prefix append-only and stable (supersede markers instead of in-place edits), and confirm OpenRouter is actually caching. Real cost win, and cheap.
+Automate the fake-ship checks used during development: build and commit a desk
+named `%grubbery`, verify `/apps/harness.harness`, create and load an ACP chat,
+and assert that no descendant has a crash `bang`. Advancing the pinned Grubbery
+revision should require this suite.
 
-### 3. Second provider / API kind (Anthropic Messages)
-Lightspeed's `(providerId, apiKind, model)` model resolution. We hardcode the OpenAI chat-completions shape. Add an Anthropic Messages API kind — it brings native compaction and explicit prompt-cache breakpoints, and it proves the provider abstraction is real. Config already carries `url`/`model`; add an `api-kind` and branch the request/response codecs in `lib`.
+### 2. Streaming
 
-### 4. A scry-namespace inspector
-§6.5, Phase 1. A read-only view that renders the raw event log and tool uses straight from the scry namespace (Context-Lens style), separate from the chat UI. Small, and the legibility principle wants it. Good for debugging the loop.
+Provider tokens should reach interactive clients before the terminal message is
+committed. Use a transient Grubbery signal or SSE path for partials; retain only
+terminal results in chat history. Verify that token streaming does not perturb
+prompt-cache-stable prefixes.
 
-## Client protocol & channels
+### 3. ACP conformance and permissions
 
-### 5. ACP (Agent Client Protocol) surface — ✅ v1 done
-`%acp` provides a generic durable duplex transport, and `%harness` implements the native ACP server baseline: initialize, new/load session, prompt, cancel, terminal message update, and stop response. The thin [`harness-acp.mjs`](../acp/harness-acp.mjs) adapter exposes any named native connection as ACP JSON-RPC over stdio for clients such as Zed; it contains no harness or protocol policy. See [`acp.md`](acp.md).
+Exercise the adapter against current ACP fixtures and real clients. Add
+`session/request_permission` when it can map cleanly to a weir or an explicit
+approval grub. Support richer prompt content using addressed payload grubs.
+Keep filesystem and terminal authority behind agent tools rather than granting
+it implicitly to every client.
 
-Follow-ups: (a) token-level model updates once streaming (#1) lands; (b) surface ACP `session/request_permission` for tool grants; (c) richer prompt content; (d) map ACP `fs/*` and `terminal/*` client methods to `clay`/`run_js` where useful.
+### 4. Parameterized app identity
 
-### 6. Tlon Messenger as a channel
-§9 Phase 1. The "your agent shows up in Messenger and talks to your friends' agents" story: bridge Messenger channel messages to harness sessions (admit as input, deliver replies), reusing the A2A identity model over Ames. Larger, product-shaped; #5 (ACP) may be the cleaner path to the same place.
+The reusable agent app hardcodes its tile name and route. Parameterize that
+metadata in Grubbery so this distribution can present “Harness” without
+shadowing the full app nexus.
 
-## Deeper / later
+### 5. Harness policy pack
 
-### 7. Rehearsal → desk files (self-authored Hoon/JS tools as files)
-§6.7 Phase 2. We have the governed loop for **skills in state**. The next step is self-authored *tools* that live as files: the agent writes a tool (JS today, per the [threads spike](threads-substrate-notes.md); Hoon later), stages it, rehearses a copy of the session against it, and commits it to a staging desk. Clay builds on demand and Gall reloads on commit; the missing piece is running a *new* version of the loop against a *copy* of state, which needs the core to stay a pure library callable with either version.
+Ship a small, reviewable set of context documents and weirs: prefer native ship
+state, inspect before acting, preserve full history, make authority explicit,
+and use peers without centralizing their data. Policy should remain ordinary
+files rather than branches in the agent loop.
 
-### 8. References / CAS across the seam
-§6.4, Phase 1. Content-address payloads (`(map hash atom)` in state; events carry hashes, not bodies) so the effect protocol is shaped for the vere64 blob store before it ossifies. **Deferred** — payloads are currently kilobytes and the blob-size threshold is still an open question upstream. Revisit when blobs land.
+## Governed self-modification
 
-### 9. Real key hygiene
-Keys currently live in agent state (better than per-session config, resolved at send time) but still sit in the pier plaintext. §6.8 wants keys on the Earth side only, never in Arvo state — which needs the external-executor seam (below). Also: the A2A webhook currently requires the ship's urbauth cookie; real external webhooks want a per-session token instead.
+Compilation alone is not promotion. Add a workflow that stages an authored
+tool or nexus, runs a representative task in an isolated child, records tests
+and output, and asks for approval before widening its weir or moving it into a
+shared catalog. A failed rehearsal must leave the live capability unchanged.
 
-### 10. External executor over Lick / a dedicated driver
-§9 Phase 2–3. Move the hands out of Iris to an external executor (streaming, real key isolation, sandboxes/MCP for tools) or eventually a dedicated Vere driver. The head shouldn't care which — "a hosted executor, a laptop, and a friend's GPU box look identical from inside the ship."
+Forced tool choice is also useful: allow a task or policy to require a named
+tool when an answer must be verified rather than produced from model memory.
 
-### 11. `tool_choice` / forced tool use
-Small: let a session require a tool call (OpenAI `tool_choice`), for when you want a model to *always* verify with `run_js` rather than answering from its head. A per-session switch.
+## Agent society and channels
 
-## Housekeeping
+Build addressed agent-to-agent requests on Grubbery ports and explicit
+usergroups. A remote ask should carry an Urbit identity, land in a sandboxed
+child, and receive a model, token budget, skills view, and capability grant
+chosen by the owner. No grant means refusal.
 
-- **Rename `%harness`** to something better before this gets real.
-- **Warmup**: do one `run_js("module.exports=()=>1")` at agent init to pay the ~60s QuickJS wasm warmup up front instead of on the first user call.
-- **Upstream fixes to report**: the `gwbtc/urbit-mcp` fresh-install crash in `++merge-features`, and its scry tool 500-ing on session ids containing `_`.
-- **Loom/perf**: everything runs on 32-bit vere; long-lived sessions will want vere64 + the blob store (#8). Measure before it bites.
+A Tlon Messenger adapter can then be a channel over the same contracts. It
+must not become a mandatory desk dependency or substitute a social
+application's identity model for Urbit identity.
+
+## Forks and provenance
+
+Add an intentional “fork here” operation to the chat UI and APIs. A fork should
+record its parent and point of divergence. Prefer structural sharing or
+content-addressed transcript segments when available; do not duplicate large
+histories just to simulate branching.
+
+## Payloads and storage
+
+Keep images, archives, and large tool results out of prompt history. Store them
+as addressed grubs and place stable references in transcripts. Align retention
+and garbage collection with vere64/blob facilities as their contracts settle.
+Measure loom and long-session performance before choosing thresholds.
+
+## Remote hands and key hygiene
+
+A hosted executor, a laptop, and another ship should look like interchangeable
+capability-bearing processes. Use typed ports or a dedicated Vere driver for
+that seam. Provider keys should ultimately stay on the executing side and out
+of broadly readable agent state.
+
+## Operational work
+
+- Verify prompt-cache hits and costs across long sessions.
+- Exercise a second provider on identical tool transcripts.
+- Keep crash `bang` inspection in the ship commit/install loop.
+- Track MCP transport failures separately from Gall and Grubbery failures.
+- Report generally useful MCP and Grubbery fixes upstream.
+
+## Non-goals
+
+- Bundling native inference in this distribution.
+- Requiring the Groups desk.
+- Maintaining a downstream copy of the full agent implementation.
+- Adding integrations to the root harness when they can be optional grubs.

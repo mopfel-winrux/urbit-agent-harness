@@ -1,0 +1,10 @@
+:~
+  title+'Harness'
+  info+'A personal, native agent harness on Grubbery.'
+  color+0x3a.7a4a
+  base+'grubbery'
+  site+/apps/harness
+  version+[0 2 0]
+  website+'https://github.com/mopfel-winrux/urbit-agent-harness'
+  license+'MIT'
+==
