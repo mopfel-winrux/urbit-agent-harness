@@ -8,8 +8,11 @@ import { useConversations } from './useConversations'
 
 function route() {
   const value = location.hash.replace(/^#\/?/, '')
-  if (value === 'settings') return { page: 'settings', chat: '' }
-  try { return { page: 'chat', chat: value ? decodeURIComponent(value) : '' } } catch { return { page: 'chat', chat: '' } }
+  try {
+    if (value === 'settings') return { page: 'settings', chat: '' }
+    if (value.startsWith('settings/')) return { page: 'settings', chat: decodeURIComponent(value.slice(9)) }
+    return { page: 'chat', chat: value ? decodeURIComponent(value) : '' }
+  } catch { return { page: 'chat', chat: '' } }
 }
 
 export default function App() {
@@ -46,7 +49,7 @@ export default function App() {
 
   function openSettings() {
     setView({ page: 'settings', chat: current }); setError('')
-    history.pushState({}, '', '#/settings')
+    history.pushState({}, '', current ? `#/settings/${encodeURIComponent(current)}` : '#/settings')
   }
 
   async function createChat(name) {
@@ -71,7 +74,7 @@ export default function App() {
     <Sidebar chats={chats} current={current} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings} onSettings={openSettings} />
     {settings
       ? <Settings roads={baseRoads} theme={theme} onThemeChange={setTheme} onBack={() => choose(current)} />
-      : current ? <Chat chat={current} theme={theme} onToggleTheme={toggleTheme} /> : <Welcome loading={loading} onNew={() => setDialog({ mode: 'create' })} />}
+      : current ? <Chat chat={current} theme={theme} onToggleTheme={toggleTheme} onSettings={openSettings} /> : <Welcome loading={loading} onNew={() => setDialog({ mode: 'create' })} />}
     {(error || conversations.error) && <div className="global-error" onClick={() => setError('')}>{error || conversations.error}</div>}
     {dialog && <ConversationModal mode={dialog.mode} initialName={dialog.chat || ''} onClose={() => setDialog(null)} onSave={dialog.mode === 'rename' ? renameChat : createChat} />}
   </div>

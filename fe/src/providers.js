@@ -12,6 +12,9 @@ export const PROVIDERS = {
     endpoint: 'https://api.openai.com/v1/chat/completions',
     modelsEndpoint: 'https://api.openai.com/v1/models',
     model: 'gpt-4o-mini',
+    deviceEndpoint: 'https://chatgpt.com/backend-api/codex/responses',
+    deviceModelsEndpoint: 'https://chatgpt.com/backend-api/codex/models?client_version=0.153.0',
+    deviceModel: 'gpt-5.4-mini',
     placeholder: 'sk-…',
     copy: 'OpenAI Chat Completions with bearer-key authentication.',
   },
@@ -30,5 +33,5 @@ export const PROVIDERS = {
 }
 
 export function providerOf(url = '') {
-  return Object.entries(PROVIDERS).find(([id, provider]) => id !== 'custom' && provider.endpoint === url)?.[0] || 'custom'
+  return Object.entries(PROVIDERS).find(([id, provider]) => id !== 'custom' && (provider.endpoint === url || provider.deviceEndpoint === url))?.[0] || 'custom'
 }

@@ -377,6 +377,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 .back-button { display: inline-flex; align-items: center; gap: 6px; border: 0; padding: 6px 8px 6px 2px; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
 .back-button:hover { color: var(--text); }
 .back-button svg { width: 16px; height: 16px; }
+.topbar-actions { display: flex; align-items: center; gap: 4px; }
 .settings-content { width: min(810px, calc(100% - 64px)); margin: 0 auto; padding: 52px 0 90px; }
 .page-header { margin-bottom: 29px; }
 .eyebrow { display: block; margin-bottom: 8px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
@@ -411,6 +412,15 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 .section-title p { margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
 .status { padding: 3px 7px; border: 1px solid var(--line); border-radius: 999px; font-size: 9px; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
 .status.good { border-color: color-mix(in srgb, var(--success) 30%, var(--line)); background: color-mix(in srgb, var(--success) 7%, var(--panel)); color: var(--success); }
+.login-panel { display: grid; gap: 11px; margin-bottom: 17px; border: 1px solid var(--line); border-radius: 8px; padding: 13px; background: var(--bg); }
+.login-panel > div:first-child > strong { color: var(--text); font-size: 11px; }
+.login-panel p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.login-panel textarea { min-height: 72px; }
+.login-panel .button { width: fit-content; }
+.device-code { display: flex; align-items: center; gap: 12px; border-radius: 7px; padding: 10px 12px; background: var(--panel); }
+.device-code span { color: var(--muted); font-size: 10px; }
+.device-code strong { color: var(--text); font: 650 18px/1 ui-monospace, monospace; letter-spacing: .08em; }
+.device-code a { margin-left: auto; color: var(--accent); font-size: 10px; }
 
 label { display: grid; gap: 7px; color: var(--muted); font-size: 11px; font-weight: 600; }
 input, select, .settings-panel textarea, .modal-card textarea {

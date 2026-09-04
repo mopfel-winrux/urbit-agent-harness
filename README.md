@@ -20,16 +20,17 @@ pseudo-desktop or a second chat application.
 
 - Independent, durable conversations with replay, cancellation, retry,
   compaction, forking, timers, subagents, skills, and peer-agent calls.
-- OpenRouter, OpenAI, Anthropic, and custom OpenAI-compatible Chat Completions
-  endpoints, with per-provider credentials and arbitrary request headers.
+- OpenRouter, OpenAI, Anthropic, and custom OpenAI-compatible endpoints, with
+  API keys, OpenAI device login, Anthropic browser-login handoff, and arbitrary
+  request headers. ChatGPT login uses its Codex Responses endpoint.
 - Provider model discovery plus a free-form model field; a conversation can
   change provider or model between turns.
 - An ACP-native React client with optimistic message admission, live tool
   updates, rename/delete, responsive settings, and system/light/dark themes.
 - A dependency-free ACP stdio adapter for editors and other local clients.
-- Optional tools for ship time, Clay, HTTP, skills, authored capabilities,
-  subagents, and explicitly granted peers. New conversations receive no tools
-  until the user enables them.
+- Per-conversation tools for ship time, Clay, HTTP, skills, authored
+  capabilities, subagents, and explicitly granted peers. New conversations
+  begin with the full catalog enabled and can narrow it independently.
 
 Native inference and a required Groups installation are outside this desk.
 Either can be added behind a typed capability without changing session

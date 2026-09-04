@@ -73,20 +73,21 @@ context budget, enabled tool families
 ```
 
 Known endpoints select a per-provider credential. A session key can override
-that credential, and arbitrary headers support compatible gateways. Provider
-requests use the OpenAI Chat Completions shape. OpenRouter, OpenAI, Anthropic's
-compatible endpoint, and custom endpoints share the same boundary.
+that credential, and arbitrary headers support compatible gateways. OpenRouter,
+OpenAI API keys, Anthropic, and custom endpoints use the OpenAI Chat
+Completions shape. OpenAI device login uses the ChatGPT Codex Responses shape
+and its streamed event envelope behind the same session boundary.
 
 Model catalogs are fetched by Iris and returned through the requesting ACP
 connection. Catalog failure never prevents a manually entered model name.
 
 ## Tools and authority
 
-Tool families are disabled by default and granted per conversation. The
-current catalog covers ship time, Clay reads, public web requests, skills,
-governed skill writing, authoring, child sessions, and peer asks. Tool calls
-are durable events; asynchronous results can arrive in any order and settle
-the waiting turn when complete.
+Tool families are granted per conversation. New conversations enable the
+current catalog—ship time, Clay reads, public web requests, skills, governed
+skill writing, authoring, child sessions, and peer asks—and each conversation
+can narrow that set independently. Tool calls are durable events; asynchronous
+results can arrive in any order and settle the waiting turn when complete.
 
 Skills have a staged workflow: propose, rehearse in a child session, then
 commit or discard. Peer work uses Urbit identity and explicit grants for model,

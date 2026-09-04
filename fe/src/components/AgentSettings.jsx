@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useGrub } from '../useGrub'
 import { PROVIDERS, providerOf } from '../providers'
@@ -33,21 +33,32 @@ export default function AgentSettings({ roads, theme, onThemeChange }) {
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
-  const catalog = useProviderModels(provider)
+  const [dirty, setDirty] = useState(false)
+  const loadedChat = useRef('')
+  const details = PROVIDERS[provider]
+  const catalogUrl = provider === 'openai' && form.url === details.deviceEndpoint ? details.deviceModelsEndpoint : details.modelsEndpoint
+  const catalog = useProviderModels(provider, catalogUrl)
 
   useEffect(() => {
     if (!session.value) return
+    if (dirty && loadedChat.current === roads.chat) return
+    loadedChat.current = roads.chat
     setForm(session.value)
     setProvider(providerOf(session.value.url))
-  }, [session.value])
+    setDirty(false)
+  }, [dirty, roads.chat, session.value])
   useEffect(() => {
     if (!saved) return undefined
     const timeout = setTimeout(() => setSaved(false), 1800)
     return () => clearTimeout(timeout)
   }, [saved])
-  const field = (name, value) => setForm((current) => ({ ...current, [name]: value }))
+  const field = (name, value) => {
+    setDirty(true)
+    setForm((current) => ({ ...current, [name]: value }))
+  }
 
   function chooseProvider(next) {
+    setDirty(true)
     setProvider(next)
     const details = PROVIDERS[next]
     if (details.endpoint) setForm((current) => ({ ...current, url: details.endpoint, model: details.model }))
@@ -67,7 +78,7 @@ export default function AgentSettings({ roads, theme, onThemeChange }) {
     }
     try {
       const applied = await api.action({ config: { sid: roads.chat, config } })
-      session.setValue(applied); setForm(applied); setSaved(true)
+      session.setValue(applied); setForm(applied); setDirty(false); setSaved(true)
     } catch (cause) { setError(cause.message) } finally { setBusy(false) }
   }
 
@@ -80,7 +91,7 @@ export default function AgentSettings({ roads, theme, onThemeChange }) {
   return <form className="settings-grid" onSubmit={save}>
     {(error || session.error || tools.error) && <div className="inline-error">{error || session.error || tools.error}</div>}
     <section className="panel settings-panel">
-      <div className="section-title"><div><h2>Model</h2><p>Choose a provider or point the conversation at any OpenAI-compatible endpoint.</p></div></div>
+      <div className="section-title"><div><h2>Model</h2><p>Provider and model for <strong>{roads.chat}</strong>. Changes affect its next turn.</p></div></div>
       <div className="two-fields">
         <label><span>Provider</span><select value={provider} onChange={(event) => chooseProvider(event.target.value)}>{Object.entries(PROVIDERS).map(([id, details]) => <option key={id} value={id}>{details.title}{id === 'custom' ? ' endpoint' : ''}</option>)}</select></label>
         <label><span>Model</span><input list={`models-${provider}`} value={form.model || ''} onChange={(event) => field('model', event.target.value)} placeholder={PROVIDERS[provider].model || 'model-name'} /><datalist id={`models-${provider}`}>{catalog.models.map((model) => <option key={model} value={model} />)}</datalist></label>
@@ -95,7 +106,7 @@ export default function AgentSettings({ roads, theme, onThemeChange }) {
       <label><span>Context window</span><input type="number" min="1000" step="1000" value={form['max-context'] || ''} onChange={(event) => field('max-context', event.target.value)} /></label>
     </section>
     <section className="panel settings-panel">
-      <div className="section-title"><div><h2>Tools</h2><p>Capabilities are explicit per conversation.</p></div></div>
+      <div className="section-title"><div><h2>Tools</h2><p>Capabilities for <strong>{roads.chat}</strong>. New conversations begin with all of them enabled.</p></div><button type="button" className="text-button" onClick={() => field('tools', [...(tools.value || [])])}>Enable all</button></div>
       <div className="tool-options">{(tools.value || []).map((name) => <ToolOption key={name} name={name} checked={(form.tools || []).includes(name)} onChange={() => toggleTool(name)} />)}</div>
     </section>
     <section className="panel settings-panel">

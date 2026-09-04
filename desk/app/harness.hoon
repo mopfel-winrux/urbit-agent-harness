@@ -80,10 +80,30 @@
       model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
       next-model-request=@ud
   ==
++$  state-4
+  $:  %4
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+  ==
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-3
+=|  state-4
 =*  state  -
 ^-  agent:gall
 =<
@@ -105,20 +125,23 @@
 ++  on-load
   |=  old-vase=vase
   ^-  (quip card _this)
-  =/  current  (mule |.(!<(state-3 old-vase)))
-  =/  new=state-3
+  =/  current  (mule |.(!<(state-4 old-vase)))
+  =/  new=state-4
     ?:  ?=(%& -.current)  p.current
+    =/  third  (mule |.(!<(state-3 old-vase)))
+    ?:  ?=(%& -.third)
+      (migrate-3:hc p.third)
     =/  previous  (mule |.(!<(state-2 old-vase)))
     ?:  ?=(%& -.previous)
-      (migrate-2:hc p.previous)
+      (migrate-3:hc (migrate-2:hc p.previous))
     =/  prior  (mule |.(!<(state-1 old-vase)))
     ?:  ?=(%& -.prior)
-      (migrate-2:hc (migrate-1:hc p.prior))
+      (migrate-3:hc (migrate-2:hc (migrate-1:hc p.prior)))
     =/  oldest  (mule |.(!<(state-0 old-vase)))
     ?:  ?=(%& -.oldest)
-      (migrate-2:hc (migrate-1:hc (migrate-0:hc p.oldest)))
+      (migrate-3:hc (migrate-2:hc (migrate-1:hc (migrate-0:hc p.oldest))))
     ~?  &  [dap.bowl %incompatible-state-dropped]
-    *state-3
+    *state-4
   :_  this(state new)
   :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
       acp-open-card:hc
@@ -439,6 +462,35 @@
       *(map @ud [connection=connection-id:v1:ac request-id=json])
       1
   ==
+++  migrate-3
+  |=  old=state-3
+  ^-  state-4
+  =/  enabled=(map session-id:h session:h)
+    %+  roll  ~(tap by sessions.old)
+    |=  [[sid=session-id:h ses=session:h] acc=(map session-id:h session:h)]
+    =/  cfg=config:h  config:(play:hl log.ses)
+    =/  next=session:h
+      [[[%config-replaced cfg(tools all-tools:hl)] log.ses] next-req.ses]
+    (~(put by acc) sid next)
+  :*  %4
+      enabled
+      timers.old
+      subs.old
+      skills.old
+      staged.old
+      rehearsals.old
+      peers.old
+      peer-base.old
+      asks.old
+      serving.old
+      jobs.old
+      api-key.old
+      acp-prompts.old
+      acp-through.old
+      provider-keys.old
+      model-requests.old
+      next-model-request.old
+  ==
 ++  acp-open-card
   ^-  card
   :*  %pass  /acp/open
@@ -694,7 +746,7 @@
       ~
       'You are a helpful agent living on an Urbit ship. Be concise.'
       12.000
-      ~
+      all-tools:hl
   ==
 ::
 ++  acp-initialize-result
@@ -1397,6 +1449,7 @@
   ^-  @t
   ?:  =('https://openrouter.ai/api/v1/chat/completions' url)  'openrouter'
   ?:  =('https://api.openai.com/v1/chat/completions' url)     'openai'
+  ?:  =('https://chatgpt.com/backend-api/codex/responses' url)  'openai'
   ?:  =('https://api.anthropic.com/v1/chat/completions' url)  'anthropic'
   'custom'
 ++  provider-key
@@ -1412,6 +1465,12 @@
   =/  hed=header-list:http  ~[['accept' 'application/json']]
   =?  hed  !=('' key)
     [['authorization' (cat 3 'Bearer ' key)] hed]
+  =/  account  (provider-key 'openai-account')
+  =?  hed  ?&  !=('' account)
+                  =('openai' provider)
+                  =('https://chatgpt.com/backend-api/codex/models?client_version=0.153.0' url)
+              ==
+    [['chatgpt-account-id' account] hed]
   :*  %pass  `wire`[%models (scot %ud req) ~]
       %arvo  %i  %request  [%'GET' url hed ~]  *outbound-config:iris
   ==
@@ -1419,7 +1478,10 @@
 ++  llm-card
   |=  [sid=session-id:h req=@ud kind=request-kind:h v=view:h]
   ^-  card
-  =/  body=@t  (en:json:html (request-body:hl v kind (skills-visible sid skills)))
+  =/  responses=?  =('https://chatgpt.com/backend-api/codex/responses' url.config.v)
+  =/  payload=json
+    ?:(responses (responses-body:hl v kind (skills-visible sid skills)) (request-body:hl v kind (skills-visible sid skills)))
+  =/  body=@t  (en:json:html payload)
   ::  blank session key falls back to the agent-level default
   ::
   =/  eff-key=@t
@@ -1471,9 +1533,13 @@
           (fall body '')
       ==
     ?~  body  [%llm-failed req 'empty response body']
-    =/  jon  (de:json:html u.body)
-    ?~  jon  [%llm-failed req 'invalid json in response']
-    =/  digest  (mule |.((parse-response:hl u.jon)))
+    =/  responses=?  =('https://chatgpt.com/backend-api/codex/responses' url.config.v)
+    =/  digest
+      ?:  responses
+        (mule |.((parse-responses-sse:hl u.body)))
+      =/  jon  (de:json:html u.body)
+      ?~  jon  [%| 'invalid json in response']
+      (mule |.((parse-response:hl u.jon)))
     ?:  ?=(%| -.digest)
       [%llm-failed req 'failed to digest response']
     =/  out  p.digest
@@ -1518,13 +1584,20 @@
   ^-  (list @t)
   ?>  ?=([%o *] jon)
   =/  data  (~(get by p.jon) 'data')
-  ?>  ?=([~ %a *] data)
-  %+  murn  p.u.data
+  =/  models  (~(get by p.jon) 'models')
+  =/  rows=(list json)
+    ?:  ?=([~ %a *] data)  p.u.data
+    ?:  ?=([~ %a *] models)  p.u.models
+    ~
+  ?>  ?=(^ rows)
+  %+  murn  rows
   |=  item=json
   ^-  (unit @t)
   ?.  ?=([%o *] item)  ~
   =/  id  (~(get by p.item) 'id')
-  ?:(?=([~ %s *] id) `p.u.id ~)
+  =/  slug  (~(get by p.item) 'slug')
+  ?:  ?=([~ %s *] id)  `p.u.id
+  ?:(?=([~ %s *] slug) `p.u.slug ~)
 ::  +record-all: append events to the log, give facts to subscribers
 ::
 ++  record-all

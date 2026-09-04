@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { acp } from '../acp'
-import { MoonIcon, SendIcon, StopIcon } from './Icons'
+import { MoonIcon, SendIcon, SettingsIcon, StopIcon } from './Icons'
 
 function ToolEntry({ entry }) {
   return <div className={`tool-entry ${entry.status === 'in_progress' ? 'running' : 'complete'}`}>
@@ -31,7 +31,7 @@ function textContent(content) {
   return typeof content === 'string' ? content : JSON.stringify(content ?? '')
 }
 
-export default function Chat({ chat, theme, onToggleTheme }) {
+export default function Chat({ chat, theme, onToggleTheme, onSettings }) {
   const [entries, setEntries] = useState([])
   const [draft, setDraft] = useState('')
   const [pending, setPending] = useState(null)
@@ -107,7 +107,10 @@ export default function Chat({ chat, theme, onToggleTheme }) {
   return <main className="workspace chat-workspace">
     <header className="topbar">
       <div className="chat-heading"><div><strong>{chat}</strong></div><div className={`run-status ${state}`}><span />{statusLabel}</div></div>
-      <button className="icon-button" onClick={onToggleTheme} title={`Use ${theme === 'dark' ? 'light' : 'dark'} theme`}><MoonIcon /></button>
+      <div className="topbar-actions">
+        <button className="icon-button" onClick={onSettings} title="Conversation settings"><SettingsIcon /></button>
+        <button className="icon-button" onClick={onToggleTheme} title={`Use ${theme === 'dark' ? 'light' : 'dark'} theme`}><MoonIcon /></button>
+      </div>
     </header>
     {error && <div className="error-banner">{error}</div>}
     <section className="transcript"><div className="transcript-inner"><Transcript entries={entries} pending={pending} /><div ref={bottom} /></div></section>

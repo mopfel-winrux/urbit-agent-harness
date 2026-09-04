@@ -44,6 +44,6 @@ export const defaultConfig = (overrides = {}) => ({
   headers: [],
   system: 'You are a capable personal agent living on an Urbit ship. Be direct, careful, and useful.',
   'max-context': 80_000,
-  tools: [],
+  tools: ['ship-time', 'clay', 'web', 'skills', 'skill-write', 'author', 'subagents', 'peers'],
   ...overrides,
 })

@@ -4,23 +4,24 @@ import { PROVIDERS } from './providers.js'
 
 const cache = new Map()
 
-export function useProviderModels(provider) {
+export function useProviderModels(provider, endpoint) {
   const details = PROVIDERS[provider]
-  const key = `${provider}:${details?.modelsEndpoint || ''}`
+  const modelsEndpoint = endpoint || details?.modelsEndpoint || ''
+  const key = `${provider}:${modelsEndpoint}`
   const [models, setModels] = useState(() => cache.get(key) || [])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const refresh = useCallback(async () => {
-    if (!details?.modelsEndpoint) { setModels([]); setError(''); return }
+    if (!modelsEndpoint) { setModels([]); setError(''); return }
     setLoading(true); setError('')
     try {
-      const result = await api.models(provider, details.modelsEndpoint)
+      const result = await api.models(provider, modelsEndpoint)
       const next = [...new Set(result?.models || [])].sort()
       cache.set(key, next); setModels(next)
     } catch (cause) { setError(cause.message) }
     finally { setLoading(false) }
-  }, [details?.modelsEndpoint, key, provider])
+  }, [key, modelsEndpoint, provider])
 
   useEffect(() => { setModels(cache.get(key) || []); void refresh() }, [key, refresh])
   return { models, loading, error, refresh }

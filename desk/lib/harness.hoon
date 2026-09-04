@@ -283,6 +283,96 @@
   =?  base  &(=(%turn kind) !=(~ tools.config.v))
     (snoc base ['tools' (tool-defs tools.config.v)])
   (pairs:enjs:format base)
+::  +responses-body: OpenAI Responses wire format, including the Codex
+::  subscription endpoint used after device authorization.
+::
+++  responses-body
+  |=  [v=view:h kind=request-kind:h skills=(map @t skill:h)]
+  ^-  json
+  =/  input=(list json)
+    %-  zing
+    ^-  (list (list json))
+    :~  ?~  summary.v  ~
+        ~[(responses-message 'developer' (cat 3 'Summary of the conversation so far: ' u.summary.v))]
+      ::
+        ?.  &((lien tools.config.v |=(t=term =(%skills t))) !=(~ skills))
+          ~
+        ~[(responses-message 'developer' (skills-catalog skills))]
+      ::
+        (zing (turn items.v responses-item))
+      ::
+        ?.  =(%compaction kind)  ~
+        :_  ~
+        %+  responses-message  'user'
+        '''
+        Summarize the conversation so far for your own future reference.
+        Preserve all facts, decisions, names, and open tasks.
+        Reply with only the summary.
+        '''
+    ==
+  =/  base=(list [@t json])
+    :~  ['model' %s model.config.v]
+        ['instructions' %s system.config.v]
+        ['input' %a input]
+        ['tool_choice' %s 'auto']
+        ['parallel_tool_calls' %b &]
+        ['store' %b |]
+        ['stream' %b &]
+    ==
+  =?  base  &(=(%turn kind) !=(~ tools.config.v))
+    (snoc base ['tools' (responses-tool-defs tools.config.v)])
+  (pairs:enjs:format base)
+::
+++  responses-message
+  |=  [role=@t text=@t]
+  ^-  json
+  =/  content=json
+    (pairs:enjs:format ~[['type' %s ?:(=('assistant' role) 'output_text' 'input_text')] ['text' %s text]])
+  (pairs:enjs:format ~[['role' %s role] ['content' %a ~[content]]])
+::
+++  responses-item
+  |=  it=item:h
+  ^-  (list json)
+  ?-  -.it
+      %user  ~[(responses-message 'user' body.it)]
+      %assistant
+    =/  msg=(list json)
+      ?:(=(0 body.it) ~ ~[(responses-message 'assistant' body.it)])
+    %+  weld  msg
+    %+  turn  calls.it
+    |=  c=tool-call:h
+    %-  pairs:enjs:format
+    :~  ['type' %s 'function_call']
+        ['call_id' %s id.c]
+        ['name' %s name.c]
+        ['arguments' %s args.c]
+    ==
+      %tool
+    :_  ~
+    %-  pairs:enjs:format
+    :~  ['type' %s 'function_call_output']
+        ['call_id' %s call-id.it]
+        ['output' %s body.it]
+    ==
+  ==
+::
+++  responses-tool-defs
+  |=  tools=(list term)
+  ^-  json
+  =/  ordinary  (tool-defs tools)
+  ?.  ?=(%a -.ordinary)  [%a ~]
+  :-  %a
+  %+  murn  p.ordinary
+  |=  entry=json
+  ^-  (unit json)
+  ?.  ?=(%o -.entry)  ~
+  =/  fun  (~(get by p.entry) 'function')
+  ?.  ?=([~ %o *] fun)  ~
+  =/  name  (~(get by p.u.fun) 'name')
+  =/  description  (~(get by p.u.fun) 'description')
+  =/  parameters  (~(get by p.u.fun) 'parameters')
+  ?.  &(?=(^ name) ?=(^ description) ?=(^ parameters))  ~
+  `(pairs:enjs:format ~[['type' %s 'function'] ['name' u.name] ['description' u.description] ['parameters' u.parameters]])
 ::  +skills-catalog: the system message advertising available skills
 ::
 ++  skills-catalog
@@ -594,6 +684,66 @@
     :-  ?:(?=([~ %n *] pt) (fall (rush p.u.pt dem) 0) 0)
     ?:(?=([~ %n *] ct) (fall (rush p.u.ct dem) 0) 0)
   [%& stop u [%assistant content calls]]
+::  +parse-responses-sse: collect completed output items from a Responses
+::  event stream. The terminal response currently omits its output array on
+::  the Codex route, so output_item.done is the durable wire boundary.
+::
+++  parse-responses-sse
+  |=  body=@t
+  ^-  (each [stop=stop-reason:h u=usage:h it=item:h] @t)
+  =/  lines=wall  (text-lines body)
+  =/  events=(list json)
+    %+  murn  lines
+    |=  line=tape
+    ^-  (unit json)
+    ?.  =("data: " (scag 6 line))  ~
+    (de:json:html (crip (slag 6 line)))
+  =|  text=@t
+  =|  calls=(list tool-call:h)
+  =/  acc
+    %+  roll  events
+    |=  [ev=json acc=[text=@t calls=(list tool-call:h)]]
+    ?.  ?=(%o -.ev)  acc
+    =/  typ  (~(get by p.ev) 'type')
+    ?.  ?=([~ %s *] typ)  acc
+    ?.  =('response.output_item.done' p.u.typ)  acc
+    =/  item  (~(get by p.ev) 'item')
+    ?.  ?=([~ %o *] item)  acc
+    =/  kind  (~(get by p.u.item) 'type')
+    ?.  ?=([~ %s *] kind)  acc
+    ?:  =('message' p.u.kind)
+      =/  content  (~(get by p.u.item) 'content')
+      ?.  ?=([~ %a *] content)  acc
+      =/  pieces=(list @t)
+        %+  murn  p.u.content
+        |=  part=json
+        ^-  (unit @t)
+        ?.  ?=(%o -.part)  ~
+        =/  txt  (~(get by p.part) 'text')
+        ?:(?=([~ %s *] txt) `p.u.txt ~)
+      acc(text (rap 3 pieces))
+    ?.  =('function_call' p.u.kind)  acc
+    =/  id  (~(get by p.u.item) 'call_id')
+    =/  name  (~(get by p.u.item) 'name')
+    =/  args  (~(get by p.u.item) 'arguments')
+    ?.  &(?=([~ %s *] id) ?=([~ %s *] name) ?=([~ %s *] args))  acc
+    acc(calls (snoc calls.acc [p.u.id p.u.name p.u.args]))
+  ?:  ?&  =(0 text.acc)
+          ?=(~ calls.acc)
+      ==
+    [%| 'no completed output in response stream']
+  [%& ?:(?=(^ calls.acc) %tool-calls %stop) [0 0] [%assistant text.acc calls.acc]]
+::
+++  text-lines
+  |=  text=@t
+  =/  chars=tape  (trip text)
+  =|  out=wall
+  =|  line=tape
+  |-  ^-  wall
+  ?~  chars  (flop [(flop line) out])
+  ?:  =('\0a' i.chars)
+    $(chars t.chars, out [(flop line) out], line ~)
+  $(chars t.chars, line [i.chars line])
 ::  json for the ui: full session view (key withheld)
 ::
 ++  view-json

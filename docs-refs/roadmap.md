@@ -9,8 +9,10 @@ items are present in the desk; unchecked items remain design commitments.
 - [x] Prompt admission before provider completion.
 - [x] Cancellation, retry, compaction, session fork, rename, and deletion.
 - [x] Timers, supervised child sessions, staged skills, and peer asks.
-- [x] Explicit per-session tool families, disabled by default.
+- [x] Explicit per-session tool families, enabled for new conversations and
+  independently configurable thereafter.
 - [x] OpenAI Chat Completions request and tool-call encoding.
+- [x] ChatGPT Codex Responses request and SSE result encoding.
 - [x] OpenRouter, OpenAI, Anthropic, and custom endpoint presets.
 - [x] Per-provider credentials, session overrides, and arbitrary headers.
 - [x] Live provider model catalogs with manual model entry.
@@ -39,12 +41,12 @@ items are present in the desk; unchecked items remain design commitments.
 
 ### Authentication
 
-- [ ] Add a provider-auth capability with an explicit token handoff contract.
-- [ ] Support Anthropic's interactive local login where its access token can
-  be safely transferred into ship-side provider state.
-- [ ] Support OpenAI interactive login only when the provider documents a token
-  suitable for API inference; do not treat a product-session token as an API
-  key.
+- [x] Add a provider-auth capability with an explicit token handoff contract.
+- [x] Support Anthropic browser login through `claude setup-token` or imported
+  CLI credential JSON, transferred directly into ship-side provider state.
+- [x] Support OpenAI device login and route its product token only to the
+  ChatGPT Codex Responses endpoint.
+- [ ] Refresh expiring OpenAI and Anthropic OAuth credentials on ship.
 - [ ] Encrypt or externalize long-lived provider credentials.
 
 ### ACP completeness
