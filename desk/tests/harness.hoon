@@ -1,5 +1,5 @@
 /-  h=harness
-/+  *test, hl=harness, hs=harness-session
+/+  *test, hl=harness, hs=harness-session, hp=harness-provider, hj=harness-json
 |%
 ++  history
   ^-  (list event:h)
@@ -31,7 +31,7 @@
   =/  result  (branch:hs 'parent' [history 4] 3)
   ?>  ?=(%& -.result)
   =/  view  (play:hl log.p.result)
-  (expect !>(&(=(`[from='parent' at=3] origin.view) =(2 (lent items.view)) =(~ pending.view) =(~ (decide:hl view ~)))))
+  (expect !>(&(=(`[from='parent' at=3] origin.view) =(2 (lent items.view)) =(~ pending.view) =(~ (next:hs view ~)))))
 ++  test-branch-rejects-invalid-point
   =/  out-of-range  (branch:hs 'parent' [history 4] 100)
   =/  user-message  (branch:hs 'parent' [history 4] 4)
@@ -43,7 +43,7 @@
   (expect !>(?=(%| -.result)))
 ++  test-stream-rejects-unfinished-text
   =/  wire=@t  'data: {"choices":[{"delta":{"content":"partial"},"finish_reason":null}]}\0a\0a'
-  =/  result  (parse-chat-sse:hl wire)
+  =/  result  (parse-chat-sse:hp wire)
   (expect !>(?=(%| -.result)))
 ++  test-stream-joins-fragmented-tools
   =/  wire=@t
@@ -51,7 +51,7 @@
     :~  'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call","function":{"name":"get_ship_time","arguments":"{"}}]},"finish_reason":null}]}\0a\0a'
         'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"}"}}]},"finish_reason":"tool_calls"}]}\0a\0a'
     ==
-  =/  result  (parse-chat-sse:hl wire)
+  =/  result  (parse-chat-sse:hp wire)
   ?>  ?=(%& -.result)
   (expect-eq !>(`item:h`[%assistant '' ~[['call' 'get_ship_time' '{}']]]) !>(it.p.result))
 ++  interrupted-tools
@@ -69,7 +69,7 @@
 ++  test-cancel-closes-all-unfinished-calls
   =/  v  (play:hl interrupted-tools)
   =/  results  (skim items.v |=(it=item:h ?=(%tool -.it)))
-  (expect !>(&(=(3 (lent results)) =(~ wait.v) =(~ pending.v) =(~ (open-calls:hl items.v)) =(~ (decide:hl v ~)) =(items.v (transcript-items:hl interrupted-tools)))))
+  (expect !>(&(=(3 (lent results)) =(~ wait.v) =(~ pending.v) =(~ (open-calls:hl items.v)) =(~ (next:hs v ~)) =(items.v (transcript-items:hl interrupted-tools)))))
 ++  test-cancel-preserves-completed-results
   =/  v  (play:hl interrupted-tools)
   =/  results  (skim items.v |=(it=item:h ?=(%tool -.it)))
@@ -80,15 +80,15 @@
   =.  max-context.cfg  100.000
   =/  log  [[%input-admitted [%user 'new request']] [%config-replaced cfg] interrupted-tools]
   =/  v  (play:hl log)
-  (expect-eq !>(`(unit step:h)`[~ %turn ~]) !>((decide:hl v ~)))
+  (expect-eq !>(`(unit step:h)`[~ %turn ~]) !>((next:hs v ~)))
 ++  test-config-does-not-resume-cancelled-work
   =/  v  (play:hl [[%config-replaced *config:h] interrupted-tools])
-  (expect-eq !>(`(unit step:h)`~) !>((decide:hl v ~)))
+  (expect-eq !>(`(unit step:h)`~) !>((next:hs v ~)))
 ++  test-repeated-cancel-does-not-duplicate-receipts
   =/  log  [[%cancelled ~ ~ 'again'] interrupted-tools]
   (expect-eq !>((transcript-items:hl interrupted-tools)) !>((transcript-items:hl log)))
 ++  test-cancelled-tool-addresses-are-unique
-  =/  rows  (transcript-json:hl interrupted-tools)
+  =/  rows  (transcript-json:hj interrupted-tools)
   ?>  ?=(%a -.rows)
   =/  ids
     %+  turn  p.rows
@@ -96,4 +96,13 @@
     ?>  ?=(%o -.row)
     (~(got by p.row) 'id')
   (expect-eq !>((lent ids)) !>((lent ~(tap in (silt ids)))))
+++  test-idle-head-does-not-evaluate-provider-budget
+  =/  v  (play:hl interrupted-tools)
+  (expect-eq !>(`(unit step:h)`~) !>((decide:hl v |=(~ !!))))
+++  test-head-accepts-an-independent-budget-policy
+  =/  v  (play:hl (slag 1 history))
+  =.  max-context.config.v  100
+  =/  small  (decide:hl v |=(~ 0))
+  =/  large  (decide:hl v |=(~ 1.000))
+  (expect !>(&(?=([~ %turn ~] small) ?=([~ %compact ~] large))))
 --

@@ -126,14 +126,23 @@ while all of them address the same on-ship session records. See
 
 ```text
 build.zig                  reproducible desk assembly
-desk/app/harness.hoon      event-sourced agent and ACP methods
+desk/app/harness.hoon      authoritative lifecycle and ingress routing
 desk/app/acp.hoon          durable duplex transport
-desk/lib/harness.hoon      pure replay, decision, and provider encoding
-desk/lib/harness-session.hoon pure inspection, snapshots, and branching
+desk/lib/harness.hoon      semantic core: replay, transcript, decide
+desk/lib/harness-session.hoon pure session services and budget composition
+desk/lib/harness-provider.hoon provider wire formats and model catalogs
+desk/lib/harness-json.hoon client projections and command decoding
+desk/lib/harness-tools.hoon capability catalog and executor safeguards
+desk/lib/harness-effects.hoon concrete effect bindings; no session store
+desk/lib/harness-acp.hoon   ACP frames/cards; no session ownership
+desk/lib/harness-defaults.hoon bootstrap policy
+desk/{sur,lib}/harness-store.hoon persistence envelope and version loading
 desk/lib/harness-hand.hoon bindings, admission queue, and delivery receipts
 desk/lib/harness-session-nexus.hoon supervised replay verifier
 desk/lib/root.hoon         minimal Grubbery service tree
 desk/tests/harness.hoon    pure head and response-parser checks
+desk/tests/harness-boundaries.hoon storage, codec and authority contracts
+scripts/modules.test.mjs   dependency direction and cycle checks
 scripts/conformance.mjs    live independent-client/session checks
 scripts/hand-conformance.mjs live native/ACP hand and publication checks
 scripts/hand-operations-conformance.mjs recovery, archive and verification checks
@@ -160,11 +169,19 @@ The central design claim is that an Urbit event log makes a good long-lived
 agent head: deterministic, inspectable, restartable, and independent of any
 particular model or client.
 
+Start with `sur/harness.hoon` and `lib/harness.hoon`, then follow
+`lib/harness-session.hoon` into the Gall lifecycle. Providers and client
+formats are edges, not prerequisites for understanding the reducer. See the
+[code boundaries and extension guide](docs-refs/architecture.md#code-boundaries).
+Keep modules skimmable—roughly under 2,000 lines is a useful signal, not a
+reason to separate code that must uphold one invariant together.
+
 ## Verification
 
 ```sh
 npm test --prefix fe
 node --test acp/hand-client.test.mjs
+node --test scripts/modules.test.mjs
 zig build
 SHIP_URL=http://localhost:8081 SHIP_COOKIE=/path/to/auth-cookie.txt \
   node scripts/conformance.mjs
@@ -178,6 +195,8 @@ check interruption during tool work, immediate continuation, provider transcript
 validity, terminal ACP updates, and duplicate/late-result rejection.
 Run `-test /=harness=/tests/harness` in Dojo for pure replay, transcript,
 branch-boundary, and provider-parser checks (requires `/lib/test` on the desk).
+Run `-test /=harness=/tests/harness-boundaries` for persistence preservation,
+shared redacted projections, capability grants, and provider metadata.
 Run `-test /=harness=/tests/harness-hand` for binding, deduplication, queue,
 and receipt checks. `scripts/hand-conformance.mjs` uses the same ship environment
 for real model turns through two hands; publication callbacks are local test

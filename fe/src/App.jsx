@@ -24,7 +24,7 @@ export default function App() {
   const { chat: current, page } = view
   const settings = page === 'settings'
   const conversations = useConversations(current, choose)
-  const { chats, loading, roads: baseRoads } = conversations
+  const { chats, loading, resources } = conversations
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -80,7 +80,7 @@ export default function App() {
   return <div className="app-shell">
     <Sidebar chats={chats} current={current} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings} onSettings={openSettings} />
     {settings
-      ? <Settings roads={baseRoads} theme={theme} onThemeChange={setTheme} onBack={() => choose(current)} />
+      ? <Settings resources={resources} theme={theme} onThemeChange={setTheme} onBack={() => choose(current)} />
       : current ? <Chat key={current} chat={current} theme={theme} onToggleTheme={toggleTheme} onSettings={openSettings} onSelect={choose} onFork={(eventCount) => setDialog({ mode: 'fork', chat: current, eventCount })} /> : <Welcome loading={loading} onNew={() => setDialog({ mode: 'create' })} />}
     {(error || conversations.error) && <div className="global-error" onClick={() => setError('')}>{error || conversations.error}</div>}
     {dialog && <ConversationModal mode={dialog.mode} initialName={dialog.mode === 'fork' ? `${dialog.chat.slice(0, 50)}-branch` : dialog.chat || ''} onClose={() => setDialog(null)} onSave={dialog.mode === 'fork' ? forkChat : dialog.mode === 'rename' ? renameChat : createChat} />}

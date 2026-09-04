@@ -137,6 +137,9 @@ test fixtures, never external channels.
 
 ## Grubbery capabilities
 
+- [x] Isolate the semantic reducer from provider/JSON dependencies; separate
+  effect bindings, ACP formatting, bootstrap policy and persistence loading
+  from the authoritative lifecycle, with dependency and behavior checks.
 - [x] Mirror each authoritative session as a typed grub under
   `/agents/main/sessions` through the thin client boundary.
 - [x] Supervise a read-only session verifier: independent replay/current-decision

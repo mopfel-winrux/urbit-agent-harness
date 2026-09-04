@@ -21,6 +21,72 @@ One `%harness` desk declares four Gall agents:
 effects: Eyre, Iris, Behn, Clay, and scry. It does not seed a desktop, example
 applications, or a competing agent tree.
 
+## Code boundaries
+
+The **semantic core** is `sur/harness.hoon` plus `lib/harness.hoon`: vocabulary,
+replay, transcript, cancellation, continuation and loop guards. The reducer
+has no JSON, provider, credential or Gall dependency. Its budget argument is a
+pure gate returning an estimate, evaluated only when inference could run.
+Idle sessions and in-flight tools therefore do not pay for request encoding.
+
+`harness-session` composes those semantics with the provider boundary's request
+byte estimate and client snapshot projection. This is a pure service boundary,
+shared by Gall and the supervised verifier, not another execution owner.
+
+The arrows below mean **code dependencies**, not message delivery:
+
+```mermaid
+flowchart TD
+  Gall["Gall lifecycle / admission"] --> Session["Pure session services"]
+  Session --> Core["Semantic core / nouns"]
+  Session --> Provider["Provider codecs + budget estimate"]
+  Session --> JSON["Client JSON projection"]
+  JSON --> Core
+  Gall --> Effects["Concrete effect bindings"]
+  Gall --> ACP["ACP frames and cards"]
+  Gall --> Store["Persistence loader"]
+  Provider --> Tools["Tool catalog"]
+  Effects --> Tools
+```
+
+The contingent pieces have narrow jobs:
+
+| Module | Owns | Does not own |
+|---|---|---|
+| `harness-provider` | Request/response formats, streaming parse, model metadata | Credentials, accepted results, scheduling |
+| `harness-json` | Client projections and command decoding | Persisted state or provider wire formats |
+| `harness-tools` | Schemas, function-to-family grants, executor safeguards | Tool execution |
+| `harness-effects` | Concrete ship reads and HTTP/MCP/timer/peer cards | Session store or continuation |
+| `harness-acp` | ACP frames, terminal updates and transport cards | Prompt ownership or admission |
+| `harness-defaults` | Bootstrap instructions and policy | Existing conversation configuration |
+| `sur/lib/harness-store` | Exact saved envelopes and version conversion | The running decision loop |
+
+Gall keeps admission, authorization, request identities, event appends and
+settlement together because its state and emitted cards commit in one event.
+The effect door receives only the bowl and MCP registry; the ACP door receives
+only our ship identity. Neither receives the session store. These are trusted
+code boundaries, not substitutes for the Grubbery weirs that sandbox processes.
+The explicit persistence constructors remain verbose on purpose: every field
+retained across a saved-state version must be auditable.
+
+To extend Harness, choose the boundary before adding a special case:
+
+- **A provider/protocol:** change codecs and execution-time credential routing;
+  return the same Harness result nouns, without changing replay.
+- **A tool:** add its catalog/grant mapping and concrete binding; retain the
+  head's execution-time authorization and intent-before-dispatch ordering.
+- **A client or chat surface:** use ACP or native nouns; do not add a scheduler.
+- **A policy:** change defaults or session configuration, not saved history.
+- **A new lifecycle meaning:** change the noun vocabulary, reducer and tests
+  together; that is a core change, not an adapter convenience.
+
+In React, `acp.js` owns transport, `api.js` maps resource queries/commands,
+`useSession` owns the replaceable live view, and `useResource` polls settings.
+Resource keys are ACP lookup keys, not Grubbery roads. A resource generation
+fences responses from a closed view or reads begun before an acknowledged
+save. UI bootstrap defaults live separately from the transport facade and
+never overwrite ship-owned policy merely because a component mounts.
+
 ## Session ownership
 
 A session is `[log next-req]`. Its closed event vocabulary includes sourced
@@ -68,7 +134,7 @@ The complete semantic transcript remains on ship. Only a bounded request view
 is sent to a provider. Compaction stores a summary while retaining the event
 record from which the current view is derived.
 
-`lib/harness-session.hoon` exposes pure `inspect`, `snapshot`, and `branch`
+`lib/harness-session.hoon` exposes pure `next`, `inspect`, `snapshot`, and `branch`
 gates. `inspect` returns the revision, replayed view, and next decision; it
 does not execute the decision. `snapshot` derives the complete transcript
 directly from events, independent of compaction. Entries carry their one-based

@@ -137,6 +137,13 @@ and emits the new fork event to native watchers. A Hoon component can import
 session nouns, without Gall, Eyre, a provider, or effect authority. Those gates
 are useful for replay checks and rehearsals; they do not admit live work.
 
+`next` in that same library combines the reducer with the request-budget
+policy used by the ship. For a different policy, `decide` in `/lib/harness`
+takes a view and a pure `~ -> @ud` budget gate; it evaluates the gate only when
+inference could run. Provider codecs live in `/lib/harness-provider`, client
+JSON in `/lib/harness-json`, and concrete execution bindings in
+`/lib/harness-effects`. None is a second owner of the session log.
+
 ## Webhooks
 
 `POST /harness-api/webhook/<session-id>` with JSON `{"text":"..."}` admits a

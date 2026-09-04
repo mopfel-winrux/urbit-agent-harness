@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import { api, defaultConfig } from '../api'
+import { api } from '../api'
+import { defaultConfig } from '../defaults'
 import { PROVIDERS, providerOf } from '../providers'
-import { useGrub } from '../useGrub'
+import { useResource } from '../useResource'
 import { useProviderModels } from '../useProviderModels'
 import HeaderEditor from './HeaderEditor'
 import ToolOptions from './ToolOptions'
 
-export default function GlobalSettings({ roads, theme, onThemeChange }) {
-  const defaults = useGrub(roads.defaults, defaultConfig())
-  const tools = useGrub(roads.tools, [])
+export default function GlobalSettings({ resources, theme, onThemeChange }) {
+  const defaults = useResource(resources.defaults, defaultConfig())
+  const tools = useResource(resources.tools, [])
   const [form, setForm] = useState(defaultConfig())
   const [provider, setProvider] = useState('openrouter')
   const [busy, setBusy] = useState(false)

@@ -1,21 +1,18 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { DEFAULT_SYSTEM_PROMPT, defaultConfig, paths, scryUrl } from './api.js'
+import { resourcesFor, scryUrl } from './api.js'
+import { DEFAULT_SYSTEM_PROMPT, defaultConfig } from './defaults.js'
 
 test('native Harness scries encode the typed Gall namespace', () => {
   assert.equal(scryUrl('session/research-notes'), '/~/scry/harness/session/research-notes.json')
   assert.equal(scryUrl('sessions'), '/~/scry/harness/sessions.json')
 })
 
-test('conversation paths share the Harness session surface', () => {
-  assert.deepEqual(paths('notes'), {
+test('settings resource keys address the shared Harness session surface', () => {
+  assert.deepEqual(resourcesFor('notes'), {
     chat: 'notes',
-    chats: 'sessions',
     session: 'session/notes',
-    config: 'session/notes',
-    transcript: 'session/notes',
-    status: 'session/notes',
     tools: 'tools',
     defaults: 'defaults',
     mcp: 'mcp',

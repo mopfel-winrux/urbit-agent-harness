@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
-import { useGrub } from '../useGrub'
+import { useResource } from '../useResource'
 import { PROVIDERS, providerOf } from '../providers'
 import { useProviderModels } from '../useProviderModels'
 import ToolOptions from './ToolOptions'
 
 const themes = ['system', 'light', 'dark']
 
-export default function AgentSettings({ roads, theme, onThemeChange }) {
-  const session = useGrub(roads.session, null)
-  const tools = useGrub(roads.tools, [])
+export default function AgentSettings({ resources, theme, onThemeChange }) {
+  const session = useResource(resources.session, null)
+  const tools = useResource(resources.tools, [])
   const [form, setForm] = useState({})
   const [provider, setProvider] = useState('openrouter')
   const [busy, setBusy] = useState(false)
@@ -23,12 +23,12 @@ export default function AgentSettings({ roads, theme, onThemeChange }) {
 
   useEffect(() => {
     if (!session.value) return
-    if (dirty && loadedChat.current === roads.chat) return
-    loadedChat.current = roads.chat
+    if (dirty && loadedChat.current === resources.chat) return
+    loadedChat.current = resources.chat
     setForm(session.value)
     setProvider(providerOf(session.value.url))
     setDirty(false)
-  }, [dirty, roads.chat, session.value])
+  }, [dirty, resources.chat, session.value])
   useEffect(() => {
     if (!saved) return undefined
     const timeout = setTimeout(() => setSaved(false), 1800)
@@ -69,7 +69,7 @@ export default function AgentSettings({ roads, theme, onThemeChange }) {
       tools: Array.isArray(form.tools) ? form.tools : [],
     }
     try {
-      const applied = await api.action({ config: { sid: roads.chat, config } })
+      const applied = await api.action({ config: { sid: resources.chat, config } })
       session.setValue(applied); setForm(applied); setDirty(false); setSaved(true)
     } catch (cause) { setError(cause.message) } finally { setBusy(false) }
   }
@@ -83,7 +83,7 @@ export default function AgentSettings({ roads, theme, onThemeChange }) {
   return <form className="settings-grid" onSubmit={save}>
     {(error || session.error || tools.error) && <div className="inline-error">{error || session.error || tools.error}</div>}
     <section className="panel settings-panel">
-      <div className="section-title"><div><h2>Model</h2><p>Provider and model for <strong>{roads.chat}</strong>. Changes affect its next turn.</p></div></div>
+      <div className="section-title"><div><h2>Model</h2><p>Provider and model for <strong>{resources.chat}</strong>. Changes affect its next turn.</p></div></div>
       <div className="two-fields">
         <label><span>Provider</span><select value={provider} onChange={(event) => chooseProvider(event.target.value)}>{Object.entries(PROVIDERS).map(([id, details]) => <option key={id} value={id}>{details.title}{id === 'custom' ? ' endpoint' : ''}</option>)}</select></label>
         <label><span>Model</span><input list={`models-${provider}`} value={form.model || ''} onChange={(event) => chooseModel(event.target.value)} placeholder={PROVIDERS[provider].model || 'model-name'} /><datalist id={`models-${provider}`}>{catalog.models.map((model) => <option key={model} value={model} />)}</datalist></label>
@@ -99,7 +99,7 @@ export default function AgentSettings({ roads, theme, onThemeChange }) {
       <label><span>Context window</span><input type="number" min="1000" step="1000" value={form['max-context'] || ''} onChange={(event) => field('max-context', event.target.value)} /></label>
     </section>
     <section className="panel settings-panel">
-      <div className="section-title"><div><h2>Tools</h2><p>Capabilities for <strong>{roads.chat}</strong>. New conversations begin with all of them enabled.</p></div><button type="button" className="text-button" onClick={() => field('tools', [...(tools.value || [])])}>Enable all</button></div>
+      <div className="section-title"><div><h2>Tools</h2><p>Capabilities for <strong>{resources.chat}</strong>. New conversations begin with all of them enabled.</p></div><button type="button" className="text-button" onClick={() => field('tools', [...(tools.value || [])])}>Enable all</button></div>
       <ToolOptions available={tools.value || []} selected={form.tools || []} onChange={toggleTool} />
     </section>
     <section className="panel settings-panel">

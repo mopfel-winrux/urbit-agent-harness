@@ -14,9 +14,9 @@ const baseTabs = [
   ['custom', 'Custom'],
 ]
 
-export default function Settings({ roads, theme, onThemeChange, onBack }) {
-  const [tab, setTab] = useState(roads.chat ? 'conversation' : 'defaults')
-  const tabs = roads.chat ? [['conversation', 'Conversation'], ...baseTabs] : baseTabs
+export default function Settings({ resources, theme, onThemeChange, onBack }) {
+  const [tab, setTab] = useState(resources.chat ? 'conversation' : 'defaults')
+  const tabs = resources.chat ? [['conversation', 'Conversation'], ...baseTabs] : baseTabs
 
   return <main className="workspace settings-workspace">
     <header className="topbar"><button className="back-button" onClick={onBack}><BackIcon />Conversations</button></header>
@@ -25,10 +25,10 @@ export default function Settings({ roads, theme, onThemeChange, onBack }) {
       <nav className="settings-tabs" aria-label="Settings sections">
         {tabs.map(([id, label]) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{label}</button>)}
       </nav>
-      {tab === 'conversation' && <AgentSettings roads={roads} theme={theme} onThemeChange={onThemeChange} />}
-      {tab === 'defaults' && <GlobalSettings roads={roads} theme={theme} onThemeChange={onThemeChange} />}
-      {tab === 'mcp' && <McpSettings roads={roads} />}
-      {['openrouter', 'openai', 'anthropic', 'custom'].includes(tab) && <ProviderSettings provider={tab} roads={roads} />}
+      {tab === 'conversation' && <AgentSettings resources={resources} theme={theme} onThemeChange={onThemeChange} />}
+      {tab === 'defaults' && <GlobalSettings resources={resources} theme={theme} onThemeChange={onThemeChange} />}
+      {tab === 'mcp' && <McpSettings resources={resources} />}
+      {['openrouter', 'openai', 'anthropic', 'custom'].includes(tab) && <ProviderSettings provider={tab} resources={resources} />}
     </div>
   </main>
 }

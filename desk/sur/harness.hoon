@@ -2,7 +2,7 @@
 ::
 ::    the session log is the state: a closed vocabulary of events,
 ::    replayed into a view, from which a decider plans the next step.
-::    provider shape is openai chat-completions (openrouter).
+::    provider codecs translate their wire formats into these nouns.
 ::
 |%
 +$  session-id  @t
@@ -35,7 +35,7 @@
       [%abandoned reason=@t]
   ==
 +$  effect-receipt  [id=effect-id result=effect-result]
-::  context items, provider-native shape
+::  conversation items, independent of any provider's JSON representation
 ::
 +$  item
   $%  [%user body=@t]

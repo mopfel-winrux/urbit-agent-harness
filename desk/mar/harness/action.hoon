@@ -1,10 +1,10 @@
 /-  h=harness
-/+  hl=harness
+/+  hj=harness-json
 |_  act=action:h
 ++  grab
   |%
   ++  noun  action:h
-  ++  json  json-action:hl
+  ++  json  json-action:hj
   --
 ++  grow
   |%

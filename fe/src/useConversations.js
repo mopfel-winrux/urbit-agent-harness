@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { acp } from './acp'
-import { paths } from './api'
+import { resourcesFor } from './api'
 
 export function useConversations(current, onSelect) {
   const [chats, setChats] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
-  const roads = paths(current)
+  const resources = resourcesFor(current)
 
   const refresh = useCallback(async () => {
     try {
@@ -51,5 +51,5 @@ export function useConversations(current, onSelect) {
     if (current === from) onSelect(name)
   }
 
-  return { chats, error, loading, roads, create, remove, rename, refresh }
+  return { chats, error, loading, resources, create, remove, rename, refresh }
 }

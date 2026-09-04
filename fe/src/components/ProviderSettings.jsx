@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
-import { useGrub } from '../useGrub'
+import { useResource } from '../useResource'
 import { PROVIDERS, providerOf } from '../providers'
 import { useProviderModels } from '../useProviderModels'
 import { AnthropicDeviceLogin, OpenAIDeviceLogin } from './ProviderLogin'
 import HeaderEditor from './HeaderEditor'
 
-export default function ProviderSettings({ provider, roads }) {
+export default function ProviderSettings({ provider, resources }) {
   const details = PROVIDERS[provider]
-  const session = useGrub(roads.chat ? roads.session : roads.defaults, null)
-  const status = useGrub(`status/${provider}`, { 'has-key': false })
+  const session = useResource(resources.chat ? resources.session : resources.defaults, null)
+  const status = useResource(`status/${provider}`, { 'has-key': false })
   const [key, setKey] = useState('')
   const [endpoint, setEndpoint] = useState(details.endpoint)
   const [model, setModel] = useState(details.model)
@@ -51,8 +51,8 @@ export default function ProviderSettings({ provider, roads }) {
     }
     try {
       if (key) await api.action({ 'set-key': { provider, key } })
-      const applied = roads.chat
-        ? await api.action({ config: { sid: roads.chat, config } })
+      const applied = resources.chat
+        ? await api.action({ config: { sid: resources.chat, config } })
         : await api.action({ defaults: config })
       session.setValue(applied); setKey(''); setDirty(false); setSaved(true)
       await status.refresh()
@@ -87,6 +87,6 @@ export default function ProviderSettings({ provider, roads }) {
       <label><span>Endpoint</span><input type="url" required value={endpoint} onChange={(event) => edit(setEndpoint)(event.target.value)} placeholder="https://inference.example/v1/chat/completions" /></label>
       <HeaderEditor value={headers} onChange={edit(setHeaders)} />
     </section>
-    <div className="save-bar"><span>{saved ? 'Saved.' : roads.chat ? 'Saving also selects this endpoint for the current conversation.' : 'Saving selects this endpoint for new conversations.'}</span><button className="button primary" disabled={busy}>{busy ? 'Saving…' : `Save ${details.title}`}</button></div>
+    <div className="save-bar"><span>{saved ? 'Saved.' : resources.chat ? 'Saving also selects this endpoint for the current conversation.' : 'Saving selects this endpoint for new conversations.'}</span><button className="button primary" disabled={busy}>{busy ? 'Saving…' : `Save ${details.title}`}</button></div>
   </form>
 }

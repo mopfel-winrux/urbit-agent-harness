@@ -1,0 +1,36 @@
+// Architectural checks complement behavior tests: keep dependency direction
+// legible as capabilities are added. File size is a guideline, not a test.
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { readFile, readdir } from 'node:fs/promises'
+
+const directory = new URL('../desk/lib/', import.meta.url)
+const sources = new Map(await Promise.all((await readdir(directory))
+  .filter((name) => /^harness(?:-.*)?\.hoon$/.test(name))
+  .map(async (name) => [name.slice(0, -5), await readFile(new URL(name, directory), 'utf8')])))
+const code = (name) => sources.get(name).split('\n').filter((line) => !line.trimStart().startsWith('::')).join('\n')
+const dependencies = (name) => [...code(name).matchAll(/^\/\+\s+(.+)$/gm)]
+  .flatMap((match) => match[1].split(',').map((entry) => entry.trim().split('=').at(-1).replace(/^\*/, '')))
+
+test('semantic head depends on nouns, not providers or transports', () => {
+  assert.deepEqual(dependencies('harness'), [])
+  assert.doesNotMatch(code('harness'), /\bjson\b|\.\^\(|%pass|bowl:gall/)
+})
+
+test('concrete bindings cannot import the session store or become an orchestrator', () => {
+  for (const name of ['harness-effects', 'harness-acp']) {
+    assert.doesNotMatch(code(name), /harness-store|state-\d|sessions=\(map/)
+    assert.ok(!dependencies(name).includes('harness-session'))
+  }
+})
+
+test('Harness libraries have no dependency cycles', () => {
+  const done = new Set()
+  function visit(name, path = []) {
+    assert.ok(!path.includes(name), `Dependency cycle: ${[...path, name].join(' -> ')}`)
+    if (done.has(name) || !sources.has(name)) return
+    for (const next of dependencies(name)) visit(next, [...path, name])
+    done.add(name)
+  }
+  for (const name of sources.keys()) visit(name)
+})

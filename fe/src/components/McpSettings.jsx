@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
-import { useGrub } from '../useGrub'
+import { useResource } from '../useResource'
 import HeaderEditor from './HeaderEditor'
 
 const blankServer = () => ({ id: '', name: '', url: '', headers: [], enabled: true })
 
-export default function McpSettings({ roads }) {
-  const stored = useGrub(roads.mcp, [])
+export default function McpSettings({ resources }) {
+  const stored = useResource(resources.mcp, [])
   const [servers, setServers] = useState([])
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
