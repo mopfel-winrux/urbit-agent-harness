@@ -47,8 +47,11 @@ items are present in the desk; unchecked items remain design commitments.
 
 ### Streaming
 
-- [ ] Emit provider tokens as transient ACP updates.
-- [ ] Commit only the terminal semantic message to the session log.
+- [x] Show an immediate thinking state and relay incremental provider text as
+  transient ACP updates when Iris supplies response progress.
+- [x] Commit only the terminal semantic message to the session log.
+- [ ] Make incremental HTTP delivery consistent across provider and runtime
+  combinations that currently return one completed body.
 - [ ] Keep stable prompt prefixes suitable for provider caching.
 
 ### Authentication

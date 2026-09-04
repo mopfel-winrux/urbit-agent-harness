@@ -47,9 +47,14 @@ blocks are joined; image, audio, embedded context, and client-supplied MCP
 servers are not advertised. Filesystem and terminal authority stays behind
 explicit Harness tools.
 
-Model replies currently arrive at durable message granularity. Tool progress
-is emitted as the event log changes. Token streaming can later use transient
-updates while committing only terminal semantic events.
+While a prompt is active, the client displays a thinking indicator. Harness
+projects incremental provider text as transient
+`harness_agent_stream_chunk` updates whenever Iris exposes response progress.
+Those chunks are presentation state: only the completed assistant item enters
+the event log and the standard `agent_message_chunk` update. Providers or HTTP
+paths that deliver the response as one completed body retain the thinking
+indicator until that terminal update. Tool progress is emitted as the event
+log changes.
 
 ## Recovery
 

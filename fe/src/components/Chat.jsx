@@ -9,8 +9,15 @@ function ToolEntry({ entry }) {
   </div>
 }
 
-function Transcript({ entries, pending }) {
-  if (!entries.length && !pending) return <div className="empty-chat">
+function ThinkingMessage({ streaming }) {
+  return <article className={`message assistant thinking-message ${streaming ? 'streaming' : ''}`} aria-live="polite">
+    <div className="message-label">harness</div>
+    <div className="message-body">{streaming || <span className="thinking-dots" aria-label="Thinking"><i /><i /><i /></span>}</div>
+  </article>
+}
+
+function Transcript({ entries, pending, thinking, streaming }) {
+  if (!entries.length && !pending && !thinking) return <div className="empty-chat">
     <div className="empty-orbit"><span /></div>
     <span className="eyebrow">New conversation</span>
     <h2>What should we work on?</h2>
@@ -23,7 +30,7 @@ function Transcript({ entries, pending }) {
       <div className="message-body">{entry.body}</div>
     </article>)}{pending && <article className="message user pending">
       <div className="message-label">user</div><div className="message-body">{pending.text}</div>
-    </article>}</>
+    </article>}{thinking && <ThinkingMessage streaming={streaming} />}</>
 }
 
 function textContent(content) {
@@ -35,6 +42,7 @@ export default function Chat({ chat, theme, onToggleTheme, onSettings }) {
   const [entries, setEntries] = useState([])
   const [draft, setDraft] = useState('')
   const [pending, setPending] = useState(null)
+  const [streaming, setStreaming] = useState('')
   const [state, setState] = useState('loading')
   const [error, setError] = useState('')
   const bottom = useRef(null)
@@ -43,7 +51,7 @@ export default function Chat({ chat, theme, onToggleTheme, onSettings }) {
 
   useEffect(() => {
     let live = true
-    setEntries([]); setDraft(''); setPending(null); setError(''); setState('loading')
+    setEntries([]); setDraft(''); setPending(null); setStreaming(''); setError(''); setState('loading')
     const update = (event) => {
       const params = event.detail
       if (!live || params?.sessionId !== chat) return
@@ -53,7 +61,10 @@ export default function Chat({ chat, theme, onToggleTheme, onSettings }) {
         setEntries((old) => [...old, { role: 'user', body }])
         setPending((current) => current && current.text.trimEnd() === body.trimEnd() ? null : current)
       } else if (value.sessionUpdate === 'agent_message_chunk') {
+        setStreaming('')
         setEntries((old) => [...old, { role: 'assistant', body: textContent(value.content) }])
+      } else if (value.sessionUpdate === 'harness_agent_stream_chunk') {
+        setStreaming((old) => old + textContent(value.content))
       } else if (value.sessionUpdate === 'tool_call') {
         setEntries((old) => [...old, { type: 'tool', id: value.toolCallId, title: value.title, status: value.status, body: value.rawInput }])
       } else if (value.sessionUpdate === 'tool_call_update') {
@@ -80,20 +91,21 @@ export default function Chat({ chat, theme, onToggleTheme, onSettings }) {
     }
   }, [chat])
 
-  useEffect(() => { bottom.current?.scrollIntoView({ block: 'end' }) }, [entries.length, pending])
+  useEffect(() => { bottom.current?.scrollIntoView({ block: 'end' }) }, [entries.length, pending, state, streaming])
 
   async function send(event) {
     event.preventDefault()
     const text = draft.trim()
     if (!text || busy) return
     const pendingId = crypto.randomUUID()
-    setDraft(''); setPending({ id: pendingId, text }); setError(''); setState('prompting')
+    setDraft(''); setPending({ id: pendingId, text }); setStreaming(''); setError(''); setState('prompting')
     try {
       await acp.call('session/prompt', { sessionId: chat, prompt: [{ type: 'text', text }] })
     } catch (cause) {
       setDraft(text); setPending(null); setError(cause.message)
     } finally {
       setPending((current) => current?.id === pendingId ? null : current)
+      setStreaming('')
       setState('idle')
     }
   }
@@ -113,7 +125,7 @@ export default function Chat({ chat, theme, onToggleTheme, onSettings }) {
       </div>
     </header>
     {error && <div className="error-banner">{error}</div>}
-    <section className="transcript"><div className="transcript-inner"><Transcript entries={entries} pending={pending} /><div ref={bottom} /></div></section>
+    <section className="transcript"><div className="transcript-inner"><Transcript entries={entries} pending={pending} thinking={state === 'prompting'} streaming={streaming} /><div ref={bottom} /></div></section>
     <div className="composer-wrap"><form className="composer" onSubmit={send}>
       <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => {
         if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form.requestSubmit() }

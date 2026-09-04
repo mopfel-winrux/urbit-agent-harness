@@ -35,8 +35,10 @@ independent of the React inspector.
   sessions, with an explicit response route.
 - Scryable derived views and chronological event histories for native clients.
 - Execution-time capability checks in addition to provider-visible schemas.
-- An ACP React inspector with optimistic message admission, live tool
-  updates, rename/delete, responsive settings, and system/light/dark themes.
+- An ACP React inspector with optimistic message admission, an immediate
+  thinking indicator, incremental reply display when the HTTP transport
+  exposes provider chunks, live tool updates, rename/delete, responsive
+  settings, and system/light/dark themes.
 - A dependency-free ACP stdio adapter for editors and other local clients.
 - Per-conversation tools for ship time, Clay, HTTP, skills, authored
   capabilities, subagents, and explicitly granted peers. New conversations

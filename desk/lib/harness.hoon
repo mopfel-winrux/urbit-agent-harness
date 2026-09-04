@@ -325,7 +325,7 @@
   =/  base=(list [@t json])
     :~  ['model' %s model.config.v]
         ['messages' %a msgs]
-        ['stream' %b %.n]
+        ['stream' %b &]
     ==
   =?  base  &(=(%turn kind) !=(~ tools.config.v))
     (snoc base ['tools' (tool-defs tools.config.v)])
@@ -728,6 +728,116 @@
           ==
       ==
   ==
+::  +stream-text: project displayable text from an accumulated SSE body.
+::  This is transient UI data; the terminal parser below still produces the
+::  single semantic event committed to the conversation.
+::
+++  stream-text
+  |=  [body=@t responses=?]
+  ^-  @t
+  %+  rap  3
+  %+  murn  (text-lines body)
+  |=  line=tape
+  ^-  (unit @t)
+  ?.  =("data: " (scag 6 line))  ~
+  =/  jon  (de:json:html (crip (slag 6 line)))
+  ?~  jon  ~
+  ?.  ?=(%o -.u.jon)  ~
+  ?:  responses
+    =/  typ  (~(get by p.u.jon) 'type')
+    ?.  ?=([~ %s *] typ)  ~
+    ?.  =('response.output_text.delta' p.u.typ)  ~
+    =/  delta  (~(get by p.u.jon) 'delta')
+    ?:(?=([~ %s *] delta) `p.u.delta ~)
+  =/  choices  (~(get by p.u.jon) 'choices')
+  ?.  ?=([~ %a *] choices)  ~
+  ?~  p.u.choices  ~
+  ?.  ?=(%o -.i.p.u.choices)  ~
+  =/  delta  (~(get by p.i.p.u.choices) 'delta')
+  ?.  ?=([~ %o *] delta)  ~
+  =/  content  (~(get by p.u.delta) 'content')
+  ?:(?=([~ %s *] content) `p.u.content ~)
+::
+::  +parse-chat-sse: digest a completed Chat Completions event stream,
+::  including content, fragmented tool calls, stop reason, and usage.
+::
++$  stream-call  [id=@t name=@t args=@t]
+++  parse-chat-sse
+  |=  body=@t
+  ^-  (each [stop=stop-reason:h u=usage:h it=item:h] @t)
+  =/  events=(list json)
+    %+  murn  (text-lines body)
+    |=  line=tape
+    ^-  (unit json)
+    ?.  =("data: " (scag 6 line))  ~
+    (de:json:html (crip (slag 6 line)))
+  =/  acc
+    %+  roll  events
+    |=  [ev=json acc=[text=@t calls=(map @ud stream-call) finish=(unit @t) u=usage:h]]
+    ^+  acc
+    ?.  ?=(%o -.ev)  acc
+    =/  next-u=usage:h
+      =/  usage  (~(get by p.ev) 'usage')
+      ?.  ?=([~ %o *] usage)  u.acc
+      =/  prompt  (~(get by p.u.usage) 'prompt_tokens')
+      =/  completion  (~(get by p.u.usage) 'completion_tokens')
+      :-  ?:(?=([~ %n *] prompt) (fall (rush p.u.prompt dem) prompt.u.acc) prompt.u.acc)
+      ?:(?=([~ %n *] completion) (fall (rush p.u.completion dem) completion.u.acc) completion.u.acc)
+    =/  choices  (~(get by p.ev) 'choices')
+    ?.  ?=([~ %a *] choices)  acc(u next-u)
+    ?~  p.u.choices  acc(u next-u)
+    =/  choice  i.p.u.choices
+    ?.  ?=(%o -.choice)  acc(u next-u)
+    =/  finish  (~(get by p.choice) 'finish_reason')
+    =/  next-finish=(unit @t)
+      ?:(?=([~ %s *] finish) `p.u.finish finish.acc)
+    =/  delta  (~(get by p.choice) 'delta')
+    ?.  ?=([~ %o *] delta)  acc(finish next-finish, u next-u)
+    =/  content  (~(get by p.u.delta) 'content')
+    =/  next-text=@t
+      ?:(?=([~ %s *] content) (cat 3 text.acc p.u.content) text.acc)
+    =/  tool-calls  (~(get by p.u.delta) 'tool_calls')
+    ?.  ?=([~ %a *] tool-calls)
+      acc(text next-text, finish next-finish, u next-u)
+    =/  next-calls=(map @ud stream-call)
+      %+  roll  p.u.tool-calls
+      |=  [part=json calls=_calls.acc]
+      ?.  ?=(%o -.part)  calls
+      =/  index  (~(get by p.part) 'index')
+      ?.  ?=([~ %n *] index)  calls
+      =/  at  (rush p.u.index dem)
+      ?~  at  calls
+      =/  prior=stream-call  (fall (~(get by calls) u.at) ['' '' ''])
+      =/  id  (~(get by p.part) 'id')
+      =/  fun  (~(get by p.part) 'function')
+      =/  name=(unit @t)
+        ?.  ?=([~ %o *] fun)  ~
+        =/  value  (~(get by p.u.fun) 'name')
+        ?:(?=([~ %s *] value) `p.u.value ~)
+      =/  args=(unit @t)
+        ?.  ?=([~ %o *] fun)  ~
+        =/  value  (~(get by p.u.fun) 'arguments')
+        ?:(?=([~ %s *] value) `p.u.value ~)
+      =/  next=stream-call
+        :*  ?:(?=([~ %s *] id) p.u.id id.prior)
+            (cat 3 name.prior (fall name ''))
+            (cat 3 args.prior (fall args ''))
+        ==
+      (~(put by calls) u.at next)
+    acc(text next-text, calls next-calls, finish next-finish, u next-u)
+  =/  calls=(list tool-call:h)
+    %+  turn  ~(val by calls.acc)
+    |=  call=stream-call
+    [id.call name.call args.call]
+  ?:  ?&  =(0 text.acc)
+          ?=(~ calls)
+      ==
+    [%| 'no completed output in response stream']
+  =/  stop=stop-reason:h
+    ?:  !=(~ calls)  %tool-calls
+    ?:  ?&(?=(^ finish.acc) =('length' u.finish.acc))  %length
+    %stop
+  [%& stop u.acc [%assistant text.acc calls]]
 ::  +parse-response: digest a chat-completions response into branch fields
 ::
 ++  parse-response

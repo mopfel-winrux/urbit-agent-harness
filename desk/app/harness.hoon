@@ -10,6 +10,7 @@
 /+  hl=harness, hg=harness-grub, default-agent, dbug
 |%
 +$  model-info  [id=@t context=(unit @ud)]
++$  stream-progress  [body=@t sent=@ud]
 +$  state-0
   $:  %0
       sessions=(map session-id:h session:h)
@@ -123,10 +124,33 @@
       defaults=config:h
       mcp-servers=(map mcp-server-id:h mcp-server:h)
   ==
++$  state-6
+  $:  %6
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+      defaults=config:h
+      mcp-servers=(map mcp-server-id:h mcp-server:h)
+      streams=(map [session-id:h @ud] stream-progress)
+  ==
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-5
+=|  state-6
 =*  state  -
 ^-  agent:gall
 =<
@@ -149,26 +173,29 @@
 ++  on-load
   |=  old-vase=vase
   ^-  (quip card _this)
-  =/  current  (mule |.(!<(state-5 old-vase)))
-  =/  new=state-5
+  =/  current  (mule |.(!<(state-6 old-vase)))
+  =/  new=state-6
     ?:  ?=(%& -.current)  p.current
+    =/  fifth  (mule |.(!<(state-5 old-vase)))
+    ?:  ?=(%& -.fifth)
+      (migrate-5:hc p.fifth)
     =/  fourth  (mule |.(!<(state-4 old-vase)))
     ?:  ?=(%& -.fourth)
-      (migrate-4:hc p.fourth)
+      (migrate-5:hc (migrate-4:hc p.fourth))
     =/  third  (mule |.(!<(state-3 old-vase)))
     ?:  ?=(%& -.third)
-      (migrate-4:hc (migrate-3:hc p.third))
+      (migrate-5:hc (migrate-4:hc (migrate-3:hc p.third)))
     =/  previous  (mule |.(!<(state-2 old-vase)))
     ?:  ?=(%& -.previous)
-      (migrate-4:hc (migrate-3:hc (migrate-2:hc p.previous)))
+      (migrate-5:hc (migrate-4:hc (migrate-3:hc (migrate-2:hc p.previous))))
     =/  prior  (mule |.(!<(state-1 old-vase)))
     ?:  ?=(%& -.prior)
-      (migrate-4:hc (migrate-3:hc (migrate-2:hc (migrate-1:hc p.prior))))
+      (migrate-5:hc (migrate-4:hc (migrate-3:hc (migrate-2:hc (migrate-1:hc p.prior)))))
     =/  oldest  (mule |.(!<(state-0 old-vase)))
     ?:  ?=(%& -.oldest)
-      (migrate-4:hc (migrate-3:hc (migrate-2:hc (migrate-1:hc (migrate-0:hc p.oldest)))))
+      (migrate-5:hc (migrate-4:hc (migrate-3:hc (migrate-2:hc (migrate-1:hc (migrate-0:hc p.oldest))))))
     ~?  &  [dap.bowl %incompatible-state-dropped]
-    *state-5
+    *state-6
   :_  this(state new)
   =/  base=(list card)
     :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
@@ -606,6 +633,31 @@
       builtin-config
       *(map mcp-server-id:h mcp-server:h)
   ==
+++  migrate-5
+  |=  old=state-5
+  ^-  state-6
+  :*  %6
+      sessions.old
+      timers.old
+      subs.old
+      skills.old
+      staged.old
+      rehearsals.old
+      peers.old
+      peer-base.old
+      asks.old
+      serving.old
+      jobs.old
+      api-key.old
+      acp-prompts.old
+      acp-through.old
+      provider-keys.old
+      model-requests.old
+      next-model-request.old
+      defaults.old
+      mcp-servers.old
+      *(map [session-id:h @ud] stream-progress)
+  ==
 ++  acp-open-card
   ^-  card
   :*  %pass  /acp/open
@@ -971,6 +1023,17 @@
         ['content' content]
     ==
   (acp-session-update-card connection sid update)
+++  acp-stream-card
+  |=  [connection=connection-id:v1:ac sid=session-id:h text=@t]
+  ^-  card
+  =/  content=json
+    (pairs:enjs:format ~[['type' %s 'text'] ['text' %s text]])
+  =/  update=json
+    %-  pairs:enjs:format
+    :~  ['sessionUpdate' %s 'harness_agent_stream_chunk']
+        ['content' content]
+    ==
+  (acp-session-update-card connection sid update)
 ++  acp-session-update-card
   |=  [connection=connection-id:v1:ac sid=session-id:h update=json]
   ^-  card
@@ -1141,6 +1204,9 @@
     =/  req=(unit @ud)  ?~(pending.v ~ `req.u.pending.v)
     =/  event=event:h
       [%cancelled req wait.v 'cancelled by client']
+    =.  streams
+      %-  ~(gas by *(map [session-id:h @ud] stream-progress))
+      (skip ~(tap by streams) |=([[s=session-id:h @ud] stream-progress] =(s sid.act)))
     =^  cards  ses  (record-all sid.act ses ~[event])
     :-  (snoc cards (shadow-put-card sid.act ses))
     state(sessions (~(put by sessions) sid.act ses))
@@ -1190,6 +1256,9 @@
     =.  asks
       %-  ~(gas by *(map ask-id:h [session-id:h @t ship]))
       (skip ~(tap by asks) |=([id=ask-id:h s=session-id:h *] =(s sid)))
+    =.  streams
+      %-  ~(gas by *(map [session-id:h @ud] stream-progress))
+      (skip ~(tap by streams) |=([[s=session-id:h @ud] stream-progress] =(s sid)))
     =.  cards  (snoc cards (shadow-del-card sid))
     =.  sessions  (~(del by sessions) sid)
     ::  close the ui subscription for this session
@@ -1719,7 +1788,6 @@
           res=client-response:iris
       ==
   ^-  (quip card _state)
-  ?:  ?=(%progress -.res)  `state
   =/  mses  (~(get by sessions) sid)
   ?~  mses  `state
   =/  ses  u.mses
@@ -1728,6 +1796,24 @@
   ::
   ?~  pending.v  `state
   ?.  =(req.u.pending.v req)  `state
+  ?:  ?=(%progress -.res)
+    =/  incremental  incremental.res
+    ?~  incremental  `state
+    =/  key  [sid req]
+    =/  prior=stream-progress  (fall (~(get by streams) key) ['' 0])
+    =/  body=@t  (cat 3 body.prior q.u.incremental)
+    =/  responses=?
+      =('https://chatgpt.com/backend-api/codex/responses' url.config.v)
+    =/  text=@t  (stream-text:hl body responses)
+    =/  total=@ud  (met 3 text)
+    =/  sent=@ud  sent.prior
+    =.  streams  (~(put by streams) key [body total])
+    ?.  (gth total sent)  `state
+    =/  delta=@t  (cut 3 [sent (sub total sent)] text)
+    =/  prompt  (~(get by acp-prompts) sid)
+    ?~  prompt  `state
+    [~[(acp-stream-card connection.u.prompt sid delta)] state]
+  =.  streams  (~(del by streams) [sid req])
   =/  ev=event:h
     ?:  ?=(%cancel -.res)
       [%llm-failed req 'request cancelled by runtime']
@@ -1748,6 +1834,11 @@
     =/  digest
       ?:  responses
         (mule |.((parse-responses-sse:hl u.body)))
+      =/  streamed  (mule |.((parse-chat-sse:hl u.body)))
+      ?:  ?&  ?=(%& -.streamed)
+              ?=(%& -.p.streamed)
+          ==
+        streamed
       =/  jon  (de:json:html u.body)
       ?~  jon  [%| 'invalid json in response']
       (mule |.((parse-response:hl u.jon)))
