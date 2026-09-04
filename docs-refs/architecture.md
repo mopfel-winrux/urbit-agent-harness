@@ -1,171 +1,124 @@
-# Architecture: a harness as a Grubbery application
+# Architecture
 
-The harness is a small distribution layer over Grubbery. It pins a complete
-runtime and seeds `/apps/harness.harness` as an instance of its reusable agent
-nexus.
+Harness separates a deterministic agent head from asynchronous hands. The head
+owns durable sessions and decides the next event. Providers, tools, timers,
+peers, and clients cross explicit boundaries and return facts to that log.
 
-The key choice is composition. Grubbery's agent nexuses already provide the
-agent mechanics this project needs, so this repository owns policy, ACP edge
-integration, design documents, and conformance tests rather than a copy of the
-agent loop.
+## Desk shape
 
-## Names and locations
+One `%harness` desk declares four Gall agents:
 
-- `harness.harness` is this distribution's installed instance and durable ball
-  path.
-- `%grubbery` is the Gall runtime and required Clay desk name.
+| Agent | Responsibility |
+|---|---|
+| `%harness` | Session logs, replay, decisions, provider requests, tools, policy |
+| `%acp` | Durable, ordered, per-client duplex JSON-RPC queues |
+| `%harness-grub` | Minimal Grubbery process/effect runtime |
+| `%harness-fileserver` | Authenticated static React application |
 
-The runtime tree is:
+`desk/lib/root.hoon` loads only the Grubbery services needed for Fibers and
+effects: Eyre, Iris, Behn, Clay, and scry. It does not seed a desktop, example
+applications, or a competing agent tree.
 
-```text
-%grubbery
-└── /apps/harness.harness
-    ├── /agents/main
-    │   ├── /chats/<name>
-    │   ├── /context
-    │   ├── /children
-    │   ├── /apps/code
-    │   └── /proc
-    ├── /apis
-    ├── /channels
-    └── /assistants
+## Session ownership
+
+A session is `[log next-req]`. Its closed event vocabulary includes admitted
+input, configuration, provider requests and results, tool requests and
+results, compaction, retry, and halt. `play` folds the log into a derived view;
+`decide` selects the next step; Gall emits effects and records their results.
+
+```mermaid
+flowchart LR
+  Client["ACP client"] --> Queue["%acp queue"]
+  Queue --> Head["%harness event log"]
+  Head --> Decide["replay + decide"]
+  Decide --> Iris["provider via Iris"]
+  Decide --> Tool["tool / timer / peer"]
+  Iris --> Head
+  Tool --> Head
+  Head --> Queue
 ```
 
-Each stateful file or directory can be a supervised process. The namespace is
-both durable state and a legible API.
+Admission is fast because a prompt becomes an event before inference begins.
+Each session advances independently, so one slow provider call does not block
+another conversation. A cancellation records a terminal event and stale
+responses are ignored by request identity.
 
-## Grubbery mechanics
+The complete semantic transcript remains on ship. Only a bounded request view
+is sent to a provider. Compaction stores a summary while retaining the event
+record from which the current view is derived.
 
-A nexus declares its directory through `on-load`. `%fall` entries are seeded
-only when the owner has not already supplied a value; they are appropriate for
-durable user state such as chats and configuration. `%over` entries remain
-owned by the nexus code and are appropriate for shipped assets and derived
-interfaces. This distinction lets upgrades refresh application material
-without replacing the user's record.
+## Grubbery's role
 
-Record grubs and caches remain separate siblings. A chat transcript,
-configuration file, or assistant output is a system of record. Search indexes,
-status summaries, and UI manifests may be rebuilt from those records. A cache
-must never be the only location of information needed to resume a process.
+Grubbery is the modular process substrate, not the product namespace. Its
+nexus, Fiber, Dart, road, and weir vocabulary gives Harness a path toward small
+supervised capabilities with explicit authority:
 
-Fibers describe asynchronous effect programs. Darts cross the runtime boundary
-for HTTP, timers, Clay, cross-app calls, and other effects; roads identify
-resources and weirs constrain which roads a process may reach. Each Arrow is a
-transaction: failure annuls that invocation's state and effects, while earlier
-successful work remains committed. A crashed fiber therefore leaves an
-inspectable `bang` at its grub rather than half-applying its current step.
+- Fibers describe asynchronous programs.
+- Darts name effects outside deterministic state.
+- Roads address resources.
+- Weirs constrain the roads a capability can reach.
+- Child processes isolate work and make failure inspectable.
 
-## Harness invariants
+Harness can therefore grow tools, channels, storage hands, or local inference
+as optional processes instead of enlarging its central decision loop. The
+minimal root keeps that direction available without shipping unrelated apps.
 
-| Goal | Grubbery realization |
-|---|---|
-| deterministic head | file/nexus processes whose state is a typed noun |
-| asynchronous hands | Fiber programs yielding typed Darts to system services |
-| durable history | complete per-chat transcript plus materialized state files |
-| non-blocking loop | API and tool work in supervised child fibers |
-| inspectability | namespace peeks, typed files, manifests, status, and crash `bang`s |
-| least authority | path-local weirs and explicit tool installation |
-| subagents | child agent nexuses with durable outboxes and completion status |
-| self-modification | authored source under `apps/code`, compiled into grubs |
-| timers | schedule processes and autonomous assistant fibers |
-| providers | shared API proxy nexuses with credentials, rates, and usage |
-| channels | narrow, optional inbox/send processes |
-| browser and ACP clients | authenticated ball API over the same record grubs |
-| on-ship consumers | thin `%grub-client` Gall surface and materialized subscriptions |
-| cross-ship ingress | typed `/port` endpoints with explicit Urbit identity |
+## Providers
 
-Supervision and replay belong to the parent/child process tree. Local processes
-have independent lifecycles and failure domains, while source, state, effects,
-and crash reports remain visible in one durable namespace.
+Session configuration is data:
 
-## Context and memory
+```text
+endpoint, model, session key, headers, system instructions,
+context budget, enabled tool families
+```
 
-The full conversation stays on the ship while only a token-bounded sliding
-window is sent to a provider. The agent can search all history, recall selected
-ranges into context, and summarize targeted ranges. Forgetting is therefore an
-explicit, inspectable context choice rather than destructive data loss.
+Known endpoints select a per-provider credential. A session key can override
+that credential, and arbitrary headers support compatible gateways. Provider
+requests use the OpenAI Chat Completions shape. OpenRouter, OpenAI, Anthropic's
+compatible endpoint, and custom endpoints share the same boundary.
 
-Prompts, reference documents, and memories are separate files under
-`/context`. This keeps policy reviewable and permits updates without branching
-the agent loop.
+Model catalogs are fetched by Iris and returned through the requesting ACP
+connection. Catalog failure never prevents a manually entered model name.
 
-## Agents and assistants
+## Tools and authority
 
-Chats, agents, child tasks, assistants, and channels are directories with
-narrow contracts. A new assistant does not require another Gall app or another
-runtime copy. Child agents run in their own subtree and publish durable output,
-which makes delegation observable and limits the blast radius of failure.
+Tool families are disabled by default and granted per conversation. The
+current catalog covers ship time, Clay reads, public web requests, skills,
+governed skill writing, authoring, child sessions, and peer asks. Tool calls
+are durable events; asynchronous results can arrive in any order and settle
+the waiting turn when complete.
 
-## Tools and self-modification
+Skills have a staged workflow: propose, rehearse in a child session, then
+commit or discard. Peer work uses Urbit identity and explicit grants for model,
+budget, visible skills, and tools. A social desk may later act as an optional
+channel, but it is not an identity or runtime dependency.
 
-Tools can be small Hoon programs compiled beneath an agent. Longer-lived
-capabilities can be nexuses with their own files and workers. Both inherit a
-weir and leave durable state.
+## ACP
 
-Compilation is not promotion. A governed workflow should test authored code in
-an isolated child, record the evidence, and require approval before widening a
-weir or sharing the capability with other agents.
+`%acp` transports opaque JSON-RPC frames. Every connection has independently
+sequenced client and agent queues with cumulative acknowledgement. `%harness`
+watches the agent side once and routes responses back to the connection that
+made the request. Disconnecting a browser cannot consume another client's
+reply.
 
-## Providers and hands
-
-Provider credentials, model metadata, rate information, and accounting live in
-API proxy applications rather than sessions. An agent names a proxy. The same
-boundary can target a local service, a hosted executor, or another ship without
-changing chat ownership.
-
-This distribution does not bundle native inference or an embedded JavaScript
-runtime. Both can be optional hands behind typed interfaces if they become
-useful; neither belongs in the durable head.
-
-## Channels and identity
-
-Channels are optional adapters with narrow inbox/send contracts. The harness
-does not depend on the Groups desk. Messenger, Telegram, ACP, or another client
-may deliver messages without becoming the owner of the conversation.
-
-Remote agent-to-agent work is distinct from client messaging. It should use
-Urbit identity, addressed ports, explicit usergroups, and a sandboxed child
-whose budget and capabilities are chosen by the owner.
-
-## ACP boundary
-
-ACP is edge transport. The adapter authenticates to the local ship and maps
-ACP sessions onto durable chat directories. It reads and pokes the same files
-as the browser UI, so there is exactly one transcript and one run state.
-
-The adapter is replaceable and may crash without becoming the system of
-record. Filesystem and terminal authority stays behind governed agent tools and
-weirs rather than being granted implicitly to an ACP client.
-
-## Integration surfaces
-
-The React UI and ACP adapter use authenticated ball reads, subscriptions, and
-pokes because they run at the HTTP edge. They are projections over the same
-record grubs, so neither owns a transcript or a competing run queue.
-
-On-ship applications should prefer the thin `%grub-client` Gall surface when
-they need conventional pokes, subscriptions, or lifecycle acknowledgements.
-Cross-ship protocols should use typed `/port` ingress so the source ship stays
-part of the request and authorization decision. These are complementary
-transports over one process tree, not separate application models.
+The React app uses this boundary for conversations, replay, prompts,
+cancellation, configuration, credentials, and model discovery. The stdio
+adapter projects the same queues to NDJSON. Neither client owns a transcript.
 
 ## Trust boundaries
 
-The root `/apps` tier is trusted distribution code. Agent-authored code belongs
-under its agent and receives only roads permitted by its weir. Provider secrets
-belong to API proxy state. Optional channels reduce an external identity to a
-message in and a response out; they do not silently inherit the agent's full
-capabilities.
+- `%harness` owns the authoritative event logs.
+- `%acp` owns delivery, not session meaning.
+- Provider credentials remain agent state and are never returned by status.
+- ACP does not advertise ambient filesystem or terminal access.
+- Tool families are explicit session grants.
+- External channels and remote peers require narrow typed adapters.
 
-## Upgrade discipline
+## Build discipline
 
-1. Advance the Grubbery commit in `build.zig`.
-2. Diff upstream `desk/lib/root.hoon` against this overlay and retain only the
-   harness seed as a local policy change.
-3. Assemble to a mounted `%grubbery` desk.
-4. Commit through the ship so Ford reports Hoon build errors.
-5. Install or revive `%grubbery`, verify `/apps/harness.harness`, create an ACP
-   chat, and inspect the process tree for `bang`s.
-
-The literal desk name matters because Grubbery's mark bootstrap scries Clay at
-`%grubbery`. Tests should guard this operational invariant.
+`build.zig` pins Grubbery, assembles its libraries and marks, adapts its Clay
+desk identity, renames the runtime agent, and overlays this desk. A release is
+validated by building into a mounted `%harness` desk, committing through Clay,
+compiling all four agents, opening multiple ACP connections, and completing a
+real provider turn. The roadmap records further checks that should become
+automated.

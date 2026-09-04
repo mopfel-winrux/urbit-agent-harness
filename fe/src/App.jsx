@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react'
-import { ballUrl, DEFAULT_BALL } from './api'
 import Chat from './components/Chat'
 import ConversationModal from './components/ConversationModal'
 import Settings from './components/Settings'
 import Sidebar from './components/Sidebar'
+import Welcome from './components/Welcome'
 import { useConversations } from './useConversations'
-
-const AGENT = 'main'
 
 function route() {
   const value = location.hash.replace(/^#\/?/, '')
-  if (value === 'settings') return { page: 'settings', chat: 'main' }
-  try { return { page: 'chat', chat: value ? decodeURIComponent(value) : 'main' } } catch { return { page: 'chat', chat: 'main' } }
+  if (value === 'settings') return { page: 'settings', chat: '' }
+  try { return { page: 'chat', chat: value ? decodeURIComponent(value) : '' } } catch { return { page: 'chat', chat: '' } }
 }
 
 export default function App() {
@@ -21,8 +19,8 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('harness-theme') || 'system')
   const { chat: current, page } = view
   const settings = page === 'settings'
-  const conversations = useConversations(DEFAULT_BALL, AGENT, current, choose)
-  const { chats, roads: baseRoads } = conversations
+  const conversations = useConversations(current, choose)
+  const { chats, loading, roads: baseRoads } = conversations
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -38,7 +36,7 @@ export default function App() {
     }
   }, [])
   useEffect(() => {
-    if (!settings && !chats.includes(current)) choose(chats[0] || 'main', false)
+    if (!settings && chats.length && !chats.includes(current)) choose(chats[0], false)
   }, [chats, current, settings])
 
   function choose(chat, push = true) {
@@ -60,7 +58,6 @@ export default function App() {
   }
 
   async function deleteChat(name) {
-    if (chats.length === 1) { setError('Keep at least one conversation.'); return }
     if (!confirm(`Delete “${name}” and its transcript?`)) return
     setError('')
     try {
@@ -71,10 +68,10 @@ export default function App() {
   const toggleTheme = () => setTheme((value) => value === 'dark' ? 'light' : 'dark')
 
   return <div className="app-shell">
-    <Sidebar chats={chats} current={current} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings} onSettings={openSettings} inspectUrl={ballUrl(baseRoads.agentRoot)} />
+    <Sidebar chats={chats} current={current} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings} onSettings={openSettings} />
     {settings
       ? <Settings roads={baseRoads} theme={theme} onThemeChange={setTheme} onBack={() => choose(current)} />
-      : <Chat chat={current} roads={baseRoads} theme={theme} onToggleTheme={toggleTheme} />}
+      : current ? <Chat chat={current} theme={theme} onToggleTheme={toggleTheme} /> : <Welcome loading={loading} onNew={() => setDialog({ mode: 'create' })} />}
     {(error || conversations.error) && <div className="global-error" onClick={() => setError('')}>{error || conversations.error}</div>}
     {dialog && <ConversationModal mode={dialog.mode} initialName={dialog.chat || ''} onClose={() => setDialog(null)} onSave={dialog.mode === 'rename' ? renameChat : createChat} />}
   </div>

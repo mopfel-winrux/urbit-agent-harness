@@ -1,89 +1,49 @@
-export const DEFAULT_BALL = 'apps/harness.harness'
+import { acp } from './acp.js'
 
-const encodePath = (path) => path.split('/').filter(Boolean).map(encodeURIComponent).join('/')
-const blot = (name) => `?blot=${encodeURIComponent(`/${name}`)}`
-
-async function responseData(response) {
-  const text = await response.text()
-  if (!text) return null
-  try { return JSON.parse(text) } catch { return text }
+async function action(value) {
+  await acp.start()
+  if (value.config) return acp.call('harness/session/configure', { sessionId: value.config.sid, config: value.config.config })
+  if (value['set-key']) return acp.call('harness/credential/set', { provider: value['set-key'].provider || 'openrouter', key: value['set-key'].key })
+  throw new Error('Unsupported Harness action')
 }
 
-async function request(url, options = {}) {
-  const response = await fetch(url, { credentials: 'same-origin', ...options })
-  const data = await responseData(response)
-  if (!response.ok) {
-    const detail = typeof data === 'string' ? data : data?.error || data?.message
-    throw new Error(detail || `HTTP ${response.status}`)
-  }
-  return data
+export const scryUrl = (path) => `/~/scry/harness/${path}.json`
+async function read(path) {
+  await acp.start()
+  if (path === 'sessions') return (await acp.call('session/list')).sessions?.map((session) => session.sessionId) || []
+  if (path === 'status') return acp.call('harness/status')
+  if (path.startsWith('status/')) return acp.call('harness/status', { provider: path.slice('status/'.length) })
+  if (path === 'tools') return acp.call('harness/tools')
+  if (path.startsWith('session/')) return acp.call('harness/session/config', { sessionId: path.slice('session/'.length) })
+  throw new Error(`Unsupported Harness read: ${path}`)
 }
 
-// Do not abort a slow write: cancelling its Eyre request also annuls the
-// Grubbery Arrow. Keep the fetch alive, return after dispatch, and let callers
-// confirm the resulting grub state.
-async function writeRequest(url, options) {
-  const response = request(url, options)
-  const dispatched = new Promise((resolve) => setTimeout(() => resolve(null), 250))
-  return Promise.race([response, dispatched])
+const models = async (provider, url) => {
+  await acp.start()
+  return acp.call('harness/provider/models', { provider, url }, 30_000)
 }
 
-export const fileUrl = (path, mark = 'json') =>
-  `/grubbery/api/file/${encodePath(path)}${blot(mark)}`
+export const api = { read, action, models }
 
-export const keepUrl = (path, mark = 'json') =>
-  `/grubbery/api/keep/${encodePath(path)}${blot(mark)}`
-
-export const ballUrl = (path = '') => `/grubbery/ball/${encodePath(path)}`
-
-export const api = {
-  read: (path, mark = 'json') => request(fileUrl(path, mark)),
-  get: (url) => request(url),
-  post: (url, value) => writeRequest(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(value),
-  }),
-  poke: (path, value, mark = 'json') => writeRequest(
-    `/grubbery/api/poke/${encodePath(path)}${blot(mark)}`,
-    {
-      method: 'POST',
-      headers: { 'content-type': mark === 'json' ? 'application/json' : 'text/plain' },
-      body: mark === 'json' ? JSON.stringify(value) : String(value),
-    },
-  ),
-  over: (path, value, mark = 'json') => writeRequest(
-    `/grubbery/api/over/${encodePath(path)}${blot(mark)}`,
-    {
-      method: 'POST',
-      headers: { 'content-type': mark === 'json' ? 'application/json' : 'text/plain' },
-      body: mark === 'json' ? JSON.stringify(value) : String(value),
-    },
-  ),
-}
-
-export async function waitFor(read, accepts, { attempts = 40, interval = 250 } = {}) {
-  let value
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    value = await read()
-    if (accepts(value)) return value
-    await new Promise((resolve) => setTimeout(resolve, interval))
-  }
-  throw new Error('The ship did not apply the change.')
-}
-
-export function paths(ball, agent, chat) {
-  const agentRoot = `${ball}/agents/${agent}`
-  const chatRoot = `${agentRoot}/chats/${chat}`
+export function paths(chat) {
   return {
-    agentRoot,
-    chatRoot,
-    chats: `${agentRoot}/ui/chats.json`,
-    agentMain: `${agentRoot}/main.sig`,
-    config: `${agentRoot}/config.json`,
-    about: `${agentRoot}/about.txt`,
-    anthropic: `${ball}/apis/anthropic`,
-    transcript: `${chatRoot}/chat.json`,
-    status: `${chatRoot}/status.json`,
+    chat,
+    chats: 'sessions',
+    session: `session/${chat}`,
+    config: `session/${chat}`,
+    transcript: `session/${chat}`,
+    status: `session/${chat}`,
+    tools: 'tools',
   }
 }
+
+export const defaultConfig = (overrides = {}) => ({
+  url: 'https://openrouter.ai/api/v1/chat/completions',
+  model: 'openai/gpt-4o-mini',
+  key: '',
+  headers: [],
+  system: 'You are a capable personal agent living on an Urbit ship. Be direct, careful, and useful.',
+  'max-context': 80_000,
+  tools: [],
+  ...overrides,
+})

@@ -5,8 +5,10 @@ import ProviderSettings from './ProviderSettings'
 
 const tabs = [
   ['agent', 'Agent'],
-  ['anthropic', 'Anthropic'],
   ['openrouter', 'OpenRouter'],
+  ['openai', 'OpenAI'],
+  ['anthropic', 'Anthropic'],
+  ['custom', 'Custom'],
 ]
 
 export default function Settings({ roads, theme, onThemeChange, onBack }) {

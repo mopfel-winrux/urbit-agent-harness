@@ -1,4 +1,5 @@
-:~  %grubbery
-    %grub-client
+:~  %harness-grub
+    %harness
     %harness-fileserver
+    %acp
 ==

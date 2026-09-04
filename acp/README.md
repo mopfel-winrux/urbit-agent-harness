@@ -1,79 +1,57 @@
-# harness-acp
+# Harness ACP adapter
 
-`harness-acp.mjs` is a dependency-free Agent Client Protocol stdio adapter for
-the Grubbery-native harness. It translates ACP JSON-RPC frames directly to the
-authenticated Grubbery ball API; it does not contain an agent loop or copy chat
-state off ship.
+`harness-acp.mjs` projects the on-ship `%acp` queues onto newline-delimited
+JSON over stdin/stdout. It contains no agent loop and stores no transcript.
 
 ```text
-ACP client <-- NDJSON --> harness-acp.mjs <-- local Eyre --> Grubbery chats
+ACP client <-- NDJSON --> harness-acp.mjs <-- authenticated Eyre --> %acp
 ```
 
-## Requirements
+## Run
 
-- Node 22 or newer
-- a running `%grubbery` desk containing `/apps/harness.harness`
-- an API provider configured in Grubbery
-- the ship URL and login code
+Requirements are Node 22 or newer, an installed `%harness` desk, the ship URL,
+and the output of `+code`.
 
-Configure an ACP client such as Zed to spawn:
-
-```text
-command: node
-args:    /path/to/urbit-agent-harness/acp/harness-acp.mjs
-env:
-  SHIP_URL: http://localhost:8081
-  SHIP_CODE: <the output of +code>
+```sh
+SHIP_URL=http://localhost:8081 \
+SHIP_CODE=your-ship-code \
+node /path/to/urbit-agent-harness/acp/harness-acp.mjs
 ```
 
-There is deliberately no default login code.
+An editor such as Zed can spawn that command with the same environment. There
+is deliberately no embedded login code.
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `SHIP_URL` | `http://localhost:8081` | Ship HTTP origin |
 | `SHIP_CODE` | required | Ship login code |
-| `HARNESS_BALL` | `apps/harness.harness` | Absolute Grubbery instance path |
-| `HARNESS_AGENT` | `main` | Agent below the instance's `agents/` directory |
-| `ACP_POLL_MS` | `150` | Conversation/status polling interval |
-| `ACP_HTTP_TIMEOUT_MS` | `30000` | Timeout for one ship HTTP operation |
-| `ACP_PROMPT_TIMEOUT_MS` | `1800000` | Prompt timeout |
-| `ACP_CWD` | adapter process directory | Working directory reported for native sessions not created by this adapter process |
+| `ACP_CONNECTION` | `harness` | Lowercase durable connection identifier |
+| `ACP_POLL_MS` | `100` | Queue polling interval |
 
-## Mapping
+Use a distinct `ACP_CONNECTION` for independently running clients. Reusing an
+active identifier intentionally resumes the same ordered queue.
 
-- `initialize` advertises protocol version 1, durable session discovery,
-  replay, resume, close, and deletion, plus text prompts.
-- `session/new` creates a named chat below the configured agent.
-- `session/list` enumerates the durable `ui/chats.json` manifest.
-- `session/load` validates the chat and replays its transcript as
-  `session/update` notifications before responding.
-- `session/resume` validates the chat without replaying its transcript.
-- `session/close` interrupts active work while keeping the durable chat.
-- `session/delete` interrupts active work and removes the chat; the protected
-  `main` chat cannot be deleted through ACP.
-- `session/prompt` pokes the chat and follows its durable conversation and
-  status files. Assistant entries become `agent_message_chunk`; tool-use and
-  tool-result entries become ACP tool updates.
-- `session/cancel` pokes the same interrupt action used by the native UI.
+## Behavior
 
-The adapter intentionally does not proxy ACP filesystem or terminal methods.
-An agent reaches those capabilities through governed Grubbery tools and weirs,
-so an ACP client cannot silently widen the agent's authority.
-Client-supplied MCP servers are rejected for the same reason; capabilities are
-installed and granted through the Grubbery process tree.
+The adapter logs in, opens its connection, forwards every valid input frame to
+the agent queue, writes client frames to stdout in sequence order, and
+acknowledges them after writing. Invalid input receives a JSON-RPC parse error.
+Diagnostics are written to stderr.
+
+ACP session methods and Harness extensions are documented in
+[`docs-refs/acp.md`](../docs-refs/acp.md). The adapter does not proxy ambient
+filesystem or terminal methods; those capabilities are granted to a session as
+Harness tools.
 
 ## Smoke test
 
-The adapter speaks newline-delimited JSON on stdout. With a provider configured:
-
-```sh
-SHIP_URL=http://localhost:8081 SHIP_CODE=your-code node acp/harness-acp.mjs
-```
-
-Then enter:
+Start the adapter and enter:
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}
-{"jsonrpc":"2.0","id":2,"method":"session/new","params":{"cwd":"/tmp","mcpServers":[]}}
-{"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"<id from new>","prompt":[{"type":"text","text":"What ship are you running on?"}]}}
+{"jsonrpc":"2.0","id":2,"method":"session/new","params":{"name":"editor-test"}}
+{"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"editor-test","prompt":[{"type":"text","text":"Reply with ACP_OK"}]}}
 ```
+
+The prompt first yields a `user_message_chunk`, then an assistant update and a
+terminal result.

@@ -1,39 +1,21 @@
 # ACP boundary
 
-ACP is the harness's editor/client boundary. It should expose an Urbit-native
-agent without forcing the durable agent to adopt an editor's lifecycle or
-duplicating its state in a protocol-specific Gall core.
+Agent Client Protocol is Harness's client boundary. `%acp` is a generic Gall
+broker for opaque JSON-RPC frames; `%harness` implements agent semantics behind
+it. The browser and stdio adapter are equal clients.
 
-The adapter maps ACP straight onto the harness instance's native grubs. A
-generic durable frame queue would add a second ownership boundary around state
-that already has stable, authenticated paths:
+```text
+browser ─┐
+editor ──┼─> independent %acp queues ─> %harness sessions
+future ──┘
+```
 
-| ACP concept | Grubbery representation |
-|---|---|
-| session | `/apps/harness.harness/agents/main/chats/<id>/` |
-| transcript | `chat.json` |
-| run state | `status.json` (`idle`, `api`, or `tool`) |
-| new session | JSON poke to the agent's `main.sig` |
-| list/resume | durable chat manifest and chat directories |
-| load | transcript replay as ordered `session/update` notifications |
-| close | interrupt active work and retain the chat |
-| delete | interrupt active work and remove the chat |
-| prompt | JSON poke to the chat's `chat.json` |
-| cancel | `interrupt` poke to the same chat |
-| message/tool update | newly materialized transcript entry |
+Each connection has two monotonically sequenced queues. A client acknowledges
+only frames it has consumed. Harness acknowledges agent-bound frames only after
+admission. Queues survive ordinary process reloads and prevent one client from
+stealing another client's updates.
 
-This preserves the important properties:
-
-- Chat IDs and full transcripts survive adapter and ship restarts.
-- The browser UI, ACP clients, schedules, and channels all address the same
-  conversation process.
-- Provider keys and tool authority remain behind Grubbery proxies and weirs.
-- The adapter is replaceable edge code. It can crash without becoming the
-  system of record.
-
-## Supported protocol surface
-
-The dependency-free Node adapter implements this version-1 surface:
+## Protocol surface
 
 - `initialize`
 - `session/new`
@@ -44,26 +26,38 @@ The dependency-free Node adapter implements this version-1 surface:
 - `session/delete`
 - `session/prompt`
 - `session/cancel`
-- `session/update` notifications for assistant messages, tool calls, and tool
-  results
+- `session/update` for user and assistant messages, tool calls, and results
 
-Text prompt blocks are concatenated. Resource links are admitted as explicit
-textual references. Images, audio, embedded context, client-side MCP servers,
-filesystem methods, and terminal methods are not advertised.
+Harness extensions use the same JSON-RPC connection:
 
-The model response itself is currently materialized at message granularity.
-Tool progress is visible whenever the durable transcript changes. True token
-streaming should eventually be a transient Grubbery signal; only terminal
-messages belong in durable chat history.
+- `harness/status`
+- `harness/tools`
+- `harness/session/config`
+- `harness/session/configure`
+- `harness/session/rename`
+- `harness/credential/set`
+- `harness/provider/models`
 
-## Why there is no mandatory ACP queue
+`session/load` replays the durable transcript before its result. Text prompt
+blocks are joined; image, audio, embedded context, and client-supplied MCP
+servers are not advertised. Filesystem and terminal authority stays behind
+explicit Harness tools.
 
-Durable opaque queues are useful when an off-ship worker must disconnect and
-later resume delivery. A stdio ACP client already owns one live transport, and
-Grubbery owns the durable session, transcript, and effects. Keeping an extra
-queue in this distribution provided no recovery that the client could use
-without also reconstructing in-flight JSON-RPC state.
+Model replies currently arrive at durable message granularity. Tool progress
+is emitted as the event log changes. Token streaming can later use transient
+updates while committing only terminal semantic events.
 
-If a future remote ACP gateway needs store-and-forward delivery, it should be a
-separate Grubbery nexus or channel with explicit retention and identity policy,
-not mandatory machinery in every harness installation.
+## Recovery
+
+The web client stores a connection identifier per tab, polls quickly while
+visible, cumulatively acknowledges frames, and reopens the connection when a
+scry reports it missing. Pending JSON-RPC calls are resent after recovery.
+Page exit closes the queue; the broker prunes closed connections before
+admitting new ones.
+
+The stdio process performs the same projection over authenticated Eyre. Its
+stdout contains only ACP NDJSON, so diagnostics go to stderr.
+
+ACP delivery is durable but does not compete with session state: `%acp` may
+know that frame 12 is unacknowledged, while only `%harness` knows what the frame
+means and whether a model turn is active.

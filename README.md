@@ -1,82 +1,63 @@
 # Urbit Agent Harness
 
-A durable personal-agent harness built as a small
-[Grubbery](https://github.com/gwbtc/grubbery) application.
+Harness is a fast, durable personal-agent runtime for Urbit. Conversations are
+event logs owned by `%harness`; provider calls and tools are explicit effects,
+and every client speaks Agent Client Protocol (ACP) to the same sessions.
 
-The repository pins Grubbery and seeds `/apps/harness.harness` from its
-reusable agent nexus. Grubbery supplies the agent loop, process tree,
-capability model, and effects; this project adds harness policy, a focused web
-interface, ACP integration, and design guidance.
-
-```text
-%grubbery
-└── /apps/harness.harness
-    ├── /agents/main
-    │   ├── /chats/<name>       durable conversations
-    │   ├── /context            prompts, documents, memories
-    │   ├── /children           isolated delegated work
-    │   ├── /apps/code          agent-authored capabilities
-    │   └── /proc               transient workers
-    ├── /apis                   provider proxies and accounting
-    ├── /channels               optional messaging adapters
-    └── /assistants             scheduled autonomous programs
-```
-
-The tree is both state and API. Fibers perform asynchronous work, Darts carry
-effects, and weirs constrain authority by path. A failed process leaves an
-inspectable `bang` in its own subtree.
-
-## Capabilities
-
-- Multiple chats with complete retained transcripts, bounded model context,
-  history search, selective recall, summarization, interrupt, and reload.
-- Anthropic and OpenRouter proxies with shared credentials and usage data.
-- Sandboxed child agents, authored Hoon tools and apps, scheduled prompts, and
-  autonomous assistants.
-- Optional channel nexuses behind narrow inbox/send contracts.
-- React conversations and configuration at `/apps/harness`.
-- ACP v1 sessions mapped directly onto native chats, including discovery,
-  replay, resume, close, deletion, prompts, tool updates, and cancellation.
-- `%grub-client`, generic ball APIs, and typed `/port` ingress for other
-  on-ship and cross-ship consumers.
-
-Native inference and a required Groups desk are deliberately outside the
-harness. Either can be connected behind a typed capability without changing
-chat ownership.
-
-## Build
-
-Grubbery currently bootstraps marks from a Clay desk named `%grubbery`, so use
-that literal desk name:
+The desk uses Grubbery as a compact application substrate. `%harness-grub`
+provides its supervised process and effect services without installing a
+pseudo-desktop or a second chat application.
 
 ```text
-|new-desk %grubbery
-|mount %grubbery
+%harness desk
+├── %harness             sessions, policy, providers, tools
+├── %acp                 ordered multi-client ACP queues
+├── %harness-grub        process and effect substrate
+└── %harness-fileserver  React application
 ```
 
-Assemble and copy the desk:
+## What works
+
+- Independent, durable conversations with replay, cancellation, retry,
+  compaction, forking, timers, subagents, skills, and peer-agent calls.
+- OpenRouter, OpenAI, Anthropic, and custom OpenAI-compatible Chat Completions
+  endpoints, with per-provider credentials and arbitrary request headers.
+- Provider model discovery plus a free-form model field; a conversation can
+  change provider or model between turns.
+- An ACP-native React client with optimistic message admission, live tool
+  updates, rename/delete, responsive settings, and system/light/dark themes.
+- A dependency-free ACP stdio adapter for editors and other local clients.
+- Optional tools for ship time, Clay, HTTP, skills, authored capabilities,
+  subagents, and explicitly granted peers. New conversations receive no tools
+  until the user enables them.
+
+Native inference and a required Groups installation are outside this desk.
+Either can be added behind a typed capability without changing session
+ownership.
+
+## Build and install
+
+Mount or create a `%harness` desk, then assemble directly into it:
 
 ```sh
-zig build -Ddesk=/path/to/pier/grubbery
+zig build -Ddesk=/path/to/pier/harness
 ```
 
-Then commit and install it in Dojo:
+Commit and install from Dojo:
 
 ```text
-|commit %grubbery
-|install our %grubbery
+|commit %harness
+|install our %harness
 ```
 
-Open `/apps/harness`. Agent and provider configuration live together under its
-Settings tabs.
+Open `/apps/harness`. Agent and provider configuration are tabs in Settings.
 
-`zig build` writes to `zig-out/`, `zig build clean` removes that output, and
-`zig build clear` also removes the pinned Grubbery checkout.
+The build pins a Grubbery revision, builds the React application, assembles the
+minimal runtime, renames its Gall process to `%harness-grub`, and overlays the
+Harness code. `zig build clean` removes `zig-out`; `zig build clear` also
+removes the dependency checkout.
 
-## ACP
-
-The dependency-free adapter is an edge projection over the same durable chats
-used by the browser and channels:
+## ACP adapter
 
 ```sh
 SHIP_URL=http://localhost:8081 \
@@ -84,31 +65,31 @@ SHIP_CODE=your-ship-code \
 node acp/harness-acp.mjs
 ```
 
-`HARNESS_BALL` and `HARNESS_AGENT` select another instance or agent. See
-[`acp/README.md`](acp/README.md) for client setup and protocol details.
+The browser is itself an ACP client. Each client has an independent ordered
+queue while all of them address the same on-ship session records. See
+[`acp/README.md`](acp/README.md).
 
-## Repository
+## Repository map
 
 ```text
-build.zig                       reproducible desk assembly
-desk/lib/root.hoon              harness instance seed
-desk/app/harness-fileserver.hoon authenticated SPA server
-fe/                             React interface
-acp/harness-acp.mjs             ACP stdio adapter
-docs-refs/                      architecture, rationale, and roadmap
+build.zig                  reproducible desk assembly
+desk/app/harness.hoon      event-sourced agent and ACP methods
+desk/app/acp.hoon          durable duplex transport
+desk/lib/harness.hoon      pure replay, decision, and provider encoding
+desk/lib/root.hoon         minimal Grubbery service tree
+fe/                        componentized React ACP client
+acp/harness-acp.mjs        ACP stdio-to-Eyre adapter
+docs-refs/                 design, protocol, and roadmap
 ```
 
-- [`architecture.md`](docs-refs/architecture.md) defines the process, state,
-  and trust boundaries.
-- [`lightspeed-design.md`](docs-refs/lightspeed-design.md) records the durable
-  harness invariants.
-- [`a2a-design.md`](docs-refs/a2a-design.md) develops identity and agent
-  society.
-- [`acp.md`](docs-refs/acp.md) defines the ACP boundary.
-- [`roadmap.md`](docs-refs/roadmap.md) tracks present capabilities and focused
-  remaining work.
+- [`architecture.md`](docs-refs/architecture.md) explains ownership and
+  boundaries.
+- [`lightspeed-design.md`](docs-refs/lightspeed-design.md) records the design
+  invariants.
+- [`a2a-design.md`](docs-refs/a2a-design.md) develops identity and peer work.
+- [`acp.md`](docs-refs/acp.md) defines the client boundary.
+- [`roadmap.md`](docs-refs/roadmap.md) tracks completed and planned work.
 
-The central design claim is simple: Urbit's deterministic event log, explicit
-effects, durable state, and structural sharing are unusually good foundations
-for a long-lived personal agent. Grubbery gives those properties a small,
-composable application model.
+The central design claim is that an Urbit event log makes a good long-lived
+agent head: deterministic, inspectable, restartable, and independent of any
+particular model or client.

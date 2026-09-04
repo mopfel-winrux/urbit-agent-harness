@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, keepUrl } from './api'
+import { api } from './api'
 
 export function useGrub(path, fallback, mark = 'json') {
   const [value, setValue] = useState(fallback)
@@ -26,23 +26,14 @@ export function useGrub(path, fallback, mark = 'json') {
     if (!path) return undefined
 
     let live = true
-    refresh()
-    const stream = new EventSource(keepUrl(path, mark))
-    const name = path.split('/').pop()
-    const receive = (event) => {
-      if (!live || !event.data) return
-      try {
-        setValue(mark === 'json' ? JSON.parse(event.data) : event.data)
-        setError('')
-        setLoading(false)
-      } catch {
-        // A reconnecting stream can end on a partial frame; the next event or
-        // explicit refresh supplies a complete value.
-      }
+    let timer
+    const poll = async () => {
+      if (!live) return
+      await refresh()
+      if (live) timer = setTimeout(poll, document.hidden ? 4000 : 900)
     }
-    for (const kind of ['old', 'new', 'upd']) stream.addEventListener(`${kind} /${name}`, receive)
-    stream.onerror = () => { if (live) setError('Live updates are reconnecting…') }
-    return () => { live = false; stream.close() }
+    poll()
+    return () => { live = false; clearTimeout(timer) }
   }, [path, mark, refresh])
 
   return { value, setValue, loading, error, refresh }

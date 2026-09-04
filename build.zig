@@ -63,14 +63,47 @@ fn buildDesk(step: *std.Build.Step, install_path: []const u8, desk_path: ?[]cons
 
     try recreateDir(install_path);
     try copyDir(allocator, dependency_dir ++ "/desk", install_path);
+    try pruneRuntimeDesk(allocator, install_path);
+    try adaptRuntimeDesk(allocator, install_path);
     try copyDir(allocator, "desk", install_path);
 
     if (desk_path) |raw_path| {
         const target = try expandHome(allocator, step, raw_path);
         if (!exists(target)) return step.fail("desk path '{s}' does not exist", .{target});
-        try clearDir(allocator, target);
-        try copyDir(allocator, install_path, target);
+        try syncDir(allocator, install_path, target);
     }
+}
+
+// Grubbery publishes a large catalog of applications beside its runtime.
+// Harness needs the process/effect libraries and marks, not that catalog.
+fn pruneRuntimeDesk(allocator: std.mem.Allocator, install_path: []const u8) !void {
+    for ([_][]const u8{ "gub", "tests", "ted", "app/grub-client.hoon" }) |relative| {
+        const target = try std.fs.path.join(allocator, &.{ install_path, relative });
+        try deleteTree(target);
+    }
+}
+
+// Keep the runtime's Clay mirror and code namespace inside the product desk,
+// then give its Gall process a product-specific name.
+fn adaptRuntimeDesk(allocator: std.mem.Allocator, install_path: []const u8) !void {
+    const app = try std.fs.path.join(allocator, &.{ install_path, "app/grubbery.hoon" });
+    try replaceFile(allocator, app, "/grubbery/(scot %da now.bowl)", "/harness/(scot %da now.bowl)");
+    try replaceFile(allocator, app, "/sys/clay/desks/grubbery", "/sys/clay/desks/harness");
+    try replaceFile(allocator, app, "=(dek %grubbery)", "=(dek %harness)");
+    try replaceFile(allocator, app, "!=(dek %grubbery)", "!=(dek %harness)");
+
+    const fiberio = try std.fs.path.join(allocator, &.{ install_path, "lib/fiberio.hoon" });
+    try replaceFile(allocator, fiberio, "++  dek  %grubbery", "++  dek  %harness");
+
+    const named_app = try std.fs.path.join(allocator, &.{ install_path, "app/harness-grub.hoon" });
+    try std.fs.cwd().rename(app, named_app);
+}
+
+fn replaceFile(allocator: std.mem.Allocator, path: []const u8, needle: []const u8, replacement: []const u8) !void {
+    const source = try std.fs.cwd().readFileAlloc(allocator, path, 16 * 1024 * 1024);
+    if (std.mem.indexOf(u8, source, needle) == null) return;
+    const updated = try std.mem.replaceOwned(u8, allocator, source, needle, replacement);
+    try std.fs.cwd().writeFile(.{ .sub_path = path, .data = updated });
 }
 
 fn checkoutGrubbery(step: *std.Build.Step) !void {
@@ -128,6 +161,48 @@ fn copyDir(allocator: std.mem.Allocator, source_path: []const u8, target_path: [
             else => {},
         }
     }
+}
+
+// Update a Vere mount without replacing the whole tree. This avoids noisy
+// Clay changes and keeps large asset/catalog removals out of one Unix event.
+fn syncDir(allocator: std.mem.Allocator, source_path: []const u8, target_path: []const u8) !void {
+    var target = try std.fs.cwd().openDir(target_path, .{ .iterate = true });
+    defer target.close();
+
+    var target_entries = target.iterate();
+    while (try target_entries.next()) |entry| {
+        const from = try std.fs.path.join(allocator, &.{ source_path, entry.name });
+        if (exists(from)) continue;
+        const stale = try std.fs.path.join(allocator, &.{ target_path, entry.name });
+        try deleteTree(stale);
+    }
+
+    var source = try std.fs.cwd().openDir(source_path, .{ .iterate = true });
+    defer source.close();
+    var source_entries = source.iterate();
+    while (try source_entries.next()) |entry| {
+        const from = try std.fs.path.join(allocator, &.{ source_path, entry.name });
+        const to = try std.fs.path.join(allocator, &.{ target_path, entry.name });
+        switch (entry.kind) {
+            .directory => {
+                if (exists(to) and (try std.fs.cwd().statFile(to)).kind != .directory) try deleteTree(to);
+                try std.fs.cwd().makePath(to);
+                try syncDir(allocator, from, to);
+            },
+            .file => {
+                if (exists(to) and (try std.fs.cwd().statFile(to)).kind == .directory) try deleteTree(to);
+                if (!exists(to) or !try filesEqual(allocator, from, to))
+                    try std.fs.cwd().copyFile(from, std.fs.cwd(), to, .{});
+            },
+            else => {},
+        }
+    }
+}
+
+fn filesEqual(allocator: std.mem.Allocator, a: []const u8, b: []const u8) !bool {
+    const left = try std.fs.cwd().readFileAlloc(allocator, a, 16 * 1024 * 1024);
+    const right = try std.fs.cwd().readFileAlloc(allocator, b, 16 * 1024 * 1024);
+    return std.mem.eql(u8, left, right);
 }
 
 fn clearDir(allocator: std.mem.Allocator, path: []const u8) !void {

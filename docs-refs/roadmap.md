@@ -1,115 +1,95 @@
 # Roadmap
 
-This is both a capability ledger and the forward work list. A checked item is
-part of the pinned Grubbery substrate or this distribution; unchecked details
-remain requirements even when the implementation shape evolves.
+This document is both a capability ledger and the forward work list. Checked
+items are present in the desk; unchecked items remain design commitments.
 
 ## Foundation
 
-- [x] Durable multi-chat agent state with interrupt and restart support.
-- [x] Complete retained transcripts with a token-bounded model window.
-- [x] Full-history search, selective recall, and targeted summarization.
-- [x] Anthropic and OpenRouter proxy applications with shared credentials,
-  usage state, and prompt-cache-aware requests.
-- [x] Inspectable namespace/tree and ball APIs.
-- [x] Isolated child-agent tasks with durable completion output.
-- [x] Runtime-authored, compiled Hoon tools and application nexuses.
-- [x] Cron-style prompts and autonomous scheduled assistants.
-- [x] Optional channel nexuses with narrow inbox/send contracts.
-- [x] ACP initialize, session create/list/load/replay/resume/close/delete,
-  prompt, cancel, message updates, and tool updates over the same durable native
-  chats used by the UI.
+- [x] Event-sourced, replayable sessions with independent run state.
+- [x] Prompt admission before provider completion.
+- [x] Cancellation, retry, compaction, session fork, rename, and deletion.
+- [x] Timers, supervised child sessions, staged skills, and peer asks.
+- [x] Explicit per-session tool families, disabled by default.
+- [x] OpenAI Chat Completions request and tool-call encoding.
+- [x] OpenRouter, OpenAI, Anthropic, and custom endpoint presets.
+- [x] Per-provider credentials, session overrides, and arbitrary headers.
+- [x] Live provider model catalogs with manual model entry.
+- [x] Minimal `%harness-grub` runtime with no bundled application suite.
+- [x] ACP create/list/load/resume/close/delete/prompt/cancel and updates.
+- [x] Durable per-client ACP queues with acknowledgement and reconnection.
+- [x] React ACP client with componentized chat and tabbed settings.
+- [x] Optimistic prompt display, responsive sidebar, and system theme.
 
 ## Near term
 
-### 1. Conformance tests
+### Automated fake-ship conformance
 
-Automate the fake-ship checks used during development: build and commit a desk
-named `%grubbery`, verify `/apps/harness.harness`, create and load an ACP chat,
-and assert that no descendant has a crash `bang`. Advancing the pinned Grubbery
-revision should require this suite.
+- [ ] Build directly into a clean `%harness` desk and commit through Clay.
+- [ ] Compile all four declared agents and fail on any Gall crash.
+- [ ] Exercise two ACP connections without cross-delivery.
+- [ ] Assert prompt admission latency separately from provider latency.
+- [ ] Run simultaneous turns in two sessions and verify both transcripts.
+- [ ] Cover create, rename, reconfigure, reconnect, cancel, and delete.
 
-### 2. Streaming
+### Streaming
 
-Provider tokens should reach interactive clients before the terminal message is
-committed. Use a transient Grubbery signal or SSE path for partials; retain only
-terminal results in chat history. Verify that token streaming does not perturb
-prompt-cache-stable prefixes.
+- [ ] Emit provider tokens as transient ACP updates.
+- [ ] Commit only the terminal semantic message to the session log.
+- [ ] Keep stable prompt prefixes suitable for provider caching.
 
-### 3. ACP conformance and permissions
+### Authentication
 
-Exercise the adapter against current ACP fixtures and real clients. Add
-`session/request_permission` when it can map cleanly to a weir or an explicit
-approval grub. Support richer prompt content using addressed payload grubs.
-Keep filesystem and terminal authority behind agent tools rather than granting
-it implicitly to every client.
+- [ ] Add a provider-auth capability with an explicit token handoff contract.
+- [ ] Support Anthropic's interactive local login where its access token can
+  be safely transferred into ship-side provider state.
+- [ ] Support OpenAI interactive login only when the provider documents a token
+  suitable for API inference; do not treat a product-session token as an API
+  key.
+- [ ] Encrypt or externalize long-lived provider credentials.
 
-### 4. Parameterized app identity
+### ACP completeness
 
-The reusable agent app hardcodes its tile name and route. Parameterize that
-metadata in Grubbery so this distribution can present “Harness” without
-shadowing the full app nexus.
+- [ ] Run current ACP conformance fixtures against the stdio adapter.
+- [ ] Map `session/request_permission` to explicit tool or weir grants.
+- [ ] Add richer content blocks through addressed on-ship payloads.
+- [ ] Define retention for abandoned but unacknowledged ACP queues.
 
-### 5. Harness policy pack
+## Grubbery capabilities
 
-Ship a small, reviewable set of context documents and weirs: prefer native ship
-state, inspect before acting, preserve full history, make authority explicit,
-and use peers without centralizing their data. Policy should remain ordinary
-files rather than branches in the agent loop.
+- [ ] Move more asynchronous hands into small supervised Grubbery processes.
+- [ ] Give each hand a reviewable road/weir authority manifest.
+- [ ] Persist crash evidence and surface it in the Harness UI.
+- [ ] Make authored capabilities installable without enlarging `%harness`.
+- [ ] Upstream generally useful runtime and MCP corrections.
 
-## Governed self-modification
+## Context, provenance, and storage
 
-Compilation alone is not promotion. Add a workflow that stages an authored
-tool or nexus, runs a representative task in an isolated child, records tests
-and output, and asks for approval before widening its weir or moving it into a
-shared catalog. A failed rehearsal must leave the live capability unchanged.
-
-Forced tool choice is also useful: allow a task or policy to require a named
-tool when an answer must be verified rather than produced from model memory.
+- [ ] Search and selective recall across the retained event history.
+- [ ] Record fork parent and divergence point, then share immutable history.
+- [ ] Store images, archives, and large tool output as addressed payloads.
+- [ ] Make indexes and summaries rebuildable from authoritative records.
+- [ ] Measure loom use and long-session replay before fixing retention limits.
 
 ## Agent society and channels
 
-Build addressed agent-to-agent requests on Grubbery ports and explicit
-usergroups. A remote ask should carry an Urbit identity, land in a sandboxed
-child, and receive a model, token budget, skills view, and capability grant
-chosen by the owner. No grant means refusal.
+- [x] Typed ship-to-ship asks with owner-selected grants.
+- [ ] Harden replay, timeout, budget, and abuse controls for peer work.
+- [ ] Add optional Messenger or channel adapters over ACP or narrow typed ports.
+- [ ] Keep Urbit identity authoritative rather than depending on a social desk.
+- [ ] Support hosted executors and local devices as capability-bearing hands.
 
-A Tlon Messenger adapter can then be a channel over the same contracts. It
-must not become a mandatory desk dependency or substitute a social
-application's identity model for Urbit identity.
+## UX and operations
 
-## Forks and provenance
-
-Add an intentional “fork here” operation to the chat UI and APIs. A fork should
-record its parent and point of divergence. Prefer structural sharing or
-content-addressed transcript segments when available; do not duplicate large
-histories just to simulate branching.
-
-## Payloads and storage
-
-Keep images, archives, and large tool results out of prompt history. Store them
-as addressed grubs and place stable references in transcripts. Align retention
-and garbage collection with vere64/blob facilities as their contracts settle.
-Measure loom and long-session performance before choosing thresholds.
-
-## Remote hands and key hygiene
-
-A hosted executor, a laptop, and another ship should look like interchangeable
-capability-bearing processes. Use typed ports or a dedicated Vere driver for
-that seam. Provider keys should ultimately stay on the executing side and out
-of broadly readable agent state.
-
-## Operational work
-
-- Verify prompt-cache hits and costs across long sessions.
-- Exercise a second provider on identical tool transcripts.
-- Keep crash `bang` inspection in the ship commit/install loop.
-- Track MCP transport failures separately from Gall and Grubbery failures.
-- Report generally useful MCP and Grubbery fixes upstream.
+- [ ] Add a deliberate “fork here” action with visible provenance.
+- [ ] Show compaction, token usage, provider latency, and tool timing.
+- [ ] Add an in-app connection diagnostic and reconnect control.
+- [ ] Cache provider catalogs with a user-visible refresh action.
+- [ ] Verify keyboard navigation, narrow mobile layouts, and screen-reader names.
 
 ## Non-goals
 
-- Bundling native inference in this distribution.
+- Bundling native inference into this desk.
 - Requiring the Groups desk.
-- Maintaining a downstream copy of the full agent implementation.
-- Adding integrations to the root harness when they can be optional grubs.
+- Shipping the Grubbery desktop or example applications.
+- Granting ACP clients ambient terminal or host-filesystem access.
+- Hiding provider or authority choices inside an opaque agent loop.

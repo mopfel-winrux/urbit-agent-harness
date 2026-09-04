@@ -1,105 +1,121 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { api, waitFor } from '../api'
-import { useGrub } from '../useGrub'
+import { acp } from '../acp'
 import { MoonIcon, SendIcon, StopIcon } from './Icons'
 
 function ToolEntry({ entry }) {
-  const use = entry.type === 'tool_use'
-  const title = use ? entry.name || 'tool' : 'tool result'
-  const body = use ? entry.input : entry.content ?? entry.text
-  return <div className={`tool-entry ${use ? 'running' : 'complete'}`}>
-    <div><span className="tool-dot" /><strong>{title}</strong><small>{use ? 'call' : 'result'}</small></div>
-    <pre>{typeof body === 'string' ? body : JSON.stringify(body ?? {}, null, 2)}</pre>
+  return <div className={`tool-entry ${entry.status === 'in_progress' ? 'running' : 'complete'}`}>
+    <div><span className="tool-dot" /><strong>{entry.title || 'tool'}</strong><small>{entry.status === 'in_progress' ? 'call' : 'result'}</small></div>
+    <pre>{typeof entry.body === 'string' ? entry.body : JSON.stringify(entry.body ?? {}, null, 2)}</pre>
   </div>
 }
 
-function Transcript({ entries }) {
-  if (!entries.length) return <div className="empty-chat">
+function Transcript({ entries, pending }) {
+  if (!entries.length && !pending) return <div className="empty-chat">
     <div className="empty-orbit"><span /></div>
-    <span className="eyebrow">A durable conversation</span>
+    <span className="eyebrow">New conversation</span>
     <h2>What should we work on?</h2>
     <p>Start a conversation, inspect tool work as it happens, and return whenever you like.</p>
   </div>
-
-  return entries.map((entry, index) => {
-    if (entry?.type?.startsWith('tool_')) return <ToolEntry key={`${index}-${entry.id || entry.tool_use_id || ''}`} entry={entry} />
-    const role = entry?.role || 'system'
-    return <article className={`message ${role}`} key={`${index}-${role}`}>
-      <div className="message-label">{role === 'assistant' ? 'harness' : role}</div>
-      <div className="message-body">{String(entry?.content ?? '')}</div>
-    </article>
-  })
+  return <>{entries.map((entry, index) => entry.type === 'tool'
+    ? <ToolEntry key={entry.id || index} entry={entry} />
+    : <article className={`message ${entry.role}`} key={entry.id || index}>
+      <div className="message-label">{entry.role === 'assistant' ? 'harness' : entry.role}</div>
+      <div className="message-body">{entry.body}</div>
+    </article>)}{pending && <article className="message user pending">
+      <div className="message-label">user</div><div className="message-body">{pending.text}</div>
+    </article>}</>
 }
 
-export default function Chat({ chat, roads, theme, onToggleTheme }) {
-  const transcript = useGrub(roads.transcript, [])
-  const status = useGrub(roads.status, { state: 'idle' })
-  const [draft, setDraft] = useState('')
-  const [sending, setSending] = useState(false)
-  const [actionError, setActionError] = useState('')
-  const bottom = useRef(null)
-  const entries = Array.isArray(transcript.value) ? transcript.value : []
-  const activity = status.value?.state || 'idle'
-  const busy = sending || activity !== 'idle'
-  const statusLabel = useMemo(() => {
-    if (sending && activity === 'idle') return 'admitting message'
-    if (activity === 'api') return 'thinking'
-    if (activity === 'tool') return 'using a tool'
-    return 'idle'
-  }, [activity, sending])
+function textContent(content) {
+  if (content?.type === 'text') return content.text || ''
+  return typeof content === 'string' ? content : JSON.stringify(content ?? '')
+}
 
-  useEffect(() => { bottom.current?.scrollIntoView({ block: 'end' }) }, [entries.length, chat])
-  useEffect(() => { setDraft(''); setActionError(''); setSending(false) }, [chat])
+export default function Chat({ chat, theme, onToggleTheme }) {
+  const [entries, setEntries] = useState([])
+  const [draft, setDraft] = useState('')
+  const [pending, setPending] = useState(null)
+  const [state, setState] = useState('loading')
+  const [error, setError] = useState('')
+  const bottom = useRef(null)
+  const busy = state === 'loading' || state === 'prompting'
+  const statusLabel = useMemo(() => state === 'loading' ? 'loading' : state === 'prompting' ? 'thinking' : 'idle', [state])
+
+  useEffect(() => {
+    let live = true
+    setEntries([]); setDraft(''); setPending(null); setError(''); setState('loading')
+    const update = (event) => {
+      const params = event.detail
+      if (!live || params?.sessionId !== chat) return
+      const value = params.update || {}
+      if (value.sessionUpdate === 'user_message_chunk') {
+        const body = textContent(value.content).replace(/\n$/, '')
+        setEntries((old) => [...old, { role: 'user', body }])
+        setPending((current) => current && current.text.trimEnd() === body.trimEnd() ? null : current)
+      } else if (value.sessionUpdate === 'agent_message_chunk') {
+        setEntries((old) => [...old, { role: 'assistant', body: textContent(value.content) }])
+      } else if (value.sessionUpdate === 'tool_call') {
+        setEntries((old) => [...old, { type: 'tool', id: value.toolCallId, title: value.title, status: value.status, body: value.rawInput }])
+      } else if (value.sessionUpdate === 'tool_call_update') {
+        const body = value.content?.map((part) => textContent(part.content)).join('\n') || ''
+        setEntries((old) => {
+          const found = old.some((entry) => entry.id === value.toolCallId)
+          return found ? old.map((entry) => entry.id === value.toolCallId ? { ...entry, status: value.status, body } : entry) : [...old, { type: 'tool', id: value.toolCallId, status: value.status, body }]
+        })
+      }
+    }
+    const transportError = (event) => live && setError(event.detail?.message || 'ACP transport error')
+    const transportReady = () => live && setError('')
+    acp.addEventListener('session/update', update)
+    acp.addEventListener('transport-error', transportError)
+    acp.addEventListener('transport-ready', transportReady)
+    void acp.start().then(() => acp.call('session/load', { sessionId: chat, cwd: '/', mcpServers: [] })).then(() => {
+      if (live) setState('idle')
+    }).catch((cause) => { if (live) { setError(cause.message); setState('idle') } })
+    return () => {
+      live = false
+      acp.removeEventListener('session/update', update)
+      acp.removeEventListener('transport-error', transportError)
+      acp.removeEventListener('transport-ready', transportReady)
+    }
+  }, [chat])
+
+  useEffect(() => { bottom.current?.scrollIntoView({ block: 'end' }) }, [entries.length, pending])
 
   async function send(event) {
     event.preventDefault()
-    const content = draft.trim()
-    if (!content || busy) return
-    setSending(true); setActionError('')
-    const baseline = entries.length
+    const text = draft.trim()
+    if (!text || busy) return
+    const pendingId = crypto.randomUUID()
+    setDraft(''); setPending({ id: pendingId, text }); setError(''); setState('prompting')
     try {
-      await api.poke(roads.transcript, { action: 'message', content })
-      setDraft('')
-      const next = await waitFor(
-        () => api.read(roads.transcript),
-        (value) => Array.isArray(value) && value.slice(baseline).some((entry) => entry?.role === 'user' && entry.content === content),
-      )
-      transcript.setValue(next)
-      await status.refresh()
+      await acp.call('session/prompt', { sessionId: chat, prompt: [{ type: 'text', text }] })
     } catch (cause) {
-      setActionError(cause.message)
+      setDraft(text); setPending(null); setError(cause.message)
     } finally {
-      setSending(false)
+      setPending((current) => current?.id === pendingId ? null : current)
+      setState('idle')
     }
   }
 
   async function stop() {
-    setActionError('')
-    try {
-      const value = activity === 'tool' && status.value?.id
-        ? { action: 'interrupt', id: status.value.id }
-        : { action: 'interrupt' }
-      await api.poke(roads.transcript, value)
-    } catch (cause) { setActionError(cause.message) }
+    setError('')
+    try { await acp.notify('session/cancel', { sessionId: chat }) }
+    catch (cause) { setError(cause.message) }
   }
 
   return <main className="workspace chat-workspace">
     <header className="topbar">
-      <div className="chat-heading"><div><strong>{chat}</strong></div><div className={`run-status ${activity}`}><span />{statusLabel}</div></div>
+      <div className="chat-heading"><div><strong>{chat}</strong></div><div className={`run-status ${state}`}><span />{statusLabel}</div></div>
       <button className="icon-button" onClick={onToggleTheme} title={`Use ${theme === 'dark' ? 'light' : 'dark'} theme`}><MoonIcon /></button>
     </header>
-    {(transcript.error || status.error || actionError) && <div className="error-banner">{actionError || transcript.error || status.error}</div>}
-    <section className="transcript"><div className="transcript-inner"><Transcript entries={entries} /><div ref={bottom} /></div></section>
-    <div className="composer-wrap">
-      <form className="composer" onSubmit={send}>
-        <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => {
-          if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form.requestSubmit() }
-        }} placeholder={busy ? `${statusLabel}…` : 'Message your harness…'} disabled={busy} rows={1} />
-        {busy
-          ? <button type="button" className="composer-button stop" onClick={stop} title="Interrupt"><StopIcon /></button>
-          : <button className="composer-button" disabled={!draft.trim()} title="Send"><SendIcon /></button>}
-      </form>
-      <small>Enter to send · Shift+Enter for a new line</small>
-    </div>
+    {error && <div className="error-banner">{error}</div>}
+    <section className="transcript"><div className="transcript-inner"><Transcript entries={entries} pending={pending} /><div ref={bottom} /></div></section>
+    <div className="composer-wrap"><form className="composer" onSubmit={send}>
+      <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => {
+        if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form.requestSubmit() }
+      }} placeholder={state === 'loading' ? 'Loading conversation…' : state === 'prompting' ? 'Prepare your next message…' : 'Message your harness…'} disabled={state === 'loading'} rows={1} />
+      {state === 'prompting' ? <button type="button" className="composer-button stop" onClick={stop} title="Interrupt"><StopIcon /></button> : <button className="composer-button" disabled={!draft.trim() || busy} title="Send"><SendIcon /></button>}
+    </form><small>Enter to send · Shift+Enter for a new line</small></div>
   </main>
 }

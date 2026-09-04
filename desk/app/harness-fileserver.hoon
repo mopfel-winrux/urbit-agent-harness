@@ -175,6 +175,7 @@
     %-  ~(gas in *(set @t))
     :~  '/apps/harness/manifest.json'
         '/apps/harness/harness.svg'
+        '/apps/harness/harness.png'
         '/apps/harness/app.js'
         '/apps/harness/app.css'
     ==

@@ -1,70 +1,74 @@
 import { useEffect, useState } from 'react'
-import { api, waitFor } from '../api'
+import { api } from '../api'
 import { useGrub } from '../useGrub'
+import { PROVIDERS } from '../providers'
+import { useProviderModels } from '../useProviderModels'
 
-const OPENROUTER = 'apps/openrouter.openrouter'
-
-function Stat({ label, value }) {
-  return <div><span>{label}</span><strong>{Number(value || 0).toLocaleString()}</strong></div>
+function HeaderEditor({ value, onChange }) {
+  const replace = (index, next) => onChange(value.map((entry, at) => at === index ? next : entry))
+  return <div className="header-editor">
+    <div className="field-heading"><span>Request headers</span><button type="button" className="text-button" onClick={() => onChange([...value, { name: '', value: '' }])}>Add header</button></div>
+    {!value.length && <p className="field-note">Content-Type is automatic. Add organization IDs, versions, or a provider-specific authorization header.</p>}
+    {value.map((header, index) => <div className="header-row" key={index}>
+      <input aria-label="Header name" value={header.name || ''} onChange={(event) => replace(index, { ...header, name: event.target.value })} placeholder="x-provider-header" />
+      <input aria-label="Header value" type={/authorization|token|key/i.test(header.name) ? 'password' : 'text'} value={header.value || ''} onChange={(event) => replace(index, { ...header, value: event.target.value })} placeholder="value" />
+      <button type="button" className="remove-header" onClick={() => onChange(value.filter((_, at) => at !== index))} aria-label="Remove header">×</button>
+    </div>)}
+  </div>
 }
 
 export default function ProviderSettings({ provider, roads }) {
-  const root = provider === 'anthropic' ? roads.anthropic : OPENROUTER
-  const config = useGrub(`${root}/config.json`, {})
-  const usage = useGrub(`${root}/usage.json`, {})
-  const models = useGrub(provider === 'openrouter' ? `${root}/models.json` : '', {})
-  const [form, setForm] = useState({})
+  const details = PROVIDERS[provider]
+  const session = useGrub(roads.session, null)
+  const status = useGrub(`status/${provider}`, { 'has-key': false })
+  const catalog = useProviderModels(provider)
+  const [key, setKey] = useState('')
+  const [endpoint, setEndpoint] = useState(details.endpoint)
+  const [model, setModel] = useState(details.model)
+  const [headers, setHeaders] = useState([])
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (config.value && typeof config.value === 'object') setForm(config.value)
-  }, [config.value])
-  useEffect(() => {
-    if (!saved) return undefined
-    const timeout = setTimeout(() => setSaved(false), 1800)
-    return () => clearTimeout(timeout)
-  }, [saved])
+    setEndpoint(details.endpoint || session.value?.url || '')
+    setModel(session.value?.url === details.endpoint ? session.value?.model || details.model : details.model || session.value?.model || '')
+    setHeaders(Array.isArray(session.value?.headers) ? session.value.headers : [])
+    setKey('')
+  }, [details.endpoint, provider, session.value])
 
   async function save(event) {
     event.preventDefault()
     setBusy(true); setSaved(false); setError('')
-    const next = provider === 'anthropic'
-      ? { ...form, url: form.url?.trim() || 'https://api.anthropic.com/v1/messages' }
-      : { ...config.value, 'api-key': form['api-key'] || '' }
+    const cleanHeaders = headers.filter((header) => header.name.trim()).map((header) => ({ name: header.name.trim(), value: header.value }))
+    const config = {
+      url: endpoint.trim() || details.endpoint,
+      model: model.trim() || details.model || 'openai/gpt-4o-mini',
+      key: '',
+      headers: cleanHeaders,
+      system: session.value?.system || '',
+      'max-context': session.value?.['max-context'] || 80_000,
+      tools: session.value?.tools || [],
+    }
     try {
-      await api.over(`${root}/config.json`, next)
-      const applied = await waitFor(
-        () => api.read(`${root}/config.json`),
-        (value) => value?.['api-key'] === next['api-key'] && (provider !== 'anthropic' || value.url === next.url),
-      )
-      config.setValue(applied); setForm(applied); setSaved(true)
+      if (key) await api.action({ 'set-key': { provider, key } })
+      const applied = await api.action({ config: { sid: roads.chat, config } })
+      session.setValue(applied); setKey(''); setSaved(true)
+      await status.refresh()
     } catch (cause) { setError(cause.message) } finally { setBusy(false) }
   }
 
-  const problem = error || config.error || usage.error || models.error
-  const calls = Array.isArray(usage.value?.calls) ? usage.value.calls : []
-  const modelCount = provider === 'openrouter' && models.value && typeof models.value === 'object'
-    ? Object.keys(models.value).length
-    : null
-
   return <form className="settings-grid" onSubmit={save}>
-    {problem && <div className="inline-error">{problem}</div>}
+    {(error || session.error || status.error) && <div className="inline-error">{error || session.error || status.error}</div>}
     <section className="panel settings-panel">
-      <div className="section-title"><div><h2>{provider === 'anthropic' ? 'Anthropic' : 'OpenRouter'}</h2><p>Credentials remain in this provider process and are used only for its requests.</p></div><span className={`status ${form['api-key'] ? 'good' : ''}`}>{form['api-key'] ? 'configured' : 'key needed'}</span></div>
-      <label><span>API key</span><input type="password" autoComplete="off" value={form['api-key'] || ''} onChange={(event) => setForm((value) => ({ ...value, 'api-key': event.target.value }))} placeholder={provider === 'anthropic' ? 'sk-ant-…' : 'sk-or-…'} /></label>
-      {provider === 'anthropic' && <label><span>Endpoint</span><input value={form.url || ''} onChange={(event) => setForm((value) => ({ ...value, url: event.target.value }))} /></label>}
+      <div className="section-title"><div><h2>{details.title}</h2><p>{details.copy}</p></div><span className={`status ${status.value?.['has-key'] ? 'good' : ''}`}>{status.value?.['has-key'] ? 'credential configured' : 'credential needed'}</span></div>
+      <label><span>{provider === 'custom' ? 'Bearer token (optional)' : 'API key'}</span><input type="password" autoComplete="off" value={key} onChange={(event) => setKey(event.target.value)} placeholder={details.placeholder} /></label>
+      <label><span>Model</span><input list={`provider-models-${provider}`} value={model} onChange={(event) => setModel(event.target.value)} placeholder={details.model || 'model-name'} /><datalist id={`provider-models-${provider}`}>{catalog.models.map((name) => <option key={name} value={name} />)}</datalist></label>
+      {catalog.loading && <p className="field-note">Loading the provider’s model catalog…</p>}
+      {catalog.error && provider !== 'custom' && <p className="field-note">Catalog unavailable: {catalog.error}. You can still type a model name.</p>}
+      <label><span>Endpoint</span><input type="url" required value={endpoint} onChange={(event) => setEndpoint(event.target.value)} placeholder="https://inference.example/v1/chat/completions" /></label>
+      <HeaderEditor value={headers} onChange={setHeaders} />
     </section>
-    <section className="panel settings-panel">
-      <div className="section-title"><div><h2>Usage</h2><p>Accounting reported by the provider proxy.</p></div>{modelCount != null && <span className="status">{modelCount} models</span>}</div>
-      <div className="usage-stats">
-        <Stat label="Requests" value={usage.value?.requests} />
-        <Stat label="Input tokens" value={usage.value?.['input-tokens']} />
-        <Stat label="Output tokens" value={usage.value?.['output-tokens']} />
-        <Stat label="Recent calls" value={calls.length} />
-      </div>
-    </section>
-    <div className="save-bar"><span>{saved ? 'Saved.' : 'Changes apply to the next request.'}</span><button className="button primary" disabled={busy}>{busy ? 'Saving…' : `Save ${provider === 'anthropic' ? 'Anthropic' : 'OpenRouter'}`}</button></div>
+    <div className="save-bar"><span>{saved ? 'Saved.' : 'Saving also selects this endpoint for the current conversation.'}</span><button className="button primary" disabled={busy}>{busy ? 'Saving…' : `Save ${details.title}`}</button></div>
   </form>
 }

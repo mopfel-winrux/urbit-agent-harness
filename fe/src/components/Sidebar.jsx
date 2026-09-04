@@ -1,6 +1,6 @@
-import { HarnessIcon, InspectIcon, PlusIcon, RenameIcon, SettingsIcon, TrashIcon } from './Icons'
+import { HarnessIcon, PlusIcon, RenameIcon, SettingsIcon, TrashIcon } from './Icons'
 
-export default function Sidebar({ chats, current, onSelect, onNew, onRename, onDelete, settings, onSettings, inspectUrl }) {
+export default function Sidebar({ chats, current, onSelect, onNew, onRename, onDelete, settings, onSettings }) {
   return (
     <aside className="sidebar">
       <div className="brand"><HarnessIcon size={20} /><span>Harness</span></div>
@@ -12,15 +12,14 @@ export default function Sidebar({ chats, current, onSelect, onNew, onRename, onD
               <span className="chat-mark" />
               <span className="truncate">{chat}</span>
             </button>
-            {chat !== 'main' && <div className="chat-actions">
+            <div className="chat-actions">
               <button onClick={() => onRename(chat)} title={`Rename ${chat}`}><RenameIcon /></button>
               <button onClick={() => onDelete(chat)} title={`Delete ${chat}`}><TrashIcon /></button>
-            </div>}
+            </div>
           </div>
         ))}
       </nav>
       <div className="sidebar-spacer" />
-      <a className="sidebar-action" href={inspectUrl} target="_blank" rel="noreferrer"><InspectIcon /><span>Inspect processes</span></a>
       <button className={settings ? 'sidebar-action active' : 'sidebar-action'} onClick={onSettings}><SettingsIcon /><span>Settings</span></button>
     </aside>
   )
