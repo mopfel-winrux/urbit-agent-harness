@@ -19,6 +19,14 @@ event log -> replay -> decide -> explicit effects -> new events
 This keeps provider peculiarities, network stalls, and client lifetimes out of
 session ownership.
 
+The [urbit-agent design notes](https://github.com/lukebuehler/urbit-agent/blob/main/harness-design-notes.md)
+make the useful distinction between a small durable head and replaceable
+hands. Harness adopts that direction: native nouns first, deterministic replay,
+immutable branches, explicit authority, and expensive work outside the head.
+Grubbery supplies process supervision and a capability namespace, not another
+workflow engine. The effect protocol and supervised session nexus remain work
+to complete; see the roadmap rather than treating these as finished properties.
+
 ## Concurrent hands
 
 Gall remains responsive while Iris, timers, subagents, tools, and peers do
@@ -28,8 +36,8 @@ calls and settle only when its recorded wait set is empty.
 The UI reflects this model:
 
 - a submitted message appears immediately with reduced opacity;
-- its local submission identity clears it only when that request settles, with
-  the durable user event replacing it as soon as admitted;
+- an admission receipt maps its local submission identity to the durable input
+  identity, so the canonical event replaces the optimistic message exactly;
 - thinking does not disable navigation or other conversations;
 - transport errors are visible and the ACP client reopens its durable queue;
 - hidden tabs reduce polling without suspending on-ship work.
@@ -47,8 +55,10 @@ copy of user meaning.
 
 ## Authority
 
-Capabilities are absent by default. Enabling a tool family is a deliberate
-conversation setting. Grubbery roads and weirs are the intended substrate for
+Owner-created interactive conversations receive the tool catalog through an
+explicit default grant and can narrow it per session. Scheduled, delegated,
+and remote work receive purpose-built grants; absence of a grant denies
+execution. Grubbery roads and weirs are the intended substrate for
 making future hands independently supervised and narrowly authorized.
 
 Authored skills are staged and rehearsed before promotion. Remote asks carry a
@@ -57,9 +67,11 @@ control but no implied shell or host-filesystem authority.
 
 ## Clients
 
-All clients use ACP. The browser, an editor, or a future messaging adapter can
-disconnect without changing the session. Each has its own ordered delivery
-queue, while `%harness` owns one transcript and one run state per conversation.
+Conventional clients use ACP; native apps can use typed pokes, watches, scries,
+and pure Hoon gates directly. The browser, an editor, or a messaging adapter can
+disconnect without changing the session. Each ACP client has its own ordered
+delivery queue, while the head owns one transcript and run state per session.
+No interface is the primary owner of an agent's work.
 
 Provider, model, and instruction changes are themselves session events and
 take effect on the next turn. A catalog is convenience; the model field always

@@ -307,6 +307,15 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 .message.user .message-label { color: var(--accent); }
 .message.system { padding-left: 13px; border-left: 2px solid var(--line); color: var(--muted); }
 .thinking-message { min-height: 42px; }
+.chat-heading small { display: block; max-width: 45vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 10px; margin-top: 3px; }
+.message-label { display: flex; align-items: center; gap: 12px; }
+.branch-button { border: 0; padding: 2px 0; background: transparent; color: var(--muted); font: inherit; text-transform: none; cursor: pointer; opacity: 0; }
+.message:hover .branch-button, .branch-button:focus-visible { opacity: 1; }
+.branch-origin { color: var(--muted); font-size: 11px; margin: 0 0 25px; }
+.tool-entry summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; }
+.tool-entry summary small { margin-left: auto; color: var(--muted); }
+.tool-entry:not([open]) { padding-top: 10px; padding-bottom: 10px; margin-bottom: 12px; }
+@media (hover: none) { .branch-button { opacity: 1; } }
 .thinking-message.streaming .message-body { opacity: .84; }
 .thinking-dots { display: inline-flex; align-items: center; gap: 5px; height: 20px; }
 .thinking-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); animation: thinking-dot 1.15s ease-in-out infinite; }

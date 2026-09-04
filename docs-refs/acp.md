@@ -39,16 +39,20 @@ Harness extensions use the same JSON-RPC connection:
 - `harness/session/config`
 - `harness/session/configure`
 - `harness/session/rename`
+- `harness/session/snapshot`
+- `harness/session/fork`
 - `harness/credential/set`
 - `harness/provider/models`
 
-`session/load` replays the durable transcript before its result. Text prompt
+`session/load` replays the full durable transcript, not the compacted model
+context, before its result. `session/resume` attaches without replay;
+`session/close` detaches without cancelling. Text prompt
 blocks are joined; image, audio, embedded context, and client-supplied MCP
 servers are not advertised. Filesystem and terminal authority stays behind
 explicit Harness tools.
 
 While a prompt is active, the client displays a thinking indicator. Harness
-projects incremental provider text as transient
+projects incremental provider text as presentation-only
 `harness_agent_stream_chunk` updates whenever Iris exposes response progress.
 Those chunks are presentation state: only the completed assistant item enters
 the event log and the standard `agent_message_chunk` update. Providers or HTTP
@@ -56,12 +60,32 @@ paths that deliver the response as one completed body retain the thinking
 indicator until that terminal update. Tool progress is emitted as the event
 log changes.
 
+`harness/session/snapshot` takes `sessionId` and optional numeric `since`.
+It returns `revision`, `phase`, `model`, `error`, cumulative `usage`,
+`compactions`, `origin`, and chronological `entries`. When `since` equals the
+current revision, `entries` is null: retain the prior entries. An empty array
+means the transcript is empty. ACP also includes accumulated `streaming` text
+while a normal provider turn is active. Snapshots are readable from any
+authorized connection, not just the one that started a prompt.
+
+Entries carry a stable `id` (the decimal event count), numeric `eventCount`,
+and optional `inputId`. Pass optional `clientMessageId` with `session/prompt`;
+the `harness_prompt_admitted` update echoes it alongside the durable `inputId`.
+Match that id against the snapshot to remove optimistic display. Text matching
+is not an admission check: identical prompts are legitimate distinct inputs.
+
+`harness/session/fork` takes `sessionId`, a new unused `name`, and `eventCount`
+from a tool-free completed assistant reply. It returns the child `sessionId`.
+The child retains that prefix and records its origin without replaying effects.
+
 ## Recovery
 
 The web client creates a fresh connection identifier for each page instance,
 polls quickly without cache while visible, cumulatively acknowledges frames,
-and reopens that connection when a scry reports it missing. Pending JSON-RPC
-calls are resent after recovery.
+and reopens that connection when a scry reports it missing. Already consumed
+frames are not processed again if acknowledgement was lost. Pending calls are
+rejected on queue loss, not automatically resent: a missing queue does not
+prove a mutation was never admitted. Read the session snapshot before retrying.
 Page exit closes the queue; the broker prunes closed connections before
 admitting new ones.
 

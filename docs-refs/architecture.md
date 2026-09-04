@@ -59,6 +59,19 @@ The complete semantic transcript remains on ship. Only a bounded request view
 is sent to a provider. Compaction stores a summary while retaining the event
 record from which the current view is derived.
 
+`lib/harness-session.hoon` exposes pure `inspect`, `snapshot`, and `branch`
+gates. `inspect` returns the revision, replayed view, and next decision; it
+does not execute the decision. `snapshot` derives the complete transcript
+directly from events, independent of compaction. Entries carry their one-based
+event count and, for sourced input, its durable input identity. Replay collects
+items by prepending and reverses once, avoiding repeated prefix copying.
+
+`branch` accepts an event count ending at a completed, tool-free assistant
+reply. The child shares the immutable log tail and appends provenance; it does
+not rerun inherited effects. Unfinished tool exchanges and invalid boundaries
+are rejected. Gall's `%fork-at` action and ACP's `harness/session/fork` call use
+this same gate. The gates are a reusable head boundary, not a second scheduler.
+
 ## Grubbery's role
 
 Grubbery is the modular process substrate, not the product namespace. Its
@@ -158,6 +171,19 @@ The React inspector uses this boundary for conversations, replay, prompts,
 cancellation, configuration, credentials, and model discovery. The stdio
 adapter projects the same queues to NDJSON. Neither client owns a transcript.
 
+`session/close` detaches a client without stopping the session. Cancellation is
+explicit, works from a different authorized client, and settles the outstanding
+prompt. Any client can read `harness/session/snapshot`, including during work
+started elsewhere. The browser reconciles snapshots rather than treating its
+private notification queue as the authoritative transcript. Admission receipts
+connect a local message id to the ship's durable input id.
+
+Presentation chunks are not semantic session events, but the current transport
+still carries them through Arvo and durable ACP queues. A truly off-ship live
+stream requires an executor-to-client path; it is not provided by labeling
+chunks transient. Similarly, effect intent/receipt nouns currently describe a
+contract to implement across all hands, not an executor boundary already in use.
+
 ## Trust boundaries
 
 - `%harness` owns the authoritative event logs.
@@ -172,7 +198,13 @@ adapter projects the same queues to NDJSON. Neither client owns a transcript.
 
 `build.zig` pins Grubbery, assembles its libraries and marks, adapts its Clay
 desk identity, renames the runtime agent, and overlays this desk. A release is
-validated by building into a mounted `%harness` desk, committing through Clay,
+validated by assembling into a fresh `%harness` desk, committing through Clay,
 compiling all four agents, opening multiple ACP connections, and completing a
 real provider turn. The roadmap records further checks that should become
 automated.
+
+For incremental development, assemble to `zig-out` and copy the intended
+overlay files to the mounted desk. Full synchronization removes files absent
+from the build output; do not accidentally prune test dependencies or other
+mounted development files. Run `-test /=harness=/tests/harness` for pure head
+checks and `scripts/conformance.mjs` for live two-client checks.

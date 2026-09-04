@@ -25,11 +25,12 @@ is deliberately no embedded login code.
 |---|---|---|
 | `SHIP_URL` | `http://localhost:8081` | Ship HTTP origin |
 | `SHIP_CODE` | required | Ship login code |
-| `ACP_CONNECTION` | `harness` | Lowercase durable connection identifier |
+| `ACP_CONNECTION` | random `harness-stdio-…` | Durable connection identifier |
 | `ACP_POLL_MS` | `100` | Queue polling interval |
 
-Use a distinct `ACP_CONNECTION` for independently running clients. Reusing an
-active identifier intentionally resumes the same ordered queue.
+Independent processes get distinct connections by default. Set a stable
+`ACP_CONNECTION` only when intentionally resuming the same ordered queue;
+do not share an active identifier between independent clients.
 
 ## Behavior
 

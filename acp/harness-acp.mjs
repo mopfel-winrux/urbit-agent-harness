@@ -5,10 +5,11 @@
 
 import { createInterface } from 'node:readline';
 import { once } from 'node:events';
+import { randomUUID } from 'node:crypto';
 
 const SHIP_URL = process.env.SHIP_URL || 'http://localhost:8081';
 const SHIP_CODE = process.env.SHIP_CODE;
-const ACP_CONNECTION = process.env.ACP_CONNECTION || 'harness';
+const ACP_CONNECTION = process.env.ACP_CONNECTION || `harness-stdio-${randomUUID()}`;
 const POLL_MS = Number(process.env.ACP_POLL_MS || 100);
 
 if (!/^[a-z0-9-]{1,128}$/.test(ACP_CONNECTION)) {
@@ -104,6 +105,7 @@ async function pumpClientQueue() {
     const update = await clientQueue();
     if (update === null) {
       await poke({ open: { connection: ACP_CONNECTION } });
+      through = 0;
       await sleep(POLL_MS);
       continue;
     }

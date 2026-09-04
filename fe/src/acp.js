@@ -6,7 +6,7 @@ export function webConnection() {
   return `harness-web-${random}`
 }
 
-class AcpClient extends EventTarget {
+export class AcpClient extends EventTarget {
   constructor(connection = webConnection()) {
     super()
     this.connection = connection
@@ -18,6 +18,7 @@ class AcpClient extends EventTarget {
     this.ready = null
     this.lastError = null
     this.recovering = null
+    this.receivedThrough = 0
   }
 
   ship() {
@@ -27,6 +28,7 @@ class AcpClient extends EventTarget {
   async poke(json) {
     const response = await fetch(`/~/channel/${this.channel}`, {
       method: 'PUT', credentials: 'same-origin',
+      signal: AbortSignal.timeout(15_000),
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify([{
         id: ++this.eventId, action: 'poke', ship: this.ship(), app: 'acp',
@@ -61,6 +63,8 @@ class AcpClient extends EventTarget {
       }, timeoutMs)
       this.pending.set(id, { resolve, reject, timer, frame })
     })
+    // A reply or timeout can arrive before the HTTP poke finishes.
+    result.catch(() => {})
     try {
       await this.poke({ send: { connection: this.connection, target: 'agent', payload: JSON.stringify(frame) } })
     } catch (error) {
@@ -81,8 +85,12 @@ class AcpClient extends EventTarget {
     if (this.recovering) return this.recovering
     this.recovering = (async () => {
       await this.poke({ open: { connection: this.connection } })
-      for (const { frame } of this.pending.values()) {
-        await this.poke({ send: { connection: this.connection, target: 'agent', payload: JSON.stringify(frame) } })
+      this.receivedThrough = 0
+      // A missing queue is not proof that a mutation was never admitted.
+      for (const [id, pending] of this.pending) {
+        clearTimeout(pending.timer)
+        pending.reject(new Error('Connection restored. Check the conversation before repeating your action.'))
+        this.pending.delete(id)
       }
     })().finally(() => { this.recovering = null })
     return this.recovering
@@ -94,6 +102,7 @@ class AcpClient extends EventTarget {
         const response = await fetch(`/~/scry/acp/v1/${this.connection}/client.json?_=${Date.now()}`, {
           credentials: 'same-origin',
           cache: 'no-store',
+          signal: AbortSignal.timeout(15_000),
         })
         if (response.status === 404) {
           await this.recover()
@@ -104,11 +113,7 @@ class AcpClient extends EventTarget {
         if (response.ok) {
           const update = await response.json()
           const messages = Array.isArray(update?.messages) ? update.messages : []
-          let through = 0
-          for (const message of messages) {
-            through = Math.max(through, Number(message.sequence) || 0)
-            this.receive(JSON.parse(message.payload))
-          }
+          const through = this.receiveBatch(messages)
           if (through) await this.poke({ ack: { connection: this.connection, target: 'client', through } })
         }
         if (this.lastError) {
@@ -136,6 +141,16 @@ class AcpClient extends EventTarget {
         mark: 'acp-action-1', json: { close: { connection: this.connection, reason: 'browser closed' } },
       }]),
     })
+  }
+
+  receiveBatch(messages) {
+    for (const message of messages) {
+      const sequence = Number(message.sequence) || 0
+      if (sequence <= this.receivedThrough) continue
+      this.receive(JSON.parse(message.payload))
+      this.receivedThrough = sequence
+    }
+    return this.receivedThrough
   }
 
   receive(frame) {

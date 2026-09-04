@@ -55,41 +55,81 @@
 ++  play
   |=  log=(list event:h)
   ^-  view:h
-  %+  roll  (flop log)
-  |=  [e=event:h v=view:h]
-  ^-  view:h
-  ?-  -.e
-    %config-replaced       v(config config.e, err ~)
-    %input-admitted        v(items (snoc items.v item.e), err ~)
-    %input-received        v(items (snoc items.v item.input.e), err ~)
-    %llm-requested         v(pending `[req.e kind.e])
-    %llm-failed            v(pending ~, err `err.e)
-    %tool-requested        v(wait (~(put in wait.v) call-id.e))
-    %retried               v(err ~)
-    %halted                v(pending ~, err `reason.e)
-    %cancelled             v(pending ~, wait ~)
-    %forked                v(pending ~, wait ~, origin `[from.e at.e])
-  ::
-      %tool-completed
-    %=  v
-      wait   (~(del in wait.v) call-id.e)
-      items  (snoc items.v [%tool call-id.e name.e body.e])
+  ::  Accumulate newest first, reversing once instead of copying every prefix.
+  =/  reversed
+    %+  roll  (flop log)
+    |=  [e=event:h v=view:h]
+    ^-  view:h
+    ?-  -.e
+      %config-replaced       v(config config.e, err ~)
+      %input-admitted        v(items [item.e items.v], err ~)
+      %input-received        v(items [item.input.e items.v], err ~)
+      %llm-requested         v(pending `[req.e kind.e])
+      %llm-failed            v(pending ~, err `err.e)
+      %tool-requested        v(wait (~(put in wait.v) call-id.e))
+      %retried               v(err ~)
+      %halted                v(pending ~, err `reason.e)
+      %cancelled             v(pending ~, wait ~)
+      %forked                v(pending ~, wait ~, origin `[from.e at.e])
+    ::
+        %tool-completed
+      %=  v
+        wait   (~(del in wait.v) call-id.e)
+        items  [[%tool call-id.e name.e body.e] items.v]
+      ==
+    ::
+        %llm-completed
+      %=  v
+        pending  ~
+        items    [item.e items.v]
+        total    :-  (add prompt.total.v prompt.usage.e)
+                 (add completion.total.v completion.usage.e)
+      ==
+    ::
+        %compaction-completed
+      %=  v
+        pending  ~
+        summary  `summary.e
+        items    (flop (retained (flop items.v)))
+      ==
     ==
-  ::
-      %llm-completed
-    %=  v
-      pending  ~
-      items    (snoc items.v item.e)
-      total    :-  (add prompt.total.v prompt.usage.e)
-               (add completion.total.v completion.usage.e)
+  reversed(items (flop items.reversed))
+::  The human transcript is independent of the provider's compacted context.
+::  Event counts are stable message addresses within this session's history.
+::
+++  transcript
+  |=  log=(list event:h)
+  ^-  (list [at=@ud input-id=(unit input-id:h) =item:h])
+  =/  events  (flop log)
+  =/  at=@ud  0
+  |-  ^-  (list [at=@ud input-id=(unit input-id:h) =item:h])
+  ?~  events  ~
+  =/  e  i.events
+  =/  row=(unit [input-id=(unit input-id:h) =item:h])
+    ?+  -.e  ~
+      %input-admitted  `[~ item.e]
+      %input-received  `[`id.input.e item.input.e]
+      %llm-completed   `[~ item.e]
+      %tool-completed  `[~ [%tool call-id.e name.e body.e]]
     ==
-  ::
-      %compaction-completed
-    %=  v
-      pending  ~
-      summary  `summary.e
-      items    (retained items.v)
-    ==
+  ?~  row  $(events t.events, at +(at))
+  [[+(at) u.row] $(events t.events, at +(at))]
+++  transcript-items
+  |=  log=(list event:h)
+  (turn (transcript log) |=([@ud (unit input-id:h) =item:h] item))
+++  transcript-json
+  |=  log=(list event:h)
+  ^-  json
+  :-  %a
+  %+  turn  (transcript log)
+  |=  [at=@ud input-id=(unit input-id:h) =item:h]
+  =/  row  (item-ui-json item)
+  ?>  ?=(%o -.row)
+  :-  %o
+  %-  ~(gas by p.row)
+  :~  ['eventCount' (numb:enjs:format at)]
+      ['id' %s (scot %ud at)]
+      ['inputId' ?~(input-id ~ [%s (scot %uv u.input-id)])]
   ==
 ::  +unanswered: trailing items with no assistant response yet
 ::
@@ -829,13 +869,16 @@
     %+  turn  ~(val by calls.acc)
     |=  call=stream-call
     [id.call name.call args.call]
+  ?~  finish.acc  [%| 'provider stream ended before completion']
+  ?:  (lien calls |=([id=@t name=@t args=@t] |(=(id '') =(name '') =(~ (de:json:html args)))))
+    [%| 'incomplete tool call in provider stream']
   ?:  ?&  =(0 text.acc)
           ?=(~ calls)
       ==
     [%| 'no completed output in response stream']
   =/  stop=stop-reason:h
     ?:  !=(~ calls)  %tool-calls
-    ?:  ?&(?=(^ finish.acc) =('length' u.finish.acc))  %length
+    ?:  =('length' u.finish.acc)  %length
     %stop
   [%& stop u.acc [%assistant text.acc calls]]
 ::  +parse-response: digest a chat-completions response into branch fields
@@ -1012,13 +1055,14 @@
         :-  'calls'
         :-  %a
         %+  turn  calls.it
-        |=  c=tool-call:h
-        (pairs:enjs:format ~[['name' %s name.c] ['args' %s args.c]])
+      |=  c=tool-call:h
+      (pairs:enjs:format ~[['id' %s id.c] ['name' %s name.c] ['args' %s args.c]])
     ==
   ::
       %tool
     %-  pairs:enjs:format
     :~  ['role' %s 'tool']
+        ['callId' %s call-id.it]
         ['name' %s name.it]
         ['body' %s body.it]
     ==
@@ -1166,6 +1210,7 @@
   :~  new+(ot ~[sid+so config+json-config])
       send+(ot ~[sid+so text+so])
       fork+(ot ~[from+so to+so])
+      fork-at+(ot ~[from+so to+so at+ni])
       compact+(ot ~[sid+so])
       cancel+(ot ~[sid+so])
       delete+(ot ~[sid+so])

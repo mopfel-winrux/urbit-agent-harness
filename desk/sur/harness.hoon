@@ -161,6 +161,7 @@
   $%  [%new sid=session-id =config]
       [%send sid=session-id text=@t]
       [%fork from=session-id to=session-id]
+      [%fork-at from=session-id to=session-id at=@ud]
       [%compact sid=session-id]
       [%cancel sid=session-id]
       [%delete sid=session-id]

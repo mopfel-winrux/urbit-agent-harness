@@ -63,6 +63,8 @@ harness/tools
 harness/session/config
 harness/session/configure
 harness/session/rename
+harness/session/snapshot
+harness/session/fork
 harness/credential/set
 harness/provider/models
 ```
@@ -70,6 +72,26 @@ harness/provider/models
 `session/prompt` returns after the admitted turn reaches a terminal state.
 Observe `session/update` notifications for the admitted user item, tool
 progress, and answer. Admission is durable before provider inference begins.
+
+Clients need not own the prompt to inspect the run. For example:
+
+```json
+{"jsonrpc":"2.0","id":10,"method":"harness/session/snapshot","params":{"sessionId":"research"}}
+{"jsonrpc":"2.0","id":11,"method":"harness/session/snapshot","params":{"sessionId":"research","since":42}}
+{"jsonrpc":"2.0","id":12,"method":"harness/session/fork","params":{"sessionId":"research","name":"alternative","eventCount":39}}
+```
+
+Use an actual completed assistant entry's `eventCount` as the branch point.
+Snapshots report phase, revision, full transcript entries, model, usage, and
+origin. `entries: null` means the supplied revision is unchanged, not an empty
+transcript. Keep the prior entries. Event counts survive context compaction.
+
+`session/close` does not cancel work. `session/cancel` explicitly stops the
+addressed session even when another connection started it. If a connection's
+queue disappears, inspect before repeating a mutation: transport uncertainty
+is not proof the ship rejected the action. Optional `clientMessageId` on a
+prompt is echoed in `harness_prompt_admitted` with the durable `inputId` for
+optimistic-display reconciliation; it is not an idempotency key.
 
 ## Native Gall integration
 
@@ -80,7 +102,10 @@ development use. A native client can then:
 - watch `/session/<session-id>` for `%harness-update` facts;
 - scry `/x/sessions` for session ids;
 - scry `/x/session/<session-id>` for a derived view;
-- scry `/x/events/<session-id>` for chronological events.
+- scry `/x/events/<session-id>` for chronological events;
+- scry `/x/snapshot/<session-id>` for the same full transcript projection as ACP;
+- scry `/x/head/<session-id>` for a typed noun containing revision, derived
+  view, and next decision. Reading this does not execute that decision.
 
 HTTP projections of those scries are available at:
 
@@ -88,6 +113,7 @@ HTTP projections of those scries are available at:
 /~/scry/harness/sessions.json
 /~/scry/harness/session/<session-id>.json
 /~/scry/harness/events/<session-id>.json
+/~/scry/harness/snapshot/<session-id>.json
 /~/scry/harness/defaults.json
 /~/scry/harness/mcp.json
 ```
@@ -96,6 +122,13 @@ The typed action surface includes creation, prompt admission, fork, compact,
 cancel, retry, configuration, timers, skills, peer grants, global defaults,
 and MCP configuration. Native callers should depend on these nouns rather than
 the React component state.
+
+`[%fork-at from to at]` branches at a completed, tool-free assistant reply.
+It uses the same pure gate as ACP, preserves the immutable history prefix,
+and emits the new fork event to native watchers. A Hoon component can import
+`/lib/harness-session` and call `inspect`, `snapshot`, or `branch` directly on
+session nouns, without Gall, Eyre, a provider, or effect authority. Those gates
+are useful for replay checks and rehearsals; they do not admit live work.
 
 ## Webhooks
 

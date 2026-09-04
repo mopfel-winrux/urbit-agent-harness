@@ -17,8 +17,8 @@ export default function ConversationModal({ mode, initialName, onClose, onSave }
   }
 
   return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-    <section className="modal-card">
-      <header><div><span className="eyebrow">Conversation</span><h1>{rename ? 'Rename conversation' : 'New conversation'}</h1></div><button className="close-button" onClick={onClose}>×</button></header>
+    <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="conversation-dialog-title">
+      <header><div><span className="eyebrow">Conversation</span><h1 id="conversation-dialog-title">{mode === 'fork' ? 'Branch conversation' : rename ? 'Rename conversation' : 'New conversation'}</h1></div><button className="close-button" onClick={onClose} aria-label="Close">×</button></header>
       <form onSubmit={submit}>
         <label><span>Name</span><input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="research-notes" /></label>
         {name && normalized !== name && <small className="field-note">Will be saved as <code>{normalized || '…'}</code></small>}

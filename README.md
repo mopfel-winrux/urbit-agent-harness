@@ -34,6 +34,8 @@ independent of the React inspector.
 - Typed input provenance across ACP, pokes, timers, webhooks, peers, and child
   sessions, with an explicit response route.
 - Scryable derived views and chronological event histories for native clients.
+- Pure session inspection and branching gates, full revisioned transcripts
+  independent of compaction, and client-independent cancellation and resume.
 - Execution-time capability checks in addition to provider-visible schemas.
 - An ACP React inspector with optimistic message admission, an immediate
   thinking indicator, incremental reply display when the HTTP transport
@@ -50,7 +52,7 @@ ownership.
 
 ## Build and install
 
-Mount or create a `%harness` desk, then assemble directly into it:
+Mount or create a fresh `%harness` desk, then assemble into it:
 
 ```sh
 zig build -Ddesk=/path/to/pier/harness
@@ -64,6 +66,10 @@ Commit and install from Dojo:
 ```
 
 Open `/apps/harness`. Agent and provider configuration are tabs in Settings.
+
+For an existing development mount, run `zig build` and copy the changed overlay
+files from `desk` instead of synchronizing the entire mount. The full-desk
+build removes files absent from its output, including local test dependencies.
 
 The build pins a Grubbery revision, builds the React application, assembles the
 minimal runtime, renames its Gall process to `%harness-grub`, and overlays the
@@ -89,7 +95,10 @@ build.zig                  reproducible desk assembly
 desk/app/harness.hoon      event-sourced agent and ACP methods
 desk/app/acp.hoon          durable duplex transport
 desk/lib/harness.hoon      pure replay, decision, and provider encoding
+desk/lib/harness-session.hoon pure inspection, snapshots, and branching
 desk/lib/root.hoon         minimal Grubbery service tree
+desk/tests/harness.hoon    pure head and response-parser checks
+scripts/conformance.mjs    live independent-client/session checks
 fe/                        componentized React ACP client
 acp/harness-acp.mjs        ACP stdio-to-Eyre adapter
 docs-refs/                 design, protocol, and roadmap
@@ -108,3 +117,17 @@ docs-refs/                 design, protocol, and roadmap
 The central design claim is that an Urbit event log makes a good long-lived
 agent head: deterministic, inspectable, restartable, and independent of any
 particular model or client.
+
+## Verification
+
+```sh
+npm test --prefix fe
+zig build
+SHIP_URL=http://localhost:8081 SHIP_COOKIE=/path/to/auth-cookie.txt \
+  node scripts/conformance.mjs
+```
+
+The live checks use the ship's configured provider and incur inference usage.
+They create uniquely named test sessions and remove those sessions afterward.
+Run `-test /=harness=/tests/harness` in Dojo for pure replay, transcript,
+branch-boundary, and provider-parser checks (requires `/lib/test` on the desk).

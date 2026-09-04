@@ -7,7 +7,7 @@
 ::    served from /web by %harness-fileserver.
 ::
 /-  h=harness, spider, ac=acp
-/+  hl=harness, hg=harness-grub, default-agent, dbug
+/+  hl=harness, hs=harness-session, hg=harness-grub, default-agent, dbug
 |%
 +$  model-info  [id=@t context=(unit @ud)]
 +$  stream-progress  [body=@t sent=@ud]
@@ -263,6 +263,17 @@
     :^  ~  ~  %json
     !>  ^-  json
     [%a (turn (flop log.u.ses) event-json:hl)]
+  ::
+      [%x %snapshot @ ~]
+    =/  ses  (~(get by sessions) `session-id:h`i.t.t.path)
+    ?~  ses  [~ ~]
+    ``json+!>((snapshot:hs u.ses ~))
+  ::
+      [%x %head @ ~]
+    =/  sid=session-id:h  i.t.t.path
+    =/  ses  (~(get by sessions) sid)
+    ?~  ses  [~ ~]
+    ``noun+!>((inspect:hs u.ses (skills-visible:hc sid skills)))
   ::
       [%x %status ~]
     :^  ~  ~  %json
@@ -757,7 +768,7 @@
       [~[(acp-error-card connection u.id '-32602' 'Unknown session')] state]
     =/  current=session:h  (need (~(get by sessions) u.sid))
     =/  replay=(list card)
-      (acp-item-cards connection u.sid 0 items:(play:hl log.current))
+      (acp-item-cards connection u.sid 0 (transcript-items:hl log.current))
     [:(weld replay ~[(acp-result-card connection u.id (pairs:enjs:format ~))]) state]
   ::
       %'session/resume'
@@ -776,8 +787,8 @@
       [~[(acp-error-card connection u.id '-32602' 'Unknown session')] state]
     ?.  (~(has by sessions) u.sid)
       [~[(acp-error-card connection u.id '-32602' 'Unknown session')] state]
-    =^  cancelled  state  (handle-action [%cancel u.sid])
-    [:(weld cancelled ~[(acp-result-card connection u.id (pairs:enjs:format ~))]) state]
+    ::  Closing a client's view does not cancel work owned by the ship.
+    [~[(acp-result-card connection u.id (pairs:enjs:format ~))] state]
   ::
       %'session/delete'
     ?~  id  `state
@@ -851,6 +862,46 @@
       [~[(acp-error-card connection u.id '-32602' 'Unknown session')] state]
     =/  result=json  (view-json:hl (play:hl log.u.current))
     [~[(acp-result-card connection u.id result)] state]
+  ::
+      %'harness/session/snapshot'
+    ?~  id  `state
+    =/  sid  (acp-param-string params 'sessionId')
+    ?~  sid
+      [~[(acp-error-card connection u.id '-32602' 'Expected sessionId')] state]
+    =/  current  (~(get by sessions) u.sid)
+    ?~  current
+      [~[(acp-error-card connection u.id '-32602' 'Unknown session')] state]
+    =/  since  (acp-param-number params 'since')
+    =/  v  (play:hl log.u.current)
+    =/  streaming=@t
+      ?~  pending.v  ''
+      ?.  =(%turn kind.u.pending.v)  ''
+      =/  progress  (~(get by streams) [u.sid req.u.pending.v])
+      ?~  progress  ''
+      (stream-text:hl body.u.progress =('https://chatgpt.com/backend-api/codex/responses' url.config.v))
+    =/  result  (snapshot:hs u.current since)
+    ?>  ?=(%o -.result)
+    =.  result  [%o (~(put by p.result) 'streaming' [%s streaming])]
+    [~[(acp-result-card connection u.id result)] state]
+  ::
+      %'harness/session/fork'
+    ?~  id  `state
+    =/  sid  (acp-param-string params 'sessionId')
+    =/  name  (acp-param-string params 'name')
+    =/  at  (acp-param-number params 'eventCount')
+    ?.  &(?=(^ sid) ?=(^ name) ?=(^ at))
+      [~[(acp-error-card connection u.id '-32602' 'Expected sessionId, name, and eventCount')] state]
+    =/  current  (~(get by sessions) u.sid)
+    ?~  current
+      [~[(acp-error-card connection u.id '-32602' 'Unknown session')] state]
+    ?:  |(=('' u.name) (~(has by sessions) u.name))
+      [~[(acp-error-card connection u.id '-32602' 'Choose an unused conversation name')] state]
+    =/  fork  (branch:hs u.sid u.current u.at)
+    ?:  ?=(%| -.fork)
+      [~[(acp-error-card connection u.id '-32602' p.fork)] state]
+    =^  made  state  (handle-action [%fork-at u.sid u.name u.at])
+    =/  result=json  (pairs:enjs:format ~[['sessionId' %s u.name]])
+    [:(weld made ~[(acp-result-card connection u.id result)]) state]
   ::
       %'harness/session/configure'
     ?~  id  `state
@@ -927,23 +978,28 @@
     ?:  (~(has by acp-prompts) u.sid)
       [~[(acp-error-card connection u.id '-32600' 'A prompt is already running')] state]
     =/  current=session:h  (need (~(get by sessions) u.sid))
-    =/  cursor=@ud  (lent items:(play:hl log.current))
+    =/  current-view  (play:hl log.current)
+    ?:  |(?=(^ pending.current-view) !=(~ wait.current-view))
+      [~[(acp-error-card connection u.id '-32600' 'A turn is already running')] state]
+    =/  cursor=@ud  (lent (transcript-items:hl log.current))
     =.  acp-prompts  (~(put by acp-prompts) u.sid [connection u.id cursor])
     =/  event=event:h
       (input-event [%acp connection] `our.bowl `[%acp connection] [%user u.text])
+    ?>  ?=(%input-received -.event)
+    =/  client-id  (acp-param-string params 'clientMessageId')
+    =/  admission=json
+      (pairs:enjs:format ~[['sessionUpdate' %s 'harness_prompt_admitted'] ['clientMessageId' ?~(client-id ~ [%s u.client-id])] ['inputId' %s (scot %uv id.input.event)]])
     =^  admitted  current  (record-all u.sid current ~[event])
     =^  driven  state  (drive-put u.sid current)
-    [:(weld admitted driven) state]
+    [:(weld ~[(acp-session-update-card connection u.sid admission)] admitted driven) state]
   ::
       %'session/cancel'
     =/  sid  (acp-param-string params 'sessionId')
     ?~  sid  `state
-    =/  pending  (~(get by acp-prompts) u.sid)
-    ?~  pending  `state
+    ?.  (~(has by sessions) u.sid)  `state
     =^  cancelled  state  (handle-action [%cancel u.sid])
-    =.  acp-prompts  (~(del by acp-prompts) u.sid)
-    =/  result=json  (pairs:enjs:format ~[['stopReason' %s 'cancelled']])
-    [:(weld cancelled ~[(acp-result-card connection.u.pending request-id.u.pending result)]) state]
+    ?~  id  [cancelled state]
+    [:(weld cancelled ~[(acp-result-card connection u.id (pairs:enjs:format ~))]) state]
   ==
 ::
 ++  builtin-config
@@ -1132,6 +1188,12 @@
   ^-  (unit json)
   ?.  ?=([~ %o *] params)  ~
   (~(get by p.u.params) key)
+++  acp-param-number
+  |=  [params=(unit json) key=@t]
+  ^-  (unit @ud)
+  =/  value  (acp-param-json params key)
+  ?.  ?=([~ %n *] value)  ~
+  (rush p.u.value dem)
 ++  acp-prompt-text
   |=  params=(unit json)
   ^-  (unit @t)
@@ -1190,6 +1252,18 @@
     :-  (snoc cards (shadow-put-card to.act ses))
     state(sessions (~(put by sessions) to.act ses))
   ::
+      %fork-at
+    ?>  !(~(has by sessions) to.act)
+    =/  fork  (branch:hs from.act (need-session from.act) at.act)
+    ?>  ?=(%& -.fork)
+    =/  ses  p.fork
+    ?>  ?=(^ log.ses)
+    =/  recorded
+      (record-all to.act [t.log.ses next-req.ses] ~[i.log.ses])
+    =/  child  +.recorded
+    =.  sessions  (~(put by sessions) to.act child)
+    [(snoc -.recorded (shadow-put-card to.act child)) state]
+  ::
       %compact
     =/  ses  (need-session sid.act)
     =/  v  (play:hl log.ses)
@@ -1208,8 +1282,9 @@
       %-  ~(gas by *(map [session-id:h @ud] stream-progress))
       (skip ~(tap by streams) |=([[s=session-id:h @ud] stream-progress] =(s sid.act)))
     =^  cards  ses  (record-all sid.act ses ~[event])
-    :-  (snoc cards (shadow-put-card sid.act ses))
-    state(sessions (~(put by sessions) sid.act ses))
+    =.  sessions  (~(put by sessions) sid.act ses)
+    =^  settled  state  (settle-acp sid.act)
+    [:(weld cards ~[(shadow-put-card sid.act ses)] settled) state]
   ::
       %delete
     ::  drop the session and everything scoped to it: pending timers
@@ -1261,6 +1336,10 @@
       (skip ~(tap by streams) |=([[s=session-id:h @ud] stream-progress] =(s sid)))
     =.  cards  (snoc cards (shadow-del-card sid))
     =.  sessions  (~(del by sessions) sid)
+    =/  prompt  (~(get by acp-prompts) sid)
+    =?  cards  ?=(^ prompt)
+      (snoc cards (acp-error-card connection.u.prompt request-id.u.prompt '-32603' 'Session deleted'))
+    =.  acp-prompts  (~(del by acp-prompts) sid)
     ::  close the ui subscription for this session
     :_  state
     (snoc cards [%give %kick ~[`path`[%session `@ta`sid ~]] ~])
@@ -1797,6 +1876,7 @@
   ?~  pending.v  `state
   ?.  =(req.u.pending.v req)  `state
   ?:  ?=(%progress -.res)
+    ?.  =(%turn kind)  `state
     =/  incremental  incremental.res
     ?~  incremental  `state
     =/  key  [sid req]
@@ -2211,12 +2291,15 @@
   =/  mses  (~(get by sessions) sid)
   ?~  mses  `state(acp-prompts (~(del by acp-prompts) sid))
   =/  v  (play:hl log.u.mses)
-  =/  updates  (acp-item-cards connection.u.prompt sid cursor.u.prompt items.v)
+  =/  transcript  (transcript-items:hl log.u.mses)
+  =/  updates  (acp-item-cards connection.u.prompt sid cursor.u.prompt transcript)
   =.  acp-prompts
-    (~(put by acp-prompts) sid [connection.u.prompt request-id.u.prompt (lent items.v)])
+    (~(put by acp-prompts) sid [connection.u.prompt request-id.u.prompt (lent transcript)])
   ?^  pending.v  [updates state]
   ?.  =(~ wait.v)  [updates state]
   =.  acp-prompts  (~(del by acp-prompts) sid)
+  ?:  ?=([[%cancelled *] *] log.u.mses)
+    [:(weld updates ~[(acp-result-card connection.u.prompt request-id.u.prompt (pairs:enjs:format ~[['stopReason' %s 'cancelled']]))]) state]
   ?^  err.v
     [(weld updates ~[(acp-error-card connection.u.prompt request-id.u.prompt '-32603' u.err.v)]) state]
   ?~  items.v

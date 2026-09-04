@@ -5,6 +5,7 @@ import Settings from './components/Settings'
 import Sidebar from './components/Sidebar'
 import Welcome from './components/Welcome'
 import { useConversations } from './useConversations'
+import { acp } from './acp'
 
 function route() {
   const value = location.hash.replace(/^#\/?/, '')
@@ -60,6 +61,12 @@ export default function App() {
     await conversations.rename(dialog?.chat, name)
   }
 
+  async function forkChat(name) {
+    const result = await acp.call('harness/session/fork', { sessionId: dialog.chat, eventCount: dialog.eventCount, name })
+    await conversations.refresh()
+    choose(result.sessionId)
+  }
+
   async function deleteChat(name) {
     if (!confirm(`Delete “${name}” and its transcript?`)) return
     setError('')
@@ -74,8 +81,8 @@ export default function App() {
     <Sidebar chats={chats} current={current} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings} onSettings={openSettings} />
     {settings
       ? <Settings roads={baseRoads} theme={theme} onThemeChange={setTheme} onBack={() => choose(current)} />
-      : current ? <Chat chat={current} theme={theme} onToggleTheme={toggleTheme} onSettings={openSettings} /> : <Welcome loading={loading} onNew={() => setDialog({ mode: 'create' })} />}
+      : current ? <Chat key={current} chat={current} theme={theme} onToggleTheme={toggleTheme} onSettings={openSettings} onSelect={choose} onFork={(eventCount) => setDialog({ mode: 'fork', chat: current, eventCount })} /> : <Welcome loading={loading} onNew={() => setDialog({ mode: 'create' })} />}
     {(error || conversations.error) && <div className="global-error" onClick={() => setError('')}>{error || conversations.error}</div>}
-    {dialog && <ConversationModal mode={dialog.mode} initialName={dialog.chat || ''} onClose={() => setDialog(null)} onSave={dialog.mode === 'rename' ? renameChat : createChat} />}
+    {dialog && <ConversationModal mode={dialog.mode} initialName={dialog.mode === 'fork' ? `${dialog.chat.slice(0, 50)}-branch` : dialog.chat || ''} onClose={() => setDialog(null)} onSave={dialog.mode === 'fork' ? forkChat : dialog.mode === 'rename' ? renameChat : createChat} />}
   </div>
 }
