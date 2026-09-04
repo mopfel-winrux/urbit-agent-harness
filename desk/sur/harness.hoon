@@ -10,6 +10,31 @@
 +$  stop-reason  ?(%stop %tool-calls %length %error)
 +$  tool-call  [id=@t name=@t args=@t]
 +$  usage  [prompt=@ud completion=@ud]
+::  Payloads may remain inline today, but every boundary can name durable
+::  content without depending on a transport or storage implementation.
+::
++$  payload-ref  [hash=@ux bytes=@ud media=@t]
++$  effect-id
+  $%  [%inference req=@ud]
+      [%tool call-id=@t]
+      [%peer ask=@uv]
+  ==
++$  effect-target
+  $%  [%provider name=@t model=@t]
+      [%capability family=term name=@t]
+      [%ship =ship]
+  ==
++$  effect-intent
+  $:  id=effect-id
+      target=effect-target
+      payload=(unit payload-ref)
+  ==
++$  effect-result
+  $%  [%ok payload=(unit payload-ref)]
+      [%error message=@t retryable=?]
+      [%abandoned reason=@t]
+  ==
++$  effect-receipt  [id=effect-id result=effect-result]
 ::  context items, provider-native shape
 ::
 +$  item
@@ -22,7 +47,7 @@
 +$  config
   $:  url=@t              ::  chat-completions endpoint
       model=@t
-      key=@t              ::  NB: enters event log; fakezod-only posture
+      key=@t              ::  ingress-only; blanked before the config event
       headers=(list [name=@t value=@t])
       system=@t
       max-context=@ud     ::  rough token budget before compaction
@@ -53,17 +78,47 @@
   $%  [%ask id=ask-id kind=%text prompt=@t]
       [%answer id=ask-id result=(each @t @t)]
   ==
+::  Every admitted input says where it came from and where a response belongs.
+::  %input-admitted remains readable so existing session logs still replay.
+::
++$  input-id  @uv
++$  input-source
+  $%  [%acp client=@t]
+      [%poke =ship]
+      [%timer name=@ta]
+      [%webhook path=@t]
+      [%peer =ship ask=ask-id]
+      [%subagent parent=session-id call-id=@t]
+      [%rehearsal parent=session-id call-id=@t skill=@t]
+  ==
++$  reply-target
+  $%  [%acp client=@t]
+      [%http id=@ta]
+      [%peer =ship ask=ask-id]
+      [%session sid=session-id call-id=@t]
+  ==
++$  admitted-input
+  $:  id=input-id
+      source=input-source
+      actor=(unit @p)
+      reply=(unit reply-target)
+      at=@da
+      =item
+  ==
 ::  the closed event vocabulary
 ::
 +$  event
   $%  [%config-replaced =config]
       [%input-admitted =item]
+      [%input-received input=admitted-input]
       [%llm-requested req=@ud kind=request-kind]
       [%llm-completed req=@ud stop=stop-reason =usage =item]
       [%llm-failed req=@ud err=@t]
       [%tool-requested call-id=@t name=@t]
       [%tool-completed call-id=@t name=@t body=@t]
       [%compaction-completed req=@ud summary=@t]
+      [%cancelled req=(unit @ud) calls=(set @t) reason=@t]
+      [%forked from=session-id at=@ud req=(unit @ud) calls=(set @t)]
       [%retried ~]
       [%halted reason=@t]
   ==
@@ -80,6 +135,7 @@
       wait=(set @t)                    ::  async tool calls in flight
       total=usage
       err=(unit @t)
+      origin=(unit [from=session-id at=@ud])
   ==
 ::  the decider's output
 ::

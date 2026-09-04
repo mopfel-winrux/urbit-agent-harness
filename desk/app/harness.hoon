@@ -7,7 +7,7 @@
 ::    served from /web by %harness-fileserver.
 ::
 /-  h=harness, spider, ac=acp
-/+  hl=harness, default-agent, dbug
+/+  hl=harness, hg=harness-grub, default-agent, dbug
 |%
 +$  state-0
   $:  %0
@@ -118,6 +118,7 @@
   :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
       acp-open-card:hc
       acp-watch-card:hc
+      (watch:hg our.bowl shadow-channel:hc)
   ==
 ::
 ++  on-save  !>(state)
@@ -143,10 +144,16 @@
     ~?  &  [dap.bowl %incompatible-state-dropped]
     *state-4
   :_  this(state new)
-  :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
-      acp-open-card:hc
-      acp-watch-card:hc
-  ==
+  =/  base=(list card)
+    :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
+        acp-open-card:hc
+        acp-watch-card:hc
+        (watch:hg our.bowl shadow-channel:hc)
+    ==
+  %+  weld  base
+  %+  turn  ~(tap by sessions.new)
+  |=  [sid=session-id:h ses=session:h]
+  (shadow-put-card:hc sid ses)
 ++  on-poke
   |=  [=mark =vase]
   ^-  (quip card _this)
@@ -195,6 +202,14 @@
     =/  ses  (~(get by sessions) sid)
     ?~  ses  [~ ~]
     ``json+!>((view-json:hl (play:hl log.u.ses)))
+  ::
+      [%x %events @ ~]
+    =/  sid=session-id:h  i.t.t.path
+    =/  ses  (~(get by sessions) sid)
+    ?~  ses  [~ ~]
+    :^  ~  ~  %json
+    !>  ^-  json
+    [%a (turn (flop log.u.ses) event-json:hl)]
   ::
       [%x %status ~]
     :^  ~  ~  %json
@@ -246,6 +261,31 @@
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
   ?+  wire  (on-agent:def wire sign)
+      [%harness-grub @ ~]
+    ?+  -.sign  `this
+        %kick
+      [~[(watch:hg our.bowl shadow-channel:hc)] this]
+    ::
+        %watch-ack
+      ?~  p.sign  [shadow-all-cards:hc this]
+      [~[(watch:hg our.bowl shadow-channel:hc)] this]
+    ::
+        %fact
+      =/  fac  (take-fact:hg sign)
+      ?~  fac  `this
+      ?.  ?=(%ack -.res.u.fac)  `this
+      ?~  err.res.u.fac  `this
+      %-  (slog 'harness: session namespace rejected an update' u.err.res.u.fac)
+      `this
+    ==
+  ::
+      [%harness-grub-cmd @ ~]
+    ?.  ?=(%poke-ack -.sign)  (on-agent:def wire sign)
+    ?^  p.sign
+      %-  (slog 'harness: session namespace update failed' u.p.sign)
+      `this
+    `this
+  ::
       [%acp %open ~]
     ?.  ?=(%poke-ack -.sign)  (on-agent:def wire sign)
     ?^  p.sign
@@ -387,6 +427,23 @@
 ::  connection id and implements the protocol methods behind that queue.
 ::
 ++  acp-id  'harness'
+++  shadow-channel  'sessions'
+::  Re-project the authoritative map whenever the runtime subscription returns.
+++  shadow-all-cards
+  ^-  (list card)
+  %+  turn  ~(tap by sessions)
+  |=  [sid=session-id:h ses=session:h]
+  (shadow-put-card sid ses)
+++  shadow-put-card
+  |=  [sid=session-id:h ses=session:h]
+  ^-  card
+  =/  name=@ta  sid
+  (send:hg our.bowl shadow-channel [%make-file /agents/main/sessions name %noun ses %.y])
+++  shadow-del-card
+  |=  sid=session-id:h
+  ^-  card
+  =/  name=@ta  sid
+  (send:hg our.bowl shadow-channel [%cull /agents/main/sessions `name])
 ++  migrate-0
   |=  old=state-0
   ^-  state-1
@@ -706,9 +763,14 @@
     =/  view=view:h  (play:hl log.current)
     ?:  |(?=(^ pending.view) !=(~ wait.view))
       [~[(acp-error-card connection u.id '-32600' 'Session is busy')] state]
-    =^  forked  state  (handle-action [%fork u.sid u.name])
+    ::  A rename changes the address of the same record; it is not a fork and
+    ::  therefore does not invent ancestry in the session history.
+    ::
+    =.  sessions  (~(put by sessions) u.name current)
     =^  deleted  state  (handle-action [%delete u.sid])
-    [:(weld forked deleted ~[(acp-result-card connection u.id (pairs:enjs:format ~))]) state]
+    :_  state
+    %+  weld  ~[(shadow-put-card u.name current)]
+    (weld deleted ~[(acp-result-card connection u.id (pairs:enjs:format ~))])
   ::
       %'session/prompt'
     ?~  id  `state
@@ -725,7 +787,11 @@
     =/  current=session:h  (need (~(get by sessions) u.sid))
     =/  cursor=@ud  (lent items:(play:hl log.current))
     =.  acp-prompts  (~(put by acp-prompts) u.sid [connection u.id cursor])
-    (handle-action [%send u.sid u.text])
+    =/  event=event:h
+      (input-event [%acp connection] `our.bowl `[%acp connection] [%user u.text])
+    =^  admitted  current  (record-all u.sid current ~[event])
+    =^  driven  state  (drive-put u.sid current)
+    [:(weld admitted driven) state]
   ::
       %'session/cancel'
     =/  sid  (acp-param-string params 'sessionId')
@@ -926,27 +992,32 @@
   ^-  (quip card _state)
   ?-  -.act
       %new
-    =/  ses=session:h  [~[[%config-replaced config.act]] 0]
+    =/  cfg=config:h  config.act
+    =?  provider-keys  !=('' key.cfg)
+      (~(put by provider-keys) (provider-for-url url.cfg) key.cfg)
+    =.  cfg  cfg(key '')
+    =/  ses=session:h  [~[[%config-replaced cfg]] 0]
     =^  cards  state  (drive-put sid.act ses)
     [cards state]
   ::
       %send
     =/  ses  (need-session sid.act)
+    =/  event=event:h
+      (input-event [%poke src.bowl] `src.bowl ~ [%user text.act])
     =^  cs1  ses
-      (record-all sid.act ses ~[[%input-admitted [%user text.act]]])
+      (record-all sid.act ses ~[event])
     =^  cs2  state  (drive-put sid.act ses)
     [(weld cs1 cs2) state]
   ::
       %fork
     =/  ses  (need-session from.act)
-    ::  drop request markers so the fork is not stuck pending;
-    ::  everything else is shared structure, copied for free
-    ::
-    =/  clean=(list event:h)
-      %+  skip  log.ses
-      |=(e=event:h ?=(?(%llm-requested %tool-requested) -.e))
-    :-  ~
-    state(sessions (~(put by sessions) to.act [clean next-req.ses]))
+    =/  v  (play:hl log.ses)
+    =/  req=(unit @ud)  ?~(pending.v ~ `req.u.pending.v)
+    =/  event=event:h
+      [%forked from.act (lent log.ses) req wait.v]
+    =^  cards  ses  (record-all to.act ses ~[event])
+    :-  (snoc cards (shadow-put-card to.act ses))
+    state(sessions (~(put by sessions) to.act ses))
   ::
       %compact
     =/  ses  (need-session sid.act)
@@ -958,13 +1029,13 @@
   ::
       %cancel
     =/  ses  (need-session sid.act)
-    ::  a late response will mismatch the (now absent) pending marker
-    ::
-    =/  clean=(list event:h)
-      %+  skip  log.ses
-      |=(e=event:h ?=(?(%llm-requested %tool-requested) -.e))
-    :-  ~
-    state(sessions (~(put by sessions) sid.act [clean next-req.ses]))
+    =/  v  (play:hl log.ses)
+    =/  req=(unit @ud)  ?~(pending.v ~ `req.u.pending.v)
+    =/  event=event:h
+      [%cancelled req wait.v 'cancelled by client']
+    =^  cards  ses  (record-all sid.act ses ~[event])
+    :-  (snoc cards (shadow-put-card sid.act ses))
+    state(sessions (~(put by sessions) sid.act ses))
   ::
       %delete
     ::  drop the session and everything scoped to it: pending timers
@@ -1011,6 +1082,7 @@
     =.  asks
       %-  ~(gas by *(map ask-id:h [session-id:h @t ship]))
       (skip ~(tap by asks) |=([id=ask-id:h s=session-id:h *] =(s sid)))
+    =.  cards  (snoc cards (shadow-del-card sid))
     =.  sessions  (~(del by sessions) sid)
     ::  close the ui subscription for this session
     :_  state
@@ -1024,8 +1096,12 @@
   ::
       %config
     =/  ses  (need-session sid.act)
+    =/  cfg=config:h  config.act
+    =?  provider-keys  !=('' key.cfg)
+      (~(put by provider-keys) (provider-for-url url.cfg) key.cfg)
+    =.  cfg  cfg(key '')
     =^  cs1  ses
-      (record-all sid.act ses ~[[%config-replaced config.act]])
+      (record-all sid.act ses ~[[%config-replaced cfg]])
     =^  cs2  state  (drive-put sid.act ses)
     [(weld cs1 cs2) state]
   ::
@@ -1034,6 +1110,7 @@
     ::  from the parent's current config, sans %subagents (depth 1)
     ::
     ?>  =(our.bowl src.bowl)
+    ?.  (authorized-call parent.act call-id.act 'run_subagent')  `state
     =/  pses  (~(get by sessions) parent.act)
     ?~  pses  `state
     =/  pv  (play:hl log.u.pses)
@@ -1047,7 +1124,7 @@
       ==
     =/  cses=session:h
       :_  0
-      :~  [%input-admitted [%user prompt.act]]
+      :~  (input-event [%subagent parent.act call-id.act] `our.bowl `[%session parent.act call-id.act] [%user prompt.act])
           [%config-replaced ccfg]
       ==
     =.  subs  (~(put by subs) csid [parent.act call-id.act])
@@ -1061,6 +1138,7 @@
     ::  entry in `rehearsals` so +skills-visible shows it the staged skill
     ::
     ?>  =(our.bowl src.bowl)
+    ?.  (authorized-call sid.act call-id.act 'rehearse_skill')  `state
     ?.  (~(has by staged) name.act)
       ::  nothing staged by that name: answer the tool call immediately
       =/  pses  (~(get by sessions) sid.act)
@@ -1090,7 +1168,7 @@
       ==
     =/  cses=session:h
       :_  0
-      :~  [%input-admitted [%user input.act]]
+      :~  (input-event [%rehearsal sid.act call-id.act name.act] `our.bowl `[%session sid.act call-id.act] [%user input.act])
           [%config-replaced ccfg]
       ==
     =.  subs  (~(put by subs) csid [sid.act call-id.act])
@@ -1147,13 +1225,17 @@
     `state(api-key key.act)
   ::
       %peer-config
-    `state(peer-base `config.act)
+    =/  cfg=config:h  config.act
+    =?  provider-keys  !=('' key.cfg)
+      (~(put by provider-keys) (provider-for-url url.cfg) key.cfg)
+    `state(peer-base `cfg(key ''))
   ::
       %ask-peer
     ::  internal, from our own drive loop: send a typed ask over ames
     ::  and start the timeout clock
     ::
     ?>  =(our.bowl src.bowl)
+    ?.  (authorized-call sid.act call-id.act 'ask_peer')  `state
     =/  id=ask-id:h  `@uv`(end [3 16] (shas %a2a-ask eny.bowl))
     =.  asks  (~(put by asks) id [sid.act call-id.act ship.act])
     :_  state
@@ -1169,6 +1251,7 @@
       %run-js
     ::  Native code execution is an optional hand and is not bundled.
     ?>  =(our.bowl src.bowl)
+    ?.  (authorized-call sid.act call-id.act 'run_js')  `state
     =/  mses  (~(get by sessions) sid.act)
     ?~  mses  `state
     =^  cs1  u.mses
@@ -1230,6 +1313,7 @@
   =/  stop=card  [%pass `wire`[%jsdog tid ~] %arvo %b %rest deadline.u.job]
   =/  mses  (~(get by sessions) sid.u.job)
   ?~  mses  [~[stop] state]
+  ?.  (authorized-call sid.u.job call-id.u.job 'run_js')  [~[stop] state]
   =^  cs1  u.mses
     %^  record-all  sid.u.job  u.mses
     ~[[%tool-completed call-id.u.job 'run_js' body]]
@@ -1259,9 +1343,10 @@
   =/  mses  (~(get by sessions) sid)
   ?~  mses  `state(timers (~(del by timers) key))
   =/  ses  u.mses
+  =/  event=event:h
+    (input-event [%timer name] ~ ~ [%user (rap 3 '[timer %' name ' fired] ' prompt.u.mt ~)])
   =^  cs1  ses
-    %^  record-all  sid  ses
-    ~[[%input-admitted [%user (rap 3 '[timer %' name ' fired] ' prompt.u.mt ~)]]]
+    (record-all sid ses ~[event])
   =/  dr  (drive sid ses)
   =.  skills  sk.dr
   =.  staged  stg.dr
@@ -1305,6 +1390,11 @@
       %+  roll  calls.u.stp
       |:  [c=*tool-call:h acc=[evs=*(list event:h) tcards=*(list card) sk=skills stg=staged]]
       ^+  acc
+      ?.  (tool-granted:hl name.c tools.config.v)
+        %=  acc  evs
+          %+  snoc  evs.acc
+          `event:h`[%tool-completed id.c name.c 'rejected: tool is not granted for this session']
+        ==
       ?:  =(name.c 'write_skill')
         =/  nam  (tool-str args.c 'name')
         =/  dsc  (tool-str args.c 'description')
@@ -1614,6 +1704,44 @@
                  %harness-update  !>(`update:h`[%event sid i.evs])
              ==
   ==
+::  +input-event: stamp the common admission envelope at the boundary. The
+::  identifier is stable data in the event, not an index inferred by a client.
+::
+++  input-event
+  |=  $:  source=input-source:h
+          actor=(unit @p)
+          reply=(unit reply-target:h)
+          item=item:h
+      ==
+  ^-  event:h
+  =/  id=input-id:h
+    `@uv`(end [3 16] (shas %harness-input (jam [eny.bowl now.bowl source actor reply item])))
+  [%input-received [id source actor reply now.bowl item]]
+::  +requested-tool / +authorized-call: internal self-pokes are still pokes,
+::  so execution checks both a durable request marker and the current grant.
+::
+++  requested-tool
+  |=  [ses=session:h call-id=@t]
+  ^-  (unit @t)
+  =/  events  log.ses
+  |-  ^-  (unit @t)
+  ?~  events  ~
+  ?:  ?&  ?=(%tool-requested -.i.events)
+           =(call-id call-id.i.events)
+       ==
+    `name.i.events
+  $(events t.events)
+++  authorized-call
+  |=  [sid=session-id:h call-id=@t name=@t]
+  ^-  ?
+  =/  maybe  (~(get by sessions) sid)
+  ?~  maybe  |
+  =/  v  (play:hl log.u.maybe)
+  ?.  (~(has in wait.v) call-id)  |
+  ?.  (tool-granted:hl name tools.config.v)  |
+  =/  requested  (requested-tool u.maybe call-id)
+  ?~  requested  |
+  =(name u.requested)
 ::  +run-tool: sync tools execute on-ship, immediately.
 ::  sk is the current skill library (possibly mutated earlier in the
 ::  same tool batch), so reads see fresh writes
@@ -1760,7 +1888,7 @@
   =.  staged  stg.dr
   =.  sessions  (~(put by sessions) sid ses.dr)
   =^  cs2  state  (settle sid)
-  [(weld cards.dr cs2) state]
+  [:(weld cards.dr ~[(shadow-put-card sid ses.dr)] cs2) state]
 ::  +settle: when a session goes idle, deliver what it owes:
 ::  a finished subagent's answer to its parent, and answers for
 ::  any peer asks queued against it
@@ -1835,6 +1963,7 @@
   =?  sessions    ?=(^ reh)  (~(del by sessions) sid)
   =/  mp  (~(get by sessions) parent.u.link)
   ?~  mp  `state
+  ?.  (authorized-call parent.u.link call-id.u.link tool-name)  `state
   =^  cs1  u.mp
     %^  record-all  parent.u.link  u.mp
     ~[[%tool-completed call-id.u.link tool-name u.result]]
@@ -1882,6 +2011,7 @@
     =.  asks  (~(del by asks) id.msg)
     =/  mses  (~(get by sessions) sid.u.ma)
     ?~  mses  `state
+    ?.  (authorized-call sid.u.ma call-id.u.ma 'ask_peer')  `state
     =/  body=@t
       ?:  ?=(%& -.result.msg)  p.result.msg
       (cat 3 'peer error: ' p.result.msg)
@@ -1923,12 +2053,14 @@
                 ==
       ==
     =/  ses=session:h  (fall mses [~[[%config-replaced cfg]] 0])
+    =/  event=event:h
+      (input-event [%peer src id.msg] `src `[%peer src id.msg] [%user prompt.msg])
     =^  cs1  ses
       %^  record-all  sid  ses
       ?~  mses
-        ~[[%input-admitted [%user prompt.msg]]]
+        ~[event]
       :~  [%config-replaced cfg]
-          [%input-admitted [%user prompt.msg]]
+          event
       ==
     =.  serving
       %+  ~(put by serving)  sid
@@ -1955,6 +2087,7 @@
   =.  asks  (~(del by asks) id)
   =/  mses  (~(get by sessions) sid.u.ma)
   ?~  mses  `state
+  ?.  (authorized-call sid.u.ma call-id.u.ma 'ask_peer')  `state
   =^  cs1  u.mses
     %^  record-all  sid.u.ma  u.mses
     ~[[%tool-completed call-id.u.ma 'ask_peer' (cat 3 'error: ' why)]]
@@ -2047,9 +2180,10 @@
     ?:(?=([~ %s *] t) `p.u.t ~)
   ?~  txt  (bad 400 'body must be json with a "text" field')
   =/  ses  u.mses
+  =/  event=event:h
+    (input-event [%webhook url.request.req] ~ `[%http eyre-id] [%user u.txt])
   =^  cs1  ses
-    %^  record-all  sid  ses
-    ~[[%input-admitted [%user (cat 3 '[webhook] ' u.txt)]]]
+    (record-all sid ses ~[event])
   =^  cs2  state  (drive-put sid ses)
   :_  state
   %+  weld  (weld cs1 cs2)

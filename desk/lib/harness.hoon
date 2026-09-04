@@ -17,11 +17,14 @@
   ?-  -.e
     %config-replaced       v(config config.e, err ~)
     %input-admitted        v(items (snoc items.v item.e), err ~)
+    %input-received        v(items (snoc items.v item.input.e), err ~)
     %llm-requested         v(pending `[req.e kind.e])
     %llm-failed            v(pending ~, err `err.e)
     %tool-requested        v(wait (~(put in wait.v) call-id.e))
     %retried               v(err ~)
     %halted                v(pending ~, err `reason.e)
+    %cancelled             v(pending ~, wait ~)
+    %forked                v(pending ~, wait ~, origin `[from.e at.e])
   ::
       %tool-completed
     %=  v
@@ -445,6 +448,35 @@
   :~  %ship-time  %clay  %web  %skills  %skill-write
       %author  %subagents  %peers
   ==
+::  Resolve provider-returned function names to the capability family that
+::  authorizes execution. This mapping is also checked at dispatch time;
+::  provider schemas are discovery, never authority.
+::
+++  tool-family
+  |=  name=@t
+  ^-  (unit term)
+  ?+  name  ~
+    %'get_ship_time'    `%ship-time
+    %'read_desk_file'   `%clay
+    %'list_desk_files'  `%clay
+    %'http_fetch'       `%web
+    %'read_skill'       `%skills
+    %'write_skill'      `%skill-write
+    %'delete_skill'     `%skill-write
+    %'propose_skill'    `%author
+    %'rehearse_skill'   `%author
+    %'commit_skill'     `%author
+    %'discard_skill'    `%author
+    %'run_js'           `%code
+    %'run_subagent'     `%subagents
+    %'ask_peer'         `%peers
+  ==
+++  tool-granted
+  |=  [name=@t tools=(list term)]
+  ^-  ?
+  =/  family  (tool-family name)
+  ?~  family  |
+  (lien tools |=(candidate=term =(candidate u.family)))
 ::  +tool-defs: schemas for granted tool families
 ::
 ++  tool-defs
@@ -765,6 +797,12 @@
       ['pending' %b !=(~ pending.v)]
       ['wait' %a (turn ~(tap in wait.v) |=(id=@t `json`[%s id]))]
       ['err' ?~(err.v ~ [%s u.err.v])]
+      :-  'origin'
+      ?~  origin.v  ~
+      %-  pairs:enjs:format
+      :~  ['sessionId' %s from.u.origin.v]
+          ['eventCount' (numb:enjs:format at.u.origin.v)]
+      ==
       :-  'usage'
       %-  pairs:enjs:format
       :~  ['prompt' (numb:enjs:format prompt.total.v)]
@@ -815,6 +853,14 @@
         ['item' (item-ui-json item.e)]
     ==
   ::
+      %input-received
+    %-  pairs:enjs:format
+    :~  ['type' %s 'input']
+        ['id' %s (scot %uv id.input.e)]
+        ['source' (input-source-json source.input.e)]
+        ['item' (item-ui-json item.input.e)]
+    ==
+  ::
       %llm-requested
     %-  pairs:enjs:format
     :~  ['type' %s 'llm-requested']
@@ -859,6 +905,19 @@
         ['summary' %s summary.e]
     ==
   ::
+      %cancelled
+    %-  pairs:enjs:format
+    :~  ['type' %s 'cancelled']
+        ['reason' %s reason.e]
+    ==
+  ::
+      %forked
+    %-  pairs:enjs:format
+    :~  ['type' %s 'forked']
+        ['from' %s from.e]
+        ['eventCount' (numb:enjs:format at.e)]
+    ==
+  ::
       %retried
     (pairs:enjs:format ~[['type' %s 'retried']])
   ::
@@ -867,6 +926,34 @@
     :~  ['type' %s 'halted']
         ['reason' %s reason.e]
     ==
+  ==
+::  A deliberately compact JSON projection. Native clients can consume the
+::  typed event and retain every face without this projection.
+::
+++  input-source-json
+  |=  source=input-source:h
+  ^-  json
+  ?-  -.source
+      %acp
+    (pairs:enjs:format ~[['kind' %s 'acp'] ['client' %s client.source]])
+  ::
+      %poke
+    (pairs:enjs:format ~[['kind' %s 'poke'] ['ship' %s (scot %p ship.source)]])
+  ::
+      %timer
+    (pairs:enjs:format ~[['kind' %s 'timer'] ['name' %s name.source]])
+  ::
+      %webhook
+    (pairs:enjs:format ~[['kind' %s 'webhook'] ['path' %s path.source]])
+  ::
+      %peer
+    (pairs:enjs:format ~[['kind' %s 'peer'] ['ship' %s (scot %p ship.source)]])
+  ::
+      %subagent
+    (pairs:enjs:format ~[['kind' %s 'subagent'] ['parent' %s parent.source]])
+  ::
+      %rehearsal
+    (pairs:enjs:format ~[['kind' %s 'rehearsal'] ['parent' %s parent.source] ['skill' %s skill.source]])
   ==
 ::
 ++  update-json

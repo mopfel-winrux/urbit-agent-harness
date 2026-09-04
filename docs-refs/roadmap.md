@@ -7,10 +7,17 @@ items are present in the desk; unchecked items remain design commitments.
 
 - [x] Event-sourced, replayable sessions with independent run state.
 - [x] Prompt admission before provider completion.
-- [x] Cancellation, retry, compaction, session fork, rename, and deletion.
+- [x] Append-only cancellation, retry, compaction, session fork provenance,
+  rename, and deletion.
 - [x] Timers, supervised child sessions, staged skills, and peer asks.
 - [x] Explicit per-session tool families, enabled for new conversations and
   independently configurable thereafter.
+- [x] Enforce tool families at execution, including internal self-pokes.
+- [x] Admit ACP, poke, timer, webhook, peer, and child input with durable source,
+  actor, reply-target, timestamp, and input identity.
+- [x] Expose chronological event history and derived session views by scry.
+- [x] Define transport-independent payload references and effect
+  intent/receipt nouns.
 - [x] OpenAI Chat Completions request and tool-call encoding.
 - [x] ChatGPT Codex Responses request and SSE result encoding.
 - [x] OpenRouter, OpenAI, Anthropic, and custom endpoint presets.
@@ -58,6 +65,14 @@ items are present in the desk; unchecked items remain design commitments.
 
 ## Grubbery capabilities
 
+- [x] Mirror each authoritative session as a typed grub under
+  `/agents/main/sessions` through the thin client boundary.
+- [ ] Add a Harness session nexus that wraps the pure reducer, then shadow-run
+  it against `%harness` until replay and emitted-effect conformance is exact.
+- [ ] Represent each open effect as a supervised `/runs/<id>` grub with durable
+  intent, progress, receipt, and crash evidence.
+- [ ] Move skills, policies, prompts, and tool bundles into versioned namespace
+  files rather than agent maps.
 - [ ] Move more asynchronous hands into small supervised Grubbery processes.
 - [ ] Give each hand a reviewable road/weir authority manifest.
 - [ ] Persist crash evidence and surface it in the Harness UI.
@@ -66,8 +81,11 @@ items are present in the desk; unchecked items remain design commitments.
 
 ## Context, provenance, and storage
 
+- [ ] Emit the generic effect intent/receipt protocol for every provider, tool,
+  peer, and executor boundary.
 - [ ] Search and selective recall across the retained event history.
-- [ ] Record fork parent and divergence point, then share immutable history.
+- [x] Record fork parent and divergence point without rewriting the child log.
+- [ ] Share immutable fork history instead of copying its noun structure.
 - [ ] Store images, archives, and large tool output as addressed payloads.
 - [ ] Make indexes and summaries rebuildable from authoritative records.
 - [ ] Measure loom use and long-session replay before fixing retention limits.

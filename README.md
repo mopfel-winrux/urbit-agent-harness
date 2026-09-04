@@ -1,12 +1,16 @@
 # Urbit Agent Harness
 
-Harness is a fast, durable personal-agent runtime for Urbit. Conversations are
-event logs owned by `%harness`; provider calls and tools are explicit effects,
-and every client speaks Agent Client Protocol (ACP) to the same sessions.
+Harness is an Urbit-native durable agent head and effect router. Conversations
+are event logs owned by the ship; providers, tools, channels, peers, sandboxes,
+and user interfaces are replaceable hands around the same sessions. Native
+nouns are the internal contract, and ACP projects that contract to conventional
+software—including the included React inspector.
 
 The desk uses Grubbery as a compact application substrate. `%harness-grub`
 provides its supervised process and effect services without installing a
-pseudo-desktop or a second chat application.
+pseudo-desktop or a second chat application. Authoritative sessions are
+projected into `/agents/main/sessions` as typed grubs, keeping native consumers
+independent of the React inspector.
 
 ```text
 %harness desk
@@ -18,14 +22,18 @@ pseudo-desktop or a second chat application.
 
 ## What works
 
-- Independent, durable conversations with replay, cancellation, retry,
-  compaction, forking, timers, subagents, skills, and peer-agent calls.
+- Independent, durable conversations with replay, append-only cancellation,
+  fork provenance, retry, compaction, timers, subagents, skills, and peer calls.
 - OpenRouter, OpenAI, Anthropic, and custom OpenAI-compatible endpoints, with
   API keys, OpenAI device login, Anthropic browser-login handoff, and arbitrary
   request headers. ChatGPT login uses its Codex Responses endpoint.
 - Provider model discovery plus a free-form model field; a conversation can
   change provider or model between turns.
-- An ACP-native React client with optimistic message admission, live tool
+- Typed input provenance across ACP, pokes, timers, webhooks, peers, and child
+  sessions, with an explicit response route.
+- Scryable derived views and chronological event histories for native clients.
+- Execution-time capability checks in addition to provider-visible schemas.
+- An ACP React inspector with optimistic message admission, live tool
   updates, rename/delete, responsive settings, and system/light/dark themes.
 - A dependency-free ACP stdio adapter for editors and other local clients.
 - Per-conversation tools for ship time, Clay, HTTP, skills, authored
@@ -66,8 +74,8 @@ SHIP_CODE=your-ship-code \
 node acp/harness-acp.mjs
 ```
 
-The browser is itself an ACP client. Each client has an independent ordered
-queue while all of them address the same on-ship session records. See
+The browser is one ACP client. Each client has an independent ordered queue
+while all of them address the same on-ship session records. See
 [`acp/README.md`](acp/README.md).
 
 ## Repository map

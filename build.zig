@@ -66,11 +66,24 @@ fn buildDesk(step: *std.Build.Step, install_path: []const u8, desk_path: ?[]cons
     try pruneRuntimeDesk(allocator, install_path);
     try adaptRuntimeDesk(allocator, install_path);
     try copyDir(allocator, "desk", install_path);
+    try stageBootstrapMarks(allocator, install_path);
 
     if (desk_path) |raw_path| {
         const target = try expandHome(allocator, step, raw_path);
         if (!exists(target)) return step.fail("desk path '{s}' does not exist", .{target});
         try syncDir(allocator, install_path, target);
+    }
+}
+
+// The dynamic-code index bootstraps these four source marks from /gub even
+// when Harness ships no dynamic nexuses of its own.
+fn stageBootstrapMarks(allocator: std.mem.Allocator, install_path: []const u8) !void {
+    const mar_dir = try std.fs.path.join(allocator, &.{ install_path, "gub/mar" });
+    try std.fs.cwd().makePath(mar_dir);
+    for ([_][]const u8{ "hoon", "tang", "mime", "kelvin" }) |name| {
+        const source = try std.fmt.allocPrint(allocator, "{s}/gub/mar/{s}.hoon", .{ dependency_dir ++ "/desk", name });
+        const target = try std.fmt.allocPrint(allocator, "{s}/{s}.hoon", .{ mar_dir, name });
+        try std.fs.cwd().copyFile(source, std.fs.cwd(), target, .{});
     }
 }
 
@@ -91,8 +104,8 @@ fn adaptRuntimeDesk(allocator: std.mem.Allocator, install_path: []const u8) !voi
     try replaceFile(allocator, app, "/sys/clay/desks/grubbery", "/sys/clay/desks/harness");
     try replaceFile(allocator, app, "=(dek %grubbery)", "=(dek %harness)");
     try replaceFile(allocator, app, "!=(dek %grubbery)", "!=(dek %harness)");
-
     const fiberio = try std.fs.path.join(allocator, &.{ install_path, "lib/fiberio.hoon" });
+    try replaceFile(allocator, fiberio, "++  dap  %grubbery", "++  dap  %harness-grub");
     try replaceFile(allocator, fiberio, "++  dek  %grubbery", "++  dek  %harness");
 
     const named_app = try std.fs.path.join(allocator, &.{ install_path, "app/harness-grub.hoon" });

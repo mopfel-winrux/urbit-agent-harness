@@ -10,7 +10,17 @@
   :~  (manifest:loader 0)
       [%load %| / / same-fold:loader]
       [%fall %| /apps [`[~ ~ %.n ~] ~]]
-      [%fall %| /port [`[`[/ %port] ~ %.n ~] ~]]
+      ::  Harness's durable namespace. Each conversation is a typed noun grub;
+      ::  no desktop or bundled application catalog is mounted.
+      [%fall %| /agents [`[~ ~ %.n ~] ~]]
+      [%fall %| /agents/main [`[~ ~ %.n ~] ~]]
+      [%fall %| /agents/main/profile empty-dir:loader]
+      [%fall %| /agents/main/policies empty-dir:loader]
+      [%fall %| /agents/main/skills empty-dir:loader]
+      [%fall %| /agents/main/tools empty-dir:loader]
+      [%fall %| /agents/main/sessions empty-dir:loader]
+      [%fall %| /agents/main/channels empty-dir:loader]
+      [%fall %| /agents/main/executors empty-dir:loader]
       ::  Services required by Fibers used by the Harness tree.
       [%fall %| /sys/eyre [`[~ ~ %.n ~] ~]]
       [%fall %& [/sys/eyre %'main.server-state'] [[/ %server-state] *server-state:nexus]]

@@ -1,8 +1,10 @@
 # Architecture
 
-Harness separates a deterministic agent head from asynchronous hands. The head
-owns durable sessions and decides the next event. Providers, tools, timers,
-peers, and clients cross explicit boundaries and return facts to that log.
+Harness is an Urbit-native durable agent head and effect router. The head owns
+durable sessions and decides the next event. Providers, tools, timers, peers,
+channels, sandboxes, and clients are replaceable hands that cross typed
+boundaries and return facts to the log. The React interface is an inspector and
+control panel, not the application boundary.
 
 ## Desk shape
 
@@ -21,10 +23,13 @@ applications, or a competing agent tree.
 
 ## Session ownership
 
-A session is `[log next-req]`. Its closed event vocabulary includes admitted
-input, configuration, provider requests and results, tool requests and
-results, compaction, retry, and halt. `play` folds the log into a derived view;
-`decide` selects the next step; Gall emits effects and records their results.
+A session is `[log next-req]`. Its closed event vocabulary includes sourced
+input, configuration, provider requests and results, tool requests and results,
+compaction, cancellation, fork ancestry, retry, and halt. `play` folds the log
+into a derived view; `decide` selects the next step; Gall emits effects and
+records their results. Earlier session events are never removed to manufacture
+a new state: cancellation appends what it abandoned, and a fork appends its
+parent and divergence count.
 
 ```mermaid
 flowchart LR
@@ -38,10 +43,17 @@ flowchart LR
   Head --> Queue
 ```
 
-Admission is fast because a prompt becomes an event before inference begins.
+Every new input has a durable identifier, source, actor when known, admission
+time, and reply target. ACP, direct pokes, timers, webhooks, peers, subagents,
+and rehearsals enter through this envelope. Admission is fast because a prompt
+becomes an event before inference begins.
 Each session advances independently, so one slow provider call does not block
 another conversation. A cancellation records a terminal event and stale
 responses are ignored by request identity.
+
+Native consumers can scry either a derived session view or its chronological
+event projection. Subscriptions deliver typed `%harness-update` facts; clients
+that understand Harness nouns do not have to pass through ACP or React.
 
 The complete semantic transcript remains on ship. Only a bounded request view
 is sent to a provider. Compaction stores a summary while retaining the event
@@ -63,17 +75,51 @@ Harness can therefore grow tools, channels, storage hands, or local inference
 as optional processes instead of enlarging its central decision loop. The
 minimal root keeps that direction available without shipping unrelated apps.
 
+Today, every Gall session is also projected as one typed `%noun` grub at
+`/agents/main/sessions/<session>`. This is deliberately a simple, replaceable
+shadow: it exercises the durable namespace and thin client boundary without
+putting another scheduler in the prompt path. `%harness` remains authoritative
+until replay and effect conformance make a supervised session process safe to
+promote.
+
+The intended namespace is:
+
+```text
+/agents/<agent>/
+  profile/
+  policies/
+  skills/
+  tools/
+  sessions/<session>/
+    config
+    events
+    view
+    inbox.sig
+    outbox/
+    runs/<run-id>/{intent,progress,receipt}
+    children/
+  channels/
+  executors/
+```
+
+The session grubs can grow into supervised reducers; each open effect can then
+become a child run. Skills, policies, and tool bundles become versioned
+namespace files. Weirs enforce the same capability grants that the reducer
+checks before dispatch. Promotion is staged behind replay-conformance tests so
+`%harness-grub` only becomes authoritative after identical event logs produce
+identical views and effects.
+
 ## Providers
 
 Session configuration is data:
 
 ```text
-endpoint, model, session key, headers, system instructions,
+endpoint, model, headers, system instructions,
 context budget, enabled tool families
 ```
 
-Known endpoints select a per-provider credential. A session key can override
-that credential, and arbitrary headers support compatible gateways. OpenRouter,
+Known endpoints select a per-provider credential held outside the session log;
+arbitrary headers support compatible gateways. OpenRouter,
 OpenAI API keys, Anthropic, and custom endpoints use the OpenAI Chat
 Completions shape. OpenAI device login uses the ChatGPT Codex Responses shape
 and its streamed event envelope behind the same session boundary.
@@ -83,11 +129,14 @@ connection. Catalog failure never prevents a manually entered model name.
 
 ## Tools and authority
 
-Tool families are granted per conversation. New conversations enable the
-current catalog—ship time, Clay reads, public web requests, skills, governed
-skill writing, authoring, child sessions, and peer asks—and each conversation
-can narrow that set independently. Tool calls are durable events; asynchronous
-results can arrive in any order and settle the waiting turn when complete.
+Tool families are granted per conversation. Owner-created interactive
+conversations explicitly receive the current catalog—ship time, Clay reads,
+public web requests, skills, governed skill writing, authoring, child sessions,
+and peer asks—and can narrow it independently. Remote, scheduled, delegated,
+and rehearsal sessions receive purpose-built grants. Provider-visible schemas
+are discovery only: execution resolves every function name to a family and
+checks the current grant again; internal self-pokes must also correspond to a
+durable outstanding call.
 
 Skills have a staged workflow: propose, rehearse in a child session, then
 commit or discard. Peer work uses Urbit identity and explicit grants for model,
@@ -102,7 +151,7 @@ watches the agent side once and routes responses back to the connection that
 made the request. Disconnecting a browser cannot consume another client's
 reply.
 
-The React app uses this boundary for conversations, replay, prompts,
+The React inspector uses this boundary for conversations, replay, prompts,
 cancellation, configuration, credentials, and model discovery. The stdio
 adapter projects the same queues to NDJSON. Neither client owns a transcript.
 
@@ -110,7 +159,8 @@ adapter projects the same queues to NDJSON. Neither client owns a transcript.
 
 - `%harness` owns the authoritative event logs.
 - `%acp` owns delivery, not session meaning.
-- Provider credentials remain agent state and are never returned by status.
+- Provider credentials remain separate agent state, are blanked before config
+  admission, and are never returned by status.
 - ACP does not advertise ambient filesystem or terminal access.
 - Tool families are explicit session grants.
 - External channels and remote peers require narrow typed adapters.
