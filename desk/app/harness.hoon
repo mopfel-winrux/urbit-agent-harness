@@ -6,8 +6,8 @@
 ::    scries at /x/sessions and /x/session/[sid]. the chat ui is
 ::    served from /web by %harness-fileserver.
 ::
-/-  h=harness, hh=harness-hand, spider, ac=acp
-/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, default-agent, dbug
+/-  h=harness, hh=harness-hand, sh=harness-shadow, spider, ac=acp
+/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, default-agent, dbug
 |%
 +$  model-info  [id=@t context=(unit @ud)]
 +$  stream-progress  [body=@t sent=@ud]
@@ -169,12 +169,36 @@
       defaults=config:h
       mcp-servers=(map mcp-server-id:h mcp-server:h)
       streams=(map [session-id:h @ud] stream-progress)
+      hands=state-0:hh
+  ==
++$  state-8
+  $:  %8
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+      defaults=config:h
+      mcp-servers=(map mcp-server-id:h mcp-server:h)
+      streams=(map [session-id:h @ud] stream-progress)
       hands=state:hh
   ==
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-7
+=|  state-8
 =*  state  -
 ^-  agent:gall
 =<
@@ -197,7 +221,10 @@
 ++  on-load
   |=  old-vase=vase
   ^-  (quip card _this)
-  =/  new=state-7
+  =/  new=state-8
+    =/  eighth  (mule |.(!<(state-8 old-vase)))
+    ?:  ?=(%& -.eighth)  p.eighth
+    %-  migrate-7:hc
     =/  latest  (mule |.(!<(state-7 old-vase)))
     ?:  ?=(%& -.latest)  p.latest
     %-  migrate-6:hc
@@ -324,6 +351,9 @@
     =/  ses  (~(get by sessions) sid)
     ?~  ses  [~ ~]
     ``noun+!>((inspect:hs u.ses (skills-visible:hc sid skills)))
+  ::
+      [%x %verification @ ~]
+    ``json+!>((shadow-status:hc i.t.t.path))
   ::
       [%x %status ~]
     :^  ~  ~  %json
@@ -560,12 +590,44 @@
   |=  [sid=session-id:h ses=session:h]
   ^-  card
   =/  name=@ta  sid
-  (send:hg our.bowl shadow-channel [%make-file /agents/main/sessions name %noun ses %.y])
+  =/  visible  (skills-visible sid skills)
+  =/  input=input:sh  [%0 ses visible (digest:shadow ses visible)]
+  (send:hg our.bowl shadow-channel [%make-file /agents/main/shadow-inputs name %noun input %.y])
 ++  shadow-del-card
   |=  sid=session-id:h
-  ^-  card
+  ^-  (list card)
   =/  name=@ta  sid
-  (send:hg our.bowl shadow-channel [%cull /agents/main/sessions `name])
+  %+  turn  ~[/agents/main/shadow-inputs /agents/main/sessions /agents/main/checks]
+  |=  path=path
+  (send:hg our.bowl shadow-channel [%cull path `name])
+++  shadow-status
+  |=  sid=session-id:h
+  ^-  json
+  =/  ses  (~(get by sessions) sid)
+  ?~  ses  ~
+  =/  base=path  /(scot %p our.bowl)/harness-grub/(scot %da now.bowl)
+  =/  info=(map @t json)
+    (my ~[['authoritativeRevision' (numb:enjs:format (lent log.u.ses))] ['authoritativeDigest' %s (scot %uv (digest:shadow u.ses (skills-visible sid skills)))]])
+  =/  empty=json
+    [%o (~(put by info) 'check' ~)]
+  ?.  .^(? %gu (weld base /$))  empty
+  ::  Check membership before reading: a missing Gall scry is not a local
+  ::  exception and must never be allowed to fail an ACP update.
+  =/  sources  .^((list @ta) %gx (weld base /peek/kids/agents/main/shadow-inputs/noun))
+  =/  source=(unit *)
+    ?.  (lien sources |=(name=@ta =(name sid)))  ~
+    %-  mole  |.
+    .^(* %gx /(scot %p our.bowl)/harness-grub/(scot %da now.bowl)/peek/file/agents/main/shadow-inputs/[sid]/noun)
+  ?:  ?&(?=(^ source) ?=([%failed * *] u.source))
+    =/  failure  (mole |.(;;(failure:sh u.source)))
+    ?~  failure  empty
+    [%o (~(put by info) 'check' (pairs:enjs:format ~[['crashed' %b %.y] ['matched' %b %.n] ['evidence' %s (scot %uv (shas %shadow-crash (jam trace.u.failure)))]]))]
+  =/  verdict=(unit json)
+    =/  checks  .^((list @ta) %gx (weld base /peek/kids/agents/main/checks/noun))
+    ?.  (lien checks |=(name=@ta =(name sid)))  ~
+    %-  mole  |.
+    ;;(json .^(* %gx /(scot %p our.bowl)/harness-grub/(scot %da now.bowl)/peek/file/agents/main/checks/[sid]/noun))
+  [%o (~(put by info) 'check' ?~(verdict ~ u.verdict))]
 ++  migrate-0
   |=  old=state-0
   ^-  state-1
@@ -743,7 +805,33 @@
       defaults.old
       mcp-servers.old
       streams.old
-      *state:hh
+      *state-0:hh
+  ==
+++  migrate-7
+  |=  old=state-7
+  ^-  state-8
+  :*  %8
+      sessions.old
+      timers.old
+      subs.old
+      skills.old
+      staged.old
+      rehearsals.old
+      peers.old
+      peer-base.old
+      asks.old
+      serving.old
+      jobs.old
+      api-key.old
+      acp-prompts.old
+      acp-through.old
+      provider-keys.old
+      model-requests.old
+      next-model-request.old
+      defaults.old
+      mcp-servers.old
+      streams.old
+      (migrate:hd hands.old)
   ==
 ++  acp-open-card
   ^-  card
@@ -975,6 +1063,23 @@
     =.  result  [%o (~(put by p.result) 'streaming' [%s streaming])]
     [~[(acp-result-card connection u.id result)] state]
   ::
+      %'harness/session/verify'
+    ?~  id  `state
+    =/  sid  (acp-param-string params 'sessionId')
+    ?~  sid  [~[(acp-error-card connection u.id '-32602' 'Expected sessionId')] state]
+    ?.  (~(has by sessions) u.sid)
+      [~[(acp-error-card connection u.id '-32602' 'Unknown session')] state]
+    [~[(acp-result-card connection u.id (shadow-status u.sid))] state]
+  ::
+      %'harness/session/recheck'
+    ?~  id  `state
+    =/  sid  (acp-param-string params 'sessionId')
+    ?~  sid  [~[(acp-error-card connection u.id '-32602' 'Expected sessionId')] state]
+    =/  ses  (~(get by sessions) u.sid)
+    ?~  ses  [~[(acp-error-card connection u.id '-32602' 'Unknown session')] state]
+    =/  result  (pairs:enjs:format ~[['queued' %b %.y] ['revision' (numb:enjs:format (lent log.u.ses))]])
+    [~[(shadow-put-card u.sid u.ses) (acp-result-card connection u.id result)] state]
+  ::
       %'harness/session/fork'
     ?~  id  `state
     =/  sid  (acp-param-string params 'sessionId')
@@ -1137,7 +1242,7 @@
       ['agentCapabilities' capabilities]
       ['authMethods' %a ~]
       ['agentInfo' info]
-      ['_meta' (pairs:enjs:format ~[['harness/hand' (pairs:enjs:format ~[['version' (numb:enjs:format 1)] ['capabilities' %a ~[[%s 'publish']]]])]])]
+      ['_meta' (pairs:enjs:format ~[['harness/hand' (pairs:enjs:format ~[['version' (numb:enjs:format 2)] ['capabilities' %a ~[[%s 'publish']]]])]])]
   ==
 ::
 ++  acp-result-card
@@ -1317,7 +1422,12 @@
 ++  hand-call
   |=  act=action:hh
   ^-  [result=(each json @t) cards=(list card) new=_state]
-  ?:  ?&(?=(%bind -.act) !(~(has by sessions) sid.config.act))
+  =/  cfg=(unit binding:hh)
+    ?+  -.act  ~
+      %bind      `config.act
+      %register  `config.act
+    ==
+  ?:  ?&(?=(^ cfg) !(~(has by sessions) sid.u.cfg))
     [[%| 'Create the session and configure its tool grants before binding it'] ~ state]
   =/  applied  (apply:hd hands act now.bowl)
   ?:  ?=(%| -.applied)  [[%| p.applied] ~ state]
@@ -1330,8 +1440,8 @@
   ?~  sid  [[%& result.p.applied] ~ state]
   =^  cards  state  (hand-pump u.sid)
   [[%& result.p.applied] cards state]
-::  Admit queued work only at a session boundary. The hand ledger is durable
-::  before this operation; inference and publication are separate effects.
+::  Admit queued work only at a session boundary. Immediate admission and
+::  pumping share one event; its state commits before external effects run.
 ++  hand-pump
   |=  sid=session-id:h
   ^-  (quip card _state)
@@ -1493,7 +1603,7 @@
     =.  streams
       %-  ~(gas by *(map [session-id:h @ud] stream-progress))
       (skip ~(tap by streams) |=([[s=session-id:h @ud] stream-progress] =(s sid)))
-    =.  cards  (snoc cards (shadow-del-card sid))
+    =.  cards  (weld cards (shadow-del-card sid))
     =.  sessions  (~(del by sessions) sid)
     =/  prompt  (~(get by acp-prompts) sid)
     =?  cards  ?=(^ prompt)

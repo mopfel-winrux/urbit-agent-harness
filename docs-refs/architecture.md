@@ -88,12 +88,45 @@ Harness can therefore grow tools, channels, storage hands, or local inference
 as optional processes instead of enlarging its central decision loop. The
 minimal root keeps that direction available without shipping unrelated apps.
 
-Today, every Gall session is also projected as one typed `%noun` grub at
-`/agents/main/sessions/<session>`. This is deliberately a simple, replaceable
-shadow: it exercises the durable namespace and thin client boundary without
-putting another scheduler in the prompt path. `%harness` remains authoritative
-until replay and effect conformance make a supervised session process safe to
-promote.
+Every Gall session has a supervised verifier delegated by the root nexus to
+`lib/harness-session-nexus.hoon`. The head publishes a source noun under
+`/agents/main/shadow-inputs/<session>` containing the session, visible skills
+and expected replay/decision digest. A separate Fiber runs the same pure
+`harness-session` gates, writes the session mirror under
+`/agents/main/sessions/<session>`, and records its check under
+`/agents/main/checks/<session>`.
+
+The source and outputs are separate grubs: a verifier cannot rewrite the
+authoritative log. Its weir permits only writes to the two result directories,
+with no cross-grub reads, service pokes or raw Gall syscalls. Snapshot writes
+are idempotent, identified by destination and content; they require neither
+entropy requests nor read-before-write exchanges. The Fiber remains waiting
+after its check instead of completing and deleting its source grub.
+
+On a failure it checkpoints `[%failed source trace]` in its own noun grub and
+waits for an explicit retry. Recording the failure requires no extra
+capability, so a denied output write cannot cause a crash-report retry loop.
+The checkpoint survives process reconstruction and root reload. Valid source
+replacement restarts the check; an owner can also poke the source to retry it.
+
+ACP `harness/session/verify` (with `sessionId`) and native
+`/x/verification/<session>` return the authoritative revision and latest check.
+Require `matched: true`, equal revisions, and `check.actual` equal to
+`authoritativeDigest`; the latter also checks decisions against currently
+visible skills, which can change independently of the session revision. A null
+or stale check is not evidence about the current head. A crashed check includes a trace digest, not
+potentially sensitive diagnostic text. The full source/trace is owner-readable
+in its grub. Outputs are JSON-shaped nouns with a total `%noun` storage mark;
+the inspector validates locally so malformed diagnostics cannot fail an ACP
+update. ACP `harness/session/recheck` republishes the current authoritative
+source without adding a semantic event or running inference.
+
+This is an independent replay/current-decision checkpoint, **not a second
+executor** and not proof that every actual dispatched effect was correct.
+Snapshots often include an already-pending effect, so the next decision can
+be empty. Capturing and comparing the complete intent/receipt sequence at
+dispatch boundaries remains necessary before moving session ownership.
+`%harness` remains authoritative; native apps and ACP clients share its head.
 
 The intended namespace is:
 

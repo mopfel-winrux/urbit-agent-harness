@@ -40,6 +40,8 @@ Harness extensions use the same JSON-RPC connection:
 - `harness/session/configure`
 - `harness/session/rename`
 - `harness/session/snapshot`
+- `harness/session/verify`
+- `harness/session/recheck`
 - `harness/session/fork`
 - `harness/credential/set`
 - `harness/provider/models`
@@ -47,10 +49,19 @@ Harness extensions use the same JSON-RPC connection:
 
 `harness/hand` is the bidirectional conversation-adapter extension. It projects
 the same native binding, observation, publication, and receipt contract—not a
-second agent loop. `initialize` advertises version 1 and the `publish`
+second agent loop. `initialize` advertises version 2 and the `publish`
 capability under `_meta["harness/hand"]`. See [hands](hands.md) for exact action
 shapes and recovery semantics. These clients have owner authority; hand ids
 are not independently authenticated capability tokens.
+
+`harness/session/verify` returns `{authoritativeRevision, authoritativeDigest,
+check}` for a `sessionId`. Require a matched check at the same revision with
+`check.actual === authoritativeDigest`; null means unavailable. This also
+catches changed skill visibility. `harness/session/recheck` queues an independent
+check from the authoritative source and returns `{queued, revision}` without
+running inference. See [architecture](architecture.md#grubberys-role) for its
+sandbox, crash checkpoint and limits; it does not yet verify all dispatched
+effects.
 
 `session/load` replays the full durable transcript, not the compacted model
 context, before its result. `session/resume` attaches without replay;

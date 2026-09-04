@@ -1,11 +1,21 @@
 ::  Minimal root nexus for the Harness distribution.
 ::
-/+  nexus, tarball, loader, io=fiberio, ball-api, http-utils, server
-^=  nexus:nexus
+/+  nexus, tarball, loader, io=fiberio, ball-api, http-utils, server, session-nexus=harness-session-nexus
+^-  nexus:nexus
 |%
 ++  on-load
   |=  =ball:tarball
   ^-  bole:tarball
+  =/  roads=(set road:tarball)
+    %-  ~(gas in *(set road:tarball))
+    :~  [%& %| /agents/main/sessions]
+        [%& %| /agents/main/checks]
+    ==
+  =/  shadow-weir=weir:tarball  [roads ~ ~]
+  =/  keep-shadow=fold-load:loader
+    |=  old=bole:tarball
+    =/  fil=pulp:tarball  (fall fil.old *pulp:tarball)
+    old(fil `fil(neck ~, weir `shadow-weir))
   %+  spin:loader  ball
   :~  (manifest:loader 0)
       [%load %| / / same-fold:loader]
@@ -19,6 +29,10 @@
       [%fall %| /agents/main/skills empty-dir:loader]
       [%fall %| /agents/main/tools empty-dir:loader]
       [%fall %| /agents/main/sessions empty-dir:loader]
+      [%fall %| /agents/main/checks empty-dir:loader]
+      ::  The verifier can only write result namespaces. No cross-grub reads,
+      ::  service pokes or raw Gall syscalls: no provider/network power.
+      [%load %| /agents/main/shadow-inputs /agents/main/shadow-inputs keep-shadow]
       [%fall %| /agents/main/channels empty-dir:loader]
       [%fall %| /agents/main/executors empty-dir:loader]
       ::  Services required by Fibers used by the Harness tree.
@@ -43,6 +57,8 @@
   =/  m  (fiber:fiber:nexus ,~)
   ^-  process:fiber:nexus
   ?+    rail  stay:m
+      [[%agents %main %shadow-inputs ~] @]
+    ((on-file:session-nexus rail blot) prod)
       [[%sys %eyre %requests ~] @]
     ;<  ~  bind:m  (rise-wait:io prod "%eyre /requests: failed")
     =/  eyre-id=@ta  name.rail

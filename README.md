@@ -9,16 +9,23 @@ software—including the included React inspector.
 The desk uses Grubbery as a compact application substrate. `%harness-grub`
 provides its supervised process and effect services without installing a
 pseudo-desktop or a second chat application. Authoritative sessions are
-projected into `/agents/main/sessions` as typed grubs, keeping native consumers
-independent of the React inspector.
+independently replay-checked by sandboxed session verifiers and mirrored into
+`/agents/main/sessions` as typed grubs, keeping native consumers independent of
+the React inspector. Execution ownership remains with the head.
 
-```text
-%harness desk
-├── %harness             sessions, policy, providers, tools
-├── %acp                 ordered multi-client ACP queues
-├── %harness-grub        process and effect substrate
-└── %harness-fileserver  React application
+```mermaid
+flowchart LR
+  UI["React inspector"] <-->|ACP| ACP["%acp: independent client queues"]
+  Clients["Editors, services, channel adapters"] <-->|ACP| ACP
+  ACP <-->|"commands / updates"| Head["%harness: ship-owned sessions"]
+  Native["Native Urbit apps"] <-->|"nouns / scries"| Head
+  Head -->|requests| Effects["Provider, tool and peer executors"]
+  Effects -->|results| Head
 ```
+
+Clients share the head, not an execution loop. Closing an inspector does not
+stop a session; changing a provider does not move its memory. One desk declares
+`%harness`, `%acp`, `%harness-grub`, and `%harness-fileserver`.
 
 ## What works
 
@@ -45,7 +52,8 @@ independent of the React inspector.
 - A dependency-free ACP stdio adapter for editors and other local clients.
 - Generic conversation hands over native nouns or ACP: durable bindings,
   deduplicated input queues, and publication claims/receipts independent of
-  inference. See [the hand contract](docs-refs/hands.md).
+  inference, fair admission limits, fenced owner recovery and explicit archive
+  retirement. See [the hand contract](docs-refs/hands.md).
 - Per-conversation tools for ship time, Clay, HTTP, skills, authored
   capabilities, subagents, and explicitly granted peers. New conversations
   begin with the full catalog enabled and can narrow it independently.
@@ -53,6 +61,28 @@ independent of the React inspector.
 Native inference and a required Groups installation are outside this desk.
 Either can be added behind a typed capability without changing session
 ownership.
+
+## Supervised grubs, one authoritative head
+
+The Grubbery verifier independently replays a session snapshot. It can write
+only its result namespaces—not call a provider or mutate the head.
+
+```mermaid
+flowchart LR
+  Head["Authoritative session"] -->|"snapshot + expected digest"| Source["Source grub"]
+  Source --> Verifier["Sandboxed verifier"]
+  Verifier --> Mirror["Session mirror"]
+  Verifier --> Check["Replay / decision check"]
+  Verifier -->|failure| Crash["Local crash checkpoint"]
+  Crash -->|"explicit retry"| Verifier
+```
+
+Native apps and ACP clients can inspect the check or request a recheck. A
+failure waits for intervention without stopping the head or repeating inference.
+Full effect-dispatch conformance and independently owned session/run grubs are
+the next stages, not claims this checkpoint already proves. See the
+[architecture](docs-refs/architecture.md#grubberys-role) and
+[Grubbery roadmap](docs-refs/roadmap.md#grubbery-capabilities).
 
 ## Build and install
 
@@ -101,10 +131,14 @@ desk/app/acp.hoon          durable duplex transport
 desk/lib/harness.hoon      pure replay, decision, and provider encoding
 desk/lib/harness-session.hoon pure inspection, snapshots, and branching
 desk/lib/harness-hand.hoon bindings, admission queue, and delivery receipts
+desk/lib/harness-session-nexus.hoon supervised replay verifier
 desk/lib/root.hoon         minimal Grubbery service tree
 desk/tests/harness.hoon    pure head and response-parser checks
 scripts/conformance.mjs    live independent-client/session checks
 scripts/hand-conformance.mjs live native/ACP hand and publication checks
+scripts/hand-operations-conformance.mjs recovery, archive and verification checks
+scripts/shadow-conformance.mjs isolated verifier fault/reload checks
+scripts/archive-hand.mjs   durable export before binding retirement
 fe/                        componentized React ACP client
 acp/harness-acp.mjs        ACP stdio-to-Eyre adapter
 acp/hand-client.mjs        transport-independent ACP hand helper
@@ -145,6 +179,15 @@ and receipt checks. `scripts/hand-conformance.mjs` uses the same ship environmen
 for real model turns through two hands; publication callbacks are local test
 fixtures, never posts to a real channel. Failed runs retain unresolved test
 bindings rather than silently discarding their pending publications.
+Run `-test /=harness=/tests/harness-shadow` for replay and failure-checkpoint
+tests. `scripts/hand-operations-conformance.mjs` uses the same environment for
+live owner recovery and archive checks. Test archives remain in printed private
+temporary directories; they are not a production archive location.
+
+`SHIP_DOJO_PANE=0:1.1 node scripts/shadow-conformance.mjs` additionally requires
+the same ship cookie environment and an idle Dojo tmux pane. It corrupts only a
+uniquely named test verifier, reloads the runtime, and verifies explicit ACP
+recovery without changing the authoritative conversation.
 
 `npm run test:ui --prefix fe` runs isolated browser checks for Markdown safety,
 copying, scrolling, the composer, dialog focus, and mobile/light/dark layouts.

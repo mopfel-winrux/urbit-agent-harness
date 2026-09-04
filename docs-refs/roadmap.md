@@ -11,7 +11,7 @@ head without owning its execution. Prioritize these boundaries over expanding
 the bundled interface:
 
 1. Make replay, inspection, branching, and decision pure reusable gates;
-   test them independently of transport. This pass adds `harness-session`.
+   test them independently of transport (`harness-session`).
 2. Turn the declared effect intent/receipt nouns into the actual dispatch
    contract, including identity, authority, cancellation, and late receipts.
    Provider parsing and expensive transformations should be replaceable hands.
@@ -49,6 +49,8 @@ Keep the rest of this ledger: these priorities order the work, not erase it.
   observations, and serial per-session admission through native nouns and ACP.
 - [x] Independent publication outbox, exclusive claims, idempotent receipts,
   and explicit reconciliation of uncertain delivery without rerunning inference.
+- [x] Fair per-binding/per-session admission, fenced owner recovery and explicit
+  abandonment, paged hand exports, and archive-before-retirement tooling.
 - [x] OpenAI Chat Completions request and tool-call encoding.
 - [x] ChatGPT Codex Responses request and SSE result encoding.
 - [x] OpenRouter, OpenAI, Anthropic, and custom endpoint presets.
@@ -90,6 +92,11 @@ ACP specification-conformance suite.
 independent adapters and native ingress. It uses real inference but simulated
 external publications; it is not a Tlon connector test.
 
+`scripts/hand-operations-conformance.mjs` exercises dead-worker recovery,
+late-receipt rejection, abandonment, private durable exports and binding
+retirement without changing session memory. Its delivery destinations are
+test fixtures, never external channels.
+
 ### Streaming
 
 - [x] Show an immediate thinking state and relay incremental provider text as
@@ -129,8 +136,12 @@ external publications; it is not a Tlon connector test.
 
 - [x] Mirror each authoritative session as a typed grub under
   `/agents/main/sessions` through the thin client boundary.
-- [ ] Add a Harness session nexus that wraps the pure reducer, then shadow-run
-  it against `%harness` until replay and emitted-effect conformance is exact.
+- [x] Supervise a read-only session verifier: independent replay/current-decision
+  checks, narrowly scoped roads, persistent failure evidence and explicit retry.
+- [ ] Compare actual dispatched effect intents and receipts at every revision,
+  including provider/tool chains, cancellation, reload and late responses.
+- [ ] Promote independently supervised session grubs only after the head and
+  effect conformance suite agrees; keep native and ACP clients interchangeable.
 - [ ] Represent each open effect as a supervised `/runs/<id>` grub with durable
   intent, progress, receipt, and crash evidence.
 - [ ] Move skills, policies, prompts, and tool bundles into versioned namespace
@@ -140,6 +151,20 @@ external publications; it is not a Tlon connector test.
 - [ ] Persist crash evidence and surface it in the Harness UI.
 - [ ] Make authored capabilities installable without enlarging `%harness`.
 - [ ] Upstream generally useful runtime and MCP corrections.
+
+Order the next steps by clarity of ownership, not number of features. First
+make failures inspectable without blocking or retrying the head. Then give
+each effect a durable identity, explicit authority and one supervised run.
+Only then move execution ownership. A namespace mirror or a matching replay
+digest is useful evidence, but neither proves effect dispatch conformance.
+
+The verifier's runtime failures must checkpoint locally and wait; reporting a
+denied write by attempting another denied write creates a retry loop. Keep this
+as a supervision regression case. Versioned policy/skill files should follow
+the same rule: durable nouns are the restart contract, not Fiber continuations.
+`scripts/shadow-conformance.mjs` injects a fault only into a test verifier,
+checks reload/recovery and unchanged head state, and exercises the ACP
+inspection boundary. It requires an idle Dojo tmux pane for owner operations.
 
 ## Context, provenance, and storage
 
@@ -168,8 +193,10 @@ external publications; it is not a Tlon connector test.
   current adapters are owner-trusted and use their bound session's tool grants.
 - [ ] Extend the text publication contract with addressed artifacts and richer
   capability schemas, preserving source and effect identity.
-- [ ] Page and retain hand ledgers deliberately; add explicit administrative
-  disposition for publications that should never be delivered.
+- [x] Page and bound operational hand ledgers; explicit owner disposition and
+  export-before-retirement preserve delivery evidence without pruning sessions.
+- [ ] Automate adapter binding-epoch rotation with durable source cursors and
+  operator-selected archive storage; never silently relabel old source events.
 - [ ] Keep Urbit identity authoritative rather than depending on a social desk.
 - [ ] Support hosted executors and local devices as capability-bearing hands.
 

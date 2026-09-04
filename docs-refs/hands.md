@@ -47,7 +47,7 @@ a publication already claimed. Receipts can still reconcile it.
 ## ACP
 
 Initialize an ordinary ACP connection. The response advertises
-`_meta["harness/hand"] = {version: 1, capabilities: ["publish"]}`.
+`_meta["harness/hand"] = {version: 2, capabilities: ["publish"]}`.
 Send actions as the params of `harness/hand`:
 
 ```json
@@ -71,10 +71,10 @@ const config = await acp.call('harness/session/config', { sessionId })
 await acp.call('harness/session/configure', {
   sessionId, config: { ...config, key: '', tools: ['ship-time'] },
 })
-await hand.bind('support-chat', {
+const { binding } = await hand.register({
   address: 'opaque-channel-and-thread', sessionId, actors: ['alice'],
 })
-await hand.observe('support-chat', {
+await hand.observe(binding, {
   event: authenticatedMessage.id,
   actor: authenticatedMessage.author,
   text: authenticatedMessage.text,
@@ -98,18 +98,30 @@ is not that evidence.
 | Action | Parameters | Result |
 |---|---|---|
 | `bind` | `id`, `config` as above | Binding status |
+| `register` | `config` | Binding status with a ship-allocated, never-reused id |
 | `enable` | `id`, `enabled` | Binding status |
-| `remove` | `id` | Empty object; rejects unsettled work/publications |
+| `remove` | `id` | Empty object; only for bindings with no observations |
 | `observe` | `binding`, `event`, `actor`, `text` | `inputId`, `phase`, `sourceEvent` |
 | `status` | `binding` | Binding and observation statuses |
 | `outbox` | `hand` | Undelivered publications for enabled bindings |
+| `publications` | `hand`, `after` (id or null), `limit` | Bounded `records` and `next` cursor |
 | `effect` | `hand`, `effect` | Publication, including terminal receipts |
-| `claim` | `hand`, `effect`, `worker` | Publication plus `acquired` |
-| `receipt` | `hand`, `effect`, `worker`, `status`, `external` | Updated publication |
+| `claim` | `hand`, `effect`, `worker` | Publication plus `acquired` and `attempt` |
+| `receipt-at` | `hand`, `effect`, `worker`, `attempt`, `status`, `external` | Updated publication; rejects stale attempts |
 | `retry` | `hand`, `effect` | Confirmed failed publication reset to pending |
+| `resolve` | `hand`, `effect`, `attempt`, `status`, `external`, `reason` | Owner disposition, fenced attempt, audit entry |
+| `health` | `hand` | Claimed/uncertain work with ages, queue usage and limits |
+| `archive` | `binding` | Disabled, settled binding's snapshot digest and record count |
+| `records` | `binding`, `after` (id or null), `limit` | Export page, snapshot digest and `next` cursor |
+| `retire` | `binding`, `digest`, `location` | Release exported operational records; retain session |
 
 `effect` is the returned `effectId` string in Urbit `0v…` notation. The helper
 supplies its hand/worker ids and defaults `external` to the empty string.
+Pages clamp `limit` to 1–4; the helper defaults to one and `outbox()` follows
+pages. Numeric id ordering is for traversal, not chronological delivery. A
+changing outbox is not a frozen snapshot: start another pass to discover new
+effects whose ids sort before a cursor. `receipt` without an attempt remains
+accepted only for the first claim generation; new clients use `receipt-at`.
 
 ## Admission and recovery
 
@@ -134,7 +146,7 @@ without creating a reply; active cancellations produce a cancellation publicatio
 
 Publications carry `version`, `effectId`, `inputId`, `binding`, `hand`, `address`,
 `sessionId`, `capability`, `kind`, `text`, `status`, `worker`, `externalId`, and
-chronological `receipts`. One terminal publication is created per executed
+`attempt`, chronological `receipts`, and owner `resolutions`. One terminal publication is created per executed
 observation, with `effectId = inputId`. Kinds are `reply`, `failure`, or
 `cancelled`. Failures expose a generic message, not internal diagnostics.
 
@@ -156,6 +168,10 @@ Only the first claim returns `acquired: true`. A repeat by the same worker
 returns false; another worker is rejected. Repeating a claim is not permission
 to repeat the external operation. Workers need stable, distinct identities and
 must reconcile abandoned claims after a restart.
+Keep the attempt returned by that particular claim through its entire external
+operation. The helper does this even if another operation updates its cache.
+After reconnecting, inspect `effect` and pass its attempt explicitly to
+`receipt(effectId, status, externalId, attempt)`.
 
 Successful publication records an external message id. Repeating an identical
 receipt is safe; conflicting terminal receipts are rejected. Delivery failure
@@ -164,9 +180,75 @@ inference. `uncertain` blocks retry until the claiming worker establishes
 whether the destination accepted the message. There is no automatic claim
 expiry: elapsed time alone cannot establish non-delivery.
 
+If the worker cannot return, the owner can `resolve` the current attempt to
+`uncertain`, `failed`, `delivered`, or `abandoned`, with an explicit reason.
+Resolution advances the attempt and clears the worker; receipts from the old
+attempt are rejected, even if the replacement uses the same worker name.
+Use `failed` only after confirming non-delivery. `abandoned` means intentionally
+not pursuing delivery, not proof that an external message never appeared. It
+is terminal, disappears from the work outbox, and remains in the export audit.
+
+`health` flags claims or uncertain outcomes older than five minutes for
+inspection. It never expires or resends them. A generation fence protects
+ship-side receipts, **not an already running external send**. Stop or reconcile
+that worker before authorizing a replacement. Owner credentials still grant
+all these administrative actions; worker strings do not authenticate them.
+
 This is not a cross-system exactly-once guarantee. Use destination idempotency
 keys or lookups to close the external-send/receipt gap. If a delivered receipt
 is lost in transit, repeat that receipt or inspect `effect`; do not republish.
+
+## Fair admission and explicit retention
+
+Waiting work is limited to 8 observations per binding, 16 per session across
+its bindings, and 128 globally. One stalled conversation cannot consume the
+whole waiting queue. Duplicate admissions are checked before capacity limits,
+so retrying an already admitted event still recovers its identity.
+
+The operational ledger admits at most 256 observations per binding and 2,048
+globally, with at most 256 active bindings. These are backpressure limits, not
+silent deletion rules. Data already present during an upgrade is preserved.
+Text is limited to 65,536 bytes and source ids to 512 bytes; binding metadata,
+receipt fields, retries and recovery histories have bounded admission too.
+The semantic session log is separate and is not pruned by these limits.
+
+Rotate a binding epoch before it fills:
+
+1. Stop consuming new source events and disable that binding.
+2. Settle or cancel its queued/running work. Reconcile every publication to
+   `delivered` or explicitly `abandoned`.
+3. Export its descriptor and all `records` pages, checking the digest and
+   count. Persist that archive, then `retire` with its digest and location.
+4. `register` another binding to the **same session** and resume at the
+   adapter's saved source cursor. Its conversation memory is unchanged.
+
+Never relabel old source events with the new binding: deduplication is scoped
+to the binding epoch. Retired binding ids reject all further observations.
+Ship-allocated `hand--…` ids use a monotonic counter instead of an ever-growing
+tombstone set. Manually named ids remain available, but their combined active
+and retired identity capacity is 4,096; use `register` for continuous rotation.
+
+The owner-side command performs the export-before-release sequence:
+
+```sh
+SHIP_COOKIE=/path/to/auth-cookie.txt \
+  node scripts/archive-hand.mjs BINDING /safe/archive/binding.jsonl
+```
+
+It requires a disabled, settled binding, creates a private file without
+overwriting anything, writes a completion footer, and fsyncs both file and
+directory before retirement. Partial exports remain on disk for inspection;
+they do not authorize retirement. A completed archive is sensitive: it contains
+source text and publication/receipt history. Choose durable storage and backups;
+`/tmp` is appropriate only for test fixtures.
+
+The digest is a ship-side snapshot compare-and-set token, not a checksum of
+the JSONL encoding. The ship cannot prove a remote archive was persisted: the
+trusted owner attests that through `location`. Retirement removes only this
+binding's duplicated admission/delivery records and binding config; it neither
+deletes nor reruns the session. The latest 128 retirement receipts remain on
+ship; identical retries within that window are idempotent. Remove unused
+bindings or export/retire used bindings before renaming/deleting their session.
 
 ## Native nouns
 
@@ -201,10 +283,3 @@ Grubbery can host an adapter as a supervised process; losing that process need
 not lose its inputs or claims. Automatic adapter supervision, road/weir
 manifests, scoped ACP credentials, per-binding budgets, richer payload
 references, and provider/tool effect unification remain roadmap work.
-
-Admission limits text to 65,536 bytes, source ids to 512 bytes, bindings to 256,
-and the waiting queue to 128. Observations and receipts remain retained,
-including after binding removal. Removal requires settled work and delivered
-publications; retired binding ids with observations cannot be reused. There is
-no ledger pagination or pruning policy yet. Remove bindings before renaming or
-deleting their session.

@@ -3,6 +3,9 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { mkdtemp, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Client, base, cookie } from './lib/ship-client.mjs'
 import { HandClient, DeliveryNotSent } from '../acp/hand-client.mjs'
 
@@ -12,6 +15,7 @@ const chat = new HandClient(first, { hand: `chat-${suffix}`, worker: 'chat-worke
 const mail = new HandClient(second, { hand: `mail-${suffix}`, worker: 'mail-worker' })
 const competitor = new HandClient(second, { hand: chat.hand, worker: 'other-worker' })
 const sessions = [], bindings = []
+const archiveDir = await mkdtemp(join(tmpdir(), 'harness-hand-tests-'))
 const snapshot = (sid) => first.call('harness/session/snapshot', { sessionId: sid })
 
 async function until(fn, label) {
@@ -129,7 +133,21 @@ try {
   // Cleanup errors are reported, not hidden: unresolved deliveries must not be
   // silently discarded just to make a failing test look tidy.
   for (const [hand, binding] of bindings) {
-    try { await hand.remove(binding) } catch (error) { console.error(`Retained test binding ${binding}: ${error.message}`) }
+    try {
+      await hand.enable(binding, false)
+      const descriptor = await hand.archive(binding)
+      const records = []
+      let after = null
+      do {
+        const page = await hand.records(binding, after)
+        assert.equal(page.digest, descriptor.digest)
+        records.push(...page.records); after = page.next
+      } while (after)
+      assert.equal(records.length, descriptor.records)
+      const path = join(archiveDir, `${binding}.json`)
+      await writeFile(path, JSON.stringify({ ...descriptor, records }), { mode: 0o600, flag: 'wx' })
+      await hand.retire(binding, descriptor.digest, path)
+    } catch (error) { console.error(`Retained test binding ${binding}: ${error.message}`) }
   }
   for (const sessionId of sessions) {
     try { await first.call('session/delete', { sessionId }) } catch (error) { console.error(`Retained test session ${sessionId}: ${error.message}`) }
