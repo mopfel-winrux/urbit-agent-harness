@@ -44,6 +44,15 @@ ACP session methods and Harness extensions are documented in
 filesystem or terminal methods; those capabilities are granted to a session as
 Harness tools.
 
+## Conversation hands
+
+`hand-client.mjs` adapts any initialized `call(method, params)` client to the
+`harness/hand` extension. It manages no transport or model loop. Bind a source
+to a configured session, admit observations with stable source ids, and deliver
+the independent publication outbox with claims and receipts. Native adapters
+use the same contract without ACP. See [hands](../docs-refs/hands.md) for the
+protocol, authority boundary, recovery rules, and an integration example.
+
 ## Smoke test
 
 Start the adapter and enter:

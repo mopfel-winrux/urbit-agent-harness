@@ -100,12 +100,14 @@
       [%peer =ship ask=ask-id]
       [%subagent parent=session-id call-id=@t]
       [%rehearsal parent=session-id call-id=@t skill=@t]
+      [%hand binding=@t hand=@t address=@t event=@t actor=@t]
   ==
 +$  reply-target
   $%  [%acp client=@t]
       [%http id=@ta]
       [%peer =ship ask=ask-id]
       [%session sid=session-id call-id=@t]
+      [%hand binding=@t]
   ==
 +$  admitted-input
   $:  id=input-id

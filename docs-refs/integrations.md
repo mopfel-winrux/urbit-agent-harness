@@ -10,6 +10,7 @@ which interface is present later.
 | Need | Boundary | What it provides |
 |---|---|---|
 | Interactive agent client, editor, or service | ACP | Sessions, replay, prompts, cancellation, configuration, and live updates |
+| Bidirectional conversation surface | Hand protocol over ACP or native nouns | Bindings, source-event deduplication, queued turns, and publication receipts |
 | Small HTTP producer | Webhook | Fast admission of a text prompt into a named session |
 | Another app on the same ship | Gall poke, watch, and scry | Typed nouns with no JSON or HTTP dependency |
 | Scheduled work | `%timer-set` action | A durable Behn wakeup that admits a prompt later |
@@ -18,6 +19,11 @@ which interface is present later.
 
 ACP is the broad client boundary. Prefer a smaller typed boundary when the
 caller needs only one operation.
+
+For a chat channel or other bidirectional surface, use [conversation hands](hands.md).
+An ordinary prompt can return a reply, but a hand also preserves the external
+source identity and delivery outcome. Retrying a failed publication never
+reruns inference. The transport and destination remain adapter choices.
 
 ## ACP over authenticated Eyre
 
@@ -67,6 +73,7 @@ harness/session/snapshot
 harness/session/fork
 harness/credential/set
 harness/provider/models
+harness/hand
 ```
 
 `session/prompt` returns after the admitted turn reaches a terminal state.
@@ -139,6 +146,8 @@ answer; consume the session through ACP, a watch, or a scry.
 The webhook is an ingress primitive, not a public authentication scheme. Keep
 it behind an authenticated reverse proxy, private network, or a purpose-built
 channel adapter when exposing the ship beyond a trusted host.
+Sessions with hand bindings reject webhook input; use authenticated hand
+observations so an external producer cannot bypass the binding's actor checks.
 
 ## MCP client configuration
 

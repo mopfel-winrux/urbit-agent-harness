@@ -45,6 +45,10 @@ Keep the rest of this ledger: these priorities order the work, not erase it.
   prompt when any authorized client cancels.
 - [x] Define transport-independent payload references and effect
   intent/receipt nouns.
+- [x] Generic conversation bindings, actor allowlists, deduplicated durable
+  observations, and serial per-session admission through native nouns and ACP.
+- [x] Independent publication outbox, exclusive claims, idempotent receipts,
+  and explicit reconciliation of uncertain delivery without rerunning inference.
 - [x] OpenAI Chat Completions request and tool-call encoding.
 - [x] ChatGPT Codex Responses request and SSE result encoding.
 - [x] OpenRouter, OpenAI, Anthropic, and custom endpoint presets.
@@ -74,11 +78,17 @@ Keep the rest of this ledger: these priorities order the work, not erase it.
   branch provenance, parent isolation, and cross-client cancellation.
 - [x] Pure Hoon tests for transcript retention, branch boundaries, and partial
   provider responses; client tests for lost acknowledgements and recovery.
+- [x] Native/ACP hand parity with real inference, queued context continuity,
+  tool use, independent hands, and publication retry/reconciliation checks.
 - [ ] Cover create, rename, reconfigure, reconnect, cancel, and delete.
 
 `scripts/conformance.mjs` uses ship-configured inference, creates uniquely named
 test sessions, and deletes only those sessions. It is not yet a full install or
 ACP specification-conformance suite.
+
+`scripts/hand-conformance.mjs` tests the conversation-hand slice with two
+independent adapters and native ingress. It uses real inference but simulated
+external publications; it is not a Tlon connector test.
 
 ### Streaming
 
@@ -150,6 +160,16 @@ ACP specification-conformance suite.
 - [x] Typed ship-to-ship asks with owner-selected grants.
 - [ ] Harden replay, timeout, budget, and abuse controls for peer work.
 - [ ] Add optional Messenger or channel adapters over ACP or narrow typed ports.
+- [x] A shared native/ACP conversation-hand contract without a social-desk
+  dependency; see [hands](hands.md).
+- [ ] Build a Tlon hand with source authentication, self-echo suppression,
+  destination-order delivery, and external-id reconciliation.
+- [ ] Add scoped adapter credentials and per-binding tool/budget/rate policies;
+  current adapters are owner-trusted and use their bound session's tool grants.
+- [ ] Extend the text publication contract with addressed artifacts and richer
+  capability schemas, preserving source and effect identity.
+- [ ] Page and retain hand ledgers deliberately; add explicit administrative
+  disposition for publications that should never be delivered.
 - [ ] Keep Urbit identity authoritative rather than depending on a social desk.
 - [ ] Support hosted executors and local devices as capability-bearing hands.
 

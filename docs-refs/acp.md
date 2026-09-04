@@ -43,6 +43,14 @@ Harness extensions use the same JSON-RPC connection:
 - `harness/session/fork`
 - `harness/credential/set`
 - `harness/provider/models`
+- `harness/hand`
+
+`harness/hand` is the bidirectional conversation-adapter extension. It projects
+the same native binding, observation, publication, and receipt contract—not a
+second agent loop. `initialize` advertises version 1 and the `publish`
+capability under `_meta["harness/hand"]`. See [hands](hands.md) for exact action
+shapes and recovery semantics. These clients have owner authority; hand ids
+are not independently authenticated capability tokens.
 
 `session/load` replays the full durable transcript, not the compacted model
 context, before its result. `session/resume` attaches without replay;

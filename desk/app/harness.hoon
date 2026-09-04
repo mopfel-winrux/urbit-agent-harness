@@ -6,8 +6,8 @@
 ::    scries at /x/sessions and /x/session/[sid]. the chat ui is
 ::    served from /web by %harness-fileserver.
 ::
-/-  h=harness, spider, ac=acp
-/+  hl=harness, hs=harness-session, hg=harness-grub, default-agent, dbug
+/-  h=harness, hh=harness-hand, spider, ac=acp
+/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, default-agent, dbug
 |%
 +$  model-info  [id=@t context=(unit @ud)]
 +$  stream-progress  [body=@t sent=@ud]
@@ -147,10 +147,34 @@
       mcp-servers=(map mcp-server-id:h mcp-server:h)
       streams=(map [session-id:h @ud] stream-progress)
   ==
++$  state-7
+  $:  %7
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+      defaults=config:h
+      mcp-servers=(map mcp-server-id:h mcp-server:h)
+      streams=(map [session-id:h @ud] stream-progress)
+      hands=state:hh
+  ==
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-6
+=|  state-7
 =*  state  -
 ^-  agent:gall
 =<
@@ -173,8 +197,11 @@
 ++  on-load
   |=  old-vase=vase
   ^-  (quip card _this)
-  =/  current  (mule |.(!<(state-6 old-vase)))
-  =/  new=state-6
+  =/  new=state-7
+    =/  latest  (mule |.(!<(state-7 old-vase)))
+    ?:  ?=(%& -.latest)  p.latest
+    %-  migrate-6:hc
+    =/  current  (mule |.(!<(state-6 old-vase)))
     ?:  ?=(%& -.current)  p.current
     =/  fifth  (mule |.(!<(state-5 old-vase)))
     ?:  ?=(%& -.fifth)
@@ -194,8 +221,8 @@
     =/  oldest  (mule |.(!<(state-0 old-vase)))
     ?:  ?=(%& -.oldest)
       (migrate-5:hc (migrate-4:hc (migrate-3:hc (migrate-2:hc (migrate-1:hc (migrate-0:hc p.oldest))))))
-    ~?  &  [dap.bowl %incompatible-state-dropped]
-    *state-6
+    ~|  %harness-incompatible-state
+    !!
   :_  this(state new)
   =/  base=(list card)
     :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
@@ -212,14 +239,25 @@
   ^-  (quip card _this)
   ?+  mark  (on-poke:def mark vase)
       %harness-action
+    ?>  =(src.bowl our.bowl)
     =^  cards  state  (handle-action:hc !<(action:h vase))
     [cards this]
   ::
       %noun
+    ?>  =(src.bowl our.bowl)
     =^  cards  state  (handle-action:hc ;;(action:h q.vase))
     [cards this]
   ::
+      %harness-hand
+    ?>  =(src.bowl our.bowl)
+    =/  req  !<(request:hh vase)
+    =/  out  (hand-call:hc act.req)
+    :_  this(state new.out)
+    %+  snoc  cards.out
+    [%give %fact ~[/hands/[id.req]] %noun !>(result.out)]
+  ::
       %handle-http-request
+    ?>  =(src.bowl our.bowl)
     =+  !<([eyre-id=@ta req=inbound-request:eyre] vase)
     =^  cards  state  (serve:hc eyre-id req)
     [cards this]
@@ -232,8 +270,10 @@
 ++  on-watch
   |=  =path
   ^-  (quip card _this)
+  ?>  =(src.bowl our.bowl)
   ?+  path  (on-watch:def path)
     [%session @ ~]       `this
+    [%hands @ ~]         `this
     [%http-response *]   `this
   ==
 ::
@@ -242,7 +282,17 @@
 ++  on-peek
   |=  =path
   ^-  (unit (unit cage))
+  ?>  =(src.bowl our.bowl)
   ?+  path  (on-peek:def path)
+      [%x %hands @ ~]
+    ``json+!>((status-json:hd hands i.t.t.path))
+  ::
+      [%x %hand-outbox @ ~]
+    ``json+!>((outbox-json:hd hands i.t.t.path))
+  ::
+      [%x %hand-state ~]
+    ``noun+!>(hands)
+  ::
       [%x %sessions ~]
     :^  ~  ~  %json
     !>  ^-  json
@@ -669,6 +719,32 @@
       mcp-servers.old
       *(map [session-id:h @ud] stream-progress)
   ==
+++  migrate-6
+  |=  old=state-6
+  ^-  state-7
+  :*  %7
+      sessions.old
+      timers.old
+      subs.old
+      skills.old
+      staged.old
+      rehearsals.old
+      peers.old
+      peer-base.old
+      asks.old
+      serving.old
+      jobs.old
+      api-key.old
+      acp-prompts.old
+      acp-through.old
+      provider-keys.old
+      model-requests.old
+      next-model-request.old
+      defaults.old
+      mcp-servers.old
+      streams.old
+      *state:hh
+  ==
 ++  acp-open-card
   ^-  card
   :*  %pass  /acp/open
@@ -734,6 +810,19 @@
     ?~  id  `state
     [~[(acp-result-card connection u.id acp-initialize-result)] state]
   ::
+      %'harness/hand'
+    ?~  id  `state
+    ?~  params
+      [~[(acp-error-card connection u.id '-32602' 'Expected a hand action')] state]
+    =/  parsed  (mule |.((json-action:hd u.params)))
+    ?.  ?=(%& -.parsed)
+      [~[(acp-error-card connection u.id '-32602' 'Invalid hand action')] state]
+    =/  out  (hand-call p.parsed)
+    =/  response=card
+      ?:  ?=(%& -.result.out)  (acp-result-card connection u.id p.result.out)
+      (acp-error-card connection u.id '-32602' p.result.out)
+    [(snoc cards.out response) new.out]
+  ::
       %'session/new'
     ?~  id  `state
     =/  requested  (acp-param-string params 'name')
@@ -797,6 +886,8 @@
       [~[(acp-error-card connection u.id '-32602' 'Unknown session')] state]
     ?.  (~(has by sessions) u.sid)
       [~[(acp-error-card connection u.id '-32602' 'Unknown session')] state]
+    ?:  (lien ~(val by bindings.hands) |=(b=binding:hh =(sid.b u.sid)))
+      [~[(acp-error-card connection u.id '-32602' 'Remove hand bindings before deleting the session')] state]
     =^  deleted  state  (handle-action [%delete u.sid])
     [:(weld deleted ~[(acp-result-card connection u.id (pairs:enjs:format ~))]) state]
   ::
@@ -950,6 +1041,8 @@
       [~[(acp-error-card connection u.id '-32602' 'Expected sessionId and name')] state]
     ?.  (~(has by sessions) u.sid)
       [~[(acp-error-card connection u.id '-32602' 'Unknown session')] state]
+    ?:  (lien ~(val by bindings.hands) |=(b=binding:hh =(sid.b u.sid)))
+      [~[(acp-error-card connection u.id '-32602' 'Remove hand bindings before renaming the session')] state]
     ?:  (~(has by sessions) u.name)
       [~[(acp-error-card connection u.id '-32602' 'Name already in use')] state]
     =/  current=session:h  (need (~(get by sessions) u.sid))
@@ -1044,6 +1137,7 @@
       ['agentCapabilities' capabilities]
       ['authMethods' %a ~]
       ['agentInfo' info]
+      ['_meta' (pairs:enjs:format ~[['harness/hand' (pairs:enjs:format ~[['version' (numb:enjs:format 1)] ['capabilities' %a ~[[%s 'publish']]]])]])]
   ==
 ::
 ++  acp-result-card
@@ -1220,11 +1314,71 @@
   `(rap 3 (turn pieces |=(piece=@t (cat 3 piece '\0a'))))
 ::  +handle-action: admit a command, then drive the session
 ::
+++  hand-call
+  |=  act=action:hh
+  ^-  [result=(each json @t) cards=(list card) new=_state]
+  ?:  ?&(?=(%bind -.act) !(~(has by sessions) sid.config.act))
+    [[%| 'Create the session and configure its tool grants before binding it'] ~ state]
+  =/  applied  (apply:hd hands act now.bowl)
+  ?:  ?=(%| -.applied)  [[%| p.applied] ~ state]
+  =.  hands  db.p.applied
+  =/  sid=(unit session-id:h)
+    ?+  -.act  ~
+      %observe  `sid:(need (~(get by bindings.hands) binding.act))
+      %enable   `sid:(need (~(get by bindings.hands) id.act))
+    ==
+  ?~  sid  [[%& result.p.applied] ~ state]
+  =^  cards  state  (hand-pump u.sid)
+  [[%& result.p.applied] cards state]
+::  Admit queued work only at a session boundary. The hand ledger is durable
+::  before this operation; inference and publication are separate effects.
+++  hand-pump
+  |=  sid=session-id:h
+  ^-  (quip card _state)
+  =/  current  (~(get by sessions) sid)
+  ?~  current  `state
+  =/  v  (play:hl log.u.current)
+  ?:  |(?=(^ pending.v) !=(~ wait.v))  `state
+  =/  id  (next:hd hands sid)
+  ?~  id  `state
+  =/  obs  (need (~(get by observations.hands) u.id))
+  =/  cfg  (need (~(get by bindings.hands) binding.obs))
+  =.  hands  (start:hd hands sid u.id)
+  =/  event=event:h
+    [%input-received [u.id [%hand binding.obs hand.cfg address.cfg event.obs actor.obs] ~ `[%hand binding.obs] at.obs [%user text.obs]]]
+  =^  admitted  u.current  (record-all sid u.current ~[event])
+  =^  driven  state  (drive-put sid u.current)
+  [(weld admitted driven) state]
+++  settle-hands
+  |=  sid=session-id:h
+  ^-  (quip card _state)
+  =/  id  (~(get by active.hands) sid)
+  ?~  id  (hand-pump sid)
+  =/  current  (~(get by sessions) sid)
+  ?~  current  `state
+  =/  v  (play:hl log.u.current)
+  ?:  |(?=(^ pending.v) !=(~ wait.v))  `state
+  =/  cancelled=?  ?=([[%cancelled *] *] log.u.current)
+  =/  last=(unit item:h)  ?~(items.v ~ `(rear items.v))
+  =/  kind=?(%reply %failure %cancelled)
+    ?:  cancelled  %cancelled
+    ?^  err.v  %failure
+    ?.  ?=([~ %assistant * ~] last)  %failure
+    %reply
+  =/  body=@t
+    ?:  =(%cancelled kind)  'Work was cancelled.'
+    ?:  =(%failure kind)  'Work failed. The owner can inspect the session for details.'
+    ?>  ?=([~ %assistant * ~] last)
+    body.u.last
+  =.  hands  (finish:hd hands sid kind body)
+  (hand-pump sid)
+::
 ++  handle-action
   |=  act=action:h
   ^-  (quip card _state)
   ?-  -.act
       %new
+    ?>  !(~(has by sessions) sid.act)
     =/  cfg=config:h  config.act
     =?  provider-keys  !=('' key.cfg)
       (~(put by provider-keys) (provider-for-url url.cfg) key.cfg)
@@ -1235,6 +1389,7 @@
   ::
       %send
     =/  ses  (need-session sid.act)
+    ?>  !(~(has by active.hands) sid.act)
     =/  event=event:h
       (input-event [%poke src.bowl] `src.bowl ~ [%user text.act])
     =^  cs1  ses
@@ -1243,6 +1398,7 @@
     [(weld cs1 cs2) state]
   ::
       %fork
+    ?>  !(~(has by sessions) to.act)
     =/  ses  (need-session from.act)
     =/  v  (play:hl log.ses)
     =/  req=(unit @ud)  ?~(pending.v ~ `req.u.pending.v)
@@ -1283,10 +1439,13 @@
       (skip ~(tap by streams) |=([[s=session-id:h @ud] stream-progress] =(s sid.act)))
     =^  cards  ses  (record-all sid.act ses ~[event])
     =.  sessions  (~(put by sessions) sid.act ses)
+    =.  hands  (cancel-queued:hd hands sid.act)
     =^  settled  state  (settle-acp sid.act)
-    [:(weld cards ~[(shadow-put-card sid.act ses)] settled) state]
+    =^  hand-cards  state  (settle-hands sid.act)
+    [:(weld cards ~[(shadow-put-card sid.act ses)] settled hand-cards) state]
   ::
       %delete
+    ?>  !(lien ~(val by bindings.hands) |=(b=binding:hh =(sid.b sid.act)))
     ::  drop the session and everything scoped to it: pending timers
     ::  (cancel their behn), subagent links (as child or parent),
     ::  peer-serving queue, in-flight js jobs (stop the thread), and
@@ -1609,6 +1768,11 @@
     `state
   =/  mses  (~(get by sessions) sid)
   ?~  mses  `state(timers (~(del by timers) key))
+  ::  A wakeup cannot splice input into a hand's active turn. Keep the timer
+  ::  durable and reconsider at a session boundary without dropping the wake.
+  ?:  (~(has by active.hands) sid)
+    =/  at=@da  (add now.bowl ~s5)
+    [~[(wait-card sid name at)] state(timers (~(put by timers) key u.mt(at at)))]
   =/  ses  u.mses
   =/  event=event:h
     (input-event [%timer name] ~ ~ [%user (rap 3 '[timer %' name ' fired] ' prompt.u.mt ~)])
@@ -2281,7 +2445,8 @@
   =^  cs1  state  (settle-sub sid)
   =^  cs2  state  (settle-asks sid)
   =^  cs3  state  (settle-acp sid)
-  [:(weld cs1 cs2 cs3) state]
+  =^  cs4  state  (settle-hands sid)
+  [:(weld cs1 cs2 cs3 cs4) state]
 ::
 ++  settle-acp
   |=  sid=session-id:h
@@ -2417,6 +2582,8 @@
       [~[(answer-card src id.msg [%| 'peer serving not configured'])] state]
     =/  base  u.mbase
     =/  sid=session-id:h  (cat 3 'peer--' (scot %p src))
+    ?:  (lien ~(val by bindings.hands) |=(b=binding:hh =(sid.b sid)))
+      [~[(answer-card src id.msg [%| 'Session reserved for hand bindings'])] state]
     =/  mses  (~(get by sessions) sid)
     ?:  ?&  !=(0 budget.u.g)
             ?=(^ mses)
@@ -2556,6 +2723,8 @@
   =/  sid=session-id:h  i.t.t.site
   =/  mses  (~(get by sessions) sid)
   ?~  mses  (bad 404 'no such session')
+  ?:  (lien ~(val by bindings.hands) |=(b=binding:hh =(sid.b sid)))
+    (bad 409 'Use the authenticated hand observation queue for this bound session')
   =/  txt=(unit @t)
     ?~  body.request.req  ~
     =/  jon  (de:json:html q.u.body.request.req)

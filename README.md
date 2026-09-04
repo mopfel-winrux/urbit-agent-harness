@@ -43,6 +43,9 @@ independent of the React inspector.
   tables, live tool updates, rename/delete, responsive
   settings, and system/light/dark themes.
 - A dependency-free ACP stdio adapter for editors and other local clients.
+- Generic conversation hands over native nouns or ACP: durable bindings,
+  deduplicated input queues, and publication claims/receipts independent of
+  inference. See [the hand contract](docs-refs/hands.md).
 - Per-conversation tools for ship time, Clay, HTTP, skills, authored
   capabilities, subagents, and explicitly granted peers. New conversations
   begin with the full catalog enabled and can narrow it independently.
@@ -97,11 +100,14 @@ desk/app/harness.hoon      event-sourced agent and ACP methods
 desk/app/acp.hoon          durable duplex transport
 desk/lib/harness.hoon      pure replay, decision, and provider encoding
 desk/lib/harness-session.hoon pure inspection, snapshots, and branching
+desk/lib/harness-hand.hoon bindings, admission queue, and delivery receipts
 desk/lib/root.hoon         minimal Grubbery service tree
 desk/tests/harness.hoon    pure head and response-parser checks
 scripts/conformance.mjs    live independent-client/session checks
+scripts/hand-conformance.mjs live native/ACP hand and publication checks
 fe/                        componentized React ACP client
 acp/harness-acp.mjs        ACP stdio-to-Eyre adapter
+acp/hand-client.mjs        transport-independent ACP hand helper
 docs-refs/                 design, protocol, and roadmap
 ```
 
@@ -111,6 +117,7 @@ docs-refs/                 design, protocol, and roadmap
   invariants.
 - [`a2a-design.md`](docs-refs/a2a-design.md) develops identity and peer work.
 - [`acp.md`](docs-refs/acp.md) defines the client boundary.
+- [`hands.md`](docs-refs/hands.md) defines bidirectional conversation adapters.
 - [`integrations.md`](docs-refs/integrations.md) shows how editors, services,
   on-ship apps, webhooks, peers, timers, and MCP servers connect.
 - [`roadmap.md`](docs-refs/roadmap.md) tracks completed and planned work.
@@ -123,6 +130,7 @@ particular model or client.
 
 ```sh
 npm test --prefix fe
+node --test acp/hand-client.test.mjs
 zig build
 SHIP_URL=http://localhost:8081 SHIP_COOKIE=/path/to/auth-cookie.txt \
   node scripts/conformance.mjs
@@ -132,6 +140,11 @@ The live checks use the ship's configured provider and incur inference usage.
 They create uniquely named test sessions and remove those sessions afterward.
 Run `-test /=harness=/tests/harness` in Dojo for pure replay, transcript,
 branch-boundary, and provider-parser checks (requires `/lib/test` on the desk).
+Run `-test /=harness=/tests/harness-hand` for binding, deduplication, queue,
+and receipt checks. `scripts/hand-conformance.mjs` uses the same ship environment
+for real model turns through two hands; publication callbacks are local test
+fixtures, never posts to a real channel. Failed runs retain unresolved test
+bindings rather than silently discarding their pending publications.
 
 `npm run test:ui --prefix fe` runs isolated browser checks for Markdown safety,
 copying, scrolling, the composer, dialog focus, and mobile/light/dark layouts.
