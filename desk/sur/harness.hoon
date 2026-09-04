@@ -53,6 +53,16 @@
       max-context=@ud     ::  rough token budget before compaction
       tools=(list term)   ::  granted tool families
   ==
+::  Remote, stateless Streamable HTTP MCP server. Headers are held in
+::  agent state and copied only onto requests to this exact endpoint.
+::
++$  mcp-server-id  @t
++$  mcp-server
+  $:  name=@t
+      url=@t
+      headers=(list [name=@t value=@t])
+      enabled=?
+  ==
 ::  a self-scheduled wakeup: when it fires, prompt enters the session
 ::
 +$  timer  [at=@da every=(unit @dr) prompt=@t]
@@ -168,6 +178,8 @@
       [%grant =ship grant=peer-grant]
       [%revoke =ship]
       [%peer-config =config]
+      [%defaults =config]
+      [%mcp-config servers=(list [id=mcp-server-id server=mcp-server])]
       ::  internal: session spawning, sent by the agent to itself
       ::
       [%spawn parent=session-id call-id=@t prompt=@t system=(unit @t)]

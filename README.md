@@ -27,8 +27,10 @@ independent of the React inspector.
 - OpenRouter, OpenAI, Anthropic, and custom OpenAI-compatible endpoints, with
   API keys, OpenAI device login, Anthropic browser-login handoff, and arbitrary
   request headers. ChatGPT login uses its Codex Responses endpoint.
-- Provider model discovery plus a free-form model field; a conversation can
-  change provider or model between turns.
+- Provider model discovery, automatic published context limits, and free-form
+  model entry; a conversation can change provider or model between turns.
+- Durable global defaults snapshotted into new conversations, plus a shared
+  Streamable HTTP MCP registry whose use remains capability-gated per thread.
 - Typed input provenance across ACP, pokes, timers, webhooks, peers, and child
   sessions, with an explicit response route.
 - Scryable derived views and chronological event histories for native clients.
@@ -97,6 +99,8 @@ docs-refs/                 design, protocol, and roadmap
   invariants.
 - [`a2a-design.md`](docs-refs/a2a-design.md) develops identity and peer work.
 - [`acp.md`](docs-refs/acp.md) defines the client boundary.
+- [`integrations.md`](docs-refs/integrations.md) shows how editors, services,
+  on-ship apps, webhooks, peers, timers, and MCP servers connect.
 - [`roadmap.md`](docs-refs/roadmap.md) tracks completed and planned work.
 
 The central design claim is that an Urbit event log makes a good long-lived

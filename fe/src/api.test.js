@@ -17,19 +17,26 @@ test('conversation paths share the Harness session surface', () => {
     transcript: 'session/notes',
     status: 'session/notes',
     tools: 'tools',
+    defaults: 'defaults',
+    mcp: 'mcp',
   })
 })
 
 test('new conversations default to an OpenAI-compatible endpoint', () => {
   const config = defaultConfig()
   assert.match(config.url, /openrouter\.ai/)
+  assert.equal(config.model, 'z-ai/glm-5.3-flash')
+  assert.equal(config['max-context'], 1_310_720)
+  assert.ok(config.tools.includes('mcp'))
   assert.deepEqual(config.headers, [])
 })
 
 test('the default context presents Harness as a durable, bounded agent', () => {
   const config = defaultConfig()
   assert.equal(config.system, DEFAULT_SYSTEM_PROMPT)
-  assert.match(config.system, /continuity across conversations, clients, and time/)
-  assert.match(config.system, /Tool grants are authoritative/)
-  assert.match(config.system, /reusable knowledge and skills/)
+  assert.match(config.system, /transcript as working memory/)
+  assert.match(config.system, /no ambient shell, filesystem, network, or authority/)
+  assert.match(config.system, /When a task matches a skill catalog entry, read the skill/)
+  assert.match(config.system, /list_mcp_tools before call_mcp_tool/)
+  assert.match(config.system, /never retry blindly/)
 })

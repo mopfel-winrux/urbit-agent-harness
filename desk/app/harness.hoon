@@ -9,6 +9,7 @@
 /-  h=harness, spider, ac=acp
 /+  hl=harness, hg=harness-grub, default-agent, dbug
 |%
++$  model-info  [id=@t context=(unit @ud)]
 +$  state-0
   $:  %0
       sessions=(map session-id:h session:h)
@@ -100,10 +101,32 @@
       model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
       next-model-request=@ud
   ==
++$  state-5
+  $:  %5
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+      defaults=config:h
+      mcp-servers=(map mcp-server-id:h mcp-server:h)
+  ==
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-4
+=|  state-5
 =*  state  -
 ^-  agent:gall
 =<
@@ -114,7 +137,7 @@
 ::
 ++  on-init
   ^-  (quip card _this)
-  :_  this
+  :_  this(defaults builtin-config:hc)
   :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
       acp-open-card:hc
       acp-watch-card:hc
@@ -126,23 +149,26 @@
 ++  on-load
   |=  old-vase=vase
   ^-  (quip card _this)
-  =/  current  (mule |.(!<(state-4 old-vase)))
-  =/  new=state-4
+  =/  current  (mule |.(!<(state-5 old-vase)))
+  =/  new=state-5
     ?:  ?=(%& -.current)  p.current
+    =/  fourth  (mule |.(!<(state-4 old-vase)))
+    ?:  ?=(%& -.fourth)
+      (migrate-4:hc p.fourth)
     =/  third  (mule |.(!<(state-3 old-vase)))
     ?:  ?=(%& -.third)
-      (migrate-3:hc p.third)
+      (migrate-4:hc (migrate-3:hc p.third))
     =/  previous  (mule |.(!<(state-2 old-vase)))
     ?:  ?=(%& -.previous)
-      (migrate-3:hc (migrate-2:hc p.previous))
+      (migrate-4:hc (migrate-3:hc (migrate-2:hc p.previous)))
     =/  prior  (mule |.(!<(state-1 old-vase)))
     ?:  ?=(%& -.prior)
-      (migrate-3:hc (migrate-2:hc (migrate-1:hc p.prior)))
+      (migrate-4:hc (migrate-3:hc (migrate-2:hc (migrate-1:hc p.prior))))
     =/  oldest  (mule |.(!<(state-0 old-vase)))
     ?:  ?=(%& -.oldest)
-      (migrate-3:hc (migrate-2:hc (migrate-1:hc (migrate-0:hc p.oldest))))
+      (migrate-4:hc (migrate-3:hc (migrate-2:hc (migrate-1:hc (migrate-0:hc p.oldest)))))
     ~?  &  [dap.bowl %incompatible-state-dropped]
-    *state-4
+    *state-5
   :_  this(state new)
   =/  base=(list card)
     :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
@@ -220,6 +246,14 @@
     :^  ~  ~  %json
     !>  ^-  json
     [%a (turn all-tools:hl |=(t=term `json`[%s t]))]
+  ::
+      [%x %defaults ~]
+    ``json+!>((config-json:hl defaults))
+  ::
+      [%x %mcp ~]
+    :^  ~  ~  %json
+    !>  ^-  json
+    [%a (turn ~(tap by mcp-servers) mcp-server-json:hc)]
   ::
       [%x %skills ~]
     ``json+!>((skills-json:hl skills))
@@ -548,6 +582,30 @@
       model-requests.old
       next-model-request.old
   ==
+++  migrate-4
+  |=  old=state-4
+  ^-  state-5
+  :*  %5
+      sessions.old
+      timers.old
+      subs.old
+      skills.old
+      staged.old
+      rehearsals.old
+      peers.old
+      peer-base.old
+      asks.old
+      serving.old
+      jobs.old
+      api-key.old
+      acp-prompts.old
+      acp-through.old
+      provider-keys.old
+      model-requests.old
+      next-model-request.old
+      builtin-config
+      *(map mcp-server-id:h mcp-server:h)
+  ==
 ++  acp-open-card
   ^-  card
   :*  %pass  /acp/open
@@ -620,7 +678,7 @@
       ?~(requested (cat 3 'acp-' (scot %ud sequence.msg)) u.requested)
     ?:  (~(has by sessions) sid)
       [~[(acp-error-card connection u.id '-32603' 'Session id collision')] state]
-    =^  made  state  (handle-action [%new sid acp-config])
+    =^  made  state  (handle-action [%new sid defaults])
     =/  result=json
       (pairs:enjs:format ~[['sessionId' %s sid]])
     [:(weld made ~[(acp-result-card connection u.id result)]) state]
@@ -698,6 +756,38 @@
     =/  result=json
       [%a (turn all-tools:hl |=(t=term `json`[%s t]))]
     [~[(acp-result-card connection u.id result)] state]
+  ::
+      %'harness/defaults'
+    ?~  id  `state
+    [~[(acp-result-card connection u.id (config-json:hl defaults))] state]
+  ::
+      %'harness/defaults/configure'
+    ?~  id  `state
+    =/  raw  (acp-param-json params 'config')
+    ?~  raw
+      [~[(acp-error-card connection u.id '-32602' 'Expected config')] state]
+    =/  decoded  (mule |.((json-config:hl u.raw)))
+    ?:  ?=(%| -.decoded)
+      [~[(acp-error-card connection u.id '-32602' 'Invalid configuration')] state]
+    =^  configured  state  (handle-action [%defaults p.decoded])
+    [:(weld configured ~[(acp-result-card connection u.id (config-json:hl defaults))]) state]
+  ::
+      %'harness/mcp/servers'
+    ?~  id  `state
+    =/  result=json  [%a (turn ~(tap by mcp-servers) mcp-server-json)]
+    [~[(acp-result-card connection u.id result)] state]
+  ::
+      %'harness/mcp/configure'
+    ?~  id  `state
+    =/  raw  (acp-param-json params 'servers')
+    ?~  raw
+      [~[(acp-error-card connection u.id '-32602' 'Expected servers')] state]
+    =/  decoded  (mule |.((json-mcp-servers u.raw)))
+    ?:  ?=(%| -.decoded)
+      [~[(acp-error-card connection u.id '-32602' 'Invalid MCP configuration')] state]
+    =^  configured  state  (handle-action [%mcp-config p.decoded])
+    =/  result=json  [%a (turn ~(tap by mcp-servers) mcp-server-json)]
+    [:(weld configured ~[(acp-result-card connection u.id result)]) state]
   ::
       %'harness/session/config'
     ?~  id  `state
@@ -804,14 +894,14 @@
     [:(weld cancelled ~[(acp-result-card connection.u.pending request-id.u.pending result)]) state]
   ==
 ::
-++  acp-config
+++  builtin-config
   ^-  config:h
   :*  'https://openrouter.ai/api/v1/chat/completions'
-      'openai/gpt-4o-mini'
+      'z-ai/glm-5.3-flash'
       ''
       ~
       default-system:hl
-      12.000
+      1.310.720
       all-tools:hl
   ==
 ::
@@ -956,6 +1046,24 @@
   ?.  ?=([~ %o *] params)  ~
   =/  value  (~(get by p.u.params) key)
   ?:(?=([~ %s *] value) `p.u.value ~)
+++  mcp-server-json
+  |=  [id=mcp-server-id:h server=mcp-server:h]
+  ^-  json
+  %-  pairs:enjs:format
+  :~  ['id' %s id]
+      ['name' %s name.server]
+      ['url' %s url.server]
+      :-  'headers'
+      :-  %a
+      %+  turn  headers.server
+      |=  [name=@t value=@t]
+      (pairs:enjs:format ~[['name' %s name] ['value' %s value]])
+      ['enabled' %b enabled.server]
+  ==
+++  json-mcp-servers
+  =,  dejs:format
+  ^-  $-(json (list [id=mcp-server-id:h server=mcp-server:h]))
+  (ar (ot ~[id+so name+so url+so headers+(ar (ot ~[name+so value+so])) enabled+bo]))
 ++  acp-param-json
   |=  [params=(unit json) key=@t]
   ^-  (unit json)
@@ -1230,6 +1338,17 @@
       (~(put by provider-keys) (provider-for-url url.cfg) key.cfg)
     `state(peer-base `cfg(key ''))
   ::
+      %defaults
+    =/  cfg=config:h  config.act
+    =?  provider-keys  !=('' key.cfg)
+      (~(put by provider-keys) (provider-for-url url.cfg) key.cfg)
+    `state(defaults cfg(key ''))
+  ::
+      %mcp-config
+    =/  next=(map mcp-server-id:h mcp-server:h)
+      (~(gas by *(map mcp-server-id:h mcp-server:h)) servers.act)
+    `state(mcp-servers next)
+  ::
       %ask-peer
     ::  internal, from our own drive loop: send a typed ask over ames
     ::  and start the timeout clock
@@ -1491,6 +1610,8 @@
         ==
       =/  async=(unit (unit card))
         ?:  =(name.c 'http_fetch')     `(fetch-card sid c)
+        ?:  |(=(name.c 'list_mcp_tools') =(name.c 'call_mcp_tool'))
+          `(mcp-card sid c)
         ?:  =(name.c 'run_subagent')   `(spawn-card sid c)
         ?:  =(name.c 'ask_peer')       `(ask-peer-card sid c)
         ~
@@ -1665,13 +1786,25 @@
   =/  parsed  (mole |.((parse-model-list u.jon)))
   ?~  parsed
     [~[(acp-error-card connection.u.pending request-id.u.pending '-32603' 'Model catalog has an unsupported shape')] state]
+  =/  info=(list model-info)  u.parsed
   =/  result=json
-    (pairs:enjs:format ~[['models' %a (turn u.parsed |=(model=@t `json`[%s model]))]])
+    %-  pairs:enjs:format
+    :~  ['models' %a (turn info |=(model=model-info `json`[%s id.model]))]
+        ['modelInfo' %a (turn info model-info-json)]
+    ==
   [~[(acp-result-card connection.u.pending request-id.u.pending result)] state]
+::
+++  model-info-json
+  |=  model=model-info
+  ^-  json
+  %-  pairs:enjs:format
+  :~  ['id' %s id.model]
+      ['contextWindow' ?~(context.model ~ (numb:enjs:format u.context.model))]
+  ==
 ::
 ++  parse-model-list
   |=  jon=json
-  ^-  (list @t)
+  ^-  (list model-info)
   ?>  ?=([%o *] jon)
   =/  data  (~(get by p.jon) 'data')
   =/  models  (~(get by p.jon) 'models')
@@ -1682,12 +1815,45 @@
   ?>  ?=(^ rows)
   %+  murn  rows
   |=  item=json
-  ^-  (unit @t)
+  ^-  (unit model-info)
   ?.  ?=([%o *] item)  ~
   =/  id  (~(get by p.item) 'id')
   =/  slug  (~(get by p.item) 'slug')
-  ?:  ?=([~ %s *] id)  `p.u.id
-  ?:(?=([~ %s *] slug) `p.u.slug ~)
+  =/  name=(unit @t)
+    ?:  ?=([~ %s *] id)  `p.u.id
+    ?:(?=([~ %s *] slug) `p.u.slug ~)
+  ?~  name  ~
+  `[u.name (model-context p.item)]
+::
+++  model-context
+  |=  row=(map @t json)
+  ^-  (unit @ud)
+  =/  direct
+    %+  first-json  row
+    :~  'context_length'  'context_window'  'contextWindow'
+        'max_input_tokens'  'max_context_length'  'max_context_tokens'
+    ==
+  =/  parsed  (json-ud direct)
+  ?^  parsed  parsed
+  =/  top  (~(get by row) 'top_provider')
+  ?.  ?=([~ %o *] top)  ~
+  (json-ud (first-json p.u.top ~['context_length' 'context_window']))
+::
+++  first-json
+  |=  [row=(map @t json) names=(list @t)]
+  ^-  (unit json)
+  |-
+  ?~  names  ~
+  =/  value  (~(get by row) i.names)
+  ?^(value value $(names t.names))
+::
+++  json-ud
+  |=  value=(unit json)
+  ^-  (unit @ud)
+  ?~  value  ~
+  ?:  ?=(%n -.u.value)  (rush p.u.value dem)
+  ?:  ?=(%s -.u.value)  (rush p.u.value dem)
+  ~
 ::  +record-all: append events to the log, give facts to subscribers
 ::
 ++  record-all
@@ -1825,6 +1991,51 @@
     50.000
   ?~  res  'error: could not list directory'
   u.res
+::  +mcp-card: a generic MCP discovery/call becomes an iris request.
+::  This hand targets stateless Streamable HTTP servers: identity and
+::  credentials remain agent configuration, while results enter the log.
+::
+++  mcp-card
+  |=  [sid=session-id:h c=tool-call:h]
+  ^-  (unit card)
+  =/  server-id  (tool-str args.c 'server')
+  ?~  server-id  ~
+  =/  configured  (~(get by mcp-servers) u.server-id)
+  ?~  configured  ~
+  ?.  enabled.u.configured  ~
+  =/  method=@t
+    ?:(=('list_mcp_tools' name.c) 'tools/list' 'tools/call')
+  =/  params=json
+    ?:  =('list_mcp_tools' name.c)
+      (pairs:enjs:format ~)
+    =/  tool-name  (tool-str args.c 'name')
+    =/  arguments  (tool-str args.c 'arguments')
+    ?~  tool-name  ~
+    =/  parsed=(unit json)
+      ?~(arguments `(pairs:enjs:format ~) (de:json:html u.arguments))
+    ?~  parsed  ~
+    %-  pairs:enjs:format
+    :~  ['name' %s u.tool-name]
+        ['arguments' u.parsed]
+    ==
+  =/  payload=json
+    %-  pairs:enjs:format
+    :~  ['jsonrpc' %s '2.0']
+        ['id' (numb:enjs:format 1)]
+        ['method' %s method]
+        ['params' params]
+    ==
+  =/  hed=header-list:http
+    :~  ['content-type' 'application/json']
+        ['accept' 'application/json, text/event-stream']
+    ==
+  =.  hed  (weld headers.u.configured hed)
+  =/  =request:http
+    [%'POST' url.u.configured hed `(as-octs:mimes:html (en:json:html payload))]
+  :-  ~
+  :*  %pass  `wire`[%tool `@ta`sid `@ta`id.c ~]
+      %arvo  %i  %request  request  *outbound-config:iris
+  ==
 ::  +fetch-card: an http_fetch tool call becomes an iris request
 ::
 ++  fetch-card

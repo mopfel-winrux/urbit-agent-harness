@@ -111,7 +111,7 @@ identical views and effects.
 
 ## Providers
 
-Session configuration is data:
+Agent defaults and session configuration are data:
 
 ```text
 endpoint, model, headers, system instructions,
@@ -124,16 +124,19 @@ OpenAI API keys, Anthropic, and custom endpoints use the OpenAI Chat
 Completions shape. OpenAI device login uses the ChatGPT Codex Responses shape
 and its streamed event envelope behind the same session boundary.
 
+New conversations snapshot the durable agent defaults and may then diverge.
 Model catalogs are fetched by Iris and returned through the requesting ACP
-connection. Catalog failure never prevents a manually entered model name.
+connection. When a provider publishes context-window metadata, selecting that
+model updates the session budget automatically. Catalog failure or absent
+metadata never prevents a manually entered model name or context limit.
 
 ## Tools and authority
 
 Tool families are granted per conversation. Owner-created interactive
 conversations explicitly receive the current catalog—ship time, Clay reads,
 public web requests, skills, governed skill writing, authoring, child sessions,
-and peer asks—and can narrow it independently. Remote, scheduled, delegated,
-and rehearsal sessions receive purpose-built grants. Provider-visible schemas
+peer asks, and configured MCP servers—and can narrow it independently. Remote,
+scheduled, delegated, and rehearsal sessions receive purpose-built grants. Provider-visible schemas
 are discovery only: execution resolves every function name to a family and
 checks the current grant again; internal self-pokes must also correspond to a
 durable outstanding call.

@@ -385,7 +385,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 .modal-card h1 { margin: 0; font-size: 28px; line-height: 1.15; letter-spacing: -.04em; }
 .page-header p,
 .modal-card p { margin: 9px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
-.settings-tabs { display: flex; gap: 4px; margin: -8px 0 20px; border-bottom: 1px solid var(--line); }
+.settings-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: -8px 0 20px; border-bottom: 1px solid var(--line); }
 .settings-tabs button { border: 0; border-bottom: 2px solid transparent; padding: 10px 13px; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
 .settings-tabs button:hover { color: var(--text); }
 .settings-tabs button.active { border-bottom-color: var(--accent); color: var(--text); font-weight: 650; }
@@ -396,6 +396,15 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 .header-row { display: grid; grid-template-columns: minmax(120px, .8fr) minmax(180px, 1.2fr) 28px; gap: 8px; }
 .header-row input { min-width: 0; }
 .remove-header { color: var(--muted); font-size: 18px; }
+.danger-text { color: var(--danger); }
+.empty-setting { display: grid; gap: 5px; border: 1px dashed var(--line); border-radius: 7px; padding: 18px; color: var(--muted); font-size: 10px; text-align: center; }
+.empty-setting strong { color: var(--text); font-size: 11px; }
+.mcp-servers { display: grid; gap: 13px; }
+.mcp-server { display: grid; gap: 14px; border-top: 1px solid var(--line); padding-top: 17px; }
+.mcp-server:first-child { border-top: 0; padding-top: 0; }
+.mcp-server-title { display: flex; align-items: center; justify-content: space-between; }
+.compact-check { display: flex; grid: none; align-items: center; gap: 7px; }
+.compact-check input[type="checkbox"] { appearance: auto; width: 15px; height: 15px; min-height: 0; margin: 0; padding: 0; box-shadow: none; accent-color: var(--accent); }
 .tool-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .tool-option { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; gap: 10px; min-width: 0; border: 1px solid var(--line); border-radius: 7px; padding: 11px 12px; background: var(--bg); cursor: pointer; }
 .tool-option:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }

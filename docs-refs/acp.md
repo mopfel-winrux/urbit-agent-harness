@@ -32,6 +32,10 @@ Harness extensions use the same JSON-RPC connection:
 
 - `harness/status`
 - `harness/tools`
+- `harness/defaults`
+- `harness/defaults/configure`
+- `harness/mcp/servers`
+- `harness/mcp/configure`
 - `harness/session/config`
 - `harness/session/configure`
 - `harness/session/rename`
@@ -49,9 +53,10 @@ updates while committing only terminal semantic events.
 
 ## Recovery
 
-The web client stores a connection identifier per tab, polls quickly while
-visible, cumulatively acknowledges frames, and reopens the connection when a
-scry reports it missing. Pending JSON-RPC calls are resent after recovery.
+The web client creates a fresh connection identifier for each page instance,
+polls quickly without cache while visible, cumulatively acknowledges frames,
+and reopens that connection when a scry reports it missing. Pending JSON-RPC
+calls are resent after recovery.
 Page exit closes the queue; the broker prunes closed connections before
 admitting new ones.
 

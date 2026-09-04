@@ -3,27 +3,9 @@ import { api } from '../api'
 import { useGrub } from '../useGrub'
 import { PROVIDERS, providerOf } from '../providers'
 import { useProviderModels } from '../useProviderModels'
+import ToolOptions from './ToolOptions'
 
 const themes = ['system', 'light', 'dark']
-
-const toolCopy = {
-  'ship-time': ['Ship time', 'Read the ship’s current time.'],
-  clay: ['Desk files', 'Read and list files in Clay.'],
-  web: ['Web requests', 'Fetch public HTTP resources.'],
-  skills: ['Skills', 'Read instructions from the skill library.'],
-  'skill-write': ['Write skills', 'Stage and update reusable instructions.'],
-  author: ['Authoring', 'Create and revise ship-side resources.'],
-  subagents: ['Subagents', 'Delegate independent work to another session.'],
-  peers: ['Peer agents', 'Ask explicitly permitted agents on other ships.'],
-}
-
-function ToolOption({ name, checked, onChange }) {
-  const [title, description] = toolCopy[name] || [name, 'Allow this capability in the conversation.']
-  return <label className="tool-option">
-    <input type="checkbox" checked={checked} onChange={onChange} />
-    <span><strong>{title}</strong><small>{description}</small></span>
-  </label>
-}
 
 export default function AgentSettings({ roads, theme, onThemeChange }) {
   const session = useGrub(roads.session, null)
@@ -64,12 +46,22 @@ export default function AgentSettings({ roads, theme, onThemeChange }) {
     if (details.endpoint) setForm((current) => ({ ...current, url: details.endpoint, model: details.model }))
   }
 
+  function chooseModel(model) {
+    const context = catalog.contextFor(model)
+    setDirty(true)
+    setForm((current) => ({
+      ...current,
+      model,
+      ...(context ? { 'max-context': context } : {}),
+    }))
+  }
+
   async function save(event) {
     event.preventDefault()
     setBusy(true); setError(''); setSaved(false)
     const config = {
       url: form.url?.trim() || PROVIDERS.openrouter.endpoint,
-      model: form.model?.trim() || 'openai/gpt-4o-mini',
+      model: form.model?.trim() || PROVIDERS.openrouter.model,
       key: '',
       headers: Array.isArray(form.headers) ? form.headers : [],
       system: form.system || '',
@@ -94,11 +86,12 @@ export default function AgentSettings({ roads, theme, onThemeChange }) {
       <div className="section-title"><div><h2>Model</h2><p>Provider and model for <strong>{roads.chat}</strong>. Changes affect its next turn.</p></div></div>
       <div className="two-fields">
         <label><span>Provider</span><select value={provider} onChange={(event) => chooseProvider(event.target.value)}>{Object.entries(PROVIDERS).map(([id, details]) => <option key={id} value={id}>{details.title}{id === 'custom' ? ' endpoint' : ''}</option>)}</select></label>
-        <label><span>Model</span><input list={`models-${provider}`} value={form.model || ''} onChange={(event) => field('model', event.target.value)} placeholder={PROVIDERS[provider].model || 'model-name'} /><datalist id={`models-${provider}`}>{catalog.models.map((model) => <option key={model} value={model} />)}</datalist></label>
+        <label><span>Model</span><input list={`models-${provider}`} value={form.model || ''} onChange={(event) => chooseModel(event.target.value)} placeholder={PROVIDERS[provider].model || 'model-name'} /><datalist id={`models-${provider}`}>{catalog.models.map((model) => <option key={model} value={model} />)}</datalist></label>
       </div>
       <label><span>Endpoint</span><input type="url" value={form.url || ''} onChange={(event) => { setProvider(providerOf(event.target.value)); field('url', event.target.value) }} /></label>
       {catalog.loading && <p className="field-note">Loading the provider’s model catalog…</p>}
       {catalog.error && provider !== 'custom' && <p className="field-note">Catalog unavailable: {catalog.error}. You can still type a model name.</p>}
+      {catalog.contextFor(form.model) && <p className="field-note">Provider reports a {catalog.contextFor(form.model).toLocaleString()} token context window. Selecting this model applies it automatically.</p>}
     </section>
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Instructions & context</h2><p>These become part of this conversation’s event log.</p></div></div>
@@ -107,7 +100,7 @@ export default function AgentSettings({ roads, theme, onThemeChange }) {
     </section>
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Tools</h2><p>Capabilities for <strong>{roads.chat}</strong>. New conversations begin with all of them enabled.</p></div><button type="button" className="text-button" onClick={() => field('tools', [...(tools.value || [])])}>Enable all</button></div>
-      <div className="tool-options">{(tools.value || []).map((name) => <ToolOption key={name} name={name} checked={(form.tools || []).includes(name)} onChange={() => toggleTool(name)} />)}</div>
+      <ToolOptions available={tools.value || []} selected={form.tools || []} onChange={toggleTool} />
     </section>
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Appearance</h2><p>Use the system color scheme or choose a fixed theme.</p></div></div>

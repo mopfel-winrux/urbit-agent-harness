@@ -22,7 +22,12 @@ items are present in the desk; unchecked items remain design commitments.
 - [x] ChatGPT Codex Responses request and SSE result encoding.
 - [x] OpenRouter, OpenAI, Anthropic, and custom endpoint presets.
 - [x] Per-provider credentials, session overrides, and arbitrary headers.
-- [x] Live provider model catalogs with manual model entry.
+- [x] Live provider model catalogs with manual model entry and automatic
+  context limits when providers publish them.
+- [x] Durable agent defaults for provider, model, endpoint, context,
+  instructions, headers, and tool grants.
+- [x] Global stateless Streamable HTTP MCP registry with per-conversation
+  grants, lazy tool discovery, and generic calls.
 - [x] Minimal `%harness-grub` runtime with no bundled application suite.
 - [x] ACP create/list/load/resume/close/delete/prompt/cancel and updates.
 - [x] Durable per-client ACP queues with acknowledgement and reconnection.
@@ -62,6 +67,13 @@ items are present in the desk; unchecked items remain design commitments.
 - [ ] Map `session/request_permission` to explicit tool or weir grants.
 - [ ] Add richer content blocks through addressed on-ship payloads.
 - [ ] Define retention for abandoned but unacknowledged ACP queues.
+
+### MCP hands
+
+- [ ] Add sessionful Streamable HTTP initialization and session-id handling.
+- [ ] Consume server notifications and resumable event streams.
+- [ ] Add an MCP OAuth acquisition and refresh hand without exposing tokens to
+  conversation transcripts.
 
 ## Grubbery capabilities
 
