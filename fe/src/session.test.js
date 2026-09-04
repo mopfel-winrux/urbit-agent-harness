@@ -31,3 +31,14 @@ test('tool results join the matching call without mutating the canonical snapsho
   assert.equal(entries[0].body, 'noon')
   assert.equal(items[0].calls[0].args, '{}')
 })
+
+test('interrupted tools are terminal while completed siblings retain their result', () => {
+  const entries = transcriptEntries([
+    { id: '3', role: 'assistant', calls: [{ id: 'a', name: 'http_fetch' }, { id: 'b', name: 'http_fetch' }] },
+    { id: '5', role: 'tool', callId: 'a', body: 'HTTP 200' },
+    { id: '6:b', role: 'tool', callId: 'b', body: 'cancelled: by client', cancelled: true },
+    { id: '7', role: 'user', body: 'continue' },
+  ])
+  assert.deepEqual(entries.map((entry) => entry.status), ['completed', 'cancelled', undefined])
+  assert.equal(entries[0].body, 'HTTP 200')
+})

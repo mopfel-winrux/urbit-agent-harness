@@ -172,6 +172,10 @@ SHIP_URL=http://localhost:8081 SHIP_COOKIE=/path/to/auth-cookie.txt \
 
 The live checks use the ship's configured provider and incur inference usage.
 They create uniquely named test sessions and remove those sessions afterward.
+`scripts/cancellation-conformance.mjs` uses the same authentication with local
+provider/tool fixtures (no inference charges). Run it on the ship's host to
+check interruption during tool work, immediate continuation, provider transcript
+validity, terminal ACP updates, and duplicate/late-result rejection.
 Run `-test /=harness=/tests/harness` in Dojo for pure replay, transcript,
 branch-boundary, and provider-parser checks (requires `/lib/test` on the desk).
 Run `-test /=harness=/tests/harness-hand` for binding, deduplication, queue,

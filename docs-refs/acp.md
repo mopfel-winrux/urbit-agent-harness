@@ -70,6 +70,15 @@ blocks are joined; image, audio, embedded context, and client-supplied MCP
 servers are not advertised. Filesystem and terminal authority stays behind
 explicit Harness tools.
 
+`session/cancel` settles the active prompt with `stopReason: "cancelled"`.
+Unfinished tool calls receive terminal `tool_call_update` frames with status
+`failed` and a cancellation explanation (ACP has no separate cancelled tool
+status). Snapshot tool receipts additionally expose `cancelled: true`, so
+clients can label interruption distinctly. Completed sibling results remain
+intact. The next prompt does not repeat the interrupted calls; cancellation
+is not a guarantee of external rollback. Request-form cancellation is
+acknowledged as well as supporting the protocol notification form.
+
 While a prompt is active, the client displays a thinking indicator. Harness
 projects incremental provider text as presentation-only
 `harness_agent_stream_chunk` updates whenever Iris exposes response progress.

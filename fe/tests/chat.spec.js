@@ -44,6 +44,21 @@ test('composer grows, keeps shift-enter, and renders streaming markdown', async 
   await expect(input).toHaveValue('')
   await expect(page.locator('.thinking-message strong')).toHaveText('streamed')
   await expect(page.getByRole('button', { name: 'Interrupt', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Interrupt', exact: true }).click()
+  await expect(page.locator('.thinking-message')).toHaveCount(0)
+  await input.fill('A different question')
+  await input.press('Enter')
+  await expect.poll(() => page.evaluate(() => window.harnessFixture.sent.length)).toBe(2)
+})
+
+test('cancelled tool receipts remove running indicators', async ({ page }) => {
+  await page.evaluate(() => window.harnessFixture.update({ phase: 'idle', entries: [
+    { id: '3', role: 'assistant', calls: [{ id: 'slow', name: 'http_fetch', args: '{}' }] },
+    { id: '5:slow', role: 'tool', callId: 'slow', body: 'cancelled: by client', cancelled: true },
+  ] }))
+  await expect(page.locator('.tool-entry small')).toHaveText('cancelled')
+  await expect(page.locator('.tool-entry.running')).toHaveCount(0)
+  await expect(page.locator('.thinking-message')).toHaveCount(0)
 })
 
 test('does not pull the reader down on updates and offers a jump to latest', async ({ page }) => {

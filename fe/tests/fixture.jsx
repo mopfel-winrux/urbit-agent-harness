@@ -61,6 +61,7 @@ window.harnessFixture = { sent: [], update: publish }
 acp.start = async () => {}
 acp.call = async (method, params) => {
   if (method === 'harness/session/snapshot') return { ...snapshot, entries: params.since === snapshot.revision ? null : snapshot.entries }
+  if (method === 'session/cancel') { publish({ phase: 'idle', streaming: '' }); return {} }
   if (method === 'session/prompt') {
     window.harnessFixture.sent.push(params.prompt[0].text)
     publish({ phase: 'thinking', streaming: 'A **streamed** answer with `inline code`…' })

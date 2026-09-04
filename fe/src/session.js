@@ -15,7 +15,7 @@ export function transcriptEntries(items) {
   for (const item of items) {
     if (item.role === 'tool') {
       const call = tools.get(item.callId)
-      const result = { status: 'completed', body: item.body }
+      const result = { status: item.cancelled ? 'cancelled' : 'completed', body: item.body }
       if (call) Object.assign(call, result)
       else entries.push({ ...item, ...result, type: 'tool', title: item.name })
       continue

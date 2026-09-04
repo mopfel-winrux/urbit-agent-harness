@@ -54,4 +54,46 @@
   =/  result  (parse-chat-sse:hl wire)
   ?>  ?=(%& -.result)
   (expect-eq !>(`item:h`[%assistant '' ~[['call' 'get_ship_time' '{}']]]) !>(it.p.result))
+++  interrupted-tools
+  ^-  (list event:h)
+  %-  flop
+  ^-  (list event:h)
+  :~  [%config-replaced *config:h]
+      [%input-admitted [%user 'start']]
+      [%llm-completed 0 %tool-calls [1 1] [%assistant '' ~[['done' 'http_fetch' '{}'] ['pending' 'http_fetch' '{}'] ['undispatched' 'http_fetch' '{}']]]]
+      [%tool-requested 'done' 'http_fetch']
+      [%tool-requested 'pending' 'http_fetch']
+      [%tool-completed 'done' 'http_fetch' 'HTTP 200']
+      [%cancelled ~ (silt ~['pending']) 'cancelled by client']
+  ==
+++  test-cancel-closes-all-unfinished-calls
+  =/  v  (play:hl interrupted-tools)
+  =/  results  (skim items.v |=(it=item:h ?=(%tool -.it)))
+  (expect !>(&(=(3 (lent results)) =(~ wait.v) =(~ pending.v) =(~ (open-calls:hl items.v)) =(~ (decide:hl v ~)) =(items.v (transcript-items:hl interrupted-tools)))))
+++  test-cancel-preserves-completed-results
+  =/  v  (play:hl interrupted-tools)
+  =/  results  (skim items.v |=(it=item:h ?=(%tool -.it)))
+  ?>  ?=(^ results)
+  (expect-eq !>(`item:h`[%tool 'done' 'http_fetch' 'HTTP 200']) !>(i.results))
+++  test-new-input-after-cancel-does-not-repeat-tools
+  =/  cfg=config:h  *config:h
+  =.  max-context.cfg  100.000
+  =/  log  [[%input-admitted [%user 'new request']] [%config-replaced cfg] interrupted-tools]
+  =/  v  (play:hl log)
+  (expect-eq !>(`(unit step:h)`[~ %turn ~]) !>((decide:hl v ~)))
+++  test-config-does-not-resume-cancelled-work
+  =/  v  (play:hl [[%config-replaced *config:h] interrupted-tools])
+  (expect-eq !>(`(unit step:h)`~) !>((decide:hl v ~)))
+++  test-repeated-cancel-does-not-duplicate-receipts
+  =/  log  [[%cancelled ~ ~ 'again'] interrupted-tools]
+  (expect-eq !>((transcript-items:hl interrupted-tools)) !>((transcript-items:hl log)))
+++  test-cancelled-tool-addresses-are-unique
+  =/  rows  (transcript-json:hl interrupted-tools)
+  ?>  ?=(%a -.rows)
+  =/  ids
+    %+  turn  p.rows
+    |=  row=json
+    ?>  ?=(%o -.row)
+    (~(got by p.row) 'id')
+  (expect-eq !>((lent ids)) !>((lent ~(tap in (silt ids)))))
 --

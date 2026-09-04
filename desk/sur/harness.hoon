@@ -147,6 +147,7 @@
       wait=(set @t)                    ::  async tool calls in flight
       total=usage
       err=(unit @t)
+      cancelled=(unit @t)             ::  stopped until new input or retry
       origin=(unit [from=session-id at=@ud])
   ==
 ::  the decider's output

@@ -78,6 +78,9 @@ Keep the rest of this ledger: these priorities order the work, not erase it.
 - [x] Run simultaneous turns in two sessions and verify both transcripts.
 - [x] Check admission identity, detach/resume, native/ACP snapshot parity,
   branch provenance, parent isolation, and cross-client cancellation.
+- [x] Interrupt in-flight tools, preserve completed siblings, settle ACP tool
+  updates, and immediately continue without duplicate execution or late-result
+  revival; verify cancellation labels and Stop-to-send behavior in the UI.
 - [x] Pure Hoon tests for transcript retention, branch boundaries, and partial
   provider responses; client tests for lost acknowledgements and recovery.
 - [x] Native/ACP hand parity with real inference, queued context continuity,

@@ -69,7 +69,7 @@ export function useSession(chat) {
   }
 
   async function stop() {
-    try { await acp.notify('session/cancel', { sessionId: chat }); await refresh() }
+    try { await acp.call('session/cancel', { sessionId: chat }); await refresh() }
     catch (cause) { if (live.current) setActionError(cause.message) }
   }
 

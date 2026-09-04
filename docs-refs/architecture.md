@@ -51,6 +51,15 @@ Each session advances independently, so one slow provider call does not block
 another conversation. A cancellation records a terminal event and stale
 responses are ignored by request identity.
 
+Cancellation also closes every unfinished tool exchange with a derived
+cancellation receipt, retaining any results already accepted. Replay, ACP,
+and snapshots project these receipts from the cancellation event; the log is
+not rewritten. New input therefore reaches the provider after a complete tool
+exchange and does not redispatch interrupted calls. A stopped session stays
+stopped through configuration changes until new input or an explicit retry.
+Outstanding HTTP waits are withdrawn locally; cancellation cannot promise
+that an external action was rolled back or never happened.
+
 Native consumers can scry either a derived session view or its chronological
 event projection. Subscriptions deliver typed `%harness-update` facts; clients
 that understand Harness nouns do not have to pass through ACP or React.

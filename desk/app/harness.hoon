@@ -1329,7 +1329,7 @@
     %-  pairs:enjs:format
     :~  ['sessionUpdate' %s 'tool_call_update']
         ['toolCallId' %s call-id]
-        ['status' %s 'completed']
+        ['status' %s ?:(|((is-cancelled:hl body) (is-error:hl body)) 'failed' 'completed')]
         ['content' %a ~[content]]
     ==
   (acp-session-update-card connection sid update)
@@ -1541,6 +1541,21 @@
       %cancel
     =/  ses  (need-session sid.act)
     =/  v  (play:hl log.ses)
+    ::  Withdraw local HTTP waits as well as fencing their results. This
+    ::  cannot undo an operation the external service has already accepted.
+    =/  withdrawn=(list card)
+      %+  murn  ~(tap in wait.v)
+      |=  call-id=@t
+      ^-  (unit card)
+      =/  name  (requested-tool ses call-id)
+      ?~  name  ~
+      ?.  |(=(u.name 'http_fetch') =(u.name 'list_mcp_tools') =(u.name 'call_mcp_tool'))  ~
+      `[%pass `wire`[%tool `@ta`sid.act `@ta`call-id ~] %arvo %i %cancel-request ~]
+    =?  withdrawn  ?=(^ pending.v)
+      :_  withdrawn
+      :*  %pass  `wire`[%llm `@ta`sid.act (scot %ud req.u.pending.v) kind.u.pending.v ~]
+          %arvo  %i  %cancel-request  ~
+      ==
     =/  req=(unit @ud)  ?~(pending.v ~ `req.u.pending.v)
     =/  event=event:h
       [%cancelled req wait.v 'cancelled by client']
@@ -1552,7 +1567,7 @@
     =.  hands  (cancel-queued:hd hands sid.act)
     =^  settled  state  (settle-acp sid.act)
     =^  hand-cards  state  (settle-hands sid.act)
-    [:(weld cards ~[(shadow-put-card sid.act ses)] settled hand-cards) state]
+    [:(weld cards withdrawn ~[(shadow-put-card sid.act ses)] settled hand-cards) state]
   ::
       %delete
     ?>  !(lien ~(val by bindings.hands) |=(b=binding:hh =(sid.b sid.act)))

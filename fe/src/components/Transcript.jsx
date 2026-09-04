@@ -4,7 +4,7 @@ import Markdown from './Markdown'
 
 function ToolEntry({ entry }) {
   return <details className={`tool-entry ${entry.status === 'in_progress' ? 'running' : 'complete'}`}>
-    <summary><span className="tool-dot" /><strong>{entry.title || 'tool'}</strong><small>{entry.status === 'in_progress' ? 'running' : 'completed'}</small></summary>
+    <summary><span className="tool-dot" /><strong>{entry.title || 'tool'}</strong><small>{entry.status === 'in_progress' ? 'running' : entry.status}</small></summary>
     <pre>{entry.body}</pre>
   </details>
 }

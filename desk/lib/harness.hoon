@@ -62,15 +62,25 @@
     ^-  view:h
     ?-  -.e
       %config-replaced       v(config config.e, err ~)
-      %input-admitted        v(items [item.e items.v], err ~)
-      %input-received        v(items [item.input.e items.v], err ~)
+      %input-admitted        v(items [item.e items.v], err ~, cancelled ~)
+      %input-received        v(items [item.input.e items.v], err ~, cancelled ~)
       %llm-requested         v(pending `[req.e kind.e])
       %llm-failed            v(pending ~, err `err.e)
       %tool-requested        v(wait (~(put in wait.v) call-id.e))
-      %retried               v(err ~)
+      %retried               v(err ~, cancelled ~)
       %halted                v(pending ~, err `reason.e)
-      %cancelled             v(pending ~, wait ~)
-      %forked                v(pending ~, wait ~, origin `[from.e at.e])
+      %forked                v(pending ~, wait ~, cancelled ~, origin `[from.e at.e])
+    ::  Cancellation closes the provider exchange as well as the wait set.
+    ::  These are cancellation receipts, never claims of external rollback.
+    ::  Interpreting the event keeps existing logs intact and replayable.
+    ::
+        %cancelled
+      %=  v
+        pending    ~
+        wait       ~
+        cancelled  `reason.e
+        items      (weld (flop (cancel-results (flop items.v) reason.e)) items.v)
+      ==
     ::
         %tool-completed
       %=  v
@@ -102,9 +112,16 @@
   ^-  (list [at=@ud input-id=(unit input-id:h) =item:h])
   =/  events  (flop log)
   =/  at=@ud  0
+  =|  rows=(list [at=@ud input-id=(unit input-id:h) =item:h])
   |-  ^-  (list [at=@ud input-id=(unit input-id:h) =item:h])
-  ?~  events  ~
+  ?~  events  (flop rows)
   =/  e  i.events
+  ?:  ?=(%cancelled -.e)
+    =/  before  (flop (turn rows |=([@ud (unit input-id:h) =item:h] item)))
+    =/  closed  (cancel-results before reason.e)
+    =/  added
+      (turn closed |=(it=item:h [+(at) ~ it]))
+    $(events t.events, at +(at), rows (weld (flop added) rows))
   =/  row=(unit [input-id=(unit input-id:h) =item:h])
     ?+  -.e  ~
       %input-admitted  `[~ item.e]
@@ -113,7 +130,7 @@
       %tool-completed  `[~ [%tool call-id.e name.e body.e]]
     ==
   ?~  row  $(events t.events, at +(at))
-  [[+(at) u.row] $(events t.events, at +(at))]
+  $(events t.events, at +(at), rows [[+(at) u.row] rows])
 ++  transcript-items
   |=  log=(list event:h)
   (turn (transcript log) |=([@ud (unit input-id:h) =item:h] item))
@@ -128,8 +145,9 @@
   :-  %o
   %-  ~(gas by p.row)
   :~  ['eventCount' (numb:enjs:format at)]
-      ['id' %s (scot %ud at)]
+      ['id' %s ?:(?&(?=(%tool -.item) (is-cancelled body.item)) (rap 3 (scot %ud at) ':' call-id.item ~) (scot %ud at))]
       ['inputId' ?~(input-id ~ [%s (scot %uv u.input-id)])]
+      ['cancelled' %b ?:(?=(%tool -.item) (is-cancelled body.item) %.n)]
   ==
 ::  +unanswered: trailing items with no assistant response yet
 ::
@@ -169,6 +187,32 @@
   ?:  ?=(%assistant -.i.rev)
     [calls.i.rev after]
   $(rev t.rev, after [i.rev after])
+::  Outstanding calls, including calls not yet dispatched. The same gate
+::  determines execution and the terminal receipts produced by interruption.
+++  open-calls
+  |=  items=(list item:h)
+  ^-  (list tool-call:h)
+  =/  lc  (last-calls items)
+  =/  done=(set @t)
+    %-  ~(gas in *(set @t))
+    %+  murn  after.lc
+    |=(it=item:h ?:(?=(%tool -.it) `call-id.it ~))
+  (skip calls.lc |=(c=tool-call:h (~(has in done) id.c)))
+++  is-cancelled
+  |=  body=@t
+  =('cancelled: ' (end [3 11] body))
+++  cancel-results
+  |=  [items=(list item:h) reason=@t]
+  ^-  (list item:h)
+  %+  turn  (open-calls items)
+  |=  c=tool-call:h
+  :-  %tool
+  :+  id.c  name.c
+  %+  rap  3
+  :~  'cancelled: '  reason
+      '. No result was accepted. Execution may already have occurred; '
+      'do not assume rollback or repeat the action without checking.'
+  ==
 ::  loop-guard thresholds
 ::
 ++  max-fails  4    ::  consecutive failing tool results before halting
@@ -218,6 +262,7 @@
 ++  decide
   |=  [v=view:h skills=(map @t skill:h)]
   ^-  (unit step:h)
+  ?^  cancelled.v  ~
   ?^  pending.v  ~
   ::  async tool results still in flight
   ::
@@ -228,13 +273,7 @@
   ?~  items.v  ~
   ::  outstanding tool calls from the last assistant turn
   ::
-  =/  lc  (last-calls items.v)
-  =/  todo=(list tool-call:h)
-    =/  done=(set @t)
-      %-  ~(gas in *(set @t))
-      %+  murn  after.lc
-      |=(it=item:h ?:(?=(%tool -.it) `call-id.it ~))
-    (skip calls.lc |=(c=tool-call:h (~(has in done) id.c)))
+  =/  todo  (open-calls items.v)
   ?^  todo  `[%tools todo]
   =/  last=item:h  (rear items.v)
   ?:  ?=(%assistant -.last)  ~
