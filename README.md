@@ -39,7 +39,8 @@ independent of the React inspector.
 - Execution-time capability checks in addition to provider-visible schemas.
 - An ACP React inspector with optimistic message admission, an immediate
   thinking indicator, incremental reply display when the HTTP transport
-  exposes provider chunks, live tool updates, rename/delete, responsive
+  exposes provider chunks, Markdown replies with copyable code and scrollable
+  tables, live tool updates, rename/delete, responsive
   settings, and system/light/dark themes.
 - A dependency-free ACP stdio adapter for editors and other local clients.
 - Per-conversation tools for ship time, Clay, HTTP, skills, authored
@@ -131,3 +132,10 @@ The live checks use the ship's configured provider and incur inference usage.
 They create uniquely named test sessions and remove those sessions afterward.
 Run `-test /=harness=/tests/harness` in Dojo for pure replay, transcript,
 branch-boundary, and provider-parser checks (requires `/lib/test` on the desk).
+
+`npm run test:ui --prefix fe` runs isolated browser checks for Markdown safety,
+copying, scrolling, the composer, dialog focus, and mobile/light/dark layouts.
+Install the test browser once with `cd fe && npx playwright install chromium`,
+or set `PLAYWRIGHT_CHANNEL=chrome` to use an installed Chrome. These tests use
+deterministic ACP fixtures, need no ship credentials, and make no model calls.
+Fixtures are not included in the production build.

@@ -11,4 +11,6 @@ urwasm/
 zig-out/
 /desk-deps/
 /fe/node_modules/
+/fe/test-results/
+/fe/playwright-report/
 /desk/web/*

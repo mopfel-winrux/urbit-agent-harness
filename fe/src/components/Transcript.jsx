@@ -1,4 +1,6 @@
+import { useMemo } from 'react'
 import { transcriptEntries } from '../session'
+import Markdown from './Markdown'
 
 function ToolEntry({ entry }) {
   return <details className={`tool-entry ${entry.status === 'in_progress' ? 'running' : 'complete'}`}>
@@ -10,12 +12,12 @@ function ToolEntry({ entry }) {
 function ThinkingMessage({ streaming, phase }) {
   return <article className={`message assistant thinking-message ${streaming ? 'streaming' : ''}`}>
     <div className="message-label">{phase === 'compacting' ? 'Summarizing context' : phase === 'tools' ? 'Working' : 'harness'}</div>
-    <div className="message-body">{streaming || <span className="thinking-dots" role="status" aria-label="Thinking"><i /><i /><i /></span>}</div>
+    <div className="message-body">{streaming ? <Markdown text={streaming} /> : <span className="thinking-dots" role="status" aria-label="Thinking"><i /><i /><i /></span>}</div>
   </article>
 }
 
 export default function Transcript({ items, pending, thinking, streaming, phase, onFork }) {
-  const entries = transcriptEntries(items)
+  const entries = useMemo(() => transcriptEntries(items), [items])
   if (!entries.length && !pending && !thinking) return <div className="empty-chat">
     <div className="empty-orbit"><span /></div><span className="eyebrow">New conversation</span>
     <h2>What should we work on?</h2><p>Start a conversation, inspect tool work as it happens, and return whenever you like.</p>
@@ -25,7 +27,7 @@ export default function Transcript({ items, pending, thinking, streaming, phase,
     : <article className={`message ${entry.role}`} key={entry.id}>
       <div className="message-label">{entry.role === 'assistant' ? 'harness' : entry.role}
         {entry.role === 'assistant' && !entry.calls?.length && <button className="branch-button" onClick={() => onFork(entry.eventCount)} title="Start a new conversation from this reply">Branch from here</button>}
-      </div><div className="message-body">{entry.body}</div>
+      </div><div className="message-body">{entry.role === 'assistant' ? <Markdown text={entry.body} /> : entry.body}</div>
     </article>)}
     {pending && <article className="message user pending"><div className="message-label">user</div><div className="message-body">{pending.text}</div></article>}
     {thinking && <ThinkingMessage streaming={streaming} phase={phase} />}

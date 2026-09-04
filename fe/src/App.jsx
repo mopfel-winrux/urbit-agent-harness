@@ -75,7 +75,7 @@ export default function App() {
     } catch (cause) { setError(cause.message) }
   }
 
-  const toggleTheme = () => setTheme((value) => value === 'dark' ? 'light' : 'dark')
+  const toggleTheme = () => setTheme((value) => ({ system: 'light', light: 'dark', dark: 'system' })[value] || 'system')
 
   return <div className="app-shell">
     <Sidebar chats={chats} current={current} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings} onSettings={openSettings} />

@@ -159,6 +159,10 @@ ACP specification-conformance suite.
   verify a clean install separately from the working development ship.
 - [x] Add a deliberate “fork here” action with visible provenance.
 - [x] Show compaction state, cumulative token usage, and structured tool results.
+- [x] Render Markdown replies and streaming text with copyable code, contained
+  tables, and no executable HTML or automatic remote-image requests.
+- [x] Browser regression checks for chat layout, scrolling, composer behavior,
+  and keyboard-accessible conversation dialogs in light/dark and narrow layouts.
 - [ ] Show provider latency and tool timing.
 - [ ] Add an in-app connection diagnostic and reconnect control.
 - [ ] Cache provider catalogs with a user-visible refresh action.
