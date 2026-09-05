@@ -21,8 +21,8 @@ test('unchanged snapshots retain transcript and stale replies cannot undo it', (
 
 test('tool results join the matching call without mutating the canonical snapshot', () => {
   const items = [
-    { id: '2', role: 'assistant', body: '', calls: [{ id: 'c', name: 'get_ship_time', args: '{}' }] },
-    { id: '4', role: 'tool', callId: 'c', name: 'get_ship_time', body: 'noon' },
+    { id: '2', role: 'assistant', body: '', calls: [{ id: 'c', name: 'list_desk_files', args: '{}' }] },
+    { id: '4', role: 'tool', callId: 'c', name: 'list_desk_files', body: 'noon' },
     { id: '5', role: 'assistant', body: 'noon', calls: [] },
   ]
   const entries = transcriptEntries(items)

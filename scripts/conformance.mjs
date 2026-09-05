@@ -25,7 +25,7 @@ try {
   assert.deepEqual(initial.entries, [])
   const started = Date.now()
   const inputId = randomUUID()
-  const turns = [prompt(first, one, 'Use get_ship_time, then answer with the exact time returned.', inputId),
+  const turns = [prompt(first, one, 'Use list_desk_files with path /harness/sur, then name one file returned.', inputId),
     prompt(second, two, 'Reply with one short sentence about the Moon.')]
   const completed = Promise.all(turns)
   completed.catch(() => {})
@@ -45,7 +45,7 @@ try {
   assert.ok(results.every((result) => result.stopReason === 'end_turn'))
   const finished = await snapshot(second, one)
   assert.equal(finished.phase, 'idle')
-  assert.ok(finished.entries.some((entry) => entry.role === 'tool' && entry.name === 'get_ship_time'))
+  assert.ok(finished.entries.some((entry) => entry.role === 'tool' && entry.name === 'list_desk_files'))
   const admission = first.updates.find((frame) => frame.params?.update?.clientMessageId === inputId)
   assert.ok(admission)
   assert.equal(finished.entries.find((entry) => entry.role === 'user').inputId, admission.params.update.inputId)

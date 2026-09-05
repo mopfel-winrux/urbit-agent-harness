@@ -1,5 +1,4 @@
 const copy = {
-  'ship-time': ['Ship time', 'Read the ship’s current time.'],
   clay: ['Desk files', 'Read and list files in Clay.'],
   web: ['Web requests', 'Fetch public HTTP resources.'],
   skills: ['Skills', 'Read instructions from the skill library.'],

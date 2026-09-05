@@ -34,3 +34,15 @@ test('Harness libraries have no dependency cycles', () => {
   }
   for (const name of sources.keys()) visit(name)
 })
+
+test('Tlon is a replaceable hand, not an inference engine', async () => {
+  for (const name of ['harness', 'harness-session', 'harness-hand']) {
+    assert.doesNotMatch(code(name), /tlon|groups|contacts/)
+  }
+  for (const name of ['harness-tlon-policy', 'harness-tlon-story']) {
+    assert.doesNotMatch(code(name), /\.\^\(|%pass|bowl:gall/)
+  }
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  assert.doesNotMatch(adapter, /%connect\b|%request.*%iris|harness-provider|harness-store/)
+  assert.match(adapter, /%harness-hand/)
+})

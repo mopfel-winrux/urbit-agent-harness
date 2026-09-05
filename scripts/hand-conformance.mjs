@@ -36,14 +36,14 @@ try {
     sessions.push(sessionId)
     const config = await first.call('harness/session/config', { sessionId })
     await first.call('harness/session/configure', { sessionId, config: {
-      ...config, key: '', tools: hand === chat ? ['ship-time'] : [],
+      ...config, key: '', tools: hand === chat ? ['clay'] : [],
     } })
     await hand.bind(name, { address: `opaque:${hand.hand}/thread-7`, sessionId, actors: ['alice'] })
     bindings.push([hand, name])
   }
   const [one, two] = sessions
   await assert.rejects(chat.observe(one, { event: 'forbidden', actor: 'mallory', text: 'Do something' }), /Actor/)
-  const observation = { event: 'message-1', actor: 'alice', text: 'Remember the word cedar. Use get_ship_time, then reply briefly including the word cedar and the time.' }
+  const observation = { event: 'message-1', actor: 'alice', text: 'Remember the word cedar. Use list_desk_files with path /harness/sur, then reply briefly including cedar and one filename.' }
   const start = Date.now()
   const admitted = await chat.observe(one, observation)
   const admissionMs = Date.now() - start
@@ -110,7 +110,7 @@ try {
 
   // Cancellation is session-wide, including work waiting in the hand queue.
   const running = await chat.observe(one, { event: 'cancel-active', actor: 'alice',
-    text: 'Use get_ship_time, then write a long, detailed essay about that time.' })
+    text: 'Use list_desk_files with path /harness/sur, then write a long, detailed essay about the files.' })
   const queued = await chat.observe(one, { event: 'cancel-queued', actor: 'alice', text: 'This must not execute.' })
   const blocked = await fetch(`${base}/harness-api/webhook/${one}`, {
     method: 'POST', headers: { cookie, 'content-type': 'application/json' },

@@ -66,6 +66,9 @@ fn buildDesk(step: *std.Build.Step, install_path: []const u8, desk_path: ?[]cons
     try pruneRuntimeDesk(allocator, install_path);
     try adaptRuntimeDesk(allocator, install_path);
     try copyDir(allocator, "desk", install_path);
+    // Only the Tlon hand's source dependency closure, in its own namespace.
+    // No Groups applications, desk bill, UI or runtime are installed here.
+    try run(step, &.{ "node", "scripts/stage-tlon.mjs", install_path });
     try stageBootstrapMarks(allocator, install_path);
 
     if (desk_path) |raw_path| {
@@ -75,12 +78,13 @@ fn buildDesk(step: *std.Build.Step, install_path: []const u8, desk_path: ?[]cons
     }
 }
 
-// The dynamic-code index bootstraps these four source marks from /gub even
-// when Harness ships no dynamic nexuses of its own.
+// Four source marks bootstrap the dynamic-code index. The noun mark is also
+// required: the head and its verifier exchange noun grubs, whose writes must
+// validate before their processes can start on a fresh runtime.
 fn stageBootstrapMarks(allocator: std.mem.Allocator, install_path: []const u8) !void {
     const mar_dir = try std.fs.path.join(allocator, &.{ install_path, "gub/mar" });
     try std.fs.cwd().makePath(mar_dir);
-    for ([_][]const u8{ "hoon", "tang", "mime", "kelvin" }) |name| {
+    for ([_][]const u8{ "hoon", "tang", "mime", "kelvin", "noun" }) |name| {
         const source = try std.fmt.allocPrint(allocator, "{s}/gub/mar/{s}.hoon", .{ dependency_dir ++ "/desk", name });
         const target = try std.fmt.allocPrint(allocator, "{s}/{s}.hoon", .{ mar_dir, name });
         try std.fs.cwd().copyFile(source, std.fs.cwd(), target, .{});
@@ -100,16 +104,46 @@ fn pruneRuntimeDesk(allocator: std.mem.Allocator, install_path: []const u8) !voi
 // then give its Gall process a product-specific name.
 fn adaptRuntimeDesk(allocator: std.mem.Allocator, install_path: []const u8) !void {
     const app = try std.fs.path.join(allocator, &.{ install_path, "app/grubbery.hoon" });
+    // Upstream forces its development suites to compile through Ford imports.
+    // They are not runtime dependencies and were removed with /tests above.
+    // Keeping these imports makes a clean installation depend on absent files.
+    for ([_][]const u8{ "nexus", "tarball", "build", "loader" }) |name| {
+        const test_import = try std.fmt.allocPrint(allocator, "/=  t-  /tests/{s}\n", .{name});
+        try replaceFile(allocator, app, test_import, "");
+    }
     try replaceFile(allocator, app, "/grubbery/(scot %da now.bowl)", "/harness/(scot %da now.bowl)");
     try replaceFile(allocator, app, "/sys/clay/desks/grubbery", "/sys/clay/desks/harness");
     try replaceFile(allocator, app, "=(dek %grubbery)", "=(dek %harness)");
     try replaceFile(allocator, app, "!=(dek %grubbery)", "!=(dek %harness)");
+    // Boot the application substrate, not the desktop's ambient services.
+    // Keep process clocks, declared Clay mirrors, HTTP bindings and recovery of
+    // explicitly opened Gall/Lick resources. Harness has no terminal, keyring,
+    // peer-directory or browser-push service; do not create or subscribe them.
+    // This changes startup only: existing durable data is not discarded.
+    for ([_][]const u8{ "dill", "jael", "peer" }) |service| {
+        const startup = try std.fmt.allocPrint(allocator, "  =.  this  sync-{s}\n", .{service});
+        try replaceRequired(allocator, app, startup, "");
+    }
+    try replaceRequired(allocator, app, "\n  sync-push\n", "\n  this\n");
+    // Other desks can be mounted explicitly. Only our own desk is implicit;
+    // its Clay watch drives code reloads, independently of the GUI.
+    try replaceRequired(allocator, app, "  =.  this  (ensure-dir /sys/clay/desks/base)\n", "");
+    try replaceRequired(allocator, app, "        [%pass /eyre-push %arvo %e %connect [~ /grubbery/push] dap.bowl]\n", "");
+    try replaceRequired(allocator, app, "  ::  Register /grubbery/api and /grubbery/push, and reconcile every\n", "  ::  Register the runtime API, and reconcile every\n");
     const fiberio = try std.fs.path.join(allocator, &.{ install_path, "lib/fiberio.hoon" });
     try replaceFile(allocator, fiberio, "++  dap  %grubbery", "++  dap  %harness-grub");
     try replaceFile(allocator, fiberio, "++  dek  %grubbery", "++  dek  %harness");
 
     const named_app = try std.fs.path.join(allocator, &.{ install_path, "app/harness-grub.hoon" });
     try std.fs.cwd().rename(app, named_app);
+}
+
+// Fail closed if a pinned-runtime update changes a startup integration point.
+// Silently missing one would re-enable an unwanted ambient service.
+fn replaceRequired(allocator: std.mem.Allocator, path: []const u8, needle: []const u8, replacement: []const u8) !void {
+    const source = try std.fs.cwd().readFileAlloc(allocator, path, 16 * 1024 * 1024);
+    if (std.mem.count(u8, source, needle) != 1) return error.RuntimeStartupChanged;
+    try replaceFile(allocator, path, needle, replacement);
 }
 
 fn replaceFile(allocator: std.mem.Allocator, path: []const u8, needle: []const u8, replacement: []const u8) !void {

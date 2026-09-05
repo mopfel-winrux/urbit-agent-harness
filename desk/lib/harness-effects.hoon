@@ -43,8 +43,6 @@
   |=  [c=tool-call:h sk=(map @t skill:h)]
   ^-  event:h
   =/  out=@t
-    ?:  =(name.c 'get_ship_time')
-      (scot %da now.bowl)
     ?:  =(name.c 'read_desk_file')
       (read-desk-file args.c)
     ?:  =(name.c 'list_desk_files')

@@ -63,7 +63,7 @@
 ::
 ++  all-tools
   ^-  (list term)
-  :~  %ship-time  %clay  %web  %skills  %skill-write
+  :~  %clay  %web  %skills  %skill-write
       %author  %subagents  %peers  %mcp
   ==
 ::  Resolve provider-returned function names to the capability family that
@@ -74,7 +74,6 @@
   |=  name=@t
   ^-  (unit term)
   ?+  name  ~
-    %'get_ship_time'    `%ship-time
     %'read_desk_file'   `%clay
     %'list_desk_files'  `%clay
     %'http_fetch'       `%web
@@ -108,13 +107,6 @@
   |=  t=term
   ^-  (list json)
   ?+  t  ~
-      %ship-time
-    :_  ~
-    %^    fun-json
-        'get_ship_time'
-      'Get the current time on the urbit ship hosting this agent'
-    ~
-  ::
       %clay
     :~  %^    fun-json
             'read_desk_file'

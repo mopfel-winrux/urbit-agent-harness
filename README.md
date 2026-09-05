@@ -19,13 +19,18 @@ flowchart LR
   Clients["Editors, services, channel adapters"] <-->|ACP| ACP
   ACP <-->|"commands / updates"| Head["%harness: ship-owned sessions"]
   Native["Native Urbit apps"] <-->|"nouns / scries"| Head
+  Tlon["Groups · DMs · threads"] <-->|"activity / Story"| Hand["%harness-tlon"]
+  Hand <-->|"admission / publication receipts"| Head
   Head -->|requests| Effects["Provider, tool and peer executors"]
   Effects -->|results| Head
 ```
 
 Clients share the head, not an execution loop. Closing an inspector does not
 stop a session; changing a provider does not move its memory. One desk declares
-`%harness`, `%acp`, `%harness-grub`, and `%harness-fileserver`.
+`%harness`, `%acp`, `%harness-grub`, `%harness-fileserver`, and the optional
+`%harness-tlon` hand. Configure its owner and per-ship tool grants through the
+**Tlon** sidebar button or ACP. The same page edits the ship's public nickname
+and avatar in Contacts; see [Tlon integration](docs-refs/tlon.md).
 
 ## What works
 
@@ -54,7 +59,7 @@ stop a session; changing a provider does not move its memory. One desk declares
   deduplicated input queues, and publication claims/receipts independent of
   inference, fair admission limits, fenced owner recovery and explicit archive
   retirement. See [the hand contract](docs-refs/hands.md).
-- Per-conversation tools for ship time, Clay, HTTP, skills, authored
+- Per-conversation tools for Clay, HTTP, skills, authored
   capabilities, subagents, and explicitly granted peers. New conversations
   begin with the full catalog enabled and can narrow it independently.
 
@@ -86,7 +91,14 @@ the next stages, not claims this checkpoint already proves. See the
 
 ## Build and install
 
-Mount or create a fresh `%harness` desk, then assemble into it:
+For a first installation, create and mount the desk in Dojo:
+
+```text
+|new-desk %harness
+|mount %harness
+```
+
+Then assemble into that mount:
 
 ```sh
 zig build -Ddesk=/path/to/pier/harness
@@ -183,11 +195,14 @@ npm test --prefix fe
 node --test acp/hand-client.test.mjs
 node --test scripts/modules.test.mjs
 zig build
+node --test scripts/distribution.test.mjs
 SHIP_URL=http://localhost:8081 SHIP_COOKIE=/path/to/auth-cookie.txt \
   node scripts/conformance.mjs
 ```
 
 The live checks use the ship's configured provider and incur inference usage.
+The distribution checks inspect `zig-out`, including every agent's explicit
+Ford file imports, so development-mount leftovers cannot hide missing files.
 They create uniquely named test sessions and remove those sessions afterward.
 `scripts/cancellation-conformance.mjs` uses the same authentication with local
 provider/tool fixtures (no inference charges). Run it on the ship's host to
@@ -206,6 +221,11 @@ Run `-test /=harness=/tests/harness-shadow` for replay and failure-checkpoint
 tests. `scripts/hand-operations-conformance.mjs` uses the same environment for
 live owner recovery and archive checks. Test archives remain in printed private
 temporary directories; they are not a production archive location.
+
+Run `-test /=harness=/tests/harness-tlon` for social authority, thread identity,
+and Story conversion. The [two-ship Tlon test](docs-refs/tlon.md#testing) exercises
+actual Messenger delivery, ACP activity, and permission revocation without
+changing Groups code.
 
 `SHIP_DOJO_PANE=0:1.1 node scripts/shadow-conformance.mjs` additionally requires
 the same ship cookie environment and an idle Dojo tmux pane. It corrupts only a

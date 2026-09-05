@@ -2,4 +2,5 @@
     %harness
     %harness-fileserver
     %acp
+    %harness-tlon
 ==

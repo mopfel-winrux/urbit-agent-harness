@@ -477,6 +477,8 @@ input, select, .settings-panel textarea, .modal-card textarea {
 .settings-panel textarea,
 .modal-card textarea { min-height: 90px; padding: 9px 11px; resize: vertical; line-height: 1.5; }
 input:focus, select:focus, .settings-panel textarea:focus, .modal-card textarea:focus { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent); }
+.tlon-profile { margin-bottom: 18px; }
+.tlon-profile fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 13px; }
 .two-fields { display: grid; grid-template-columns: minmax(150px, .68fr) minmax(0, 1.32fr); gap: 13px; }
 .two-fields.equal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .settings-panel > label + label { margin-top: 15px; }
@@ -559,3 +561,17 @@ input:focus, select:focus, .settings-panel textarea:focus, .modal-card textarea:
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+/* Identity choice is explicit: contacts and phonetic suggestions always show
+   the actual ship receiving authority, including when searched by nickname. */
+.ship-picker { position: relative; display: grid; gap: 8px; }
+.ship-picker > label { font-size: 13px; font-weight: 600; }
+.people-suggestions { position: absolute; z-index: 20; top: 100%; left: 0; right: 0; max-height: 320px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); box-shadow: 0 12px 36px #0002; padding: 4px; }
+.people-suggestions button { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px; border: 0; border-radius: 6px; background: transparent; color: inherit; text-align: left; }
+.people-suggestions button:hover, .people-suggestions button[aria-selected="true"] { background: var(--soft); }
+.people-suggestions button > span { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+.people-suggestions small, .trusted-ship small, .ship-picker > small { color: var(--muted); font-size: 12px; }
+.people-suggestions p { padding: 10px; }
+.trusted-ship { border-top: 1px solid var(--line); padding-top: 14px; min-width: 0; }
+.trusted-ship summary { cursor: pointer; overflow-wrap: anywhere; }
+.trusted-ship summary small { margin-left: 8px; }
+.trusted-ship .tool-options { margin: 18px 0; }

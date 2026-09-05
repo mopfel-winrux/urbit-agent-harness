@@ -4,12 +4,14 @@ import ConversationModal from './components/ConversationModal'
 import Settings from './components/Settings'
 import Sidebar from './components/Sidebar'
 import Welcome from './components/Welcome'
+import TlonSettings from './components/TlonSettings'
 import { useConversations } from './useConversations'
 import { acp } from './acp'
 
 function route() {
   const value = location.hash.replace(/^#\/?/, '')
   try {
+    if (value === 'tlon') return { page: 'tlon', chat: '' }
     if (value === 'settings') return { page: 'settings', chat: '' }
     if (value.startsWith('settings/')) return { page: 'settings', chat: decodeURIComponent(value.slice(9)) }
     return { page: 'chat', chat: value ? decodeURIComponent(value) : '' }
@@ -40,8 +42,8 @@ export default function App() {
     }
   }, [])
   useEffect(() => {
-    if (!settings && chats.length && !chats.includes(current)) choose(chats[0], false)
-  }, [chats, current, settings])
+    if (page === 'chat' && chats.length && !chats.includes(current)) choose(chats[0], false)
+  }, [chats, current, page])
 
   function choose(chat, push = true) {
     setView({ page: 'chat', chat }); setError('')
@@ -51,6 +53,11 @@ export default function App() {
   function openSettings() {
     setView({ page: 'settings', chat: current }); setError('')
     history.pushState({}, '', current ? `#/settings/${encodeURIComponent(current)}` : '#/settings')
+  }
+
+  function openTlon() {
+    setView({ page: 'tlon', chat: current }); setError('')
+    history.pushState({}, '', '#/tlon')
   }
 
   async function createChat(name) {
@@ -78,8 +85,8 @@ export default function App() {
   const toggleTheme = () => setTheme((value) => ({ system: 'light', light: 'dark', dark: 'system' })[value] || 'system')
 
   return <div className="app-shell">
-    <Sidebar chats={chats} current={current} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings} onSettings={openSettings} />
-    {settings
+    <Sidebar chats={chats} current={page === 'chat' ? current : ''} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings} onSettings={openSettings} tlon={page === 'tlon'} onTlon={openTlon} />
+    {page === 'tlon' ? <TlonSettings onBack={() => choose(current)} /> : settings
       ? <Settings resources={resources} theme={theme} onThemeChange={setTheme} onBack={() => choose(current)} />
       : current ? <Chat key={current} chat={current} theme={theme} onToggleTheme={toggleTheme} onSettings={openSettings} onSelect={choose} onFork={(eventCount) => setDialog({ mode: 'fork', chat: current, eventCount })} /> : <Welcome loading={loading} onNew={() => setDialog({ mode: 'create' })} />}
     {(error || conversations.error) && <div className="global-error" onClick={() => setError('')}>{error || conversations.error}</div>}

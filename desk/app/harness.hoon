@@ -5,7 +5,7 @@
 ::  Persistence layouts/conversion, provider formats and client presentation
 ::  live in named modules so this file can concentrate on lifecycle ownership.
 ::
-/-  h=harness, hh=harness-hand, sh=harness-shadow, spider, ac=acp, *harness-store
+/-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, *harness-store
 /+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, ht=harness-tools, hj=harness-json, policy=harness-defaults, storage=harness-store, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 |%
 +$  card  card:agent:gall
@@ -200,6 +200,12 @@
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
   ?+  wire  (on-agent:def wire sign)
+      [%adapter %tlon @ @ ~]
+    ?.  ?=(%poke-ack -.sign)  `this
+    ?~  p.sign  `this
+    =/  id=json  ;;(json (cue (slav %uv i.t.t.t.wire)))
+    [~[(acp-error-card:wire-codec i.t.t.wire id '-32603' 'Tlon hand unavailable; inspect adapter status on the ship')] this]
+  ::
       [%harness-grub @ ~]
     ?+  -.sign  `this
         %kick
@@ -458,6 +464,13 @@
       %initialize
     ?~  id  `state
     [~[(acp-result-card:wire-codec connection u.id acp-initialize-result:wire-codec)] state]
+  ::  Optional hands own their settings and social protocols. Forward the
+  ::  authenticated request; the hand replies on the same ACP connection.
+      ?(%'harness/tlon' %'harness/tlon/configure' %'harness/tlon/contacts' %'harness/tlon/watch' %'harness/tlon/profile' %'harness/tlon/profile/set')
+    ?~  id  `state
+    :_  state
+    :~  [%pass /adapter/tlon/[connection]/(scot %uv (jam u.id)) %agent [our.bowl %harness-tlon] %poke %noun !>(`request:adapter`[connection u.id p.u.method params])]
+    ==
   ::
       %'harness/hand'
     ?~  id  `state

@@ -1,6 +1,7 @@
 import { HarnessIcon, PlusIcon, RenameIcon, SettingsIcon, TrashIcon } from './Icons'
+import TlonIcon from './TlonIcon'
 
-export default function Sidebar({ chats, current, onSelect, onNew, onRename, onDelete, settings, onSettings }) {
+export default function Sidebar({ chats, current, onSelect, onNew, onRename, onDelete, settings, onSettings, tlon, onTlon }) {
   return (
     <aside className="sidebar">
       <div className="brand"><HarnessIcon size={20} /><span>Harness</span></div>
@@ -21,6 +22,7 @@ export default function Sidebar({ chats, current, onSelect, onNew, onRename, onD
         ))}
       </nav>
       <div className="sidebar-spacer" />
+      <button className={tlon ? 'sidebar-action active' : 'sidebar-action'} onClick={onTlon} title="Tlon" aria-label="Tlon"><TlonIcon /><span>Tlon</span></button>
       <button className={settings ? 'sidebar-action active' : 'sidebar-action'} onClick={onSettings} title="Settings" aria-label="Settings"><SettingsIcon /><span>Settings</span></button>
     </aside>
   )

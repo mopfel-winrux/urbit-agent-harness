@@ -3,7 +3,7 @@ import { api } from './api'
 
 // A replaceable client view of an ACP resource, not a second source of truth.
 // Generations fence responses from a closed view or a read predating a save.
-export function useResource(path, fallback) {
+export function useResource(path, fallback, interval = 900) {
   const [value, replaceValue] = useState(fallback)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -38,11 +38,11 @@ export function useResource(path, fallback) {
     const poll = async () => {
       if (!live) return
       await refresh()
-      if (live) timer = setTimeout(poll, document.hidden ? 4000 : 900)
+      if (live) timer = setTimeout(poll, document.hidden ? Math.max(4000, interval) : interval)
     }
     poll()
     return () => { live = false; generation.current++; clearTimeout(timer) }
-  }, [path, refresh, setValue])
+  }, [path, refresh, setValue, interval])
 
   return { value, setValue, loading, error, refresh }
 }

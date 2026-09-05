@@ -38,7 +38,7 @@
   (expect !>(&(?=(%| -.out-of-range) ?=(%| -.user-message))))
 ++  test-branch-rejects-open-tool-exchange
   =/  log=(list event:h)
-    ~[[%llm-completed 0 %tool-calls [1 1] [%assistant '' ~[['call' 'get_ship_time' '{}']]]]]
+    ~[[%llm-completed 0 %tool-calls [1 1] [%assistant '' ~[['call' 'list_desk_files' '{}']]]]]
   =/  result  (branch:hs 'parent' [log 1] 1)
   (expect !>(?=(%| -.result)))
 ++  test-stream-rejects-unfinished-text
@@ -48,12 +48,12 @@
 ++  test-stream-joins-fragmented-tools
   =/  wire=@t
     %+  rap  3
-    :~  'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call","function":{"name":"get_ship_time","arguments":"{"}}]},"finish_reason":null}]}\0a\0a'
+    :~  'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call","function":{"name":"list_desk_files","arguments":"{"}}]},"finish_reason":null}]}\0a\0a'
         'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"}"}}]},"finish_reason":"tool_calls"}]}\0a\0a'
     ==
   =/  result  (parse-chat-sse:hp wire)
   ?>  ?=(%& -.result)
-  (expect-eq !>(`item:h`[%assistant '' ~[['call' 'get_ship_time' '{}']]]) !>(it.p.result))
+  (expect-eq !>(`item:h`[%assistant '' ~[['call' 'list_desk_files' '{}']]]) !>(it.p.result))
 ++  interrupted-tools
   ^-  (list event:h)
   %-  flop

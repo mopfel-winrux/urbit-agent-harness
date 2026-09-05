@@ -71,8 +71,13 @@ Keep the rest of this ledger: these priorities order the work, not erase it.
 
 ### Automated fake-ship conformance
 
-- [ ] Assemble and install into a clean `%harness` desk through Clay.
-- [ ] Compile all four declared agents and fail on any Gall crash.
+- [x] Assemble and install into a clean `%harness` desk through Clay; verify all
+  five agents boot, all Harness Hoon tests pass, and native/ACP cancellation and
+  supervised-verifier reload/recovery work without development-mount leftovers.
+- [x] Check assembled agent imports, agent inventory, test isolation, and the
+  dynamic marks needed by compiler bootstrap and noun-grub exchange.
+- [ ] Automate cold installation and Gall crash detection end to end; current
+  artifact and live checks run after explicit owner installation.
 - [x] Exercise two ACP connections without cross-delivery.
 - [x] Assert prompt admission latency separately from provider latency.
 - [x] Run simultaneous turns in two sessions and verify both transcripts.
@@ -190,11 +195,16 @@ inspection boundary. It requires an idle Dojo tmux pane for owner operations.
 
 - [x] Typed ship-to-ship asks with owner-selected grants.
 - [ ] Harden replay, timeout, budget, and abuse controls for peer work.
-- [ ] Add optional Messenger or channel adapters over ACP or narrow typed ports.
+- [x] Add an optional Messenger adapter over ACP and the native hand port.
 - [x] A shared native/ACP conversation-hand contract without a social-desk
   dependency; see [hands](hands.md).
-- [ ] Build a Tlon hand with source authentication, self-echo suppression,
-  destination-order delivery, and external-id reconciliation.
+- [x] Build a Tlon hand with owner/trusted actor grants, source authentication,
+  self-echo suppression, destination-order delivery, and threaded Story replies.
+  Its configuration and activity are available through ACP; see [Tlon](tlon.md).
+- [x] Edit the bot's public nickname/avatar through Contacts, with live reads
+  of external edits and acknowledged saves through ACP; no duplicate identity store.
+- [ ] Add Messenger-history-assisted external-id reconciliation for uncertain
+  publications; current receipts identify local acceptance, not remote delivery.
 - [ ] Add scoped adapter credentials and per-binding tool/budget/rate policies;
   current adapters are owner-trusted and use their bound session's tool grants.
 - [ ] Extend the text publication contract with addressed artifacts and richer
@@ -208,6 +218,12 @@ inspection boundary. It requires an idle Dojo tmux pane for owner operations.
 
 ## UX and operations
 
+- [x] Stop automatically initializing terminal, keyring, peer-directory and push
+  services, binding the push endpoint, or mounting `%base`. Preserve process/code
+  reloads and explicitly opened resources; check the assembled startup contract.
+- [ ] Make optional runtime services follow an explicit capability declaration,
+  including retirement of subscriptions from earlier development installations.
+  Pruning startup must not silently delete durable service data or user mounts.
 - [ ] Eliminate stale watch and Grubbery blit messages on runtime reload;
   verify a clean install separately from the working development ship.
 - [x] Add a deliberate “fork here” action with visible provenance.

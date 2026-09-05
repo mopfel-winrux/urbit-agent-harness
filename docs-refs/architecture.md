@@ -8,7 +8,7 @@ control panel, not the application boundary.
 
 ## Desk shape
 
-One `%harness` desk declares four Gall agents:
+One `%harness` desk declares five Gall agents:
 
 | Agent | Responsibility |
 |---|---|
@@ -16,10 +16,16 @@ One `%harness` desk declares four Gall agents:
 | `%acp` | Durable, ordered, per-client duplex JSON-RPC queues |
 | `%harness-grub` | Minimal Grubbery process/effect runtime |
 | `%harness-fileserver` | Authenticated static React application |
+| `%harness-tlon` | Optional Groups/DM hand: actor grants, routing, Story delivery |
 
 `desk/lib/root.hoon` loads only the Grubbery services needed for Fibers and
 effects: Eyre, Iris, Behn, Clay, and scry. It does not seed a desktop, example
 applications, or a competing agent tree.
+Runtime startup retains its code/Clay watch, process clock, HTTP bindings and
+recovery of explicitly opened Gall/Lick resources. It does not initialize terminal,
+keyring, peer-directory or browser-push services, or implicitly mirror `%base`.
+Previously mounted desks and durable service data are preserved; retiring old
+subscriptions is separate from deciding what a fresh boot should initialize.
 
 ## Code boundaries
 
@@ -307,9 +313,16 @@ contract to implement across all hands, not an executor boundary already in use.
 `build.zig` pins Grubbery, assembles its libraries and marks, adapts its Clay
 desk identity, renames the runtime agent, and overlays this desk. A release is
 validated by assembling into a fresh `%harness` desk, committing through Clay,
-compiling all four agents, opening multiple ACP connections, and completing a
+compiling all five agents, opening multiple ACP connections, and completing a
 real provider turn. The roadmap records further checks that should become
 automated.
+
+Production assembly removes the runtime's development-test Ford imports along
+with its test suite. The dynamic namespace includes the four compiler bootstrap
+marks plus `%noun`, required for the head/verifier exchange. Without it, a fresh
+runtime stores inputs unvalidated and cannot start their processes. Artifact
+checks in `scripts/distribution.test.mjs` catch these packaging omissions before
+deployment; the live cancellation and verifier tests exercise the boundary.
 
 For incremental development, assemble to `zig-out` and copy the intended
 overlay files to the mounted desk. Full synchronization removes files absent

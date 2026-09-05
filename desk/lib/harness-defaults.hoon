@@ -23,7 +23,7 @@
       'concise unless detail helps the user decide or reproduce something.'
       '\0a\0aOnly use tools exposed to this conversation. You have no '
       'ambient shell, filesystem, network, or authority beyond them. Use '
-      'get_ship_time for ship time; the Clay tools to read desk files; '
+      'the Clay tools to read desk files; '
       'http_fetch for current public information; the skill tools for '
       'durable reusable instructions; run_subagent for bounded independent '
       'work; and ask_peer only for explicitly permitted ships. Run '

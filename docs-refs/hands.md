@@ -69,7 +69,7 @@ const hand = new HandClient(acp, {
 const { sessionId } = await acp.call('session/new', { name: 'support' })
 const config = await acp.call('harness/session/config', { sessionId })
 await acp.call('harness/session/configure', {
-  sessionId, config: { ...config, key: '', tools: ['ship-time'] },
+  sessionId, config: { ...config, key: '', tools: ['clay'] },
 })
 const { binding } = await hand.register({
   address: 'opaque-channel-and-thread', sessionId, actors: ['alice'],
@@ -274,9 +274,9 @@ gates in `desk/lib/harness-hand.hoon`.
 
 ## Scope and next hands
 
-A Tlon adapter maps authenticated message events to `observe`, encodes the
+The [Tlon hand](tlon.md) maps authenticated activity to `observe`, encodes the
 channel/thread as an opaque address, and implements `publish`. Its DM/channel
-agent details stay in that adapter. This desk does not yet ship that connector.
+protocols and social permissions stay in `%harness-tlon`, outside the head.
 
 Binding/queue/outbox state belongs to `%harness` and survives agent reloads.
 Grubbery can host an adapter as a supervised process; losing that process need
