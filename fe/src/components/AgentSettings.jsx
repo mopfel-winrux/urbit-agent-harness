@@ -4,12 +4,15 @@ import { useResource } from '../useResource'
 import { PROVIDERS, providerOf } from '../providers'
 import { useProviderModels } from '../useProviderModels'
 import ToolOptions from './ToolOptions'
+import ProviderRoute from './ProviderRoute'
+import { authMethod, withAuth, chooseProvider as providerConfig, catalogEndpoint } from '../providerConfig'
 
 const themes = ['system', 'light', 'dark']
 
 export default function AgentSettings({ resources, theme, onThemeChange }) {
   const session = useResource(resources.session, null)
   const tools = useResource(resources.tools, [])
+  const openai = useResource('status/openai', {})
   const [form, setForm] = useState({})
   const [provider, setProvider] = useState('openrouter')
   const [busy, setBusy] = useState(false)
@@ -17,8 +20,7 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
   const [error, setError] = useState('')
   const [dirty, setDirty] = useState(false)
   const loadedChat = useRef('')
-  const details = PROVIDERS[provider]
-  const catalogUrl = provider === 'openai' && form.url === details.deviceEndpoint ? details.deviceModelsEndpoint : details.modelsEndpoint
+  const catalogUrl = catalogEndpoint(provider, form)
   const catalog = useProviderModels(provider, catalogUrl)
 
   useEffect(() => {
@@ -42,8 +44,7 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
   function chooseProvider(next) {
     setDirty(true)
     setProvider(next)
-    const details = PROVIDERS[next]
-    if (details.endpoint) setForm((current) => ({ ...current, url: details.endpoint, model: details.model }))
+    setForm((current) => providerConfig(current, next, next === 'openai' ? openai.value?.['auth-method'] : 'api-key'))
   }
 
   function chooseModel(model) {
@@ -54,7 +55,7 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
   async function save(event) {
     event.preventDefault()
     setBusy(true); setError(''); setSaved(false)
-    const config = {
+    const config = withAuth({
       url: form.url?.trim() || PROVIDERS.openrouter.endpoint,
       model: form.model?.trim() || PROVIDERS.openrouter.model,
       key: '',
@@ -62,7 +63,7 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
       system: form.system || '',
       'max-context': catalog.contextFor(form.model?.trim() || PROVIDERS.openrouter.model) || 80_000,
       tools: Array.isArray(form.tools) ? form.tools : [],
-    }
+    }, provider, authMethod(provider, form))
     try {
       const applied = await api.action({ config: { sid: resources.chat, config } })
       session.setValue(applied); setForm(applied); setDirty(false); setSaved(true)
@@ -83,7 +84,7 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
         <label><span>Provider</span><select value={provider} onChange={(event) => chooseProvider(event.target.value)}>{Object.entries(PROVIDERS).map(([id, details]) => <option key={id} value={id}>{details.title}{id === 'custom' ? ' endpoint' : ''}</option>)}</select></label>
         <label><span>Model</span><input list={`models-${provider}`} value={form.model || ''} onChange={(event) => chooseModel(event.target.value)} placeholder={PROVIDERS[provider].model || 'model-name'} /><datalist id={`models-${provider}`}>{catalog.models.map((model) => <option key={model} value={model} />)}</datalist></label>
       </div>
-      <label><span>Endpoint</span><input type="url" value={form.url || ''} onChange={(event) => { setProvider(providerOf(event.target.value)); field('url', event.target.value) }} /></label>
+      <ProviderRoute provider={provider} value={form} onChange={(next) => { setDirty(true); setForm(next) }} />
       {catalog.loading && <p className="field-note">Loading the provider’s model catalog…</p>}
       {catalog.error && provider !== 'custom' && <p className="field-note">Catalog unavailable: {catalog.error}. You can still type a model name.</p>}
       {catalog.contextFor(form.model) && <p className="field-note">Provider reports a {catalog.contextFor(form.model).toLocaleString()} token context window; applied automatically on save.</p>}

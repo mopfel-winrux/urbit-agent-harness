@@ -29,7 +29,7 @@ export function OpenAIDeviceLogin({ onCredential }) {
   const [error, setError] = useState('')
   const live = useRef(true)
 
-  useEffect(() => () => { live.current = false }, [])
+  useEffect(() => { live.current = true; return () => { live.current = false } }, [])
 
   async function start() {
     const loginWindow = window.open('about:blank', '_blank')
@@ -69,6 +69,7 @@ export function OpenAIDeviceLogin({ onCredential }) {
         })
         const claims = jwtPayload(tokens.id_token || tokens.access_token)
         const account = claims['https://api.openai.com/auth']?.chatgpt_account_id || claims.chatgpt_account_id || ''
+        if (!live.current) return
         await onCredential({ token: tokens.access_token, refreshToken: tokens.refresh_token || '', account })
         if (live.current) setState('connected')
         return

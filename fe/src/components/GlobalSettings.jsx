@@ -6,10 +6,13 @@ import { useResource } from '../useResource'
 import { useProviderModels } from '../useProviderModels'
 import HeaderEditor from './HeaderEditor'
 import ToolOptions from './ToolOptions'
+import ProviderRoute from './ProviderRoute'
+import { authMethod, withAuth, chooseProvider as providerConfig, catalogEndpoint } from '../providerConfig'
 
 export default function GlobalSettings({ resources, theme, onThemeChange }) {
   const defaults = useResource(resources.defaults, defaultConfig())
   const tools = useResource(resources.tools, [])
+  const openai = useResource('status/openai', {})
   const [form, setForm] = useState(defaultConfig())
   const [provider, setProvider] = useState('openrouter')
   const [busy, setBusy] = useState(false)
@@ -17,7 +20,7 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
   const [error, setError] = useState('')
   const dirty = useRef(false)
   const details = PROVIDERS[provider]
-  const catalogUrl = provider === 'openai' && form.url === details.deviceEndpoint ? details.deviceModelsEndpoint : details.modelsEndpoint
+  const catalogUrl = catalogEndpoint(provider, form)
   const catalog = useProviderModels(provider, catalogUrl)
 
   useEffect(() => {
@@ -32,10 +35,9 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
     setForm((current) => ({ ...current, [name]: value }))
   }
   const chooseProvider = (id) => {
-    const next = PROVIDERS[id]
     dirty.current = true
     setProvider(id)
-    setForm((current) => ({ ...current, url: next.endpoint || current.url, model: next.model || current.model, headers: [] }))
+    setForm((current) => providerConfig(current, id, id === 'openai' ? openai.value?.['auth-method'] : 'api-key'))
   }
   const chooseModel = (model) => {
     dirty.current = true; setSaved(false)
@@ -51,12 +53,12 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
     event.preventDefault()
     setBusy(true); setError('')
     try {
-      const clean = {
+      const clean = withAuth({
         ...form,
         url: form.url.trim(), model: form.model.trim(), key: '',
         headers: (form.headers || []).filter((header) => header.name.trim()),
         'max-context': catalog.contextFor(form.model.trim()) || 80_000,
-      }
+      }, provider, authMethod(provider, form))
       const applied = await api.action({ defaults: clean })
       defaults.setValue(applied); setForm(applied); dirty.current = false; setSaved(true)
     } catch (cause) { setError(cause.message) } finally { setBusy(false) }
@@ -70,7 +72,7 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
         <label><span>Provider</span><select value={provider} onChange={(event) => chooseProvider(event.target.value)}>{Object.entries(PROVIDERS).map(([id, value]) => <option key={id} value={id}>{value.title}</option>)}</select></label>
         <label><span>Model</span><input list={`global-models-${provider}`} value={form.model || ''} onChange={(event) => chooseModel(event.target.value)} placeholder={details.model || 'model-name'} /><datalist id={`global-models-${provider}`}>{catalog.models.map((model) => <option key={model} value={model} />)}</datalist></label>
       </div>
-      <label><span>Endpoint</span><input type="url" required value={form.url || ''} onChange={(event) => field('url', event.target.value)} /></label>
+      <ProviderRoute provider={provider} value={form} onChange={(next) => { dirty.current = true; setSaved(false); setForm(next) }} />
       {catalog.loading && <p className="field-note">Loading the provider’s model catalog…</p>}
       {catalog.error && provider !== 'custom' && <p className="field-note">Catalog unavailable: {catalog.error}. You can still type a model name.</p>}
       {catalog.contextFor(form.model) && <p className="field-note">Provider reports {catalog.contextFor(form.model).toLocaleString()} tokens; applied automatically on save.</p>}

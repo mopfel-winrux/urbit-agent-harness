@@ -6,7 +6,7 @@
 ::  live in named modules so this file can concentrate on lifecycle ownership.
 ::
 /-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, *harness-store
-/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, failure=harness-failure, policy=harness-defaults, storage=harness-store, transport=harness-acp, bindings=harness-effects, default-agent, dbug
+/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, failure=harness-failure, policy=harness-defaults, storage=harness-store, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 |%
 +$  card  card:agent:gall
 --
@@ -562,7 +562,7 @@
       %'harness/status'
     ?~  id  `state
     =/  provider=@t  (fall (acp-param-string:wire-codec params 'provider') 'openrouter')
-    =/  stored=@t  (fall (~(get by provider-keys) provider) '')
+    =/  stored=@t  (provider-key provider)
     =/  has=?
       ?|  !=('' stored)
           ?&  =('openrouter' provider)
@@ -570,7 +570,13 @@
           ==
       ==
     =/  result=json
-      (pairs:enjs:format ~[['has-key' %b has]])
+      ?.  =('openai' provider)  (pairs:enjs:format ~[['has-key' %b has]])
+      =/  device=?  !=('' (provider-key 'openai-device'))
+      =/  method=@t
+        ?:  &((device-route:auth url.defaults) device)  'device'
+        ?:  &(=('openai' (provider-for-url:hp url.defaults)) has)  'api-key'
+        ?:(device 'device' 'api-key')
+      (pairs:enjs:format ~[['has-key' %b |(has device)] ['has-api-key' %b has] ['has-device-login' %b device] ['auth-method' %s method]])
     [~[(acp-result-card:wire-codec connection u.id result)] state]
   ::
       %'harness/tools'
@@ -716,7 +722,7 @@
     =/  provider=@t  (fall (acp-param-string:wire-codec params 'provider') 'openrouter')
     ?~  key
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Expected key')] state]
-    =.  provider-keys  (~(put by provider-keys) provider u.key)
+    =.  provider-keys  (put-key:auth provider-keys provider u.key)
     =?  api-key  =('openrouter' provider)  u.key
     =/  result=json
       (pairs:enjs:format ~[['has-key' %b !=('' u.key)]])
@@ -911,7 +917,7 @@
     ?>  !(~(has by sessions) sid.act)
     =/  cfg=config:h  config.act
     =?  provider-keys  !=('' key.cfg)
-      (~(put by provider-keys) (provider-for-url:hp url.cfg) key.cfg)
+      (put-key:auth provider-keys (credential-for-url:auth url.cfg) key.cfg)
     =.  cfg  cfg(key '')
     =/  ses=session:h  [~[[%config-replaced cfg]] 0]
     =^  cards  state  (drive-put sid.act ses)
@@ -1060,7 +1066,7 @@
     =/  ses  (need-session sid.act)
     =/  cfg=config:h  config.act
     =?  provider-keys  !=('' key.cfg)
-      (~(put by provider-keys) (provider-for-url:hp url.cfg) key.cfg)
+      (put-key:auth provider-keys (credential-for-url:auth url.cfg) key.cfg)
     =.  cfg  cfg(key '')
     =^  cs1  ses
       (record-all sid.act ses ~[[%config-replaced cfg]])
@@ -1189,13 +1195,13 @@
       %peer-config
     =/  cfg=config:h  config.act
     =?  provider-keys  !=('' key.cfg)
-      (~(put by provider-keys) (provider-for-url:hp url.cfg) key.cfg)
+      (put-key:auth provider-keys (credential-for-url:auth url.cfg) key.cfg)
     `state(peer-base `cfg(key ''))
   ::
       %defaults
     =/  cfg=config:h  config.act
     =?  provider-keys  !=('' key.cfg)
-      (~(put by provider-keys) (provider-for-url:hp url.cfg) key.cfg)
+      (put-key:auth provider-keys (credential-for-url:auth url.cfg) key.cfg)
     `state(defaults cfg(key ''))
   ::
       %mcp-config
@@ -1483,6 +1489,8 @@
   |=  [sid=session-id:h ses=session:h input=(unit input-id:h)]
   ^-  [(list card) session:h]
   =/  v  (play:hl log.ses)
+  =/  missing  (missing:auth provider-keys config.v)
+  ?^  missing  (record-all sid ses ~[[%halted u.missing]])
   =/  visible  (skills-visible sid skills)
   =/  planned
     (plan:context v (lent log.ses) input |=(candidate=view:h (estimate:hp candidate %compaction visible)))
@@ -1524,6 +1532,8 @@
 ++  issue-llm
   |=  [sid=session-id:h ses=session:h kind=request-kind:h v=view:h]
   ^-  [(list card) session:h]
+  =/  missing  (missing:auth provider-keys config.v)
+  ?^  missing  (record-all sid ses ~[[%halted u.missing]])
   =/  req  next-req.ses
   =.  next-req.ses  +(req)
   =^  cs  ses  (record-all sid ses ~[[%llm-requested req kind]])
@@ -1531,21 +1541,18 @@
 ++  provider-key
   |=  provider=@t
   ^-  @t
-  =/  stored=@t  (fall (~(get by provider-keys) provider) '')
+  =/  stored=@t  (key:auth provider-keys provider)
   ?:  !=('' stored)  stored
   ?:(=('openrouter' provider) api-key '')
 ++  model-list-card
   |=  [req=@ud provider=@t url=@t]
   ^-  card
-  =/  key=@t  (provider-key provider)
+  =/  key=@t  (provider-key ?:(=('openai' provider) ?:((device-route:auth url) 'openai-device' 'openai') provider))
   =/  hed=header-list:http  ~[['accept' 'application/json']]
   =?  hed  !=('' key)
     [['authorization' (cat 3 'Bearer ' key)] hed]
   =/  account  (provider-key 'openai-account')
-  =?  hed  ?&  !=('' account)
-                  =('openai' provider)
-                  =('https://chatgpt.com/backend-api/codex/models?client_version=0.153.0' url)
-              ==
+  =?  hed  &(!=('' account) =('openai' provider) (device-route:auth url))
     [['chatgpt-account-id' account] hed]
   :*  %pass  `wire`[%models (scot %ud req) ~]
       %arvo  %i  %request  [%'GET' url hed ~]  *outbound-config:iris
@@ -1560,12 +1567,12 @@
   ::  blank session key falls back to the agent-level default
   ::
   =/  eff-key=@t
-    ?:(=('' key.config.v) (provider-key (provider-for-url:hp url.config.v)) key.config.v)
+    ?:(=('' key.config.v) (provider-key (credential-for-url:auth url.config.v)) key.config.v)
   =/  =request:http
     :*  %'POST'
         url.config.v
         =/  hed=header-list:http
-          [['content-type' 'application/json'] headers.config.v]
+          [['content-type' 'application/json'] (headers:auth provider-keys url.config.v headers.config.v)]
         =?  hed  !=('' eff-key)
           [['authorization' (cat 3 'Bearer ' eff-key)] hed]
         hed

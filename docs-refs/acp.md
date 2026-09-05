@@ -162,6 +162,48 @@ is not an admission check: identical prompts are legitimate distinct inputs.
 from a tool-free completed assistant reply. It returns the child `sessionId`.
 The child retains that prefix and records its origin without replaying effects.
 
+## Provider authentication
+
+Built-in provider settings select an authentication method, not an arbitrary
+URL. The stored configuration URL encodes the selected route, so there is no
+second mode field that can disagree with the request codec. Custom providers
+retain editable endpoints and custom headers.
+
+| OpenAI authentication | Credential slot | Inference route |
+| --- | --- | --- |
+| API key | `openai` | `https://api.openai.com/v1/chat/completions` |
+| Device login | `openai-device` | `https://chatgpt.com/backend-api/codex/responses` |
+
+`harness/credential/set` stores a credential under its `provider` slot. Device
+refresh tokens and account identity use `openai-refresh` and `openai-account`;
+they are not model credentials. Account headers are attached at dispatch only
+for the ChatGPT route, including its model catalog. API and device model-list
+requests use the same credential separation as inference. There is no fallback
+between API and device credentials. A missing selected OpenAI credential stops
+inference locally with an authentication error.
+
+For already-stored device tokens in `openai`, a JWT-shaped token is eligible
+only for device requests; it is never sent as an API key. Saving an API key
+preserves that device token in its own slot. Shape recognition is compatibility
+routing, not token validation; the provider still validates the credential.
+
+`harness/status` for `provider: "openai"` returns `has-api-key`,
+`has-device-login`, and a suggested `auth-method` (`api-key` or `device`) in
+addition to `has-key`. The suggestion honors OpenAI defaults when configured,
+otherwise prefers an available device login. An existing conversation retains
+its explicit selection. React uses this status when selecting OpenAI from a
+different provider, rather than resetting unconditionally to the API route.
+
+Completing device login in the provider settings saves the credential and then
+the selected conversation/default configuration. The login is not shown as
+connected if saving that configuration fails. Existing incorrectly configured
+conversations can select Device login in their model settings and save; no
+transcript rewrite or automatic mass reconfiguration is performed.
+
+Subscription and API-key authentication are separate access modes; see
+[OpenAI authentication](https://learn.chatgpt.com/docs/auth). Automatic refresh
+of stored device tokens remains separate work.
+
 ## Recovery
 
 The web client creates a fresh connection identifier for each page instance,

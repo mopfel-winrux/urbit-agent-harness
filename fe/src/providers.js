@@ -16,7 +16,7 @@ export const PROVIDERS = {
     deviceModelsEndpoint: 'https://chatgpt.com/backend-api/codex/models?client_version=0.153.0',
     deviceModel: 'gpt-5.6-luna',
     placeholder: 'sk-…',
-    copy: 'OpenAI Chat Completions with bearer-key authentication.',
+    copy: 'Use an API key or your ChatGPT device login. Authentication selects the model service.',
   },
   anthropic: {
     title: 'Anthropic',

@@ -41,6 +41,9 @@ failed work. See [Tlon integration](docs-refs/tlon.md).
 - OpenRouter, OpenAI, Anthropic, and custom OpenAI-compatible endpoints, with
   API keys, OpenAI device login, Anthropic browser-login handoff, and arbitrary
   request headers. ChatGPT login uses its Codex Responses endpoint.
+  Built-in provider routes follow the selected authentication method; only
+  Custom exposes an editable endpoint. OpenAI API and device credentials are
+  stored separately, and completing device login also saves its matching route.
 - Provider model discovery, automatic published context limits, and free-form
   model entry; a conversation can change provider or model between turns.
 - Durable global defaults snapshotted into new conversations, plus a shared

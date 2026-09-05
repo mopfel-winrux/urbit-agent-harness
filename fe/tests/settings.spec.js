@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { PROVIDERS } from '../src/providers.js'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/apps/harness/tests/settings-fixture.html')
@@ -32,4 +33,56 @@ test('switching providers fences stale catalogs and does not reuse another model
   await page.getByRole('combobox', { name: 'Model', exact: true }).fill('unknown-model')
   await page.getByRole('button', { name: 'Save defaults' }).click()
   await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)['max-context'])).toBe(80000)
+})
+
+for (const surface of ['global', 'conversation']) {
+  test(`${surface}: auth owns the OpenAI endpoint and only Custom can edit one`, async ({ page }) => {
+    await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}&device`)
+    await expect(page.getByLabel('Endpoint', { exact: true })).toHaveCount(0)
+    await page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('openai')
+    await expect(page.getByLabel('Authentication')).toHaveValue('device')
+    await expect.poll(() => page.evaluate(() => window.settingsFixture.requests.at(-1).url)).toBe(PROVIDERS.openai.deviceModelsEndpoint)
+    const save = page.getByRole('button', { name: surface === 'global' ? 'Save defaults' : 'Save conversation' })
+    await save.click()
+    await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1).url)).toBe(PROVIDERS.openai.deviceEndpoint)
+    await page.reload()
+    await expect(page.getByLabel('Authentication')).toHaveValue('device')
+    await page.getByLabel('Authentication').selectOption('api-key')
+    await save.click()
+    await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1).url)).toBe(PROVIDERS.openai.endpoint)
+    await page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('openrouter')
+    await page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('openai')
+    await expect(page.getByLabel('Authentication')).toHaveValue('device')
+    await page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('custom')
+    await page.getByLabel('Endpoint', { exact: true }).fill('https://inference.example/v1/chat/completions')
+    await page.getByLabel('Model', { exact: true }).fill('custom-model')
+    await save.click()
+    await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1).url)).toBe('https://inference.example/v1/chat/completions')
+  })
+}
+
+test('device login saves its route immediately and survives a reload without a second Save', async ({ page, context }) => {
+  await context.route('https://auth.openai.com/**', async (route) => {
+    const path = new URL(route.request().url()).pathname
+    const payload = path.endsWith('/usercode') ? { device_auth_id: 'fixture', user_code: 'ABCD-EFGH', interval: 2 }
+      : path.endsWith('/deviceauth/token') ? { authorization_code: 'fixture-code', code_verifier: 'fixture-verifier' }
+        : { access_token: 'fixture-access-token', refresh_token: 'fixture-refresh', id_token: `e30.${Buffer.from(JSON.stringify({ chatgpt_account_id: 'fixture-account' })).toString('base64url')}.signature` }
+    await route.fulfill({ json: payload })
+  })
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=provider')
+  await page.getByLabel('Authentication').selectOption('device')
+  await expect(page.getByLabel('API key', { exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('Endpoint', { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Sign in with device code' }).click()
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)?.url)).toBe(PROVIDERS.openai.deviceEndpoint)
+  expect(await page.evaluate(() => window.settingsFixture.credentials)).toEqual(['openai-device', 'openai-refresh', 'openai-account'])
+  expect(await page.evaluate(() => window.settingsFixture.saves.at(-1).headers)).toEqual([])
+  await page.reload()
+  await expect(page.getByLabel('Authentication')).toHaveValue('device')
+  await expect(page.getByText('credential configured', { exact: true })).toBeVisible()
+  await page.getByLabel('Authentication').selectOption('api-key')
+  await page.getByLabel('API key', { exact: true }).fill('sk-fixture-api')
+  await page.getByRole('button', { name: 'Save OpenAI' }).click()
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1).url)).toBe(PROVIDERS.openai.endpoint)
+  expect(await page.evaluate(() => window.settingsFixture.credentials)).toEqual(['openai'])
 })
