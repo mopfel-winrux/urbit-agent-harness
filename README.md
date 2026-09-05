@@ -49,10 +49,14 @@ failed work. See [Tlon integration](docs-refs/tlon.md).
 - Provider model discovery, automatic published context limits, and free-form
   model entry; a conversation can change provider or model between turns.
 - Durable global defaults snapshotted into new conversations, plus a shared
-  Streamable HTTP MCP registry whose use remains capability-gated per thread.
-  Bots discover enabled server IDs with `list_mcp_servers`, then inspect and
-  call their tools. Web-capable conversations can use Brave `web_search`;
-  configure its shared API key under Settings → Search.
+  Streamable HTTP MCP registry with per-server conversation grants. Bots discover
+  only their granted, enabled servers with `list_mcp_servers`, then inspect and
+  call any tool on those servers. Registration does not grant access; select
+  individual servers in default, conversation or trusted-Tlon tool settings.
+- Web-capable conversations use `web_search` with Brave or SearXNG. Select the
+  provider under Settings → Search, then supply a Brave key or SearXNG instance
+  base URL. Switching providers preserves the Brave key. SearXNG must enable
+  `json` in `search.formats`; see its [Search API documentation](https://docs.searxng.org/dev/search_api.html).
 - Typed input provenance across ACP, pokes, timers, webhooks, peers, and child
   sessions, with an explicit response route.
 - Scryable derived views and chronological event histories for native clients.
@@ -69,9 +73,10 @@ failed work. See [Tlon integration](docs-refs/tlon.md).
   deduplicated input queues, and publication claims/receipts independent of
   inference, fair admission limits, fenced owner recovery and explicit archive
   retirement. See [the hand contract](docs-refs/hands.md).
-- Per-conversation tools for Clay, HTTP, skills, authored
-  capabilities, subagents, and explicitly granted peers. New conversations
-  begin with the full catalog enabled and can narrow it independently.
+- Per-conversation tools for Clay, HTTP, skills, subagents, explicitly granted
+  peers, and experimental skill authoring. Fresh-install defaults grant web
+  access and skill reading only. Saved defaults and existing conversation grants
+  are preserved; additional capabilities require an explicit grant.
 
 Native inference and a required Groups installation are outside this desk.
 Either can be added behind a typed capability without changing session
@@ -230,6 +235,19 @@ The live checks use the ship's configured provider and incur inference usage.
 The distribution checks inspect `zig-out`, including every agent's explicit
 Ford file imports, so development-mount leftovers cannot hide missing files.
 They create uniquely named test sessions and remove those sessions afterward.
+`scripts/rehearsal-conformance.mjs` uses a local provider fixture to verify
+read-only rehearsal grants and rejected web/MCP/skill-write attempts, including
+an attempted mid-run grant expansion. It needs `SHIP_URL` and `SHIP_COOKIE`,
+uses no paid provider, removes its uniquely named proposals/sessions, and leaves
+credentials, defaults and the MCP registry unchanged.
+`scripts/mcp-scopes-conformance.mjs` verifies per-server discovery/dispatch,
+future-server denial, delayed-response revocation and child inheritance using
+local fixtures. It temporarily adds uniquely named MCP registrations and restores
+the original registry. `scripts/searxng-conformance.mjs` verifies form encoding,
+JSON-disabled feedback and provider changes during a pending search; it restores
+the original search configuration without changing credentials. Both use
+`SHIP_URL`/`SHIP_COOKIE`, incur no paid usage, and should run after desk compilation
+has finished. Run the pure migration/parser suite with `-test /=harness=/tests`.
 `scripts/settlement-conformance.mjs` uses local provider fixtures to verify that
 cancelling a child settles its parent's tool, completes the parent ACP prompt,
 and fences late child replies. It needs `SHIP_URL` and `SHIP_COOKIE`, uses no

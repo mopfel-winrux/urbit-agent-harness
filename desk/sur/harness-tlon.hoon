@@ -1,10 +1,10 @@
 ::  Tlon-specific state belongs to a hand, never to the semantic head.
-/-  c=tlon-channels, a=tlon-activity-ver
+/-  c=tlon-channels, a=tlon-activity-ver, h=harness
 |%
 +$  policy
   $:  enabled=?
       owner=(unit @p)
-      trusted=(map @p (list term))
+      trusted=(map @p (list tool-grant:h))
       mentions=?
   ==
 +$  destination
@@ -12,13 +12,14 @@
       [%channel nest=nest:c parent=(unit @da)]
   ==
 +$  input  [actor=@p event=@t to=destination text=@t]
-+$  lane  [actor=@p to=destination epoch=@ud tools=(list term)]
++$  lane  [actor=@p to=destination epoch=@ud tools=(list tool-grant:h)]
 +$  job  [input=input sid=@t stage=?(%create %bind %observe %error) error=@t]
 +$  delivery  [attempt=@ud stage=?(%claim %send %receipt) status=?(%delivered %failed %uncertain) external=@t]
 +$  notice  [sequence=@ud at=@da kind=@t actor=@p address=@t event=@t]
 +$  presence-lease  [at=@da tools=?]
 +$  state-0  [%0 data]
-+$  state  [%1 computing=(map path presence-lease) data]
++$  state-1  [%1 computing=(map path presence-lease) data]
++$  state  [%2 computing=(map path presence-lease) data]
 +$  data
   $:  policy=policy
       epoch=@ud

@@ -37,7 +37,7 @@ try {
     await client.call('harness/session/configure', { sessionId, config: {
       url: `http://127.0.0.1:${server.address().port}/completions`, model: 'fixture',
       key: '', headers: [], system: 'Use the available tools.', 'max-context': 80000,
-      tools: granted ? [which === 'web_search' ? 'web' : 'mcp'] : [],
+      tools: granted ? [which === 'web_search' ? 'web' : { mcp: 'discovery-fixture' }] : [],
     } })
     await client.call('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Run the tool.' }] })
     const result = observed.at(-1).messages.find((message) => message.role === 'tool').content
@@ -45,7 +45,7 @@ try {
     else if (which === 'web_search') assert.match(result, /Add a Brave Search API key/)
     else {
       const servers = JSON.parse(result)
-      assert.deepEqual(servers.map((s) => s.id).sort(), configured.filter((s) => s.enabled).map((s) => s.id).sort())
+      assert.deepEqual(servers.map((s) => s.id).sort(), configured.filter((s) => s.enabled && s.id === 'discovery-fixture').map((s) => s.id).sort())
       assert.ok(servers.every((s) => Object.keys(s).sort().join(',') === 'id,name'))
     }
   }

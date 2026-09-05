@@ -3,7 +3,7 @@ import { api } from '../api'
 import { useResource } from '../useResource'
 import { BackIcon } from './Icons'
 import ShipPicker from './ShipPicker'
-import ToolOptions from './ToolOptions'
+import ToolOptions, { toggleGrant } from './ToolOptions'
 import TlonIcon from './TlonIcon'
 import TlonProfile from './TlonProfile'
 import TlonModels from './TlonModels'
@@ -13,6 +13,7 @@ export default function TlonSettings({ onBack }) {
   const state = useResource('tlon', null)
   const contacts = useResource('tlon/contacts', [], 30_000)
   const tools = useResource('tools', [])
+  const mcp = useResource('mcp', [])
   const [policy, setPolicy] = useState(initial)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -22,7 +23,7 @@ export default function TlonSettings({ onBack }) {
   const change = (patch) => { dirty.current = true; setSaved(false); setPolicy((old) => ({ ...old, ...patch })) }
   function toggleTool(ship, name) {
     change({ trusted: policy.trusted.map((entry) => entry.ship !== ship ? entry : { ...entry,
-      tools: entry.tools.includes(name) ? entry.tools.filter((tool) => tool !== name) : [...entry.tools, name],
+      tools: toggleGrant(entry.tools, name),
     }) })
   }
   async function save(event) {
@@ -46,7 +47,7 @@ export default function TlonSettings({ onBack }) {
           <label className="tool-option"><input type="checkbox" checked={policy.mentions} onChange={(e) => change({ mentions: e.target.checked })} /><span><strong>Require channel mentions</strong><small>DMs and replies to the bot’s posts do not need a mention.</small></span></label>
         </section>
         <section className="panel settings-panel">
-          <div className="section-title"><div><h2>Owner</h2><p>Full tool access. Group invitations from this ship are accepted automatically.</p></div></div>
+          <div className="section-title"><div><h2>Owner</h2><p>New conversations inherit tools from Settings → Defaults. Group invitations from this ship are accepted automatically.</p></div></div>
           <ShipPicker label="Owner ship" value={policy.owner || ''} contacts={contacts.value || []} onChange={(owner) => change({ owner, trusted: policy.trusted.filter((entry) => entry.ship !== owner) })} />
           {contacts.error && <p className="field-note">Contacts unavailable; you can still select a valid @p.</p>}
         </section>
@@ -55,7 +56,7 @@ export default function TlonSettings({ onBack }) {
           <ShipPicker label="Add a trusted ship" contacts={contacts.value || []} exclude={[policy.owner, ...policy.trusted.map((entry) => entry.ship)]} onChange={(ship) => change({ trusted: [...policy.trusted, { ship, tools: [] }] })} />
           {policy.trusted.map((entry) => <details className="trusted-ship" key={entry.ship}>
             <summary>{contacts.value?.find((p) => p.ship === entry.ship)?.nickname || entry.ship} <small>{entry.ship} · {entry.tools.length} tools</small></summary>
-            <ToolOptions available={tools.value || []} selected={entry.tools} onChange={(name) => toggleTool(entry.ship, name)} />
+            <ToolOptions servers={mcp.value || []} available={tools.value || []} selected={entry.tools} onChange={(name) => toggleTool(entry.ship, name)} />
             <button type="button" className="text-button" onClick={() => change({ trusted: policy.trusted.filter((p) => p.ship !== entry.ship) })}>Remove {entry.ship}</button>
           </details>)}
         </section>

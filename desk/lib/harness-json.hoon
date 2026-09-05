@@ -44,7 +44,7 @@
       (pairs:enjs:format ~[['name' %s name] ['value' %s value]])
       ['system' %s system.cfg]
       ['max-context' (numb:enjs:format max-context.cfg)]
-      ['tools' %a (turn tools.cfg |=(t=term `json`[%s t]))]
+      ['tools' %a (turn tools.cfg grant-json)]
   ==
 ::  json for the ui: full session view (key withheld)
 ::
@@ -314,8 +314,28 @@
       headers+(ar (ot ~[name+so value+so]))
       system+so
       max-context+ni
-      tools+(ar (su sym))
+      tools+(ar json-grant)
   ==
+++  grant-json
+  |=  grant=tool-grant:h
+  ^-  json
+  ?:  ?=(@ grant)  [%s grant]
+  (pairs:enjs:format ~[['mcp' %s server.grant]])
+++  json-grant
+  |=  jon=json
+  ^-  tool-grant:h
+  =,  dejs:format
+  ?:  ?=(%s -.jon)
+    =/  family  ((su sym) jon)
+    ~|  'MCP grants must name a server, for example {"mcp":"calendar"}.'
+    ?>  !=(%mcp family)
+    family
+  ?>  ?=(%o -.jon)
+  ?>  =(1 ~(wyt by p.jon))
+  =/  server  (~(get by p.jon) 'mcp')
+  ?>  ?=([~ %s *] server)
+  ?>  &(!=('' p.u.server) (lte (met 3 p.u.server) 256))
+  [%mcp p.u.server]
 ++  mcp-server-json
   |=  [id=mcp-server-id:h server=mcp-server:h]
   ^-  json

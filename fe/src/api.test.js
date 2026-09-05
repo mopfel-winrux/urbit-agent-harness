@@ -24,7 +24,7 @@ test('new conversations default to an OpenAI-compatible endpoint', () => {
   assert.match(config.url, /openrouter\.ai/)
   assert.equal(config.model, 'z-ai/glm-5.3-flash')
   assert.equal(config['max-context'], 1_310_720)
-  assert.ok(config.tools.includes('mcp'))
+  assert.deepEqual(config.tools, ['web', 'skills'])
   assert.deepEqual(config.headers, [])
 })
 
@@ -38,4 +38,13 @@ test('the default context presents Harness as a durable, bounded agent', () => {
   assert.match(config.system, /never retry blindly/)
   assert.match(config.system, /survive compaction verbatim/)
   assert.match(config.system, /Do not use shared skills to store private conversation facts/)
+  assert.match(config.system, /changing them is a separate, explicitly authorized task/)
+  assert.doesNotMatch(config.system, /Prefer the staged/)
+})
+
+test('bootstrap grants are fresh per conversation and preserve explicit overrides', () => {
+  const first = defaultConfig()
+  first.tools.push('author')
+  assert.deepEqual(defaultConfig().tools, ['web', 'skills'])
+  assert.deepEqual(defaultConfig({ tools: ['clay', 'mcp'] }).tools, ['clay', 'mcp'])
 })

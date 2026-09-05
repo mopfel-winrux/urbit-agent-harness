@@ -11,7 +11,7 @@
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-9
+=|  state-11
 =*  state  -
 ^-  agent:gall
 =<
@@ -27,14 +27,14 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =.  state  !<(state-9 on-save:next)
+      =.  state  !<(state-11 on-save:next)
       =/  out  (filter:oauth -.result openai-auth provider-keys now.bowl)
       =^  cards  state  (accept-auth:hc out)
       [cards this]
 ::
 ++  on-init
   ^-  (quip card _this)
-  :_  this(defaults builtin-config:policy)
+  :_  this(defaults builtin-config:policy, search-config [%brave ''])
   :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
       acp-open-card:wire-codec
       acp-watch-card:wire-codec
@@ -47,7 +47,7 @@
   |=  old-vase=vase
   %-  flush-auth
   ^-  (quip card _this)
-  =/  new=state-9  (load:storage old-vase)
+  =/  new=state-11  (load:storage old-vase)
   :_  this(state new)
   =/  base=(list card)
     :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
@@ -167,6 +167,9 @@
       [%x %defaults ~]
     ``json+!>((config-json:hj defaults))
   ::
+      [%x %search ~]
+    ``json+!>((config-json:search search-config))
+  ::
       [%x %mcp ~]
     :^  ~  ~  %json
     !>  ^-  json
@@ -187,7 +190,7 @@
     ^-  json
     %-  pairs:enjs:format
     :~  ['ship' %s (scot %p ship)]
-        ['tools' %a (turn tools.g |=(t=term `json`[%s t]))]
+        ['tools' %a (turn tools.g grant-json:hj)]
         ['budget' (numb:enjs:format budget.g)]
         ['inflows' %a (turn ~(tap in inflows.g) |=(n=@t `json`[%s n]))]
     ==
@@ -658,6 +661,21 @@
     =/  result=json  [%a (turn ~(tap by mcp-servers) mcp-server-json:hj)]
     [~[(acp-result-card:wire-codec connection u.id result)] state]
   ::
+      %'harness/search'
+    ?~  id  `state
+    [~[(acp-result-card:wire-codec connection u.id (config-json:search search-config))] state]
+  ::
+      %'harness/search/configure'
+    ?~  id  `state
+    =/  raw  (acp-param-json:wire-codec params 'config')
+    ?~  raw
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Expected search configuration')] state]
+    =/  decoded  (mule |.((json-config:search u.raw)))
+    ?:  ?=(%| -.decoded)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Choose Brave or SearXNG with an HTTP(S) instance URL, without query, fragment or credentials.')] state]
+    =.  search-config  p.decoded
+    [~[(acp-result-card:wire-codec connection u.id (config-json:search search-config))] state]
+  ::
       %'harness/mcp/configure'
     ?~  id  `state
     =/  raw  (acp-param-json:wire-codec params 'servers')
@@ -1030,6 +1048,7 @@
       %cancel
     =/  ses  (need-session sid.act)
     =/  v  (play:hl log.ses)
+    =.  search-requests  (forget-requests:search search-requests sid.act)
     ::  Withdraw local HTTP waits as well as fencing their results. This
     ::  cannot undo an operation the external service has already accepted.
     =/  withdrawn=(list card)
@@ -1069,6 +1088,7 @@
     ::
     =/  sid  sid.act
     ?.  (~(has by sessions) sid)  `state
+    =.  search-requests  (forget-requests:search search-requests sid)
     =|  cards=(list card)
     ::  timers
     =/  tkeys  (skim ~(tap in ~(key by timers)) |=([s=session-id:h *] =(s sid)))
@@ -1147,7 +1167,7 @@
     =/  csid=session-id:h  (rap 3 parent.act '--' call-id.act ~)
     =/  ccfg=config:h
       %=  config.pv
-        tools   (skip tools.config.pv |=(t=term =(%subagents t)))
+        tools   (skip tools.config.pv |=(t=tool-grant:h =(%subagents t)))
         system  %+  fall  system.act
                 %^  cat  3  system.config.pv
                 ' You are a subagent: complete the task and reply with only your final answer.'
@@ -1184,16 +1204,14 @@
     =/  csid=session-id:h  (rap 3 'rehearse--' sid.act '--' call-id.act ~)
     =/  ccfg=config:h
       %=  config.pv
-        ::  a rehearsal is sandboxed: it can read skills and run code,
-        ::  but never mutate the live library, spawn, or reach peers
-        ::
-        tools   %+  skip  tools.config.pv
-                |=(t=term ?=(?(%author %skill-write %subagents %peers) t))
+        tools   (rehearsal-tools:ht tools.config.pv)
         system  %+  rap  3
                 :~  system.config.pv
-                    ' You are a rehearsal: a sandboxed test of a skill named "'
+                    ' You are a read-only rehearsal of a skill named "'
                     name.act  '". Follow the skill and complete the task; '
-                    'reply with only your final result.'
+                    'reply with only your final result. Only inherited Clay '
+                    'and skill reads are available. Report any untested '
+                    'effectful steps; do not claim they ran or were verified.'
                 ==
       ==
     =/  cses=session:h
@@ -1368,6 +1386,7 @@
   =/  dr  (drive sid ses)
   =.  skills  sk.dr
   =.  staged  stg.dr
+  =.  search-requests  sr.dr
   =.  ses  ses.dr
   =/  rearm=[cs=(list card) nt=_timers]
     ?~  every.u.mt
@@ -1390,12 +1409,13 @@
 ::
 ++  drive
   |=  [sid=session-id:h ses=session:h]
-  ^-  [cards=(list card) ses=session:h sk=(map @t skill:h) stg=(map @t skill:h)]
+  ^-  [cards=(list card) ses=session:h sk=(map @t skill:h) stg=(map @t skill:h) sr=search-requests:h]
   =|  cards=(list card)
-  |-  ^-  [cards=(list card) ses=session:h sk=(map @t skill:h) stg=(map @t skill:h)]
+  |-  ^-  [cards=(list card) ses=session:h sk=(map @t skill:h) stg=(map @t skill:h) sr=search-requests:h]
   =/  v=view:h  (play:hl log.ses)
+  =.  tools.config.v  (execution-tools sid tools.config.v)
   =/  stp  (next:hs v (skills-visible sid skills))
-  ?~  stp  [cards ses skills staged]
+  ?~  stp  [cards ses skills staged search-requests]
   ?-  -.u.stp
       %tools
     ::  sync tools run on-ship now; async tools (iris) record a
@@ -1406,9 +1426,9 @@
     ::
     =/  acc
       %+  roll  calls.u.stp
-      |:  [c=*tool-call:h acc=[evs=*(list event:h) tcards=*(list card) sk=skills stg=staged]]
+      |:  [c=*tool-call:h acc=[evs=*(list event:h) tcards=*(list card) sk=skills stg=staged sr=search-requests]]
       ^+  acc
-      ?.  (tool-granted:ht name.c tools.config.v)
+      ?.  (call-granted:ht c tools.config.v)
         %=  acc  evs
           %+  snoc  evs.acc
           `event:h`[%tool-completed id.c name.c 'rejected: tool is not granted for this session']
@@ -1508,22 +1528,23 @@
           tcards  (snoc tcards.acc (run-js-poke:effects sid id.c u.code))
         ==
       ?:  =(name.c 'web_search')
-        =/  built  (request:search args.c (provider-key 'brave'))
+        =/  built  (configured-request:search args.c (provider-key 'brave') search-config)
         ?:  ?=(%| -.built)
           acc(evs (snoc evs.acc [%tool-completed id.c name.c p.built]))
         %=  acc
           evs  (snoc evs.acc [%tool-requested id.c name.c])
           tcards  (snoc tcards.acc [%pass `wire`[%tool `@ta`sid `@ta`id.c ~] %arvo %i %request p.built [0 0]])
+          sr  (~(put by sr.acc) [sid id.c] provider.search-config)
         ==
       =/  async=(unit (unit card))
         ?:  =(name.c 'http_fetch')     `(fetch-card:effects sid c)
         ?:  |(=(name.c 'list_mcp_tools') =(name.c 'call_mcp_tool'))
-          `(mcp-card:effects sid c)
+          `(mcp-card:effects sid c tools.config.v)
         ?:  =(name.c 'run_subagent')   `(spawn-card:effects sid c)
         ?:  =(name.c 'ask_peer')       `(ask-peer-card:effects sid c)
         ~
       ?~  async
-        acc(evs (snoc evs.acc (run-tool:effects c (skills-visible sid sk.acc))))
+        acc(evs (snoc evs.acc (run-tool:effects c (skills-visible sid sk.acc) tools.config.v)))
       ?~  u.async
         %=  acc  evs
           %+  snoc  evs.acc
@@ -1535,6 +1556,7 @@
       ==
     =.  skills  sk.acc
     =.  staged  stg.acc
+    =.  search-requests  sr.acc
     =^  cs  ses  (record-all sid ses evs.acc)
     $(cards :(weld cards cs tcards.acc))
   ::
@@ -1550,7 +1572,7 @@
     ::  record the halt (sets err, stops the loop) and stop driving
     ::
     =^  cs  ses  (record-all sid ses ~[[%halted reason.u.stp]])
-    [(weld cards cs) ses skills staged]
+    [(weld cards cs) ses skills staged search-requests]
   ==
 ::  The plan event and request are emitted atomically. Coverage refers to the
 ::  pre-dispatch log and active prefix, not whatever happens to be current when
@@ -1811,6 +1833,13 @@
        ==
     `name.i.events
   $(events t.events)
+::  A rehearsal stays read-only even if an old saved config or an owner edit
+::  carries broader grants. This restriction also fences queued self-pokes.
+++  execution-tools
+  |=  [sid=session-id:h granted=(list tool-grant:h)]
+  ^-  (list tool-grant:h)
+  ?.  (~(has by rehearsals) sid)  granted
+  (rehearsal-tools:ht granted)
 ::  Self-pokes are not ambient authority: both a grant and an outstanding
 ::  request must still exist when the asynchronous operation starts/finishes.
 ++  authorized-call
@@ -1820,10 +1849,22 @@
   ?~  maybe  |
   =/  v  (play:hl log.u.maybe)
   ?.  (~(has in wait.v) call-id)  |
-  ?.  (tool-granted:ht name tools.config.v)  |
+  ?.  (tool-granted:ht name (execution-tools sid tools.config.v))  |
   =/  requested  (requested-tool u.maybe call-id)
   ?~  requested  |
   =(name u.requested)
+::  Recover the arguments of the outstanding model call, not just its name.
+++  requested-call
+  |=  [ses=session:h call-id=@t]
+  ^-  (unit tool-call:h)
+  =/  events  log.ses
+  |-  ^-  (unit tool-call:h)
+  ?~  events  ~
+  ?:  &(?=(%llm-completed -.i.events) ?=(%assistant -.item.i.events))
+    =/  found  (murn calls.item.i.events |=(c=tool-call:h ?:(=(call-id id.c) `c ~)))
+    ?^  found  `i.found
+    $(events t.events)
+  $(events t.events)
 ::  +handle-tool-response: an async tool result re-enters as an event
 ::
 ++  handle-tool-response
@@ -1850,7 +1891,20 @@
     ?:  ?&(?=(%tool-requested -.i.log.ses) =(call-id call-id.i.log.ses))
       name.i.log.ses
     $(log.ses t.log.ses)
-  =?  body  =('web_search' tname)  (response:search res)
+  =/  provider  (~(get by search-requests) [sid call-id])
+  =.  search-requests  (~(del by search-requests) [sid call-id])
+  =?  body  =('web_search' tname)  (configured-response:search res ?~(provider %brave u.provider))
+  =?  body  |(=('list_mcp_tools' tname) =('call_mcp_tool' tname))
+    =/  call  (requested-call ses call-id)
+    ?~  call  'rejected: MCP request is no longer authorized'
+    ?.  (call-granted:ht u.call (execution-tools sid tools.config.v))
+      'rejected: MCP request is no longer authorized'
+    =/  server-id  (tool-str:effects args.u.call 'server')
+    ?~  server-id  'rejected: MCP request is no longer authorized'
+    =/  server  (~(get by mcp-servers) u.server-id)
+    ?~  server  'rejected: MCP server is no longer available'
+    ?.  enabled.u.server  'rejected: MCP server is no longer available'
+    body
   =^  cs1  ses  (record-all sid ses ~[[%tool-completed call-id tname body]])
   =^  cs2  state  (drive-put sid ses)
   [(weld cs1 cs2) state]
@@ -1862,6 +1916,7 @@
   =/  dr  (drive sid ses)
   =.  skills  sk.dr
   =.  staged  stg.dr
+  =.  search-requests  sr.dr
   =.  sessions  (~(put by sessions) sid ses.dr)
   =^  cs2  state  (settle sid)
   [:(weld cards.dr ~[(shadow-put-card sid ses.dr)] cs2) state]

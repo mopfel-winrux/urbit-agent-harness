@@ -66,8 +66,13 @@ is presentation only: it neither admits work nor determines settlement.
 
 ## Authority and conversation scope
 
-- The owner has every tool family in the harness catalog.
+- New owner conversations inherit the tools in **Settings → Defaults**, not the
+  entire catalog. Existing conversations keep their configured grants. Ownership
+  still permits conversation admission and invitation acceptance without tools.
 - Trusted ships can chat with no tools; each grant is explicit.
+  MCP entries grant individual registered server IDs, for example
+  `{"mcp":"calendar"}` in the `tools` array. Registering another server never
+  adds it to trusted actors' grants. A granted server permits all of its tools.
 - Other ships and the bot's own messages do not enter inference.
 - Group invitations are accepted only when sent by the owner. DM invitations
   from the owner or a trusted ship are accepted.

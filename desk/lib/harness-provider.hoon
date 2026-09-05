@@ -44,7 +44,7 @@
         ::  the skill catalog rides along whenever %skills is granted;
         ::  names and descriptions only, bodies are read on demand
         ::
-        ?.  &((lien tools.config.v |=(t=term =(%skills t))) !=(~ skills))
+        ?.  &((lien tools.config.v |=(t=tool-grant:h =(%skills t))) !=(~ skills))
           ~
         ~[(msg-json 'system' (skills-catalog skills))]
       ::
@@ -85,7 +85,7 @@
         ?~  memory.v  ~
         ~[(responses-message 'user' (reference:memory memory.v))]
       ::
-        ?.  &((lien tools.config.v |=(t=term =(%skills t))) !=(~ skills))
+        ?.  &((lien tools.config.v |=(t=tool-grant:h =(%skills t))) !=(~ skills))
           ~
         ~[(responses-message 'developer' (skills-catalog skills))]
       ::
@@ -147,7 +147,7 @@
   ==
 ::
 ++  responses-tool-defs
-  |=  tools=(list term)
+  |=  tools=(list tool-grant:h)
   ^-  json
   =/  ordinary  (tool-defs:ht tools)
   ?.  ?=(%a -.ordinary)  [%a ~]

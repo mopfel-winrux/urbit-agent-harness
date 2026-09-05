@@ -40,7 +40,7 @@
 ::  same tool batch), so reads see fresh writes
 ::
 ++  run-tool
-  |=  [c=tool-call:h sk=(map @t skill:h)]
+  |=  [c=tool-call:h sk=(map @t skill:h) tools=(list tool-grant:h)]
   ^-  event:h
   =/  out=@t
     ?:  =(name.c 'read_desk_file')
@@ -55,7 +55,7 @@
       %+  murn  ~(tap by mcp-servers)
       |=  [id=mcp-server-id:h server=mcp-server:h]
       ^-  (unit json)
-      ?.  enabled.server  ~
+      ?.  &(enabled.server (mcp-granted:ht id tools))  ~
       `(pairs:enjs:format ~[['id' %s id] ['name' %s name.server]])
     (cat 3 'unknown tool: ' name.c)
   [%tool-completed id.c name.c out]
@@ -129,8 +129,9 @@
 ::  credentials remain agent configuration, while results enter the log.
 ::
 ++  mcp-card
-  |=  [sid=session-id:h c=tool-call:h]
+  |=  [sid=session-id:h c=tool-call:h tools=(list tool-grant:h)]
   ^-  (unit card)
+  ?.  (call-granted:ht c tools)  ~
   =/  server-id  (tool-str args.c 'server')
   ?~  server-id  ~
   =/  configured  (~(get by mcp-servers) u.server-id)

@@ -15,11 +15,18 @@ let config = JSON.parse(sessionStorage.getItem('settings-fixture-config') || 'nu
 let device = params.has('device') || sessionStorage.getItem('settings-fixture-device') === 'true'
 let apiKey = false
 let braveKey = sessionStorage.getItem('settings-fixture-brave') === 'true'
+let search = JSON.parse(sessionStorage.getItem('settings-fixture-search') || 'null') || { provider: 'brave', 'instance-url': '' }
 window.settingsFixture = { requests: [], saves: [], credentials: [], resolve: (id, value) => pending.get(id)(value) }
 api.read = async (path) => {
   if (path === 'defaults' || path.startsWith('session/')) return config
   if (path === 'status/openai') return { 'has-key': device || apiKey, 'has-api-key': apiKey, 'has-device-login': device, 'auth-method': device ? 'device' : 'api-key' }
   if (path === 'status/brave') return { 'has-key': braveKey }
+  if (path === 'search') return search
+  if (path === 'tools') return ['clay', 'web', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'mcp']
+  if (path === 'mcp' && params.get('page') !== 'mcp') return [
+    { id: 'calendar', name: 'Calendar', enabled: true },
+    { id: 'notes', name: 'Notes', enabled: true },
+  ]
   return []
 }
 api.models = (provider, url) => new Promise((resolve) => {
@@ -42,6 +49,12 @@ api.action = async (action) => {
     return { 'has-key': true }
   }
   if (window.settingsFixture.failSave) throw new Error('Configuration save failed in fixture')
+  if (action.search) {
+    search = action.search
+    sessionStorage.setItem('settings-fixture-search', JSON.stringify(search))
+    window.settingsFixture.saves.push(search)
+    return search
+  }
   if (action.mcp) {
     window.settingsFixture.saves.push(action.mcp)
     return action.mcp

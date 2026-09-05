@@ -3,7 +3,7 @@ import { api } from '../api'
 import { useResource } from '../useResource'
 import { PROVIDERS, providerOf } from '../providers'
 import { useProviderModels } from '../useProviderModels'
-import ToolOptions from './ToolOptions'
+import ToolOptions, { toggleGrant } from './ToolOptions'
 import ProviderRoute from './ProviderRoute'
 import { authMethod, withAuth, chooseProvider as providerConfig, catalogEndpoint } from '../providerConfig'
 
@@ -12,6 +12,7 @@ const themes = ['system', 'light', 'dark']
 export default function AgentSettings({ resources, theme, onThemeChange }) {
   const session = useResource(resources.session, null)
   const tools = useResource(resources.tools, [])
+  const mcp = useResource('mcp', [])
   const openai = useResource('status/openai', {})
   const [form, setForm] = useState({})
   const [provider, setProvider] = useState('openrouter')
@@ -71,9 +72,7 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
   }
 
   function toggleTool(name) {
-    const selected = new Set(form.tools || [])
-    selected.has(name) ? selected.delete(name) : selected.add(name)
-    field('tools', [...selected])
+    field('tools', toggleGrant(form.tools || [], name))
   }
 
   return <form className="settings-grid" onSubmit={save}>
@@ -94,8 +93,8 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
       <label><span>System instructions</span><textarea rows="5" value={form.system || ''} onChange={(event) => field('system', event.target.value)} /></label>
     </section>
     <section className="panel settings-panel">
-      <div className="section-title"><div><h2>Tools</h2><p>Capabilities for <strong>{resources.chat}</strong>. New conversations begin with all of them enabled.</p></div><button type="button" className="text-button" onClick={() => field('tools', [...(tools.value || [])])}>Enable all</button></div>
-      <ToolOptions available={tools.value || []} selected={form.tools || []} onChange={toggleTool} />
+      <div className="section-title"><div><h2>Tools</h2><p>Capabilities for <strong>{resources.chat}</strong>. Grant only what this conversation needs; shared-instruction changes and external actions affect more than this chat.</p></div></div>
+      <ToolOptions servers={mcp.value || []} available={tools.value || []} selected={form.tools || []} onChange={toggleTool} />
     </section>
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Appearance</h2><p>Use the system color scheme or choose a fixed theme.</p></div></div>

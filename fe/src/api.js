@@ -9,6 +9,7 @@ async function action(value) {
   if (value.config) return acp.call('harness/session/configure', { sessionId: value.config.sid, config: value.config.config })
   if (value.defaults) return acp.call('harness/defaults/configure', { config: value.defaults })
   if (value.mcp) return acp.call('harness/mcp/configure', { servers: value.mcp })
+  if (value.search) return acp.call('harness/search/configure', { config: value.search })
   if (value['set-key']) return acp.call('harness/credential/set', { ...value['set-key'], provider: value['set-key'].provider || 'openrouter' })
   throw new Error('Unsupported Harness action')
 }
@@ -25,6 +26,7 @@ async function read(path) {
   if (path === 'tools') return acp.call('harness/tools')
   if (path === 'defaults') return acp.call('harness/defaults')
   if (path === 'mcp') return acp.call('harness/mcp/servers')
+  if (path === 'search') return acp.call('harness/search')
   if (path.startsWith('session/')) return acp.call('harness/session/config', { sessionId: path.slice('session/'.length) })
   throw new Error(`Unsupported Harness read: ${path}`)
 }

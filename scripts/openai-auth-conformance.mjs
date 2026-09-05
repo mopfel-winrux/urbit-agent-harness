@@ -48,7 +48,9 @@ try {
       ['web', 'web_search', 'Search the web for Urbit documentation about nouns using web_search. Give one sentence with a source link.'],
     ]) {
       if (family === 'web' && !brave['has-key']) continue
-      const sid = await make(PROVIDERS.openai.deviceEndpoint, [family])
+      const grants = family === 'mcp' ? (await client.call('harness/mcp/servers')).map((server) => ({ mcp: server.id })) : [family]
+      if (!grants.length) continue
+      const sid = await make(PROVIDERS.openai.deviceEndpoint, grants)
       await client.call('session/prompt', { sessionId: sid, prompt: [{ type: 'text', text: question }] })
       const response = await fetch(`${base}/~/scry/harness/events/${encodeURIComponent(sid)}.json`, { headers: { cookie } })
       const events = await response.json()

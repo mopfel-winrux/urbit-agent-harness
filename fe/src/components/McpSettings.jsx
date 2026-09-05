@@ -44,7 +44,7 @@ export default function McpSettings({ resources }) {
   return <form className="settings-grid" onSubmit={save}>
     {(error || stored.error) && <div className="inline-error">{error || stored.error}</div>}
     <section className="panel settings-panel">
-      <div className="section-title"><div><h2>MCP servers</h2><p>Remote stateless Streamable HTTP endpoints available to conversations granted the MCP capability.</p></div><button type="button" className="text-button" onClick={add}>Add server</button></div>
+      <div className="section-title"><div><h2>MCP servers</h2><p>Register remote stateless Streamable HTTP endpoints here, then grant each server in conversation or default tool settings. Registration does not grant access. Grants follow server IDs: do not reuse an ID for an unrelated server.</p></div><button type="button" className="text-button" onClick={add}>Add server</button></div>
       {!servers.length && <div className="empty-setting"><strong>No MCP servers configured</strong><span>Add an endpoint to make its tools discoverable from any permitted conversation.</span></div>}
       <div className="mcp-servers">{servers.map((server, index) => <section className="mcp-server" key={index}>
         <div className="mcp-server-title">

@@ -5,13 +5,14 @@ import { PROVIDERS, providerOf } from '../providers'
 import { useResource } from '../useResource'
 import { useProviderModels } from '../useProviderModels'
 import HeaderEditor from './HeaderEditor'
-import ToolOptions from './ToolOptions'
+import ToolOptions, { toggleGrant } from './ToolOptions'
 import ProviderRoute from './ProviderRoute'
 import { authMethod, withAuth, chooseProvider as providerConfig, catalogEndpoint } from '../providerConfig'
 
 export default function GlobalSettings({ resources, theme, onThemeChange }) {
   const defaults = useResource(resources.defaults, defaultConfig())
   const tools = useResource(resources.tools, [])
+  const mcp = useResource('mcp', [])
   const openai = useResource('status/openai', {})
   const [form, setForm] = useState(defaultConfig())
   const [provider, setProvider] = useState('openrouter')
@@ -44,9 +45,7 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
     setForm((current) => ({ ...current, model }))
   }
   const toggleTool = (name) => {
-    const selected = new Set(form.tools || [])
-    selected.has(name) ? selected.delete(name) : selected.add(name)
-    field('tools', [...selected])
+    field('tools', toggleGrant(form.tools || [], name))
   }
 
   async function save(event) {
@@ -83,8 +82,8 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
       <label><span>System instructions</span><textarea rows="9" value={form.system || ''} onChange={(event) => field('system', event.target.value)} /></label>
     </section>
     <section className="panel settings-panel">
-      <div className="section-title"><div><h2>Default tools</h2><p>Capability grants inherited by new conversations.</p></div><button type="button" className="text-button" onClick={() => field('tools', [...(tools.value || [])])}>Enable all</button></div>
-      <ToolOptions available={tools.value || []} selected={form.tools || []} onChange={toggleTool} />
+      <div className="section-title"><div><h2>Default tools</h2><p>Capability grants inherited by new conversations, including new Tlon conversations with the owner. Existing conversations keep their settings.</p></div></div>
+      <ToolOptions servers={mcp.value || []} available={tools.value || []} selected={form.tools || []} onChange={toggleTool} />
     </section>
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Appearance</h2><p>Local display preference for this client.</p></div></div>

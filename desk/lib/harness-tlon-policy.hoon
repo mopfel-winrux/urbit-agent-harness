@@ -1,14 +1,14 @@
 ::  Pure social boundary: authentic source nouns -> allowed, addressed input.
 ::  Nicknames are presentation, never identity or authority. Sessions separate
 ::  sender, destination and grant epoch so privilege cannot bleed across chats.
-/-  t=harness-tlon, a=tlon-activity-ver
-/+  ht=harness-tools, story=harness-tlon-story
+/-  t=harness-tlon, h=harness, a=tlon-activity-ver
+/+  ht=harness-tools, hj=harness-json, story=harness-tlon-story
 |%
 ++  grants
-  |=  [policy=policy:t actor=@p]
-  ^-  (unit (list term))
+  |=  [policy=policy:t actor=@p owner-tools=(list tool-grant:h)]
+  ^-  (unit (list tool-grant:h))
   ?.  enabled.policy  ~
-  ?:  =(`actor owner.policy)  `all-tools:ht
+  ?:  =(`actor owner.policy)  `owner-tools
   (~(get by trusted.policy) actor)
 ++  address
   |=  to=destination:t
@@ -48,7 +48,7 @@
     ==
   ?~  item  ~
   ?:  =(actor.u.item our)  ~
-  ?~  (grants policy actor.u.item)  ~
+  ?~  (grants policy actor.u.item ~)  ~
   ?:  &(?=(%channel -.to.u.item) mentions.policy !addressed.u.item)  ~
   ::  A DM's partner must be its source author, not an asserted third party.
   ?:  &(?=(%dm -.to.u.item) !=(who.to.u.item actor.u.item))  ~
@@ -65,19 +65,31 @@
       :-  'trusted'
       :-  %a
       %+  turn  ~(tap by trusted.policy)
-      |=  [who=@p tools=(list term)]
-      (pairs:enjs:format ~[['ship' %s (scot %p who)] ['tools' %a (turn tools |=(name=term `json`[%s name]))]])
+      |=  [who=@p tools=(list tool-grant:h)]
+      (pairs:enjs:format ~[['ship' %s (scot %p who)] ['tools' %a (turn tools grant-json:hj)]])
   ==
 ++  json-policy
   |=  jon=json
   ^-  policy:t
   =,  dejs:format
-  =/  val=[enabled=? owner=(unit @p) mentions=? trusted=(list [p=@p q=(list term)])]
-    ((ot ~[enabled+bo owner+(mu (se %p)) mentions+bo trusted+(ar (ot ~[ship+(se %p) tools+(ar (su sym))]))]) jon)
+  =/  val=[enabled=? owner=(unit @p) mentions=? trusted=(list [p=@p q=(list tool-grant:h)])]
+    ((ot ~[enabled+bo owner+(mu (se %p)) mentions+bo trusted+(ar (ot ~[ship+(se %p) tools+(ar json-grant:hj)]))]) jon)
   =/  policy=policy:t  [enabled.val owner.val (my trusted.val) mentions.val]
   ?>  |(!enabled.policy ?=(^ owner.policy))
   ?>  (lte ~(wyt by trusted.policy) 64)
   ?>  =(~(wyt by trusted.policy) (lent trusted.val))
-  ?>  (levy ~(val by trusted.policy) |=(ts=(list term) (levy ts |=(name=term (lien all-tools:ht |=(known=term =(name known)))))))
+  ?>  (levy ~(val by trusted.policy) |=(ts=(list tool-grant:h) (levy ts |=(grant=tool-grant:h ?:(?=(^ grant) & (lien all-tools:ht |=(known=term =(grant known))))))))
   policy
+++  scope-mcp
+  |=  [old=state-1:t servers=(list @t)]
+  ^-  state:t
+  =.  trusted.policy.old
+    %+  roll  ~(tap by trusted.policy.old)
+    |=  [[who=@p tools=(list tool-grant:h)] acc=(map @p (list tool-grant:h))]
+    (~(put by acc) who (scope-mcp:ht tools servers))
+  =.  lanes.old
+    %+  roll  ~(tap by lanes.old)
+    |=  [[sid=@t lane=lane:t] acc=(map @t lane:t)]
+    (~(put by acc) sid lane(tools (scope-mcp:ht tools.lane servers)))
+  [%2 +.old]
 --

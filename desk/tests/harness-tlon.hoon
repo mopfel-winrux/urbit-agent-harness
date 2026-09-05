@@ -41,10 +41,14 @@
   |=  who=@p
   ^-  incoming-event:v8:a
   [%dm-post [[who ~2026.9.4] ~2026.9.4] [%ship who] ~[[%inline ~['hello']]] |]
-++  test-owner-has-all-tools
-  (expect-eq !>(`all-tools:ht) !>((grants:p policy ~zod)))
+++  test-owner-inherits-configured-defaults-not-the-catalog
+  (expect-eq !>(`(list term)`~[%web %skills]) !>((need (grants:p policy ~zod ~[%web %skills]))))
+++  test-owner-can-chat-with-no-default-tools
+  (expect-eq !>(`(unit (list term))`[~ ~]) !>((grants:p policy ~zod ~)))
+++  test-trusted-does-not-inherit-owner-defaults
+  (expect-eq !>(`(list term)`~[%clay]) !>((need (grants:p policy ~nec all-tools:ht))))
 ++  test-trusted-can-have-no-tools
-  (expect-eq !>(`(list term)`~) !>((need (grants:p policy ~bud))))
+  (expect-eq !>(`(list term)`~) !>((need (grants:p policy ~bud all-tools:ht))))
 ++  test-strangers-are-not-admitted
   (expect-eq !>(`(unit input:t)`~) !>((normalize:p ~lux policy (dm ~wes))))
 ++  test-disable-revokes-admission

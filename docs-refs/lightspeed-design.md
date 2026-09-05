@@ -55,13 +55,15 @@ copy of user meaning.
 
 ## Authority
 
-Owner-created interactive conversations receive the tool catalog through an
-explicit default grant and can narrow it per session. Scheduled, delegated,
+Owner-created conversations inherit configured defaults, not an automatically
+expanding catalog. Fresh-install defaults grant web access and skill reading;
+other capabilities are opt-in. Scheduled, delegated,
 and remote work receive purpose-built grants; absence of a grant denies
 execution. Grubbery roads and weirs are the intended substrate for
 making future hands independently supervised and narrowly authorized.
 
-Authored skills are staged and rehearsed before promotion. Remote asks carry a
+Experimental skill authoring is opt-in. Rehearsals are limited to inherited Clay
+and skill reads; their answers do not authorize or certify publication. Remote asks carry a
 ship identity and land under an owner-selected grant. ACP clients receive chat
 control but no implied shell or host-filesystem authority.
 

@@ -3,11 +3,29 @@
 /-  h=harness, *harness-store
 /+  *test, storage=harness-store, policy=harness-defaults, hj=harness-json, hp=harness-provider, ht=harness-tools, hl=harness
 |%
+++  test-bootstrap-grants-are-not-the-catalog
+  =/  cfg  builtin-config:policy
+  (expect-eq !>(`(list term)`~[%web %skills]) !>(tools.cfg))
+++  test-rehearsal-keeps-only-inherited-reads
+  =/  out  (rehearsal-tools:ht ~[%clay %web %skills %skill-write %author %subagents %peers %mcp %code %future-tool])
+  (expect-eq !>(`(list term)`~[%clay %skills]) !>(out))
+++  test-rehearsal-does-not-add-read-authority
+  (expect-eq !>(`(list term)`~) !>((rehearsal-tools:ht ~[%web %mcp])))
 ++  test-current-store-load-is-an-identity
-  =/  saved=state-9  *state-9
+  =/  saved=state-11  *state-11
   =.  defaults.saved  builtin-config:policy
   =.  provider-keys.saved  (my ~[['fixture' 'test-secret']])
+  =.  search-config.saved  [%searxng 'https://search.example']
+  =.  search-requests.saved  (my ~[[['fixture' 'pending-call'] %searxng]])
   =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced defaults.saved]] 37]]])
+  (expect-eq !>(saved) !>((load:storage !>(saved))))
+++  test-saved-tool-policy-is-not-replaced-by-bootstrap-defaults
+  =/  saved=state-11  *state-11
+  =/  cfg  builtin-config:policy
+  =.  defaults.saved  cfg(tools ~[%author %skill-write [%mcp 'calendar']])
+  =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced defaults.saved]] 0]]])
+  =.  skills.saved  (my ~[['existing' ['Keep me' 'Explicit owner instructions']]])
+  =.  staged.saved  skills.saved
   (expect-eq !>(saved) !>((load:storage !>(saved))))
 ++  test-store-conversion-preserves-head-and-credentials
   =/  saved=state-7  *state-7

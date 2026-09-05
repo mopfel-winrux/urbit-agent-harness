@@ -15,6 +15,12 @@
       [%cancelled reason=@t]
   ==
 +$  tool-call  [id=@t name=@t args=@t]
+::  Plain families retain their noun shape. MCP authority names one server;
+::  the old bare %mcp atom stays readable in history, but grants no access.
++$  tool-grant  $@(term [%mcp server=@t])
++$  search-provider  ?(%brave %searxng)
++$  search-config  [provider=search-provider instance-url=@t]
++$  search-requests  (map [session-id @t] search-provider)
 +$  usage  [prompt=@ud completion=@ud]
 ::  A checkpoint replaces exactly this prefix of the active context. The
 ::  event-log boundary and digest make its sources recoverable without copying
@@ -71,7 +77,7 @@
       headers=(list [name=@t value=@t])
       system=@t
       max-context=@ud     ::  provider window (catalog or fallback)
-      tools=(list term)   ::  granted tool families
+      tools=(list tool-grant)
   ==
 ::  Remote, stateless Streamable HTTP MCP server. Headers are held in
 ::  agent state and copied only onto requests to this exact endpoint.
@@ -97,7 +103,7 @@
 ::
 +$  ask-id  @uv
 +$  peer-grant
-  $:  tools=(list term)     ::  ~ for strangers
+  $:  tools=(list tool-grant)     ::  ~ for strangers
       model=(unit @t)       ::  override; cheap model for low-trust
       budget=@ud            ::  lifetime token cap for their session; 0 = no cap
       inflows=(set @t)      ::  skill names their session may see

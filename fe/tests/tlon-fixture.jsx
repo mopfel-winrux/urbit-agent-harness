@@ -11,7 +11,7 @@ acp.call = async (method, params) => {
   window.tlonFixture.modelUpdates.push(params.sessionId)
   return {}
 }
-api.read = async (path) => path === 'defaults' ? { url: 'https://openrouter.ai/api/v1/chat/completions', model: 'test/model' } : path === 'tlon/profile' ? structuredClone(window.tlonFixture.profile) : path === 'tlon' ? structuredClone(state) : path === 'tools' ? ['clay', 'web'] : [
+api.read = async (path) => path === 'mcp' ? [{ id: 'calendar', name: 'Calendar', enabled: true }, { id: 'notes', name: 'Notes', enabled: true }] : path === 'defaults' ? { url: 'https://openrouter.ai/api/v1/chat/completions', model: 'test/model' } : path === 'tlon/profile' ? structuredClone(window.tlonFixture.profile) : path === 'tlon' ? structuredClone(state) : path === 'tools' ? ['clay', 'web', 'mcp'] : [
   { ship: '~zod', nickname: 'Owner', contact: true },
   { ship: '~nec', nickname: 'Alice', contact: true },
   { ship: '~bud', nickname: 'Alice peer', contact: false },

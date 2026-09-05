@@ -6,7 +6,13 @@
 |%
 ++  load
   |=  old-vase=vase
-  ^-  state-9
+  ^-  state-11
+  =/  eleventh  (mule |.(!<(state-11 old-vase)))
+  ?:  ?=(%& -.eleventh)  p.eleventh
+  %-  migrate-10
+  =/  tenth  (mule |.(!<(state-10 old-vase)))
+  ?:  ?=(%& -.tenth)  p.tenth
+  %-  migrate-9
   =/  ninth  (mule |.(!<(state-9 old-vase)))
   ?:  ?=(%& -.ninth)  p.ninth
   %-  migrate-8
@@ -269,5 +275,54 @@
       streams.old
       hands.old
       *state:oauth
+  ==
+++  migrate-9
+  |=  old=state-9
+  ^-  state-10
+  =/  servers=(list @t)  ~(tap in ~(key by mcp-servers.old))
+  =.  sessions.old
+    %+  roll  ~(tap by sessions.old)
+    |=  [[sid=session-id:h ses=session:h] acc=(map session-id:h session:h)]
+    =/  cfg  config:(play:hl log.ses)
+    =/  scoped  (scope-mcp:ht tools.cfg servers)
+    ?:  =(scoped tools.cfg)  (~(put by acc) sid ses)
+    (~(put by acc) sid ses(log [[%config-replaced cfg(tools scoped)] log.ses]))
+  =.  defaults.old  defaults.old(tools (scope-mcp:ht tools.defaults.old servers))
+  =.  peer-base.old
+    ?~  peer-base.old  ~
+    `u.peer-base.old(tools (scope-mcp:ht tools.u.peer-base.old servers))
+  =.  peers.old
+    %+  roll  ~(tap by peers.old)
+    |=  [[ship=@p grant=peer-grant:h] acc=(map @p peer-grant:h)]
+    (~(put by acc) ship grant(tools (scope-mcp:ht tools.grant servers)))
+  [%10 +.old]
+++  migrate-10
+  |=  old=state-10
+  ^-  state-11
+  :*  %11
+      sessions.old
+      timers.old
+      subs.old
+      skills.old
+      staged.old
+      rehearsals.old
+      peers.old
+      peer-base.old
+      asks.old
+      serving.old
+      jobs.old
+      api-key.old
+      acp-prompts.old
+      acp-through.old
+      provider-keys.old
+      model-requests.old
+      next-model-request.old
+      defaults.old
+      mcp-servers.old
+      streams.old
+      hands.old
+      openai-auth.old
+      [%brave '']
+      *search-requests:h
   ==
 --

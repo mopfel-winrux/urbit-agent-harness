@@ -43,11 +43,13 @@ test('nickname suggestions select concrete ships; tools are explicitly granted',
   await page.locator('.trusted-ship summary').click()
   await expect(page.getByRole('checkbox', { name: 'Web search & requests' })).not.toBeChecked()
   await page.getByRole('checkbox', { name: 'Web search & requests' }).check()
+  await page.getByRole('checkbox', { name: /^MCP: Calendar/ }).check()
+  await expect(page.getByRole('checkbox', { name: /^MCP: Notes/ })).not.toBeChecked()
   await page.getByRole('checkbox', { name: 'Enable Tlon hand' }).check()
   await page.getByRole('button', { name: 'Save Tlon settings' }).click()
   await expect(page.getByText('Saved.', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => window.tlonFixture.saves.at(-1))).toEqual({
-    enabled: true, owner: '~zod', mentions: true, trusted: [{ ship: '~nec', tools: ['web'] }],
+    enabled: true, owner: '~zod', mentions: true, trusted: [{ ship: '~nec', tools: ['web', { mcp: 'calendar' }] }],
   })
 })
 

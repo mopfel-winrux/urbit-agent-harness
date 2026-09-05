@@ -57,15 +57,47 @@
   ^-  @t
   ?:  (lte (met 3 t) cap)  t
   (cat 3 (end [3 cap] t) ' ...(truncated)')
-::  +all-tools: the canonical tool families, in code so a new session
-::  can default to the full set without re-granting after a state wipe.
-::  (peer sessions do NOT use this — their grant is explicit)
+::  +all-tools: the available catalog, not a default grant. Bootstrap policy
+::  lives in harness-defaults; existing explicit grants remain independent.
 ::
 ++  all-tools
   ^-  (list term)
   :~  %clay  %web  %skills  %skill-write
       %author  %subagents  %peers  %mcp
   ==
+::  Rehearsals may inspect inherited source material, never dispatch effects
+::  or publish instructions. An allowlist keeps future families out by default.
+++  rehearsal-tools
+  |=  tools=(list tool-grant:h)
+  ^-  (list tool-grant:h)
+  (skim tools |=(tool=tool-grant:h ?=(?(%clay %skills) tool)))
+::  Used once when loading pre-scope policy, never when admitting new grants.
+::  Snapshot registered IDs so adding a server later cannot widen authority.
+++  scope-mcp
+  |=  [tools=(list tool-grant:h) servers=(list @t)]
+  ^-  (list tool-grant:h)
+  %-  zing
+  %+  turn  tools
+  |=  tool=tool-grant:h
+  ^-  (list tool-grant:h)
+  ?.  =(%mcp tool)  ~[tool]
+  (turn servers |=(server=@t `tool-grant:h`[%mcp server]))
+++  mcp-granted
+  |=  [server=@t tools=(list tool-grant:h)]
+  ^-  ?
+  (lien tools |=(tool=tool-grant:h =(tool [%mcp server])))
+::  Collapse server grants to one schema family, retaining catalog order and
+::  avoiding duplicate MCP function definitions when several servers are granted.
+++  tool-families
+  |=  tools=(list tool-grant:h)
+  ^-  (list term)
+  =/  granted=(set term)
+    %+  roll  tools
+    |=  [tool=tool-grant:h out=(set term)]
+    ?:  ?=(^ tool)  (~(put in out) %mcp)
+    ?:  =(%mcp tool)  out
+    (~(put in out) tool)
+  (skim (snoc all-tools %code) |=(family=term (~(has in granted) family)))
 ::  Resolve provider-returned function names to the capability family that
 ::  authorizes execution. This mapping is also checked at dispatch time;
 ::  provider schemas are discovery, never authority.
@@ -93,19 +125,30 @@
     %'call_mcp_tool'    `%mcp
   ==
 ++  tool-granted
-  |=  [name=@t tools=(list term)]
+  |=  [name=@t tools=(list tool-grant:h)]
   ^-  ?
   =/  family  (tool-family name)
   ?~  family  |
-  (lien tools |=(candidate=term =(candidate u.family)))
+  (lien (tool-families tools) |=(candidate=term =(candidate u.family)))
+::  Schema visibility is not execution authority: MCP calls also name a server.
+++  call-granted
+  |=  [call=tool-call:h tools=(list tool-grant:h)]
+  ^-  ?
+  ?.  (tool-granted name.call tools)  |
+  ?.  |(=('list_mcp_tools' name.call) =('call_mcp_tool' name.call))  &
+  =/  jon  (de:json:html args.call)
+  ?.  ?=([~ %o *] jon)  |
+  =/  server  (~(get by p.u.jon) 'server')
+  ?.  ?=([~ %s *] server)  |
+  (mcp-granted p.u.server tools)
 ::  +tool-defs: schemas for granted tool families
 ::
 ++  tool-defs
-  |=  tools=(list term)
+  |=  tools=(list tool-grant:h)
   ^-  json
   :-  %a
   %-  zing
-  %+  turn  tools
+  %+  turn  (tool-families tools)
   |=  t=term
   ^-  (list json)
   ?+  t  ~
@@ -125,7 +168,7 @@
     ==
   ::
       %web
-    :-  (fun-json 'web_search' 'Search the web with Brave. Returns up to five titles, URLs and excerpts. Use http_fetch to read a result.' ~[['query' 'search query, up to 400 characters and 50 words']])
+    :-  (fun-json 'web_search' 'Search the web with the configured search provider. Returns up to five titles, URLs and excerpts. Use http_fetch to read a result.' ~[['query' 'search query, up to 400 characters']])
     :_  ~
     %^    fun-json
         'http_fetch'
@@ -186,11 +229,12 @@
           %-  crip
           %-  zing
           ^-  (list tape)
-          :~  "Test a staged skill in a fresh sandboxed rehearsal "
-              "session that can see it, by giving it a sample task. "
-              "Returns what the rehearsal produced. Nothing you do here "
-              "touches your real state — if it fails, just revise and "
-              "rehearse again before committing."
+          :~  "Try a staged skill on a sample task in a fresh read-only "
+              "session. It may only read inherited Clay files and skills; "
+              "web, MCP, code execution and other effects are unavailable. "
+              "The rehearsal creates a transcript and incurs inference usage. "
+              "Its answer is evidence for review, not proof that the skill "
+              "is safe or correct. It does not publish the skill."
           ==
         :~  ['name' 'the staged skill to test']
             ['input' 'a sample task to try the skill on']
@@ -200,8 +244,8 @@
             'commit_skill'
           %-  crip
           %+  weld
-            "Promote a staged skill to your live library, where future "
-          "sessions can use it. Do this only after a successful rehearsal."
+            "Publish a staged skill to the shared live library for future conversations. "
+          "Requires explicit authorization to change shared instructions; a rehearsal answer does not supply that authorization."
         ~[['name' 'the staged skill to commit']]
       ::
         %^    fun-json
@@ -252,7 +296,7 @@
     ==
   ::
       %mcp
-    :-  (fun-json 'list_mcp_servers' 'Discover enabled MCP server IDs and names. Call this first; you do not need the user to supply a server ID.' ~)
+    :-  (fun-json 'list_mcp_servers' 'Discover enabled MCP servers granted to this conversation. Call this first; you do not need the user to supply a server ID.' ~)
     :~  %^    fun-json
             'list_mcp_tools'
           'List tools on a server discovered with list_mcp_servers'

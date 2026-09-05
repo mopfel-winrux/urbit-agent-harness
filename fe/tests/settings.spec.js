@@ -18,6 +18,28 @@ test('context is read from the catalog at save time, even when metadata arrives 
   expect(await page.evaluate(() => window.settingsFixture.saves.at(-1)['max-context'])).toBe(32768)
 })
 
+for (const surface of ['global', 'conversation']) test(`${surface}: bootstrap tools are narrow and explicit opt-ins survive reload`, async ({ page }) => {
+  await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}`)
+  await expect(page.getByRole('checkbox', { name: /^Web search & requests/ })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: /^Skills Read instructions/ })).toBeChecked()
+  const authoring = page.getByRole('checkbox', { name: /^Skill experiments/ })
+  await expect(authoring).not.toBeChecked()
+  await expect(page.getByRole('checkbox', { name: /^Write shared skills/ })).not.toBeChecked()
+  await expect(page.getByRole('checkbox', { name: /^MCP: Calendar/ })).not.toBeChecked()
+  await expect(page.getByRole('button', { name: 'Enable all' })).toHaveCount(0)
+  await authoring.check()
+  await page.getByRole('checkbox', { name: /^MCP: Calendar/ }).check()
+  await page.getByRole('button', { name: surface === 'global' ? 'Save defaults' : 'Save conversation' }).click()
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)?.tools)).toEqual(['web', 'skills', 'author', { mcp: 'calendar' }])
+  await page.reload()
+  await expect(authoring).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: /^MCP: Calendar/ })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: /^MCP: Notes/ })).not.toBeChecked()
+  await page.getByRole('checkbox', { name: /^MCP: Calendar/ }).uncheck()
+  await page.getByRole('button', { name: surface === 'global' ? 'Save defaults' : 'Save conversation' }).click()
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)?.tools)).toEqual(['web', 'skills', 'author'])
+})
+
 test('search key can be configured, survives reload, and can be removed', async ({ page }) => {
   await page.goto('/apps/harness/tests/settings-fixture.html?page=search')
   await expect(page.getByText('key needed', { exact: true })).toBeVisible()
@@ -29,6 +51,23 @@ test('search key can be configured, survives reload, and can be removed', async 
   await expect(page.getByText('key configured', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Remove search key' }).click()
   await expect(page.getByText('key needed', { exact: true })).toBeVisible()
+})
+
+test('SearXNG selection persists without removing the Brave key', async ({ page }) => {
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=search')
+  await page.getByLabel('Brave Search API key').fill('fixture-brave-key')
+  await page.getByRole('button', { name: 'Save search key' }).click()
+  await page.getByRole('combobox', { name: 'Search provider', exact: true }).selectOption('searxng')
+  await page.getByLabel('SearXNG instance URL').fill('https://search.example.org/prefix/')
+  await page.getByRole('button', { name: 'Save search provider' }).click()
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1))).toEqual({ provider: 'searxng', 'instance-url': 'https://search.example.org/prefix' })
+  await page.reload()
+  await expect(page.getByRole('combobox', { name: 'Search provider', exact: true })).toHaveValue('searxng')
+  await expect(page.getByLabel('SearXNG instance URL')).toHaveValue('https://search.example.org/prefix')
+  await expect(page.getByText('key configured', { exact: true })).toBeVisible()
+  await page.getByRole('combobox', { name: 'Search provider', exact: true }).selectOption('brave')
+  await page.getByRole('button', { name: 'Save search provider' }).click()
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1).provider)).toBe('brave')
 })
 
 test('MCP ids keep focus while typing and row removal preserves remaining headers', async ({ page }) => {

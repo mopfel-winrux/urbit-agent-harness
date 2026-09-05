@@ -81,6 +81,7 @@ try {
   await until('failure clears computing', async () => !await presence())
   await until('safe authentication failure delivered to peer', async () => JSON.stringify(await scry(`chat/v4/dm/${ship}/writs/newest/8/light`)).includes('could not authenticate'))
   const prior = await client.call('harness/session/config', { sessionId })
+  assert.deepEqual(prior.tools, ['web'], 'owner conversations inherit configured defaults, not the full catalog')
   await client.call('harness/session/configure', { sessionId, config: { ...prior, key: '', tools: ['web'] } })
   await client.call('harness/defaults/configure', { config: { ...config, url: `${url}/second`, model: 'second-model',
     headers: [{ name: 'x-fixture', value: 'second' }], system: 'Do not replace the existing session instructions.', tools: [] } })

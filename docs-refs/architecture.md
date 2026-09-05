@@ -273,19 +273,47 @@ planned work; compaction does not bound full-log replay cost.
 
 ## Tools and authority
 
-Tool families are granted per conversation. Owner-created interactive
-conversations explicitly receive the current catalog—ship time, Clay reads,
-public web requests, skills, governed skill writing, authoring, child sessions,
-peer asks, and configured MCP servers—and can narrow it independently. Remote,
-scheduled, delegated, and rehearsal sessions receive purpose-built grants. Provider-visible schemas
+Tool families are granted per conversation. Fresh-install defaults grant web
+access and skill reading, not the complete catalog. New owner Tlon conversations
+inherit configured defaults too. Saved defaults and existing conversations keep
+their explicit grants; changing bootstrap policy never rewrites their history.
+Additional capabilities are opt-in. Remote, scheduled, delegated, and rehearsal
+sessions receive purpose-built grants. Provider-visible schemas
 are discovery only: execution resolves every function name to a family and
 checks the current grant again; internal self-pokes must also correspond to a
 durable outstanding call.
 
-Skills have a staged workflow: propose, rehearse in a child session, then
-commit or discard. Peer work uses Urbit identity and explicit grants for model,
-budget, visible skills, and tools. A social desk may later act as an optional
-channel, but it is not an identity or runtime dependency.
+MCP is granted per server, not per tool: JSON grants use `{"mcp":"server-id"}`
+alongside ordinary family strings. Discovery filters the enabled registry by
+those exact IDs; both dispatch and delayed HTTP receipt admission check the
+current grant. Disabled or removed servers cannot return tool bodies. Revocation
+cannot undo requests already accepted by an external server. IDs are authority
+identities: replacing an endpoint under the same ID retains its grants, so do not
+reuse an ID for an unrelated server.
+
+The version-10 migration snapshots legacy broad MCP grants to the IDs registered
+at upgrade, including disabled entries. Defaults, peers, trusted Tlon policy and
+current sessions migrate once. Session migration appends a configuration event;
+the old history remains intact. A historical bare `mcp` grant is readable but
+inactive, and new JSON policy must name servers. Later registration grants nothing.
+
+Search-provider configuration belongs to the effect owner, not model arguments.
+Version 11 retains Brave as the upgrade default and adds SearXNG's configured
+instance URL. Both use `web_search` and the Web grant. Pending searches retain
+their dispatch provider across configuration changes and reloads. SearXNG uses
+form POST to `<instance-base>/search`, with JSON results normalized to the same
+bounded title/link/excerpt contract; Brave credentials are never sent there.
+
+Experimental skill authoring can stage, rehearse, publish or discard instructions.
+It is not enabled by bootstrap defaults. Rehearsals only retain inherited Clay
+and skill reads; dispatch enforces that ceiling even for older or edited configs.
+They consume inference and create session evidence, but cannot use web, MCP,
+code execution, peers, child agents or skill mutations. Publication is a separate
+shared-library mutation: the current tool has no owner-approval or successful-test
+gate. A rehearsal answer is not a safety certificate. Direct skill writing is
+also explicit, shared-library authority rather than conversation memory.
+Peer work uses Urbit identity and explicit grants for model, budget, visible
+skills, and tools. Social desks are optional channels, not runtime dependencies.
 
 ## ACP
 
