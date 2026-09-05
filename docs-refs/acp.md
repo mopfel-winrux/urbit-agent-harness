@@ -201,8 +201,42 @@ conversations can select Device login in their model settings and save; no
 transcript rewrite or automatic mass reconfiguration is performed.
 
 Subscription and API-key authentication are separate access modes; see
-[OpenAI authentication](https://learn.chatgpt.com/docs/auth). Automatic refresh
-of stored device tokens remains separate work.
+[OpenAI authentication](https://learn.chatgpt.com/docs/auth). OpenAI device
+credentials renew on the ship when a request arrives within five minutes of
+expiry, including model-catalog and compaction requests. There is no browser
+refresh loop or idle polling. Concurrent requests share one renewal; up to 64
+credential-free requests can wait for at most 30 seconds. Cancellation removes
+waiting work. A new login fences old responses, and rotated access/refresh tokens
+are saved together. Temporary failures have a one-minute retry cooldown;
+rejected credentials require a new login. Failures settle the waiting requests
+and appear in the conversation or catalog, without exposing the token response.
+
+An OpenAI device login should call `harness/credential/set` once with
+`provider: "openai-device"`, `key`, `refreshToken`, and `account`. Empty optional
+strings explicitly clear values from a previous login. Status also exposes
+`auto-renew`, `renewing`, and a sanitized `renewal-error`, never token values.
+
+## Shared web search and MCP discovery
+
+`harness/credential/set` with `provider: "brave"` stores the Brave Search key;
+an empty key removes it. `harness/status` with the same provider reports only
+`has-key`. The React client exposes this under Settings → Search.
+
+The `web_search` tool takes `query` and uses the existing `%web` capability.
+It returns at most five titles, URLs and excerpts; `http_fetch` can read a result.
+The endpoint is fixed, and only the ship supplies the subscription header.
+Queries use the [Brave JSON POST API](https://api-dashboard.search.brave.com/api-reference/web/search/post),
+so spaces, Unicode and query punctuation never pass through URL reconstruction.
+Some Vere builds decode escaped query components before emitting the HTTP
+request line; generic `http_fetch` remains subject to that runtime behavior.
+Search results are untrusted reference material, not executable instructions.
+The same tool is available through every hand; configuring a key grants no
+additional permissions to an existing conversation or trusted Tlon user.
+
+With `%mcp`, `list_mcp_servers` discovers enabled IDs and names without exposing
+URLs or headers. The bot then uses `list_mcp_tools` and `call_mcp_tool` with those
+IDs. Discovery reads the current registry on demand, so changing configuration
+does not require rewriting system prompts or opening a new conversation.
 
 ## Recovery
 

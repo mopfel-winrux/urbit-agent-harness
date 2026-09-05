@@ -77,6 +77,7 @@
     %'read_desk_file'   `%clay
     %'list_desk_files'  `%clay
     %'http_fetch'       `%web
+    %'web_search'       `%web
     %'read_skill'       `%skills
     %'write_skill'      `%skill-write
     %'delete_skill'     `%skill-write
@@ -88,6 +89,7 @@
     %'run_subagent'     `%subagents
     %'ask_peer'         `%peers
     %'list_mcp_tools'   `%mcp
+    %'list_mcp_servers'  `%mcp
     %'call_mcp_tool'    `%mcp
   ==
 ++  tool-granted
@@ -123,6 +125,7 @@
     ==
   ::
       %web
+    :-  (fun-json 'web_search' 'Search the web with Brave. Returns up to five titles, URLs and excerpts. Use http_fetch to read a result.' ~[['query' 'search query, up to 400 characters and 50 words']])
     :_  ~
     %^    fun-json
         'http_fetch'
@@ -249,9 +252,10 @@
     ==
   ::
       %mcp
+    :-  (fun-json 'list_mcp_servers' 'Discover enabled MCP server IDs and names. Call this first; you do not need the user to supply a server ID.' ~)
     :~  %^    fun-json
             'list_mcp_tools'
-          'List the tools offered by a configured MCP server'
+          'List tools on a server discovered with list_mcp_servers'
         ~[['server' 'the configured MCP server id']]
       ::
         %^    fun-json

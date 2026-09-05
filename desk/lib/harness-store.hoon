@@ -1,12 +1,15 @@
 ::  Persistence version conversion, deliberately outside the running head.
 ::  Load preserves the saved envelope; it does not dispatch work. Explicit
 ::  constructors make every retained field auditable across version changes.
-/-  h=harness, hh=harness-hand, ac=acp, *harness-store
+/-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, *harness-store
 /+  hl=harness, ht=harness-tools, hd=harness-hand, policy=harness-defaults
 |%
 ++  load
   |=  old-vase=vase
-  ^-  state-8
+  ^-  state-9
+  =/  ninth  (mule |.(!<(state-9 old-vase)))
+  ?:  ?=(%& -.ninth)  p.ninth
+  %-  migrate-8
   =/  eighth  (mule |.(!<(state-8 old-vase)))
   ?:  ?=(%& -.eighth)  p.eighth
   %-  migrate-7
@@ -239,5 +242,32 @@
       mcp-servers.old
       streams.old
       (migrate:hd hands.old)
+  ==
+++  migrate-8
+  |=  old=state-8
+  ^-  state-9
+  :*  %9
+      sessions.old
+      timers.old
+      subs.old
+      skills.old
+      staged.old
+      rehearsals.old
+      peers.old
+      peer-base.old
+      asks.old
+      serving.old
+      jobs.old
+      api-key.old
+      acp-prompts.old
+      acp-through.old
+      provider-keys.old
+      model-requests.old
+      next-model-request.old
+      defaults.old
+      mcp-servers.old
+      streams.old
+      hands.old
+      *state:oauth
   ==
 --

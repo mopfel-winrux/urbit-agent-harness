@@ -3,11 +3,13 @@ import AgentSettings from './AgentSettings'
 import { BackIcon } from './Icons'
 import GlobalSettings from './GlobalSettings'
 import McpSettings from './McpSettings'
+import SearchSettings from './SearchSettings'
 import ProviderSettings from './ProviderSettings'
 
 const baseTabs = [
   ['defaults', 'Defaults'],
   ['mcp', 'MCP'],
+  ['search', 'Search'],
   ['openrouter', 'OpenRouter'],
   ['openai', 'OpenAI'],
   ['anthropic', 'Anthropic'],
@@ -28,6 +30,7 @@ export default function Settings({ resources, theme, onThemeChange, onBack }) {
       {tab === 'conversation' && <AgentSettings resources={resources} theme={theme} onThemeChange={onThemeChange} />}
       {tab === 'defaults' && <GlobalSettings resources={resources} theme={theme} onThemeChange={onThemeChange} />}
       {tab === 'mcp' && <McpSettings resources={resources} />}
+      {tab === 'search' && <SearchSettings />}
       {['openrouter', 'openai', 'anthropic', 'custom'].includes(tab) && <ProviderSettings provider={tab} resources={resources} />}
     </div>
   </main>

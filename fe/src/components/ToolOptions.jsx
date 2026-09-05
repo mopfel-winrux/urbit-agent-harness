@@ -1,6 +1,6 @@
 const copy = {
   clay: ['Desk files', 'Read and list files in Clay.'],
-  web: ['Web requests', 'Fetch public HTTP resources.'],
+  web: ['Web search & requests', 'Search with Brave and fetch HTTP resources.'],
   skills: ['Skills', 'Read instructions from the skill library.'],
   'skill-write': ['Write skills', 'Stage and update reusable instructions.'],
   author: ['Authoring', 'Create and revise ship-side resources.'],

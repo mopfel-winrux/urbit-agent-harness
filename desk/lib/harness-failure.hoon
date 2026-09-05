@@ -39,6 +39,8 @@
     ['timeout' 'The request timed out or the connection was interrupted. Try sending another message. No retry has been started automatically.']
   ?:  |((gte status 500) (has 'overloaded_error'))
     ['unavailable' 'The model provider is temporarily unavailable or overloaded. Try again later, or select another configured provider/model.']
+  ?:  (has 'openai login renewal')
+    ['unavailable' 'OpenAI login renewal could not finish. Wait a minute and send another message. If this continues, the owner should check OpenAI settings.']
   ?:  =(400 status)
     ['request' 'The model provider rejected the request format or options. The owner can inspect the session details and check model compatibility.']
   ?:  |((has 'response') (has 'provider stream'))

@@ -9,7 +9,7 @@ async function action(value) {
   if (value.config) return acp.call('harness/session/configure', { sessionId: value.config.sid, config: value.config.config })
   if (value.defaults) return acp.call('harness/defaults/configure', { config: value.defaults })
   if (value.mcp) return acp.call('harness/mcp/configure', { servers: value.mcp })
-  if (value['set-key']) return acp.call('harness/credential/set', { provider: value['set-key'].provider || 'openrouter', key: value['set-key'].key })
+  if (value['set-key']) return acp.call('harness/credential/set', { ...value['set-key'], provider: value['set-key'].provider || 'openrouter' })
   throw new Error('Unsupported Harness action')
 }
 
@@ -31,7 +31,8 @@ async function read(path) {
 
 const models = async (provider, url) => {
   await acp.start()
-  return acp.call('harness/provider/models', { provider, url }, 30_000)
+  // Device auth may spend up to 30 seconds renewing before catalog dispatch.
+  return acp.call('harness/provider/models', { provider, url }, 60_000)
 }
 
 export const api = { read, action, models }

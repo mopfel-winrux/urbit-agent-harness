@@ -68,9 +68,12 @@ export default function ProviderSettings({ provider, resources }) {
   async function acceptCredential({ token, refreshToken = '', account = '' }) {
     setBusy(true); setError(''); dirty.current = true
     try {
-      await api.action({ 'set-key': { provider: credentialSlot(provider, 'device'), key: token } })
-      if (refreshToken) await api.action({ 'set-key': { provider: `${provider}-refresh`, key: refreshToken } })
-      if (provider === 'openai') await api.action({ 'set-key': { provider: 'openai-account', key: account } })
+      // Commit an OpenAI login as one credential generation. Separate writes
+      // could let a concurrent request refresh the wrong account's old token.
+      await api.action({ 'set-key': { provider: credentialSlot(provider, 'device'), key: token,
+        ...(provider === 'openai' ? { refreshToken, account } : {}),
+      } })
+      if (provider !== 'openai' && refreshToken) await api.action({ 'set-key': { provider: `${provider}-refresh`, key: refreshToken } })
       // A completed login commits its matching route, not just its credential.
       // Account identity stays in credential storage, out of conversation logs.
       await persist(withAuth(form, provider, 'device'))
@@ -83,8 +86,9 @@ export default function ProviderSettings({ provider, resources }) {
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>{details.title}</h2><p>{details.copy}</p></div><span className={`status ${configured ? 'good' : ''}`}>{configured ? 'credential configured' : 'credential needed'}</span></div>
       <ProviderRoute provider={provider} value={form} onChange={edit} />
-      {provider === 'openai' && method === 'device' && <OpenAIDeviceLogin onCredential={acceptCredential} />}
-      {provider === 'anthropic' && method === 'device' && <AnthropicDeviceLogin onCredential={acceptCredential} />}
+      {provider === 'openai' && method === 'device' && status.value?.['renewal-error'] && <div className="inline-error">{status.value['renewal-error']}</div>}
+      {provider === 'openai' && method === 'device' && !session.loading && <OpenAIDeviceLogin key={resources.chat || 'defaults'} onCredential={acceptCredential} />}
+      {provider === 'anthropic' && method === 'device' && !session.loading && <AnthropicDeviceLogin key={resources.chat || 'defaults'} onCredential={acceptCredential} />}
       {method === 'api-key' && <label><span>{provider === 'custom' ? 'Bearer token (optional)' : 'API key'}</span><input type="password" autoComplete="off" value={key} onChange={(event) => { dirty.current = true; setKey(event.target.value) }} placeholder={details.placeholder} /></label>}
       <label><span>Model</span><input list={`provider-models-${provider}`} value={form.model || ''} onChange={(event) => edit({ ...form, model: event.target.value })} placeholder={details.model || 'model-name'} /><datalist id={`provider-models-${provider}`}>{catalog.models.map((name) => <option key={name} value={name} />)}</datalist></label>
       {catalog.loading && <p className="field-note">Loading the provider’s model catalog…</p>}

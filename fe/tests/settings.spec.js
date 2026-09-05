@@ -18,6 +18,19 @@ test('context is read from the catalog at save time, even when metadata arrives 
   expect(await page.evaluate(() => window.settingsFixture.saves.at(-1)['max-context'])).toBe(32768)
 })
 
+test('search key can be configured, survives reload, and can be removed', async ({ page }) => {
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=search')
+  await expect(page.getByText('key needed', { exact: true })).toBeVisible()
+  await page.getByLabel('Brave Search API key').fill('fixture-brave-key')
+  await page.getByRole('button', { name: 'Save search key' }).click()
+  await expect(page.getByText('key configured', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Brave Search API key')).toHaveValue('')
+  await page.reload()
+  await expect(page.getByText('key configured', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Remove search key' }).click()
+  await expect(page.getByText('key needed', { exact: true })).toBeVisible()
+})
+
 test('switching providers fences stale catalogs and does not reuse another model’s limit', async ({ page }) => {
   await page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('anthropic')
   await expect.poll(() => page.evaluate(() => window.settingsFixture.requests.at(-1).provider)).toBe('anthropic')
@@ -61,7 +74,7 @@ for (const surface of ['global', 'conversation']) {
   })
 }
 
-test('device login saves its route immediately and survives a reload without a second Save', async ({ page, context }) => {
+for (const failSave of [false, true]) test(`device login saves its route and survives reload${failSave ? ' after recovering from a configuration save failure' : ' without a second Save'}`, async ({ page, context }) => {
   await context.route('https://auth.openai.com/**', async (route) => {
     const path = new URL(route.request().url()).pathname
     const payload = path.endsWith('/usercode') ? { device_auth_id: 'fixture', user_code: 'ABCD-EFGH', interval: 2 }
@@ -73,9 +86,21 @@ test('device login saves its route immediately and survives a reload without a s
   await page.getByLabel('Authentication').selectOption('device')
   await expect(page.getByLabel('API key', { exact: true })).toHaveCount(0)
   await expect(page.getByLabel('Endpoint', { exact: true })).toHaveCount(0)
+  if (failSave) await page.evaluate(() => { window.settingsFixture.failSave = true })
   await page.getByRole('button', { name: 'Sign in with device code' }).click()
+  await page.getByRole('combobox', { name: 'Model', exact: true }).fill('gpt-fixture-selected')
+  if (failSave) {
+    await expect(page.getByText('Configuration save failed in fixture')).toBeVisible()
+    await expect(page.getByText('connected', { exact: true })).toHaveCount(0)
+    expect(await page.evaluate(() => window.settingsFixture.saves.length)).toBe(0)
+    await page.evaluate(() => { window.settingsFixture.failSave = false })
+    await expect(page.getByText('credential configured', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Save OpenAI' }).click()
+  }
   await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)?.url)).toBe(PROVIDERS.openai.deviceEndpoint)
-  expect(await page.evaluate(() => window.settingsFixture.credentials)).toEqual(['openai-device', 'openai-refresh', 'openai-account'])
+  expect(await page.evaluate(() => window.settingsFixture.saves.at(-1).model)).toBe('gpt-fixture-selected')
+  expect(await page.evaluate(() => window.settingsFixture.credentials)).toEqual(['openai-device'])
+  expect(await page.evaluate(() => window.settingsFixture.deviceBundle)).toEqual({ hasRefresh: true, hasAccount: true })
   expect(await page.evaluate(() => window.settingsFixture.saves.at(-1).headers)).toEqual([])
   await page.reload()
   await expect(page.getByLabel('Authentication')).toHaveValue('device')

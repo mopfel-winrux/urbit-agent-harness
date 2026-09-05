@@ -6,12 +6,12 @@
 ::  live in named modules so this file can concentrate on lifecycle ownership.
 ::
 /-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, *harness-store
-/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, failure=harness-failure, policy=harness-defaults, storage=harness-store, transport=harness-acp, bindings=harness-effects, default-agent, dbug
+/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, failure=harness-failure, policy=harness-defaults, storage=harness-store, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 |%
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-8
+=|  state-9
 =*  state  -
 ^-  agent:gall
 =<
@@ -21,6 +21,16 @@
     hc    ~(. +> bowl)
     wire-codec  ~(. transport our.bowl)
     effects  ~(. bindings [bowl mcp-servers])
+    ::  Apply OAuth once at the transport boundary, after the handler's state
+    ::  transition. This alias adds no arms to Gall's fixed agent interface.
+    flush-auth
+      |=  result=(quip card _this)
+      ^-  (quip card _this)
+      =/  next  +.result
+      =.  state  !<(state-9 on-save:next)
+      =/  out  (filter:oauth -.result openai-auth provider-keys now.bowl)
+      =^  cards  state  (accept-auth:hc out)
+      [cards this]
 ::
 ++  on-init
   ^-  (quip card _this)
@@ -35,8 +45,9 @@
 ::
 ++  on-load
   |=  old-vase=vase
+  %-  flush-auth
   ^-  (quip card _this)
-  =/  new=state-8  (load:storage old-vase)
+  =/  new=state-9  (load:storage old-vase)
   :_  this(state new)
   =/  base=(list card)
     :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
@@ -50,6 +61,7 @@
   (shadow-put-card:hc sid ses)
 ++  on-poke
   |=  [=mark =vase]
+  %-  flush-auth
   ^-  (quip card _this)
   ?+  mark  (on-poke:def mark vase)
       %harness-action
@@ -198,6 +210,7 @@
 ::
 ++  on-agent
   |=  [=wire =sign:agent:gall]
+  %-  flush-auth
   ^-  (quip card _this)
   ?+  wire  (on-agent:def wire sign)
       [%adapter %tlon @ @ ~]
@@ -313,8 +326,17 @@
 ::
 ++  on-arvo
   |=  [=wire sign=sign-arvo]
+  %-  flush-auth
   ^-  (quip card _this)
   ?+  wire  (on-arvo:def wire sign)
+      [%openai-renew @ ~]
+    ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
+    =/  out  (receive:oauth openai-auth provider-keys now.bowl (slav %ud i.t.wire) client-response.sign)
+    =^  cards  state  (accept-auth:hc out)
+    [cards this]
+  ::  The filter checks the persisted deadline; stale watchdogs are harmless.
+      [%openai-timeout @ ~]
+    `this
       [%eyre %connect ~]
     ?.  ?=([%eyre %bound *] sign)  (on-arvo:def wire sign)
     ~?  !accepted.sign  [dap.bowl %eyre-bind-failed binding.sign]
@@ -376,6 +398,37 @@
 |_  =bowl:gall
 +*  wire-codec  ~(. transport our.bowl)
     effects  ~(. bindings [bowl mcp-servers])
+++  accept-auth
+  |=  out=result:oauth
+  ^-  (quip card _state)
+  =.  openai-auth  oauth.out
+  =.  provider-keys  keys.out
+  =/  cards  cards.out
+  =/  failed  failed.out
+  |-  ^-  (quip card _state)
+  ?~  failed  [cards state]
+  =/  w=wire  wire.i.failed
+  =/  message=@t  error.i.failed
+  ?:  ?=([%models @ ~] w)
+    =/  req  (slav %ud i.t.w)
+    =/  pending  (~(get by model-requests) req)
+    ?~  pending  $(failed t.failed)
+    =.  model-requests  (~(del by model-requests) req)
+    $(failed t.failed, cards (snoc cards (acp-error-card:wire-codec connection.u.pending request-id.u.pending '-32603' message)))
+  ?.  ?=([%llm @ @ @ ~] w)  $(failed t.failed)
+  =/  sid=session-id:h  i.t.w
+  =/  req  (slav %ud i.t.t.w)
+  =/  current  (~(get by sessions) sid)
+  ?~  current  $(failed t.failed)
+  =/  ses=session:h  u.current
+  =/  view  (play:hl log.ses)
+  ?.  =(pending.view `[req ;;(request-kind:h i.t.t.t.w)])  $(failed t.failed)
+  =/  event=event:h
+    ?:  =(%compaction i.t.t.t.w)  [%compaction-failed req message [0 0]]
+    [%llm-failed req message]
+  =^  recorded  ses  (record-all sid ses ~[event])
+  =^  settled  state  (drive-put sid ses)
+  $(failed t.failed, cards :(weld cards recorded settled))
 ::  Supervision: publish evidence, never delegate authority to the mirror.
 ++  shadow-channel  'sessions'
 ::  Re-project the authoritative map whenever the runtime subscription returns.
@@ -576,7 +629,7 @@
         ?:  &((device-route:auth url.defaults) device)  'device'
         ?:  &(=('openai' (provider-for-url:hp url.defaults)) has)  'api-key'
         ?:(device 'device' 'api-key')
-      (pairs:enjs:format ~[['has-key' %b |(has device)] ['has-api-key' %b has] ['has-device-login' %b device] ['auth-method' %s method]])
+      (pairs:enjs:format ~[['has-key' %b |(has device)] ['has-api-key' %b has] ['has-device-login' %b device] ['auth-method' %s method] ['auto-renew' %b !=('' (provider-key 'openai-refresh'))] ['renewing' %b ?=(^ active.openai-auth)] ['renewal-error' %s error.openai-auth]])
     [~[(acp-result-card:wire-codec connection u.id result)] state]
   ::
       %'harness/tools'
@@ -723,6 +776,15 @@
     ?~  key
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Expected key')] state]
     =.  provider-keys  (put-key:auth provider-keys provider u.key)
+    =?  provider-keys  =('openai-device' provider)
+      =/  refresh  (acp-param-string:wire-codec params 'refreshToken')
+      =/  account  (acp-param-string:wire-codec params 'account')
+      =/  keys  provider-keys
+      ?:  =('' u.key)
+        (~(put by (~(put by keys) 'openai-refresh' '')) 'openai-account' '')
+      =?  keys  ?=(^ refresh)  (~(put by keys) 'openai-refresh' u.refresh)
+      =?  keys  ?=(^ account)  (~(put by keys) 'openai-account' u.account)
+      keys
     =?  api-key  =('openrouter' provider)  u.key
     =/  result=json
       (pairs:enjs:format ~[['has-key' %b !=('' u.key)]])
@@ -976,7 +1038,7 @@
       ^-  (unit card)
       =/  name  (requested-tool ses call-id)
       ?~  name  ~
-      ?.  |(=(u.name 'http_fetch') =(u.name 'list_mcp_tools') =(u.name 'call_mcp_tool'))  ~
+      ?.  |(=(u.name 'http_fetch') =(u.name 'web_search') =(u.name 'list_mcp_tools') =(u.name 'call_mcp_tool'))  ~
       `[%pass `wire`[%tool `@ta`sid.act `@ta`call-id ~] %arvo %i %cancel-request ~]
     =?  withdrawn  ?=(^ pending.v)
       :_  withdrawn
@@ -1445,6 +1507,14 @@
           evs     (snoc evs.acc `event:h`[%tool-requested id.c name.c])
           tcards  (snoc tcards.acc (run-js-poke:effects sid id.c u.code))
         ==
+      ?:  =(name.c 'web_search')
+        =/  built  (request:search args.c (provider-key 'brave'))
+        ?:  ?=(%| -.built)
+          acc(evs (snoc evs.acc [%tool-completed id.c name.c p.built]))
+        %=  acc
+          evs  (snoc evs.acc [%tool-requested id.c name.c])
+          tcards  (snoc tcards.acc [%pass `wire`[%tool `@ta`sid `@ta`id.c ~] %arvo %i %request p.built [0 0]])
+        ==
       =/  async=(unit (unit card))
         ?:  =(name.c 'http_fetch')     `(fetch-card:effects sid c)
         ?:  |(=(name.c 'list_mcp_tools') =(name.c 'call_mcp_tool'))
@@ -1780,6 +1850,7 @@
     ?:  ?&(?=(%tool-requested -.i.log.ses) =(call-id call-id.i.log.ses))
       name.i.log.ses
     $(log.ses t.log.ses)
+  =?  body  =('web_search' tname)  (response:search res)
   =^  cs1  ses  (record-all sid ses ~[[%tool-completed call-id tname body]])
   =^  cs2  state  (drive-put sid ses)
   [(weld cs1 cs2) state]

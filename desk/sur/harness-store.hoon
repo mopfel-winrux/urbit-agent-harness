@@ -1,7 +1,7 @@
 ::  Gall persistence envelope. Keep its noun layout stable: on-save writes this
 ::  directly, and harness-store loads each supported version without dropping
 ::  sessions or credentials. Runtime bookkeeping is not session semantics.
-/-  h=harness, hh=harness-hand, ac=acp
+/-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth
 |%
 +$  stream-progress  [body=@t sent=@ud]
 +$  state-0
@@ -187,5 +187,30 @@
       mcp-servers=(map mcp-server-id:h mcp-server:h)
       streams=(map [session-id:h @ud] stream-progress)
       hands=state:hh
+  ==
++$  state-9
+  $:  %9
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+      defaults=config:h
+      mcp-servers=(map mcp-server-id:h mcp-server:h)
+      streams=(map [session-id:h @ud] stream-progress)
+      hands=state:hh
+      openai-auth=state:oauth
   ==
 --

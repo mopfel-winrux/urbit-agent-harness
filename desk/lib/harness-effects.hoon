@@ -49,6 +49,14 @@
       (list-desk-files args.c)
     ?:  =(name.c 'read_skill')
       (read-skill args.c sk)
+    ?:  =(name.c 'list_mcp_servers')
+      %-  en:json:html
+      :-  %a
+      %+  murn  ~(tap by mcp-servers)
+      |=  [id=mcp-server-id:h server=mcp-server:h]
+      ^-  (unit json)
+      ?.  enabled.server  ~
+      `(pairs:enjs:format ~[['id' %s id] ['name' %s name.server]])
     (cat 3 'unknown tool: ' name.c)
   [%tool-completed id.c name.c out]
 ::  +read-skill: fetch a skill body from the library

@@ -4,7 +4,7 @@
 /+  *test, storage=harness-store, policy=harness-defaults, hj=harness-json, hp=harness-provider, ht=harness-tools, hl=harness
 |%
 ++  test-current-store-load-is-an-identity
-  =/  saved=state-8  *state-8
+  =/  saved=state-9  *state-9
   =.  defaults.saved  builtin-config:policy
   =.  provider-keys.saved  (my ~[['fixture' 'test-secret']])
   =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced defaults.saved]] 37]]])
@@ -15,6 +15,12 @@
   =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced builtin-config:policy]] 37]]])
   =/  loaded  (load:storage !>(saved))
   (expect !>(&(=(sessions.saved sessions.loaded) =(provider-keys.saved provider-keys.loaded))))
+++  test-store-eight-preserves-head-and-credentials
+  =/  saved=state-8  *state-8
+  =.  provider-keys.saved  (my ~[['fixture' 'test-secret']])
+  =.  defaults.saved  builtin-config:policy
+  =/  loaded  (load:storage !>(saved))
+  (expect !>(&(=(defaults.saved defaults.loaded) =(provider-keys.saved provider-keys.loaded) =(~ waiting.openai-auth.loaded))))
 ++  test-config-and-view-share-one-redacted-projection
   =/  cfg=config:h  builtin-config:policy
   =.  key.cfg  'test-secret'

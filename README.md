@@ -44,10 +44,15 @@ failed work. See [Tlon integration](docs-refs/tlon.md).
   Built-in provider routes follow the selected authentication method; only
   Custom exposes an editable endpoint. OpenAI API and device credentials are
   stored separately, and completing device login also saves its matching route.
+  OpenAI device tokens renew on use on the ship; concurrent requests share renewal
+  without depending on an open browser.
 - Provider model discovery, automatic published context limits, and free-form
   model entry; a conversation can change provider or model between turns.
 - Durable global defaults snapshotted into new conversations, plus a shared
   Streamable HTTP MCP registry whose use remains capability-gated per thread.
+  Bots discover enabled server IDs with `list_mcp_servers`, then inspect and
+  call their tools. Web-capable conversations can use Brave `web_search`;
+  configure its shared API key under Settings → Search.
 - Typed input provenance across ACP, pokes, timers, webhooks, peers, and child
   sessions, with an explicit response route.
 - Scryable derived views and chronological event histories for native clients.
