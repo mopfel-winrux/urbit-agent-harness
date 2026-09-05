@@ -18,17 +18,50 @@
     ?-  -.e
       ::  Editing policy is not permission to restart a failed request.
       %config-replaced       v(config config.e)
-      %input-admitted        v(items [item.e items.v], err ~, cancelled ~)
-      %input-received        v(items [item.input.e items.v], err ~, cancelled ~)
+      %input-admitted        v(items [item.e items.v], err ~, cancelled ~, compact-attempts 0)
+      %input-received        v(items [item.input.e items.v], err ~, cancelled ~, compact-attempts 0)
       %command-completed    v(items [[%assistant body.e ~] items.v])
+      %memory-set           v(memory ?~(body.e (~(del by memory.v) name.e) (~(put by memory.v) name.e u.body.e)))
       ::  A recorded request is an admitted continuation. Clearing the error
       ::  here also keeps already-recorded config/retry exchanges replayable.
       %llm-requested         v(pending `[req.e kind.e], err ~)
-      %llm-failed            v(pending ~, err `err.e)
+      %llm-failed            v(pending ~, compaction ~, err `err.e)
       %tool-requested        v(wait (~(put in wait.v) call-id.e))
       %retried               v(err ~, cancelled ~)
       %halted                v(pending ~, err `reason.e)
-      %forked                v(pending ~, wait ~, cancelled ~, origin `[from.e at.e])
+      %forked                v(pending ~, compaction ~, wait ~, cancelled ~, origin `[from.e at.e])
+      %compaction-planned    v(pending `[req.e %compaction], compaction `plan.e, err ~, compact-attempts +(compact-attempts.v))
+    ::  Results cannot revive a cancelled or superseded checkpoint, even when
+    ::  replayed independently of Gall. The plan fixes the cut before dispatch.
+        %checkpoint-completed
+      ?.  =(pending.v `[req.e %compaction])  v
+      ?~  compaction.v  v
+      =/  p  u.compaction.v
+      ?.  =(source.p (sham [summary.v (scag count.p (flop items.v))]))  v
+      =/  tail=(list item:h)  (slag count.p (flop items.v))
+      ::  A manual command's reply belongs at its admitted boundary. Native
+      ::  input arriving during summary execution stays after it and still
+      ::  needs inference; the acknowledgement must not swallow that input.
+      =?  tail  ?=(^ reply.e)
+        =/  at  (sub length.p count.p)
+        (weld (scag at tail) [`item:h`[%assistant body.u.reply.e ~] (slag at tail)])
+      %=  v
+        pending  ~
+        summary  `summary.e
+        items  (flop tail)
+        compaction  ~
+        compact-usage  [(add prompt.compact-usage.v prompt.usage.e) (add completion.compact-usage.v completion.usage.e)]
+        total  [(add prompt.total.v prompt.usage.e) (add completion.total.v completion.usage.e)]
+      ==
+        %compaction-failed
+      ?.  =(pending.v `[req.e %compaction])  v
+      %=  v
+        pending  ~
+        compaction  ~
+        err  `err.e
+        compact-usage  [(add prompt.compact-usage.v prompt.usage.e) (add completion.compact-usage.v completion.usage.e)]
+        total  [(add prompt.total.v prompt.usage.e) (add completion.total.v completion.usage.e)]
+      ==
     ::  Cancellation closes the provider exchange as well as the wait set.
     ::  These are cancellation receipts, never claims of external rollback.
     ::  Interpreting the event keeps existing logs intact and replayable.
@@ -36,6 +69,7 @@
         %cancelled
       %=  v
         pending    ~
+        compaction  ~
         wait       ~
         cancelled  `reason.e
         items      (weld (flop (cancel-results (flop items.v) reason.e)) items.v)
@@ -100,6 +134,7 @@
       %input-admitted  `[~ item.e]
       %input-received  `[`id.input.e item.input.e]
       %command-completed  `[~ [%assistant body.e ~]]
+      %checkpoint-completed  ?~(reply.e ~ `[~ [%assistant body.u.reply.e ~]])
       %llm-completed   `[~ item.e]
       %tool-completed  `[~ [%tool call-id.e name.e body.e]]
     ==
@@ -262,10 +297,7 @@
     ==
   ?.  (gth (budget ~) max-context.config.v)
     `[%turn ~]
-  ::  compact only when it would actually shed items; an over-budget
-  ::  irreducible tail proceeds rather than compacting forever
-  ::
-  ?:  (lth (lent (retained items.v)) (lent items.v))
-    `[%compact ~]
-  `[%turn ~]
+  ::  The planner either selects a bounded span or records a useful halt.
+  ::  An oversized irreducible request must never be sent optimistically.
+  `[%compact ~]
 --

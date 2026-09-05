@@ -31,6 +31,10 @@
     ['model' 'The selected model or inference endpoint was not found. The owner should check the conversation\'s provider and model in Harness settings.']
   ?:  |(=(413 status) (has 'context_length') (has 'context window') (has 'too many tokens'))
     ['context' 'The model provider rejected the request size or context length. Try a shorter message or a model with a larger context window.']
+  ?:  (has 'context budget:')
+    ['context' 'The conversation cannot fit safely in this model\'s context budget. Try a larger-context model or a shorter request. The source transcript was retained.']
+  ?:  (has 'compaction')
+    ['compaction' 'I could not produce a safe context checkpoint. The previous context and full transcript were retained. The owner can inspect the details; no retry was started automatically.']
   ?:  |(=(408 status) =(504 status) (has 'timed out') (has 'timeout') (has 'request cancelled by runtime'))
     ['timeout' 'The request timed out or the connection was interrupted. Try sending another message. No retry has been started automatically.']
   ?:  |((gte status 500) (has 'overloaded_error'))

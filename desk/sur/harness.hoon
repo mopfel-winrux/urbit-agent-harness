@@ -16,6 +16,20 @@
   ==
 +$  tool-call  [id=@t name=@t args=@t]
 +$  usage  [prompt=@ud completion=@ud]
+::  A checkpoint replaces exactly this prefix of the active context. The
+::  event-log boundary and digest make its sources recoverable without copying
+::  them into a second store. Command identity is absent for automatic work.
++$  compaction-plan
+  $:  through=@ud
+      count=@ud
+      length=@ud
+      source=@uvH
+      input=@ud
+      output=@ud
+      url=@t
+      model=@t
+      command=(unit input-id)
+  ==
 ::  Payloads may remain inline today, but every boundary can name durable
 ::  content without depending on a transport or storage implementation.
 ::
@@ -56,7 +70,7 @@
       key=@t              ::  ingress-only; blanked before the config event
       headers=(list [name=@t value=@t])
       system=@t
-      max-context=@ud     ::  rough token budget before compaction
+      max-context=@ud     ::  provider window (catalog or fallback)
       tools=(list term)   ::  granted tool families
   ==
 ::  Remote, stateless Streamable HTTP MCP server. Headers are held in
@@ -131,12 +145,18 @@
       [%input-received input=admitted-input]
       ::  Local command reply, linked to its admitted input; not inference.
       [%command-completed input-id=input-id name=@t body=@t]
+      ::  Explicit conversation notes, independent of generated checkpoints.
+      ::  A null body unpins a note; the audit history is not erased.
+      [%memory-set name=@t body=(unit @t)]
       [%llm-requested req=@ud kind=request-kind]
       [%llm-completed req=@ud stop=stop-reason =usage =item]
       [%llm-failed req=@ud err=@t]
       [%tool-requested call-id=@t name=@t]
       [%tool-completed call-id=@t name=@t body=@t]
       [%compaction-completed req=@ud summary=@t]
+      [%compaction-planned req=@ud plan=compaction-plan]
+      [%checkpoint-completed req=@ud summary=@t =usage reply=(unit [input-id=input-id body=@t])]
+      [%compaction-failed req=@ud err=@t =usage]
       [%cancelled req=(unit @ud) calls=(set @t) reason=@t]
       [%forked from=session-id at=@ud req=(unit @ud) calls=(set @t)]
       [%retried ~]
@@ -157,6 +177,10 @@
       err=(unit @t)
       cancelled=(unit @t)             ::  stopped until new input or retry
       origin=(unit [from=session-id at=@ud])
+      compaction=(unit compaction-plan)
+      compact-usage=usage
+      compact-attempts=@ud
+      memory=(map @t @t)              ::  bounded, conversation-scoped notes
   ==
 ::  the decider's output
 ::

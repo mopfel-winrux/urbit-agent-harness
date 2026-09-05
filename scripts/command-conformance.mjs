@@ -47,10 +47,15 @@ try {
   await until('ACP command advertisement', () => client.updates.some((u) =>
     u.params?.sessionId === sid && u.params.update.sessionUpdate === 'available_commands_update'))
   const ad = client.updates.find((u) => u.params?.update?.sessionUpdate === 'available_commands_update')
-  assert.deepEqual(ad.params.update.availableCommands.map((c) => c.name), ['help', 'status', 'model', 'stop'])
+  assert.deepEqual(ad.params.update.availableCommands.map((c) => c.name), ['help', 'status', 'model', 'context', 'compact', 'memory', 'remember', 'forget', 'stop'])
   for (const [text, reply] of [
     ['/help', /\/model default/], ['/status', /Recorded tokens: 0 input, 0 output/],
     ['/model', /fixture-model/], ['/model vendor\/other', /Model set to:.*vendor\/other/],
+    ['/context', /Context estimate:.*approximate/], ['/compact later', /Usage: \/compact/],
+    ['/memory', /No pinned notes/], ['/remember project Keep it small.', /Note saved/],
+    ['/remember project Keep it modular.', /Note saved/], ['/memory', /project: Keep it modular\./],
+    ['/remember ../other bad', /Note names/], ['/forget project extra', /Usage:/],
+    ['/forget project', /Note unpinned.*not erased/], ['/memory', /No pinned notes/],
     ['/model two names', /Usage:/], ['/unknown', /Unknown command/], ['/stop', /Stopped/],
   ]) {
     assert.equal((await prompt(sid, text)).stopReason, 'end_turn')
@@ -75,9 +80,13 @@ try {
   await until('native command reply', async () => (await snapshot(sid)).entries.at(-1).body.startsWith('Model:'))
   assert.equal(requests.length, 0)
 
+  await client.pokeAgent('harness', 'harness-action', { send: { sid, text: '/remember native Note from native ingress.' } })
+  await until('native note saved', async () => (await snapshot(sid)).memory.some((n) => n.name === 'native'))
+
   const running = prompt(sid, 'Hold this request')
   running.catch(() => {})
   await until('inference started', () => requests.length === 1)
+  assert.ok(requests[0].body.messages.some((m) => m.role === 'user' && m.content?.includes('native: Note from native ingress.')))
   const start = Date.now()
   const stopped = await prompt(sid, '/stop', observer)
   assert.equal(stopped.stopReason, 'end_turn')
@@ -93,6 +102,10 @@ try {
   const help = await observe('help', '/help')
   let pubs = await hand.outbox()
   assert.match(pubs.find((p) => p.inputId === help.inputId).text, /\/status/)
+  const note = await observe('note', '/remember project Hand-scoped note.')
+  assert.match((await hand.outbox()).find((p) => p.inputId === note.inputId).text, /Note saved/)
+  assert.deepEqual((await snapshot(handSid)).memory, [{ name: 'project', body: 'Hand-scoped note.' }])
+  await assert.rejects(observe('forbidden-note', '/remember project Intrusion.', 'mallory'), /Actor/)
   await observe('work', 'Hold hand inference')
   await until('hand inference', () => requests.length === 2)
   await observe('queued', 'This must be cancelled, not started')
@@ -119,9 +132,11 @@ try {
   await sleep(500)
   assert.deepEqual(await snapshot(handSid), finished, 'late provider output is fenced')
   const events = await fetch(`${base}/~/scry/harness/events/${handSid}.json`, { headers: { cookie } }).then((r) => r.json())
-  assert.equal(events.filter((e) => e.type === 'command-completed').length, 3)
+  assert.equal(events.filter((e) => e.type === 'command-completed').length, 4)
+  assert.equal(events.filter((e) => e.type === 'memory-set').length, 1)
   assert.equal(events.filter((e) => e.type === 'llm-requested').length, 2)
   console.log(JSON.stringify({ ok: true, stopMs, checks: ['ACP discovery', 'native + ACP commands',
+    'bounded explicit notes', 'native + ACP + hand note parity', 'note actor authorization',
     'model-only authority', 'zero command inference', 'active prompt interruption', 'hand publications',
     'queued cancellation', 'actor authorization', 'deduplicated stop', 'conflicting replay', 'late result fencing'] }, null, 2))
 } finally {

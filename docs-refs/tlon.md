@@ -42,7 +42,8 @@ mark error. Check the conversation's endpoint and its matching saved credential,
 not just the defaults for new conversations. Refreshing the page does not retry
 the provider request.
 
-Send `/help`, `/status`, `/model`, `/model <id>`, `/model default`, or `/stop`
+Send `/help`, `/status`, `/context`, `/compact`, `/model`, `/model <id>`,
+`/model default`, `/memory`, `/remember <name> <text>`, `/forget <name>`, or `/stop`
 directly in the DM or thread. These are shared Harness commands, not Tlon bot
 shortcuts, and work for the owner and trusted actors without tool grants.
 Channel mention policy still applies. `/stop` interrupts current work and clears
@@ -172,7 +173,7 @@ implemented here.
 `scripts/tlon-conformance.mjs` exercises real DMs, channel mentions, threads,
 ACP activity, global session discovery, and revocation between two ships. Supply
 `SHIP_COOKIE`, `PEER_COOKIE`, `PEER_URL`, and `TEST_NEST` (an existing peer-owned
-test channel such as `chat/~nec/harness-hand-test`). It temporarily grants the
+test channel, in the form `chat/<peer-ship>/<channel-name>`). It temporarily grants the
 peer ownership, uses the configured inference provider, and restores policy in
 `finally`. Use disposable test ships: messages and auditable sessions are retained.
 Neither the test nor the adapter modifies the Groups desk's source code.

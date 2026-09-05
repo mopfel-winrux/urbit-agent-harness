@@ -221,6 +221,7 @@
   ^-  @t
   ?~  log  'end_turn'
   ?:  ?=(%command-completed -.i.log)  'end_turn'
+  ?:  ?=(%checkpoint-completed -.i.log)  'end_turn'
   ?:  ?=(%llm-completed -.i.log)
     ?:(=(%length stop.i.log) 'max_tokens' 'end_turn')
   $(log t.log)

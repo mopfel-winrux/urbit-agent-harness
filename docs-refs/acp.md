@@ -20,7 +20,8 @@ stealing another client's updates.
 ### Conversation commands
 
 Send commands as ordinary `session/prompt` text. Harness advertises `/help`,
-`/status`, `/model`, and `/stop` using ACP's `available_commands_update` on
+`/status`, `/model`, `/context`, `/compact`, `/memory`, `/remember`, `/forget`, and
+`/stop` using ACP's `available_commands_update` on
 session creation, load, and resume. React, native `%send`, and all conversation
 hands use the same command interpreter; adapters do not implement command logic.
 
@@ -31,13 +32,24 @@ hands use the same command interpreter; adapters do not implement command logic.
 | `/model` | Show the conversation's provider and model. |
 | `/model <id>` | Change the model within the current provider. |
 | `/model default` | Copy the current default provider/model settings into this conversation. |
+| `/context` | Inspect the encoded-request estimate, input/output budgets, retained context and compaction usage. |
+| `/compact` | Summarize older complete exchanges with the current provider; retain the recent turn and full transcript. |
+| `/memory` | List the current conversation's pinned notes. |
+| `/remember <name> <text>` | Save or replace a note, retained verbatim across compaction. |
+| `/forget <name>` | Unpin a note; earlier messages and checkpoints are not erased. |
 | `/stop` | Cancel the current turn and queued hand work; acknowledge locally. |
 
-These commands never call a model or require a tool grant. Model changes retain
+Only `/compact` calls a model; none requires a tool grant. Model changes retain
 the conversation's instructions, history and tool permissions. A typed model
 name is not an access check; the provider may reject it on the next real prompt.
 Changing to an uncatalogued model uses the same 80,000-token context fallback as
 the settings client. `/model default` copies the default's context limit.
+
+Memory commands require admission to the conversation, not a tool grant. They
+do not grant cross-session access. Current notes are limited to 16 entries,
+1,024 UTF-8 bytes per body and 8,192 name/body bytes total; overflow is explicit.
+Snapshots and views expose `memory: [{name, body}]`. Edits append `memory-set`
+events (`body: null` unpins) in the same admission as the command reply.
 
 Only an exact `/stop` (ignoring surrounding whitespace) interrupts active work.
 Other commands submitted through ACP while busy get the normal busy error;
@@ -50,9 +62,12 @@ Commands are recognized only at human ingress, not in model/tool output, timers
 or subagent instructions. Lowercase slash words reserve the command namespace;
 unknown commands reply with help guidance. Paths such as `/tmp/file` and `//`
 escapes remain ordinary text. Each accepted command records its input and a
-`command-completed` audit event linked by input ID. Its assistant reply appears
-in the shared transcript and ordinary ACP/hand output, without invented model
-usage. See the [ACP slash-command protocol](https://agentclientprotocol.com/protocol/v1/slash-commands).
+`command-completed` audit event linked by input ID. Successful `/compact` instead
+records its acknowledgement in `checkpoint-completed`, following the frozen
+`compaction-planned` event. Replies appear in the shared transcript and ordinary
+ACP/hand output. Summary usage is included in cumulative usage and separately
+reported as `compactionUsage`; failed summaries retain the prior context and do
+not automatically retry. See the [ACP slash-command protocol](https://agentclientprotocol.com/protocol/v1/slash-commands).
 
 ### Methods
 
@@ -131,7 +146,7 @@ log changes.
 
 `harness/session/snapshot` takes `sessionId` and optional numeric `since`.
 It returns `revision`, `phase`, `model`, `error`, cumulative `usage`,
-`compactions`, `origin`, and chronological `entries`. When `since` equals the
+`compactions`, `compactionUsage`, `origin`, and chronological `entries`. When `since` equals the
 current revision, `entries` is null: retain the prior entries. An empty array
 means the transcript is empty. ACP also includes accumulated `streaming` text
 while a normal provider turn is active. Snapshots are readable from any

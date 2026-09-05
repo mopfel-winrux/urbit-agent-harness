@@ -263,7 +263,13 @@ New conversations snapshot the durable agent defaults and may then diverge.
 Model catalogs are fetched by Iris and returned through the requesting ACP
 connection. When a provider publishes context-window metadata, selecting that
 model updates the session budget automatically. Catalog failure or absent
-metadata never prevents a manually entered model name or context limit.
+metadata never prevents a manually entered model name.
+
+The [context and memory proposal](context-and-memory.md) separates authoritative
+history from model context and derived recall indexes. Bounded compaction uses
+frozen source plans, separate summary usage and shared `/context` and `/compact`
+commands. Stable session identity, paged history and memory/index services remain
+planned work; compaction does not bound full-log replay cost.
 
 ## Tools and authority
 

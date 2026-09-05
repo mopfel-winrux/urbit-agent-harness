@@ -57,6 +57,7 @@
   :-  %o
   %-  ~(gas by p.base)
   :~  ['summary' ?~(summary.v ~ [%s u.summary.v])]
+      ['memory' (memory-json memory.v)]
       ['items' %a (turn items.v item-ui-json)]
       ['pending' %b !=(~ pending.v)]
       ['wait' %a (turn ~(tap in wait.v) |=(id=@t `json`[%s id]))]
@@ -73,6 +74,13 @@
           ['completion' (numb:enjs:format completion.total.v)]
       ==
   ==
+++  memory-json
+  |=  notes=(map @t @t)
+  ^-  json
+  :-  %a
+  %+  turn  ~(tap by notes)
+  |=  [name=@t body=@t]
+  (pairs:enjs:format ~[['name' %s name] ['body' %s body]])
 ::
 ++  item-ui-json
   |=  it=item:h
@@ -134,6 +142,9 @@
         ['body' %s body.e]
     ==
   ::
+      %memory-set
+    (pairs:enjs:format ~[['type' %s 'memory-set'] ['name' %s name.e] ['body' ?~(body.e ~ [%s u.body.e])]])
+  ::
       %llm-requested
     %-  pairs:enjs:format
     :~  ['type' %s 'llm-requested']
@@ -176,6 +187,30 @@
     %-  pairs:enjs:format
     :~  ['type' %s 'compaction']
         ['summary' %s summary.e]
+    ==
+      %compaction-planned
+    %-  pairs:enjs:format
+    :~  ['type' %s 'compaction-planned']
+        ['req' (numb:enjs:format req.e)]
+        ['through' (numb:enjs:format through.plan.e)]
+        ['count' (numb:enjs:format count.plan.e)]
+        ['source' %s (scot %uv source.plan.e)]
+        ['inputEstimate' (numb:enjs:format input.plan.e)]
+        ['outputReserve' (numb:enjs:format output.plan.e)]
+        ['model' %s model.plan.e]
+    ==
+      %checkpoint-completed
+    %-  pairs:enjs:format
+    :~  ['type' %s 'compaction']
+        ['summary' %s summary.e]
+        ['reply' ?~(reply.e ~ [%s body.u.reply.e])]
+        ['usage' (pairs:enjs:format ~[['prompt' (numb:enjs:format prompt.usage.e)] ['completion' (numb:enjs:format completion.usage.e)]])]
+    ==
+      %compaction-failed
+    %-  pairs:enjs:format
+    :~  ['type' %s 'compaction-failed']
+        ['err' %s err.e]
+        ['usage' (pairs:enjs:format ~[['prompt' (numb:enjs:format prompt.usage.e)] ['completion' (numb:enjs:format completion.usage.e)]])]
     ==
   ::
       %cancelled

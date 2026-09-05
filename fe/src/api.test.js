@@ -36,4 +36,6 @@ test('the default context presents Harness as a durable, bounded agent', () => {
   assert.match(config.system, /When a task matches a skill catalog entry, read the skill/)
   assert.match(config.system, /list_mcp_tools before call_mcp_tool/)
   assert.match(config.system, /never retry blindly/)
+  assert.match(config.system, /survive compaction verbatim/)
+  assert.match(config.system, /Do not use shared skills to store private conversation facts/)
 })

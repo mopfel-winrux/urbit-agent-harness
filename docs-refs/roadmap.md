@@ -74,36 +74,57 @@ Keep the rest of this ledger: these priorities order the work, not erase it.
 
 ## Near term
 
-### Next design pass: session lifecycle, context and memory
+### Session lifecycle, context and memory
 
-With the shared slash commands verified, review these reference implementations
-before proposing a memory subsystem; no architecture is adopted
-merely because it exists in another harness:
+The [design proposal](context-and-memory.md) records the source review, concrete
+failure cases, boundaries and implementation order. The shared slash commands
+are checkpointed in `95c3051`. Automatic compaction and bounded conversation
+notes are implemented; recall/index services and automatic extraction are not.
 
-- [ ] Review `~/gits/tlon/openclaw` and `~/gits/tlon/hermes-agent` for session
+- [x] Review OpenClaw and Hermes for session
   lifecycle, context assembly, compaction triggers and recovery semantics.
-- [ ] Review the LCM implementation in `~/gits/tlon/claw`: retain useful ideas,
-  distinguish primary records from derived summaries, and challenge its costs.
-- [ ] Review `~/gits/tlon/tlon-apps` branch `reid/global-search` for incremental
+- [x] Review the Claw LCM implementation: distinguish primary records from derived
+  summaries, and identify the global lock and response-time source reselection.
+- [x] Review `tlon-apps` branch `reid/global-search` for incremental
   preindexes and bounded fast matching. Read the branch without disturbing its
-  checkout; assess reuse for Harness history as well as Tlon conversations.
-- [ ] Write a design separating authoritative session history, working model
+  checkout; identify the AND predicate defect and whole-query work limits.
+- [x] Write a design separating authoritative session history, working model
   context, compaction policy, long-term memory and retrieval/index executors.
   ACP and native clients should inspect/control the same lifecycle, not own it.
-- [ ] Define provenance and permissions for recalled material: source IDs,
+- [x] Define provenance and permissions for recalled material: source IDs,
   session/actor scope, branch ancestry, summary coverage, and access revocation.
   Search results and remembered text do not confer tool authority.
-- [ ] Make compaction recoverable and inspectable: preserve source records,
-  close tool exchanges, reserve response headroom, and specify what survives a
-  failed or interrupted summary. Evaluate hierarchical summaries versus simpler
-  bounded retrieval before committing to a hierarchy.
-- [ ] Specify incremental, rebuildable indexes and versioned checkpoints with
-  bounded work per event. Measure admission latency, event-loop stalls, replay
-  cost, loom growth and retrieval quality before setting budgets. Grubbery threads
-  enable interleaving; they do not make CPU work free or create parallel Arvo.
-- [ ] Propose the smallest useful implementation and explicit non-goals before
+- [x] Specify incremental, rebuildable indexes and versioned checkpoints with
+  bounded work per event, plus a measurement plan before selecting budgets.
+- [x] Propose the smallest useful implementation and explicit non-goals before
   adding automatic memory extraction or background summarization. Expensive
   retrieval/embedding can be an optional executor, never a prerequisite for chat.
+- [x] Make compaction recoverable and inspectable: preserve source records,
+  freeze exact summary coverage, close tool exchanges, reserve response headroom,
+  account for usage and preserve context on failure. Add shared `/context` and
+  safe `/compact` commands. No index or memory daemon in this slice.
+- [x] Derive automatic compaction and retained-tail budgets from the active
+  model's window, with output headroom and an estimation margin. Do not impose
+  an absolute working-context cap; verify model changes affect the next decision.
+- [x] Add explicit, session-scoped pinned notes with byte/count limits and shared
+  `/memory`, `/remember`, `/forget` commands. Preserve notes verbatim through
+  compaction, record edits in the primary log, and avoid automatic extraction.
+- [ ] Track context-limit provenance and calibrate prompt-size estimates against
+  provider usage/tokenizers. Bytes/4 plus margin is not an exact token bound;
+  output policy and artifact projections need further provider-specific work.
+  Pair usage with its dispatched request estimate and invalidate observations
+  across model/codec changes and checkpoints; cumulative usage is not context size.
+- [ ] Separate stable session identity from title; add addressed history pages
+  and replay-verified view checkpoints to bound long-session inspection.
+- [ ] Define explicit archive/retention behavior for primary history and note
+  audit events. Compaction and bounded current notes do not cap transcript size.
+- [ ] Implement explicit permission-scoped lexical recall and bounded expansion,
+  with correct AND matching, cursor fencing and byte/work quotas.
+- [ ] Measure admission/stop latency, event-loop stalls, replay cost, loom growth
+  and retrieval quality with maintenance off/on before setting budgets. Grubbery
+  threads enable interleaving; they do not create parallel Arvo execution.
+- [ ] Compare rolling checkpoints and explicit retrieval with hierarchical
+  summaries before adding a hierarchy, automatic extraction or prefetch.
 
 ### Automated fake-ship conformance
 

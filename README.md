@@ -93,9 +93,19 @@ the next stages, not claims this checkpoint already proves. See the
 
 ## Build and install
 
-In any conversation, send `/help` for local commands: `/status`, `/model`,
-`/model <id>`, `/model default`, and `/stop`. They work through React, ACP and
-Tlon hands without a model request. See [command semantics](docs-refs/acp.md#conversation-commands).
+In any conversation, send `/help` for commands: `/status`, `/context`, `/compact`, `/model`,
+`/model <id>`, `/model default`, `/memory`, `/remember <name> <text>`, `/forget <name>`,
+and `/stop`. They work through React, ACP and
+Tlon hands. Only `/compact` calls a model, to summarize older exchanges without
+deleting the transcript. See [command semantics](docs-refs/acp.md#conversation-commands).
+
+Context compacts automatically when the estimated request exceeds the active
+model's input budget: its context window minus output headroom and an estimation
+margin. There is no fixed working-context cap; changing models changes the
+budget. Explicit conversation notes survive compaction verbatim, bounded to
+16 notes and 8 KiB including names. There is no background memory extraction or
+search index. Full transcript storage is separate and continues to grow; see
+[context and memory](docs-refs/context-and-memory.md).
 
 For a first installation, create and mount the desk in Dojo:
 
@@ -179,6 +189,8 @@ docs-refs/                 design, protocol, and roadmap
 - [`a2a-design.md`](docs-refs/a2a-design.md) develops identity and peer work.
 - [`acp.md`](docs-refs/acp.md) defines the client boundary.
 - [`hands.md`](docs-refs/hands.md) defines bidirectional conversation adapters.
+- [`context-and-memory.md`](docs-refs/context-and-memory.md) describes automatic
+  compaction and bounded notes, and proposes permission-scoped recall.
 - [`integrations.md`](docs-refs/integrations.md) shows how editors, services,
   on-ship apps, webhooks, peers, timers, and MCP servers connect.
 - [`roadmap.md`](docs-refs/roadmap.md) tracks completed and planned work.
@@ -239,8 +251,8 @@ actual Messenger delivery, ACP activity, and permission revocation without
 changing Groups code, plus provider-failure recovery and remote thinking/tool
 indicators against Groups revision `938f0c4`.
 
-`SHIP_DOJO_PANE=0:1.1 node scripts/shadow-conformance.mjs` additionally requires
-the same ship cookie environment and an idle Dojo tmux pane. It corrupts only a
+`scripts/shadow-conformance.mjs` additionally requires the same ship cookie
+environment and `SHIP_DOJO_PANE` set to an idle Dojo tmux pane. It corrupts only a
 uniquely named test verifier, reloads the runtime, and verifies explicit ACP
 recovery without changing the authoritative conversation.
 

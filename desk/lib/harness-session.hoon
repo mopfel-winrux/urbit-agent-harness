@@ -2,14 +2,16 @@
 ::  JSON snapshot projection. Gall and the Grubbery verifier share these gates,
 ::  with no I/O authority or second scheduler.
 /-  h=harness
-/+  hl=harness, hp=harness-provider, hj=harness-json, failure=harness-failure
+/+  hl=harness, hp=harness-provider, hj=harness-json, failure=harness-failure, context=harness-context
 |%
 ::  Keep provider byte accounting out of the semantic reducer. This gate is
 ::  evaluated only if replay says inference can run, preserving cheap polls.
 ++  next
   |=  [v=view:h skills=(map @t skill:h)]
   ^-  (unit step:h)
-  (decide:hl v |=(~ (est-tokens:hp v skills)))
+  ::  The current model's window determines the trigger, including after a
+  ::  model switch. Idle polls and tool waits never evaluate the lazy estimate.
+  (decide:hl v(max-context.config (input-budget:context max-context.config.v)) |=(~ (est-tokens:hp v skills)))
 ++  inspect
   |=  [ses=session:h skills=(map @t skill:h)]
   ^-  [revision=@ud view=view:h next=(unit step:h)]
@@ -26,6 +28,7 @@
     ?~  prefix  |
     ?+  -.i.prefix  |
       %command-completed  &
+      %checkpoint-completed  &(?=(^ reply.i.prefix) ?=([~ %reply *] (outcome:hl (play:hl prefix))))
       %llm-completed      ?=([%assistant * ~] item.i.prefix)
     ==
   ?.  complete  [%| 'Branch after a completed assistant reply']
@@ -46,8 +49,10 @@
       ['error' ?~(err.v ~ [%s u.err.v])]
       ['failure' ?~(err.v ~ (json:failure u.err.v))]
       ['model' %s model.config.v]
+      ['memory' (memory-json:hj memory.v)]
       ['usage' (pairs:enjs:format ~[['prompt' (numb:enjs:format prompt.total.v)] ['completion' (numb:enjs:format completion.total.v)]])]
-      ['compactions' (numb:enjs:format (lent (skim log.ses |=(e=event:h ?=(%compaction-completed -.e)))))]
+      ['compactionUsage' (pairs:enjs:format ~[['prompt' (numb:enjs:format prompt.compact-usage.v)] ['completion' (numb:enjs:format completion.compact-usage.v)]])]
+      ['compactions' (numb:enjs:format (lent (skim log.ses |=(e=event:h |(?=(%compaction-completed -.e) ?=(%checkpoint-completed -.e))))))]
       :-  'origin'
       ?~  origin.v  ~
       (pairs:enjs:format ~[['sessionId' %s from.u.origin.v] ['eventCount' (numb:enjs:format at.u.origin.v)]])

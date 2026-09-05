@@ -6,7 +6,7 @@
 ::  live in named modules so this file can concentrate on lifecycle ownership.
 ::
 /-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, *harness-store
-/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, ht=harness-tools, hj=harness-json, command=harness-command, failure=harness-failure, policy=harness-defaults, storage=harness-store, transport=harness-acp, bindings=harness-effects, default-agent, dbug
+/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, failure=harness-failure, policy=harness-defaults, storage=harness-store, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 |%
 +$  card  card:agent:gall
 --
@@ -333,6 +333,12 @@
     =/  req=@ud  (slav %ud i.t.wire)
     ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
     =^  cards  state  (handle-model-response:hc req client-response.sign)
+    [cards this]
+  ::  Bounded summary lifetime; request identity makes a late wake harmless.
+      [%compact-timeout @ @ @ ~]
+    ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+    =^  cards  state
+      (compact-timeout:hc i.t.wire (slav %ud i.t.t.wire) (slav %uv i.t.t.t.wire))
     [cards this]
   ::
       [%tool @ @ ~]
@@ -845,18 +851,24 @@
     [%input-received [u.id [%hand binding.obs hand.cfg address.cfg event.obs actor.obs] ~ `[%hand binding.obs] at.obs [%user text.obs]]]
   (admit sid u.current event)
 ::  Shared human ingress. Commands produce an ordinary terminal assistant
-::  item, but their own audit event and no provider request or token charge.
+::  item and their own audit event. /compact alone admits a summary request.
 ++  admit
   |=  [sid=session-id:h ses=session:h event=event:h]
   ^-  (quip card _state)
   ?>  ?=(%input-received -.event)
   ?>  ?=(%user -.item.input.event)
   =/  cmd  (parse:command body.item.input.event)
+  ?:  =(`['compact' ''] cmd)
+    =^  recorded  ses  (record-all sid ses ~[event])
+    =^  started  ses  (start-compaction sid ses `id.input.event)
+    =^  driven  state  (drive-put sid ses)
+    [:(weld recorded started driven) state]
   =/  events=(list event:h)  ~[event]
   =?  events  ?=(^ cmd)
-    =/  result  (run:command u.cmd (play:hl log.ses) defaults)
+    =/  v  (play:hl log.ses)
+    =/  result  (evaluate:command u.cmd v defaults (skills-visible sid skills))
     %+  snoc
-      ?~(config.result events (snoc events [%config-replaced u.config.result]))
+      (weld events events.result)
     [%command-completed id.input.event name.u.cmd body.result]
   =^  recorded  ses  (record-all sid ses events)
   =^  driven  state  (drive-put sid ses)
@@ -942,10 +954,10 @@
       %compact
     =/  ses  (need-session sid.act)
     =/  v  (play:hl log.ses)
-    ?^  pending.v  `state
-    =^  cards  ses  (issue-llm sid.act ses %compaction v)
-    :-  cards
-    state(sessions (~(put by sessions) sid.act ses))
+    ?:  |(?=(^ pending.v) !=(~ wait.v))  `state
+    =^  cards  ses  (start-compaction sid.act ses ~)
+    =^  driven  state  (drive-put sid.act ses)
+    [(weld cards driven) state]
   ::
       %cancel
     =/  ses  (need-session sid.act)
@@ -1455,7 +1467,7 @@
     $(cards (weld cards cs))
   ::
       %compact
-    =^  cs  ses  (issue-llm sid ses %compaction v)
+    =^  cs  ses  (start-compaction sid ses ~)
     $(cards (weld cards cs))
   ::
       %halt
@@ -1464,6 +1476,47 @@
     =^  cs  ses  (record-all sid ses ~[[%halted reason.u.stp]])
     [(weld cards cs) ses skills staged]
   ==
+::  The plan event and request are emitted atomically. Coverage refers to the
+::  pre-dispatch log and active prefix, not whatever happens to be current when
+::  Iris finishes. A command is acknowledged only after completion (or refusal).
+++  start-compaction
+  |=  [sid=session-id:h ses=session:h input=(unit input-id:h)]
+  ^-  [(list card) session:h]
+  =/  v  (play:hl log.ses)
+  =/  visible  (skills-visible sid skills)
+  =/  planned
+    (plan:context v (lent log.ses) input |=(candidate=view:h (estimate:hp candidate %compaction visible)))
+  ?:  ?=(%| -.planned)
+    =/  event=event:h
+      ?~  input  [%halted (cat 3 'context budget: ' p.planned)]
+      [%command-completed u.input 'compact' p.planned]
+    (record-all sid ses ~[event])
+  =/  req  next-req.ses
+  =.  next-req.ses  +(req)
+  =^  cs  ses  (record-all sid ses ~[[%compaction-planned req p.planned]])
+  :-  :+  (llm-card sid req %compaction v(items (scag count.p.planned items.v)))
+          [%pass `wire`[%compact-timeout `@ta`sid (scot %ud req) (scot %uv (sham log.ses)) ~] %arvo %b %wait (add now.bowl ~m3)]
+          cs
+  ses
+++  compact-timeout
+  |=  [sid=session-id:h req=@ud checkpoint=@uvH]
+  ^-  (quip card _state)
+  =/  current  (~(get by sessions) sid)
+  ?~  current  `state
+  =/  ses  u.current
+  =/  v  (play:hl log.ses)
+  ?.  =(pending.v `[req %compaction])  `state
+  ?~  compaction.v  `state
+  ::  Session titles can currently be reused after deletion. Include the exact
+  ::  dispatch log (with admitted input identity/time), not just a small request
+  ::  counter, so an old watchdog cannot cancel work in a recreated session.
+  =/  at  +(through.u.compaction.v)
+  ?.  =(checkpoint (sham (slag (sub (lent log.ses) at) log.ses)))  `state
+  =^  recorded  ses
+    (record-all sid ses ~[[%compaction-failed req 'Compaction timed out; the previous context was retained.' [0 0]]])
+  =^  settled  state  (drive-put sid ses)
+  :-  [[%pass `wire`[%llm `@ta`sid (scot %ud req) %compaction ~] %arvo %i %cancel-request ~] (weld recorded settled)]
+  state
 ::  +issue-llm: record the request marker and pass to iris
 ::
 ::  Provider execution: reserve identity before dispatch. The codec never
@@ -1501,9 +1554,8 @@
 ++  llm-card
   |=  [sid=session-id:h req=@ud kind=request-kind:h v=view:h]
   ^-  card
-  =/  responses=?  =('https://chatgpt.com/backend-api/codex/responses' url.config.v)
   =/  payload=json
-    ?:(responses (responses-body:hp v kind (skills-visible sid skills)) (request-body:hp v kind (skills-visible sid skills)))
+    (payload:hp v kind (skills-visible sid skills))
   =/  body=@t  (en:json:html payload)
   ::  blank session key falls back to the agent-level default
   ::
@@ -1574,7 +1626,9 @@
           (fall body '')
       ==
     ?~  body  [%llm-failed req 'empty response body']
-    =/  responses=?  =('https://chatgpt.com/backend-api/codex/responses' url.config.v)
+    =/  request-url=@t
+      ?~(compaction.v url.config.v url.u.compaction.v)
+    =/  responses=?  =('https://chatgpt.com/backend-api/codex/responses' request-url)
     =/  digest
       ?:  responses
         (mule |.((parse-responses-sse:hp u.body)))
@@ -1591,9 +1645,18 @@
     =/  out  p.digest
     ?:  ?=(%| -.out)  [%llm-failed req p.out]
     ?:  ?=(%compaction kind)
-      ?>  ?=(%assistant -.it.p.out)
-      [%compaction-completed req body.it.p.out]
+      ?~  compaction.v
+        [%compaction-failed req 'Compaction has no source plan; the previous context was retained. Retry explicitly.' u.p.out]
+      =/  invalid  (validate:context v u.compaction.v stop.p.out it.p.out)
+      ?^  invalid  [%compaction-failed req u.invalid u.p.out]
+      ?>  ?=([%assistant * ~] it.p.out)
+      =/  reply=(unit [input-id=input-id:h body=@t])
+        ?~  command.u.compaction.v  ~
+        `[u.command.u.compaction.v 'Context compacted. The recent turn and full source transcript were retained.']
+      [%checkpoint-completed req body.it.p.out u.p.out reply]
     [%llm-completed req stop.p.out u.p.out it.p.out]
+  =?  ev  &(?=(%llm-failed -.ev) =(%compaction kind))
+    [%compaction-failed req err.ev [0 0]]
   =^  cs1  ses  (record-all sid ses ~[ev])
   =^  cs2  state  (drive-put sid ses)
   [(weld cs1 cs2) state]

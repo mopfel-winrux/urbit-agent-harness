@@ -13,8 +13,10 @@ const dependencies = (name) => [...code(name).matchAll(/^\/\+\s+(.+)$/gm)]
   .flatMap((match) => match[1].split(',').map((entry) => entry.trim().split('=').at(-1).replace(/^\*/, '')))
 
 test('semantic head depends on nouns, not providers or transports', () => {
-  assert.deepEqual(dependencies('harness'), [])
-  assert.doesNotMatch(code('harness'), /\bjson\b|\.\^\(|%pass|bowl:gall/)
+  for (const name of ['harness', 'harness-context', 'harness-memory']) {
+    assert.deepEqual(dependencies(name), [])
+    assert.doesNotMatch(code(name), /\bjson\b|\.\^\(|%pass|bowl:gall/)
+  }
 })
 
 test('client settlement consumes the core outcome instead of defining completion', async () => {
