@@ -23,6 +23,18 @@
 ++  test-search-errors-never-echo-provider-body
   =/  out  (response:search (reply 401 'fixture-secret'))
   (expect !>(&((find-sub:ht 'API key' out) !(find-sub:ht 'fixture-secret' out))))
+++  test-search-errors-never-echo-arbitrary-uppercase-codes
+  =/  out  (response:search (reply 500 '{"error":{"code":"FIXTURE_SECRET"}}'))
+  (expect-eq !>('Brave Search returned HTTP 500') !>(out))
+++  test-search-recognizes-token-errors-on-validation-status
+  =/  invalid  (response:search (reply 422 '{"error":{"code":"SUBSCRIPTION_TOKEN_INVALID"}}'))
+  =/  missing  (response:search (reply 422 '{"error":{"code":"SUBSCRIPTION_TOKEN_MISSING"}}'))
+  (expect !>(&((find-sub:ht 'API key' invalid) =(invalid missing))))
+++  test-search-unreadable-and-empty-results
+  =/  invalid  (response:search (reply 200 'not-json'))
+  =/  empty  (response:search (reply 200 '{"web":{"results":[]}}'))
+  =/  failure  (response:search (reply 502 'not-json'))
+  (expect !>(&(=('Brave Search returned an unreadable response.' invalid) =('No web results found.' empty) =('Brave Search returned HTTP 502' failure))))
 ++  test-search-and-discovery-use-existing-permissions
   (expect !>(&((tool-granted:ht 'web_search' ~[%web]) !(tool-granted:ht 'web_search' ~[%mcp]) (tool-granted:ht 'list_mcp_servers' ~[%mcp]) !(tool-granted:ht 'list_mcp_servers' ~[%web]))))
 ++  test-mcp-discovery-only-exposes-enabled-names-and-ids

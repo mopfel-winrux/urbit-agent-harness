@@ -31,6 +31,37 @@ test('search key can be configured, survives reload, and can be removed', async 
   await expect(page.getByText('key needed', { exact: true })).toBeVisible()
 })
 
+test('MCP ids keep focus while typing and row removal preserves remaining headers', async ({ page }) => {
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=mcp')
+  const add = page.getByRole('button', { name: 'Add server', exact: true })
+  const save = page.getByRole('button', { name: 'Save MCP servers' })
+  await add.click()
+  await page.getByLabel('Server id').pressSequentially('first-server')
+  await expect(page.getByLabel('Server id')).toHaveValue('first-server')
+  await expect(page.getByLabel('Server id')).toBeFocused()
+  await page.getByLabel('Streamable HTTP URL').fill('https://first.example/mcp')
+  await save.click()
+  await expect(page.getByText('Saved.', { exact: true })).toBeVisible()
+  await add.click()
+  await expect(page.getByText('Saved.', { exact: true })).toHaveCount(0)
+  const second = page.locator('.mcp-server').nth(1)
+  await second.getByLabel('Server id').pressSequentially('second-server')
+  await second.getByLabel('Streamable HTTP URL').fill('https://second.example/mcp')
+  await second.getByRole('button', { name: 'Add header' }).click()
+  await second.getByLabel('Header name').fill('authorization')
+  await second.getByLabel('Header value').fill('fixture-token')
+  await save.click()
+  await expect(page.getByText('Saved.', { exact: true })).toBeVisible()
+  await page.locator('.mcp-server').first().getByRole('button', { name: 'Remove', exact: true }).click()
+  await expect(page.getByText('Saved.', { exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('Server id')).toHaveValue('second-server')
+  await expect(page.getByLabel('Header value')).toHaveValue('fixture-token')
+  await save.click()
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1))).toEqual([
+    { id: 'second-server', name: 'second-server', url: 'https://second.example/mcp', enabled: true, headers: [{ name: 'authorization', value: 'fixture-token' }] },
+  ])
+})
+
 test('switching providers fences stale catalogs and does not reuse another model’s limit', async ({ page }) => {
   await page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('anthropic')
   await expect.poll(() => page.evaluate(() => window.settingsFixture.requests.at(-1).provider)).toBe('anthropic')

@@ -1,6 +1,5 @@
 ::  Brave's wire format, isolated from permissions and session execution.
 ::  Credentials are supplied by the effect owner, never by model arguments.
-/-  h=harness
 /+  ht=harness-tools
 |%
 ++  request
@@ -24,22 +23,21 @@
   ?:  ?=(%cancel -.res)  'Web search was cancelled.'
   ?:  ?=(%progress -.res)  'Web search is still running.'
   =/  status  status-code.response-header.res
-  =/  code=@t
-    ?~  full-file.res  ''
-    =/  jon  (de:json:html q.data.u.full-file.res)
-    ?.  ?=([~ %o *] jon)  ''
-    =/  err  (~(get by p.u.jon) 'error')
-    ?.  ?=([~ %o *] err)  ''
-    =/  value  (~(get by p.u.err) 'code')
-    ?.  ?=([~ %s *] value)  ''
-    ::  Error codes, not arbitrary descriptions or echoed request fields.
-    ?.  &((lte (met 3 p.u.value) 64) ?=(^ (rush p.u.value (plus ;~(pose hig nud cab)))))  ''
-    p.u.value
-  ?:  |(=('SUBSCRIPTION_TOKEN_INVALID' code) =('SUBSCRIPTION_TOKEN_MISSING' code))
-    'Brave Search rejected the API key. Check Settings > Search and the key subscription.'
-  ?:  |(=(401 status) =(403 status))  'Brave Search rejected the API key. Check Settings > Search and the key subscription.'
-  ?:  =(429 status)  'Brave Search quota or rate limit reached. Check your Brave plan or try again later.'
-  ?.  =(200 status)  (rap 3 'Brave Search returned HTTP ' (scot %ud status) ?:(=('' code) '' (cat 3 ': ' code)) ~)
+  ?.  =(200 status)
+    =/  code=@t
+      ?~  full-file.res  ''
+      =/  jon  (de:json:html q.data.u.full-file.res)
+      ?.  ?=([~ %o *] jon)  ''
+      =/  err  (~(get by p.u.jon) 'error')
+      ?.  ?=([~ %o *] err)  ''
+      =/  value  (~(get by p.u.err) 'code')
+      ?.  ?=([~ %s *] value)  ''
+      p.u.value
+    ::  Recognize known failures; never echo provider-controlled error text.
+    ?:  |(=(401 status) =(403 status) =('SUBSCRIPTION_TOKEN_INVALID' code) =('SUBSCRIPTION_TOKEN_MISSING' code))
+      'Brave Search rejected the API key. Check Settings > Search and the key subscription.'
+    ?:  =(429 status)  'Brave Search quota or rate limit reached. Check your Brave plan or try again later.'
+    (cat 3 'Brave Search returned HTTP ' (scot %ud status))
   =/  parsed
     %-  mole  |.
     ?>  ?=(^ full-file.res)

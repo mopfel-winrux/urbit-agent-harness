@@ -21,8 +21,8 @@ export default function McpSettings({ resources }) {
     dirty.current = true; setSaved(false)
     setServers((current) => current.map((server, at) => at === index ? { ...server, ...patch } : server))
   }
-  const add = () => { dirty.current = true; setServers((current) => [...current, blankServer()]) }
-  const remove = (index) => { dirty.current = true; setServers((current) => current.filter((_, at) => at !== index)) }
+  const add = () => { dirty.current = true; setSaved(false); setServers((current) => [...current, blankServer()]) }
+  const remove = (index) => { dirty.current = true; setSaved(false); setServers((current) => current.filter((_, at) => at !== index)) }
 
   async function save(event) {
     event.preventDefault()
@@ -46,7 +46,7 @@ export default function McpSettings({ resources }) {
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>MCP servers</h2><p>Remote stateless Streamable HTTP endpoints available to conversations granted the MCP capability.</p></div><button type="button" className="text-button" onClick={add}>Add server</button></div>
       {!servers.length && <div className="empty-setting"><strong>No MCP servers configured</strong><span>Add an endpoint to make its tools discoverable from any permitted conversation.</span></div>}
-      <div className="mcp-servers">{servers.map((server, index) => <section className="mcp-server" key={`${server.id}-${index}`}>
+      <div className="mcp-servers">{servers.map((server, index) => <section className="mcp-server" key={index}>
         <div className="mcp-server-title">
           <label className="compact-check"><input type="checkbox" checked={server.enabled} onChange={(event) => update(index, { enabled: event.target.checked })} /><span>Enabled</span></label>
           <button type="button" className="text-button danger-text" onClick={() => remove(index)}>Remove</button>

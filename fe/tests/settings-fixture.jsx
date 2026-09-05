@@ -6,6 +6,7 @@ import GlobalSettings from '../src/components/GlobalSettings'
 import AgentSettings from '../src/components/AgentSettings'
 import ProviderSettings from '../src/components/ProviderSettings'
 import SearchSettings from '../src/components/SearchSettings'
+import McpSettings from '../src/components/McpSettings'
 import '../src/style.css'
 
 const pending = new Map()
@@ -41,12 +42,16 @@ api.action = async (action) => {
     return { 'has-key': true }
   }
   if (window.settingsFixture.failSave) throw new Error('Configuration save failed in fixture')
+  if (action.mcp) {
+    window.settingsFixture.saves.push(action.mcp)
+    return action.mcp
+  }
   config = action.defaults || action.config.config
   window.settingsFixture.saves.push(config)
   sessionStorage.setItem('settings-fixture-config', JSON.stringify(config))
   return config
 }
-const component = params.get('page') === 'search' ? <SearchSettings /> : params.get('page') === 'provider'
+const component = params.get('page') === 'mcp' ? <McpSettings resources={resourcesFor('')} /> : params.get('page') === 'search' ? <SearchSettings /> : params.get('page') === 'provider'
   ? <ProviderSettings provider="openai" resources={resourcesFor('')} />
   : params.get('page') === 'conversation'
     ? <AgentSettings resources={resourcesFor('fixture')} theme="system" onThemeChange={() => {}} />
