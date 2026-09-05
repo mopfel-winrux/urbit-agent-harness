@@ -57,7 +57,9 @@ const publish = (next) => {
   snapshot = { ...snapshot, ...next, revision: snapshot.revision + 1 }
   acp.dispatchEvent(new CustomEvent('session/update', { detail: { sessionId: chat, update: { sessionUpdate: 'test_snapshot' } } }))
 }
-window.harnessFixture = { sent: [], update: publish }
+const heldPrompts = []
+window.harnessFixture = { sent: [], update: publish, holdPrompts: false,
+  completePrompt: (index) => heldPrompts[index]?.({ stopReason: 'end_turn' }) }
 acp.start = async () => {}
 acp.call = async (method, params) => {
   if (method === 'harness/session/snapshot') return { ...snapshot, entries: params.since === snapshot.revision ? null : snapshot.entries }
@@ -65,6 +67,7 @@ acp.call = async (method, params) => {
   if (method === 'session/prompt') {
     window.harnessFixture.sent.push(params.prompt[0].text)
     publish({ phase: 'thinking', streaming: 'A **streamed** answer with `inline code`…' })
+    if (window.harnessFixture.holdPrompts) return new Promise((resolve) => heldPrompts.push(resolve))
     return { stopReason: 'end_turn' }
   }
   throw new Error(`Unexpected fixture method: ${method}`)

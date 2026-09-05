@@ -126,6 +126,14 @@
         ['item' (item-ui-json item.input.e)]
     ==
   ::
+      %command-completed
+    %-  pairs:enjs:format
+    :~  ['type' %s 'command-completed']
+        ['inputId' %s (scot %uv input-id.e)]
+        ['name' %s name.e]
+        ['body' %s body.e]
+    ==
+  ::
       %llm-requested
     %-  pairs:enjs:format
     :~  ['type' %s 'llm-requested']

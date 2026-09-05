@@ -65,6 +65,9 @@ try {
     system: 'Keep these instructions.', 'max-context': 80000, tools: ['web'] }
   await client.call('harness/defaults/configure', { config })
   await client.call('harness/tlon/configure', { enabled: true, owner: peer, mentions: true, trusted: [] })
+  await send('/help')
+  await until('slash help delivered through a real DM', async () => JSON.stringify(await scry(`chat/v4/dm/${ship}/writs/newest/8/light`)).includes('/model default'))
+  assert.equal(requests.length, 0, 'Tlon commands do not invoke inference')
   await send('Presence fixture: first request')
   await until('DM reaches inference', () => requests.length === 1)
   ;[sessionId] = (await client.call('harness/tlon')).sessions
@@ -76,12 +79,17 @@ try {
   requests[0].res.end('{"error":{"message":"User not found.","code":401}}')
   await until('provider error is visible in the shared session', async () => (await snapshot()).error?.includes('http error 401'))
   await until('failure clears computing', async () => !await presence())
+  await until('safe authentication failure delivered to peer', async () => JSON.stringify(await scry(`chat/v4/dm/${ship}/writs/newest/8/light`)).includes('could not authenticate'))
   const prior = await client.call('harness/session/config', { sessionId })
   await client.call('harness/session/configure', { sessionId, config: { ...prior, key: '', tools: ['web'] } })
   await client.call('harness/defaults/configure', { config: { ...config, url: `${url}/second`, model: 'second-model',
     headers: [{ name: 'x-fixture', value: 'second' }], system: 'Do not replace the existing session instructions.', tools: [] } })
   assert.equal((await client.call('harness/session/config', { sessionId })).model, 'first-model', 'defaults are not retroactive')
-  const changed = await client.call('harness/session/use-default-model', { sessionId })
+  await send('/model default')
+  const changed = await until('DM command adopts current model defaults', async () => {
+    const current = await client.call('harness/session/config', { sessionId })
+    return current.model === 'second-model' && current
+  })
   assert.equal(changed.model, 'second-model')
   assert.equal(changed.system, prior.system)
   assert.deepEqual(changed.tools, ['web'])
@@ -92,8 +100,9 @@ try {
   answer(requests[1].res, '', [{ id: 'presence-slow', type: 'function', function: { name: 'http_fetch', arguments: JSON.stringify({ url: `${url}/slow-tool` }) } }])
   await until('tool starts', () => tools.length === 1)
   await until('peer sees tool activity', async () => (await presence())?.display.text === 'Using tools...')
-  await client.call('session/cancel', { sessionId })
+  await send('/stop')
   await until('cancellation clears computing', async () => !await presence())
+  await until('slash stop acknowledgement reaches the peer', async () => JSON.stringify(await scry(`chat/v4/dm/${ship}/writs/newest/8/light`)).includes('Stopped.'))
   tools[0].end('LATE_TOOL_RESULT')
   await send('Presence fixture: resume after cancellation')
   await until('cancelled DM accepts another message', () => requests.length === 3)

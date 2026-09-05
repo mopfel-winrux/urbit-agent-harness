@@ -34,12 +34,20 @@ Configuration changes affect subsequent requests; they do not interrupt an
 in-flight request or restart failed work. Send another message after correcting
 a failure. No provider configuration is duplicated in the adapter.
 
-“Work failed. The owner can inspect the session for details.” is a deliberately
-limited public reply. Open that session in Harness to see its provider error.
+Failures have safe public explanations for authentication, credits, rate limits
+and other provider problems. Open the session in Harness for the raw error;
+provider bodies are not forwarded into a public channel.
 An HTTP `401` is an inference authentication failure, not an Activity or Story
 mark error. Check the conversation's endpoint and its matching saved credential,
 not just the defaults for new conversations. Refreshing the page does not retry
 the provider request.
+
+Send `/help`, `/status`, `/model`, `/model <id>`, `/model default`, or `/stop`
+directly in the DM or thread. These are shared Harness commands, not Tlon bot
+shortcuts, and work for the owner and trusted actors without tool grants.
+Channel mention policy still applies. `/stop` interrupts current work and clears
+that session's queued inputs; other commands wait for the current turn to settle.
+See [conversation commands](acp.md#conversation-commands) for semantics.
 
 ## Thinking and tool activity
 

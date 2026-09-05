@@ -129,6 +129,8 @@
   $%  [%config-replaced =config]
       [%input-admitted =item]
       [%input-received input=admitted-input]
+      ::  Local command reply, linked to its admitted input; not inference.
+      [%command-completed input-id=input-id name=@t body=@t]
       [%llm-requested req=@ud kind=request-kind]
       [%llm-completed req=@ud stop=stop-reason =usage =item]
       [%llm-failed req=@ud err=@t]

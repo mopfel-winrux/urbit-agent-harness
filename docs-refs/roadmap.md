@@ -63,11 +63,47 @@ Keep the rest of this ledger: these priorities order the work, not erase it.
   grants, lazy tool discovery, and generic calls.
 - [x] Minimal `%harness-grub` runtime with no bundled application suite.
 - [x] ACP create/list/load/resume/close/delete/prompt/cancel and updates.
+- [x] Shared `/help`, `/status`, `/model` and `/stop` commands with ACP discovery,
+  native/hand admission, model-only configuration changes, replayable local
+  replies, and authorized/deduplicated interruption of active work.
+- [x] Safe public provider-failure descriptions for hands, with raw diagnostics
+  retained in the owner-visible session.
 - [x] Durable per-client ACP queues with acknowledgement and reconnection.
 - [x] React ACP client with componentized chat and tabbed settings.
 - [x] Optimistic prompt display, responsive sidebar, and system theme.
 
 ## Near term
+
+### Next design pass: session lifecycle, context and memory
+
+With the shared slash commands verified, review these reference implementations
+before proposing a memory subsystem; no architecture is adopted
+merely because it exists in another harness:
+
+- [ ] Review `~/gits/tlon/openclaw` and `~/gits/tlon/hermes-agent` for session
+  lifecycle, context assembly, compaction triggers and recovery semantics.
+- [ ] Review the LCM implementation in `~/gits/tlon/claw`: retain useful ideas,
+  distinguish primary records from derived summaries, and challenge its costs.
+- [ ] Review `~/gits/tlon/tlon-apps` branch `reid/global-search` for incremental
+  preindexes and bounded fast matching. Read the branch without disturbing its
+  checkout; assess reuse for Harness history as well as Tlon conversations.
+- [ ] Write a design separating authoritative session history, working model
+  context, compaction policy, long-term memory and retrieval/index executors.
+  ACP and native clients should inspect/control the same lifecycle, not own it.
+- [ ] Define provenance and permissions for recalled material: source IDs,
+  session/actor scope, branch ancestry, summary coverage, and access revocation.
+  Search results and remembered text do not confer tool authority.
+- [ ] Make compaction recoverable and inspectable: preserve source records,
+  close tool exchanges, reserve response headroom, and specify what survives a
+  failed or interrupted summary. Evaluate hierarchical summaries versus simpler
+  bounded retrieval before committing to a hierarchy.
+- [ ] Specify incremental, rebuildable indexes and versioned checkpoints with
+  bounded work per event. Measure admission latency, event-loop stalls, replay
+  cost, loom growth and retrieval quality before setting budgets. Grubbery threads
+  enable interleaving; they do not make CPU work free or create parallel Arvo.
+- [ ] Propose the smallest useful implementation and explicit non-goals before
+  adding automatic memory extraction or background summarization. Expensive
+  retrieval/embedding can be an optional executor, never a prerequisite for chat.
 
 ### Automated fake-ship conformance
 
@@ -83,6 +119,9 @@ Keep the rest of this ledger: these priorities order the work, not erase it.
 - [x] Run simultaneous turns in two sessions and verify both transcripts.
 - [x] Check admission identity, detach/resume, native/ACP snapshot parity,
   branch provenance, parent isolation, and cross-client cancellation.
+- [x] Exercise local slash commands without inference, live ACP interruption,
+  forbidden/replayed hand stops, and real Tlon DM command delivery and tool
+  cancellation. Test the React pending-message race when `/stop` supersedes a prompt.
 - [x] Interrupt in-flight tools, preserve completed siblings, settle ACP tool
   updates, and immediately continue without duplicate execution or late-result
   revival; verify cancellation labels and Stop-to-send behavior in the UI.

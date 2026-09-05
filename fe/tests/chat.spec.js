@@ -58,6 +58,33 @@ test('inference errors point to configuration, not a page refresh', async ({ pag
   await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toHaveCount(0)
 })
 
+test('slash stop can be sent while the conversation is busy', async ({ page }) => {
+  await page.evaluate(() => window.harnessFixture.update({ phase: 'thinking' }))
+  const input = page.getByRole('textbox', { name: 'Message', exact: true })
+  await input.fill('wait for this')
+  await input.press('Enter')
+  expect(await page.evaluate(() => window.harnessFixture.sent.length)).toBe(0)
+  await input.fill('/stop')
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled()
+  await input.press('Enter')
+  await expect.poll(() => page.evaluate(() => window.harnessFixture.sent)).toEqual(['/stop'])
+  await expect(input).toHaveValue('')
+})
+
+test('an interrupted prompt cannot clear its replacement command ghost', async ({ page }) => {
+  await page.evaluate(() => { window.harnessFixture.holdPrompts = true })
+  const input = page.getByRole('textbox', { name: 'Message', exact: true })
+  await input.fill('Start something slow')
+  await input.press('Enter')
+  await input.fill('/stop')
+  await input.press('Enter')
+  await expect.poll(() => page.evaluate(() => window.harnessFixture.sent.length)).toBe(2)
+  await page.evaluate(() => window.harnessFixture.completePrompt(0))
+  await expect(page.locator('.message.pending')).toContainText('/stop')
+  await page.evaluate(() => window.harnessFixture.completePrompt(1))
+  await expect(page.locator('.message.pending')).toHaveCount(0)
+})
+
 test('cancelled tool receipts remove running indicators', async ({ page }) => {
   await page.evaluate(() => window.harnessFixture.update({ phase: 'idle', entries: [
     { id: '3', role: 'assistant', calls: [{ id: 'slow', name: 'http_fetch', args: '{}' }] },

@@ -20,6 +20,7 @@
       %config-replaced       v(config config.e)
       %input-admitted        v(items [item.e items.v], err ~, cancelled ~)
       %input-received        v(items [item.input.e items.v], err ~, cancelled ~)
+      %command-completed    v(items [[%assistant body.e ~] items.v])
       ::  A recorded request is an admitted continuation. Clearing the error
       ::  here also keeps already-recorded config/retry exchanges replayable.
       %llm-requested         v(pending `[req.e kind.e], err ~)
@@ -98,6 +99,7 @@
     ?+  -.e  ~
       %input-admitted  `[~ item.e]
       %input-received  `[`id.input.e item.input.e]
+      %command-completed  `[~ [%assistant body.e ~]]
       %llm-completed   `[~ item.e]
       %tool-completed  `[~ [%tool call-id.e name.e body.e]]
     ==

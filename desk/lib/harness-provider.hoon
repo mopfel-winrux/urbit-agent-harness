@@ -2,7 +2,7 @@
 ::  No I/O, credentials or session mutation. Decode into Harness nouns first;
 ::  only the head may accept a result against its outstanding request identity.
 /-  h=harness
-/+  ht=harness-tools
+/+  ht=harness-tools, failure=harness-failure
 |%
 +$  model-info  [id=@t context=(unit @ud)]
 ::  +est-tokens: crude budget: request bytes / 4
@@ -314,11 +314,8 @@
   |=  jon=json
   ^-  (each [stop=stop-reason:h u=usage:h it=item:h] @t)
   ?.  ?=([%o *] jon)  [%| 'unexpected response shape']
-  =/  err  (~(get by p.jon) 'error')
-  ?^  err
-    ?.  ?=([%o *] u.err)  [%| 'provider error']
-    =/  msg  (~(get by p.u.err) 'message')
-    [%| ?:(?=([~ %s *] msg) p.u.msg 'provider error')]
+  =/  err  (wire-error:failure jon)
+  ?^  err  [%| u.err]
   =/  choices  (~(get by p.jon) 'choices')
   ?.  ?=([~ %a ^] choices)  [%| 'no choices in response']
   =/  choice  i.p.u.choices

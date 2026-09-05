@@ -6,7 +6,7 @@
 ::  live in named modules so this file can concentrate on lifecycle ownership.
 ::
 /-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, *harness-store
-/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, ht=harness-tools, hj=harness-json, policy=harness-defaults, storage=harness-store, transport=harness-acp, bindings=harness-effects, default-agent, dbug
+/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, ht=harness-tools, hj=harness-json, command=harness-command, failure=harness-failure, policy=harness-defaults, storage=harness-store, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 |%
 +$  card  card:agent:gall
 --
@@ -495,7 +495,7 @@
     =^  made  state  (handle-action [%new sid defaults])
     =/  result=json
       (pairs:enjs:format ~[['sessionId' %s sid]])
-    [:(weld made ~[(acp-result-card:wire-codec connection u.id result)]) state]
+    [:(weld made ~[(acp-result-card:wire-codec connection u.id result) (acp-session-update-card:wire-codec connection sid advertised:command)]) state]
   ::
       %'session/list'
     ?~  id  `state
@@ -520,7 +520,7 @@
     =/  current=session:h  (need (~(get by sessions) u.sid))
     =/  replay=(list card)
       (acp-item-cards:wire-codec connection u.sid 0 (transcript-items:hl log.current))
-    [:(weld replay ~[(acp-result-card:wire-codec connection u.id (pairs:enjs:format ~))]) state]
+    [:(weld replay ~[(acp-result-card:wire-codec connection u.id (pairs:enjs:format ~)) (acp-session-update-card:wire-codec connection u.sid advertised:command)]) state]
   ::
       %'session/resume'
     ?~  id  `state
@@ -529,7 +529,7 @@
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Unknown session')] state]
     ?.  (~(has by sessions) u.sid)
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Unknown session')] state]
-    [~[(acp-result-card:wire-codec connection u.id (pairs:enjs:format ~))] state]
+    [~[(acp-result-card:wire-codec connection u.id (pairs:enjs:format ~)) (acp-session-update-card:wire-codec connection u.sid advertised:command)] state]
   ::
       %'session/close'
     ?~  id  `state
@@ -762,6 +762,8 @@
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Expected sessionId and text prompt')] state]
     ?.  (~(has by sessions) u.sid)
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Unknown session')] state]
+    ::  /stop settles the prior prompt before reserving this command's reply.
+    =^  stopped  state  (stop-command u.sid u.text)
     ?:  (~(has by acp-prompts) u.sid)
       [~[(acp-error-card:wire-codec connection u.id '-32600' 'A prompt is already running')] state]
     =/  current=session:h  (need (~(get by sessions) u.sid))
@@ -776,9 +778,8 @@
     =/  client-id  (acp-param-string:wire-codec params 'clientMessageId')
     =/  admission=json
       (pairs:enjs:format ~[['sessionUpdate' %s 'harness_prompt_admitted'] ['clientMessageId' ?~(client-id ~ [%s u.client-id])] ['inputId' %s (scot %uv id.input.event)]])
-    =^  admitted  current  (record-all u.sid current ~[event])
-    =^  driven  state  (drive-put u.sid current)
-    [:(weld ~[(acp-session-update-card:wire-codec connection u.sid admission)] admitted driven) state]
+    =^  driven  state  (admit u.sid current event)
+    [:(weld stopped ~[(acp-session-update-card:wire-codec connection u.sid admission)] driven) state]
   ::
       %'session/cancel'
     =/  sid  (acp-param-string:wire-codec params 'sessionId')
@@ -803,15 +804,29 @@
     [[%| 'Create the session and configure its tool grants before binding it'] ~ state]
   =/  applied  (apply:hd hands act now.bowl)
   ?:  ?=(%| -.applied)  [[%| p.applied] ~ state]
-  =.  hands  db.p.applied
+  ::  Validate and deduplicate BEFORE interrupting. A replayed /stop cannot
+  ::  cancel newer work. Cancel against the old ledger, then admit the stop
+  ::  observation so it is not swept up with the work it just cancelled.
+  =^  stopped  state
+    ?.  ?&  ?=(%observe -.act)
+        (stopping:command text.act)
+        !(~(has by observations.hands) (input-id:hd binding.act event.act))
+        ==
+      `state
+    =/  sid  sid:(need (~(get by bindings.hands) binding.act))
+    (stop-command sid text.act)
+  ::  Reapply to retain cancellation receipts and the other bindings' queues.
+  =/  accepted  ?~(stopped applied (apply:hd hands act now.bowl))
+  ?>  ?=(%& -.accepted)
+  =.  hands  db.p.accepted
   =/  sid=(unit session-id:h)
     ?+  -.act  ~
       %observe  `sid:(need (~(get by bindings.hands) binding.act))
       %enable   `sid:(need (~(get by bindings.hands) id.act))
     ==
-  ?~  sid  [[%& result.p.applied] ~ state]
+  ?~  sid  [[%& result.p.accepted] ~ state]
   =^  cards  state  (hand-pump u.sid)
-  [[%& result.p.applied] cards state]
+  [[%& result.p.accepted] (weld stopped cards) state]
 ::  Admit queued work only at a session boundary. Immediate admission and
 ::  pumping share one event; its state commits before external effects run.
 ++  hand-pump
@@ -828,9 +843,33 @@
   =.  hands  (start:hd hands sid u.id)
   =/  event=event:h
     [%input-received [u.id [%hand binding.obs hand.cfg address.cfg event.obs actor.obs] ~ `[%hand binding.obs] at.obs [%user text.obs]]]
-  =^  admitted  u.current  (record-all sid u.current ~[event])
-  =^  driven  state  (drive-put sid u.current)
-  [(weld admitted driven) state]
+  (admit sid u.current event)
+::  Shared human ingress. Commands produce an ordinary terminal assistant
+::  item, but their own audit event and no provider request or token charge.
+++  admit
+  |=  [sid=session-id:h ses=session:h event=event:h]
+  ^-  (quip card _state)
+  ?>  ?=(%input-received -.event)
+  ?>  ?=(%user -.item.input.event)
+  =/  cmd  (parse:command body.item.input.event)
+  =/  events=(list event:h)  ~[event]
+  =?  events  ?=(^ cmd)
+    =/  result  (run:command u.cmd (play:hl log.ses) defaults)
+    %+  snoc
+      ?~(config.result events (snoc events [%config-replaced u.config.result]))
+    [%command-completed id.input.event name.u.cmd body.result]
+  =^  recorded  ses  (record-all sid ses events)
+  =^  driven  state  (drive-put sid ses)
+  [(weld recorded driven) state]
+::  A stop is out of band, not another queued request. Idle sessions need no
+::  synthetic cancellation; their command acknowledgement is sufficient.
+++  stop-command
+  |=  [sid=session-id:h text=@t]
+  ^-  (quip card _state)
+  ?.  (stopping:command text)  `state
+  =/  v  (play:hl log:(need-session sid))
+  ?.  |(?=(^ pending.v) !=(~ wait.v) (~(has by active.hands) sid) (~(has by acp-prompts) sid))  `state
+  (handle-action [%cancel sid])
 ++  settle-hands
   |=  sid=session-id:h
   ^-  (quip card _state)
@@ -844,7 +883,7 @@
   =/  body=@t
     ?-  -.u.result
       %cancelled  'Work was cancelled.'
-      %failure    'Work failed. The owner can inspect the session for details.'
+      %failure    (public-message:failure reason.u.result)
       %reply      body.u.result
     ==
   =.  hands  (finish:hd hands sid -.u.result body)
@@ -867,14 +906,15 @@
     [cards state]
   ::
       %send
+    =^  stopped  state  (stop-command sid.act text.act)
     =/  ses  (need-session sid.act)
     ?>  !(~(has by active.hands) sid.act)
+    =/  v  (play:hl log.ses)
+    ?>  |(?=(~ (parse:command text.act)) &(?=(~ pending.v) =(~ wait.v)))
     =/  event=event:h
       (input-event [%poke src.bowl] `src.bowl ~ [%user text.act])
-    =^  cs1  ses
-      (record-all sid.act ses ~[event])
-    =^  cs2  state  (drive-put sid.act ses)
-    [(weld cs1 cs2) state]
+    =^  driven  state  (admit sid.act ses event)
+    [(weld stopped driven) state]
   ::
       %fork
     ?>  !(~(has by sessions) to.act)

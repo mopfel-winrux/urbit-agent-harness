@@ -17,6 +17,45 @@ stealing another client's updates.
 
 ## Protocol surface
 
+### Conversation commands
+
+Send commands as ordinary `session/prompt` text. Harness advertises `/help`,
+`/status`, `/model`, and `/stop` using ACP's `available_commands_update` on
+session creation, load, and resume. React, native `%send`, and all conversation
+hands use the same command interpreter; adapters do not implement command logic.
+
+| Command | Effect |
+| --- | --- |
+| `/help` | List commands and usage. |
+| `/status` | Show provider/model, tool-grant count, recorded token usage and a safe description of the last failure. |
+| `/model` | Show the conversation's provider and model. |
+| `/model <id>` | Change the model within the current provider. |
+| `/model default` | Copy the current default provider/model settings into this conversation. |
+| `/stop` | Cancel the current turn and queued hand work; acknowledge locally. |
+
+These commands never call a model or require a tool grant. Model changes retain
+the conversation's instructions, history and tool permissions. A typed model
+name is not an access check; the provider may reject it on the next real prompt.
+Changing to an uncatalogued model uses the same 80,000-token context fallback as
+the settings client. `/model default` copies the default's context limit.
+
+Only an exact `/stop` (ignoring surrounding whitespace) interrupts active work.
+Other commands submitted through ACP while busy get the normal busy error;
+hands queue them until settlement. Hand authorization and source-event
+deduplication happen before interruption: replaying an old stop cannot cancel
+a newer turn. Admission/storage limits still apply. Cancellation fences late
+results but cannot undo external actions already started.
+
+Commands are recognized only at human ingress, not in model/tool output, timers
+or subagent instructions. Lowercase slash words reserve the command namespace;
+unknown commands reply with help guidance. Paths such as `/tmp/file` and `//`
+escapes remain ordinary text. Each accepted command records its input and a
+`command-completed` audit event linked by input ID. Its assistant reply appears
+in the shared transcript and ordinary ACP/hand output, without invented model
+usage. See the [ACP slash-command protocol](https://agentclientprotocol.com/protocol/v1/slash-commands).
+
+### Methods
+
 - `initialize`
 - `session/new`
 - `session/list`

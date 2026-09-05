@@ -2,7 +2,7 @@
 ::  JSON snapshot projection. Gall and the Grubbery verifier share these gates,
 ::  with no I/O authority or second scheduler.
 /-  h=harness
-/+  hl=harness, hp=harness-provider, hj=harness-json
+/+  hl=harness, hp=harness-provider, hj=harness-json, failure=harness-failure
 |%
 ::  Keep provider byte accounting out of the semantic reducer. This gate is
 ::  evaluated only if replay says inference can run, preserving cheap polls.
@@ -22,10 +22,13 @@
     [%| 'Invalid branch point']
   ::  Retain the noun tail directly; no serialization or history rewriting.
   =/  prefix  (slag (sub (lent log.ses) at) log.ses)
-  ?.  ?=([[%llm-completed *] *] prefix)
-    [%| 'Branch after a completed assistant reply']
-  ?.  ?=([%assistant * ~] item.i.prefix)
-    [%| 'Finish the tool exchange before branching']
+  =/  complete=?
+    ?~  prefix  |
+    ?+  -.i.prefix  |
+      %command-completed  &
+      %llm-completed      ?=([%assistant * ~] item.i.prefix)
+    ==
+  ?.  complete  [%| 'Branch after a completed assistant reply']
   [%& [[%forked from at ~ ~] prefix] next-req.ses]
 ++  snapshot
   |=  [ses=session:h since=(unit @ud)]
@@ -41,6 +44,7 @@
   :~  ['revision' (numb:enjs:format revision)]
       ['phase' %s phase]
       ['error' ?~(err.v ~ [%s u.err.v])]
+      ['failure' ?~(err.v ~ (json:failure u.err.v))]
       ['model' %s model.config.v]
       ['usage' (pairs:enjs:format ~[['prompt' (numb:enjs:format prompt.total.v)] ['completion' (numb:enjs:format completion.total.v)]])]
       ['compactions' (numb:enjs:format (lent (skim log.ses |=(e=event:h ?=(%compaction-completed -.e)))))]

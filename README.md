@@ -93,6 +93,10 @@ the next stages, not claims this checkpoint already proves. See the
 
 ## Build and install
 
+In any conversation, send `/help` for local commands: `/status`, `/model`,
+`/model <id>`, `/model default`, and `/stop`. They work through React, ACP and
+Tlon hands without a model request. See [command semantics](docs-refs/acp.md#conversation-commands).
+
 For a first installation, create and mount the desk in Dojo:
 
 ```text

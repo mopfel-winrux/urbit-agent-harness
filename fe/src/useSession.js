@@ -11,6 +11,7 @@ export function useSession(chat) {
   const current = useRef(null)
   const live = useRef(false)
   const fetching = useRef(null)
+  const latestSend = useRef(null)
 
   const refresh = useCallback(() => {
     if (fetching.current) return fetching.current
@@ -58,13 +59,16 @@ export function useSession(chat) {
 
   async function send(text) {
     const id = crypto.randomUUID()
+    latestSend.current = id
     setPending({ id, text }); setSending(true); setActionError('')
     try {
       await acp.call('session/prompt', { sessionId: chat, clientMessageId: id, prompt: [{ type: 'text', text }] })
       if (live.current) await refresh()
-    } catch (cause) { if (live.current) setActionError(cause.message) }
+    } catch (cause) { if (live.current && latestSend.current === id) setActionError(cause.message) }
     finally {
-      if (live.current) { setPending(null); setSending(false); void refresh() }
+      // A /stop prompt may supersede an in-flight prompt. Its predecessor's
+      // completion must not clear the new command's ghost or sending state.
+      if (live.current && latestSend.current === id) { setPending(null); setSending(false); void refresh() }
     }
   }
 
