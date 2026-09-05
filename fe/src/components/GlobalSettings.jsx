@@ -38,9 +38,8 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
     setForm((current) => ({ ...current, url: next.endpoint || current.url, model: next.model || current.model, headers: [] }))
   }
   const chooseModel = (model) => {
-    const context = catalog.contextFor(model)
     dirty.current = true; setSaved(false)
-    setForm((current) => ({ ...current, model, ...(context ? { 'max-context': context } : {}) }))
+    setForm((current) => ({ ...current, model }))
   }
   const toggleTool = (name) => {
     const selected = new Set(form.tools || [])
@@ -56,7 +55,7 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
         ...form,
         url: form.url.trim(), model: form.model.trim(), key: '',
         headers: (form.headers || []).filter((header) => header.name.trim()),
-        'max-context': Number(form['max-context']) || 80_000,
+        'max-context': catalog.contextFor(form.model.trim()) || 80_000,
       }
       const applied = await api.action({ defaults: clean })
       defaults.setValue(applied); setForm(applied); dirty.current = false; setSaved(true)
@@ -74,13 +73,12 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
       <label><span>Endpoint</span><input type="url" required value={form.url || ''} onChange={(event) => field('url', event.target.value)} /></label>
       {catalog.loading && <p className="field-note">Loading the provider’s model catalog…</p>}
       {catalog.error && provider !== 'custom' && <p className="field-note">Catalog unavailable: {catalog.error}. You can still type a model name.</p>}
-      {catalog.contextFor(form.model) && <p className="field-note">Provider reports {catalog.contextFor(form.model).toLocaleString()} tokens; selecting it updates the context limit.</p>}
+      {catalog.contextFor(form.model) && <p className="field-note">Provider reports {catalog.contextFor(form.model).toLocaleString()} tokens; applied automatically on save.</p>}
       <HeaderEditor value={form.headers || []} onChange={(value) => field('headers', value)} />
     </section>
     <section className="panel settings-panel">
-      <div className="section-title"><div><h2>Instructions & context</h2><p>Initial operating policy and compaction budget for new threads.</p></div></div>
+      <div className="section-title"><div><h2>Instructions</h2><p>Initial operating policy for new threads.</p></div></div>
       <label><span>System instructions</span><textarea rows="9" value={form.system || ''} onChange={(event) => field('system', event.target.value)} /></label>
-      <label><span>Context window</span><input type="number" min="1000" step="1000" value={form['max-context'] || ''} onChange={(event) => field('max-context', event.target.value)} /></label>
     </section>
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Default tools</h2><p>Capability grants inherited by new conversations.</p></div><button type="button" className="text-button" onClick={() => field('tools', [...(tools.value || [])])}>Enable all</button></div>

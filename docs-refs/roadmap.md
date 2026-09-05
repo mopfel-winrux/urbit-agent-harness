@@ -145,6 +145,9 @@ test fixtures, never external channels.
 - [x] Isolate the semantic reducer from provider/JSON dependencies; separate
   effect bindings, ACP formatting, bootstrap policy and persistence loading
   from the authoritative lifecycle, with dependency and behavior checks.
+- [x] Give ACP, conversation hands, subagents and peers one pure terminal-outcome
+  classifier and one settlement path for completion and cancellation. Verify
+  that cancelling a child releases the parent and late replies cannot settle twice.
 - [x] Mirror each authoritative session as a typed grub under
   `/agents/main/sessions` through the thin client boundary.
 - [x] Supervise a read-only session verifier: independent replay/current-decision
@@ -203,6 +206,10 @@ inspection boundary. It requires an idle Dojo tmux pane for owner operations.
   Its configuration and activity are available through ACP; see [Tlon](tlon.md).
 - [x] Edit the bot's public nickname/avatar through Contacts, with live reads
   of external edits and acknowledged saves through ACP; no duplicate identity store.
+- [x] Tlon computing presence with shared-context aggregation, expiring leases,
+  tool phases, and cancellation cleanup on Groups `938f0c4`.
+- [x] Show Tlon model defaults and explicitly apply them to existing conversations
+  without resetting instructions or grants. Settings edits never retry failed work.
 - [ ] Add Messenger-history-assisted external-id reconciliation for uncertain
   publications; current receipts identify local acceptance, not remote delivery.
 - [ ] Add scoped adapter credentials and per-binding tool/budget/rate policies;

@@ -673,6 +673,21 @@
     =/  result=json  (pairs:enjs:format ~[['sessionId' %s u.name]])
     [:(weld made ~[(acp-result-card:wire-codec connection u.id result)]) state]
   ::
+      %'harness/session/use-default-model'
+    ?~  id  `state
+    =/  sid  (acp-param-string:wire-codec params 'sessionId')
+    ?~  sid
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Expected sessionId')] state]
+    =/  current  (~(get by sessions) u.sid)
+    ?~  current
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Unknown session')] state]
+    ::  An explicit model-only update, atomic with respect to grant changes.
+    ::  Keep this conversation's instructions, history and tool authority.
+    =/  cfg  config:(play:hl log.u.current)
+    =.  cfg  cfg(url url.defaults, model model.defaults, key '', headers headers.defaults, max-context max-context.defaults)
+    =^  configured  state  (handle-action [%config u.sid cfg])
+    [:(weld configured ~[(acp-result-card:wire-codec connection u.id (config-json:hj cfg))]) state]
+  ::
       %'harness/session/configure'
     ?~  id  `state
     =/  sid  (acp-param-string:wire-codec params 'sessionId')
@@ -823,21 +838,16 @@
   ?~  id  (hand-pump sid)
   =/  current  (~(get by sessions) sid)
   ?~  current  `state
-  =/  v  (play:hl log.u.current)
-  ?:  |(?=(^ pending.v) !=(~ wait.v))  `state
-  =/  cancelled=?  ?=([[%cancelled *] *] log.u.current)
-  =/  last=(unit item:h)  ?~(items.v ~ `(rear items.v))
-  =/  kind=?(%reply %failure %cancelled)
-    ?:  cancelled  %cancelled
-    ?^  err.v  %failure
-    ?.  ?=([~ %assistant * ~] last)  %failure
-    %reply
+  =/  result  (outcome:hl (play:hl log.u.current))
+  ?~  result  `state
+  ::  Public hands receive a safe failure description, not private diagnostics.
   =/  body=@t
-    ?:  =(%cancelled kind)  'Work was cancelled.'
-    ?:  =(%failure kind)  'Work failed. The owner can inspect the session for details.'
-    ?>  ?=([~ %assistant * ~] last)
-    body.u.last
-  =.  hands  (finish:hd hands sid kind body)
+    ?-  -.u.result
+      %cancelled  'Work was cancelled.'
+      %failure    'Work failed. The owner can inspect the session for details.'
+      %reply      body.u.result
+    ==
+  =.  hands  (finish:hd hands sid -.u.result body)
   (hand-pump sid)
 ::
 ::  Native commands converge here, including commands decoded from ACP.
@@ -924,9 +934,10 @@
     =^  cards  ses  (record-all sid.act ses ~[event])
     =.  sessions  (~(put by sessions) sid.act ses)
     =.  hands  (cancel-queued:hd hands sid.act)
-    =^  settled  state  (settle-acp sid.act)
-    =^  hand-cards  state  (settle-hands sid.act)
-    [:(weld cards withdrawn ~[(shadow-put-card sid.act ses)] settled hand-cards) state]
+    ::  Cancellation owes a terminal result to every kind of waiter, including
+    ::  a parent session or peer. Use the same boundary as normal completion.
+    =^  settled  state  (settle sid.act)
+    [:(weld cards withdrawn ~[(shadow-put-card sid.act ses)] settled) state]
   ::
       %delete
     ?>  !(lien ~(val by bindings.hands) |=(b=binding:hh =(sid.b sid.act)))
@@ -1698,18 +1709,13 @@
   =/  updates  (acp-item-cards:wire-codec connection.u.prompt sid cursor.u.prompt transcript)
   =.  acp-prompts
     (~(put by acp-prompts) sid [connection.u.prompt request-id.u.prompt (lent transcript)])
-  ?^  pending.v  [updates state]
-  ?.  =(~ wait.v)  [updates state]
+  =/  outcome  (outcome:hl v)
+  ?~  outcome  [updates state]
   =.  acp-prompts  (~(del by acp-prompts) sid)
-  ?:  ?=([[%cancelled *] *] log.u.mses)
+  ?:  ?=(%cancelled -.u.outcome)
     [:(weld updates ~[(acp-result-card:wire-codec connection.u.prompt request-id.u.prompt (pairs:enjs:format ~[['stopReason' %s 'cancelled']]))]) state]
-  ?^  err.v
-    [(weld updates ~[(acp-error-card:wire-codec connection.u.prompt request-id.u.prompt '-32603' u.err.v)]) state]
-  ?~  items.v
-    [(weld updates ~[(acp-error-card:wire-codec connection.u.prompt request-id.u.prompt '-32603' 'Prompt ended without a response')]) state]
-  =/  last  (rear items.v)
-  ?.  ?=([%assistant * ~] last)
-    [(weld updates ~[(acp-error-card:wire-codec connection.u.prompt request-id.u.prompt '-32603' 'Prompt ended without a response')]) state]
+  ?:  ?=(%failure -.u.outcome)
+    [(weld updates ~[(acp-error-card:wire-codec connection.u.prompt request-id.u.prompt '-32603' reason.u.outcome)]) state]
   =/  stop=@t  (acp-stop-reason:wire-codec log.u.mses)
   =/  result=json  (pairs:enjs:format ~[['stopReason' %s stop]])
   =/  finish=card  (acp-result-card:wire-codec connection.u.prompt request-id.u.prompt result)
@@ -1722,17 +1728,14 @@
   ?~  link  `state
   =/  mses  (~(get by sessions) sid)
   ?~  mses  `state
-  =/  v  (play:hl log.u.mses)
-  ?^  pending.v  `state
-  ?.  =(~ wait.v)  `state
-  =/  result=(unit @t)
-    ?^  err.v  `(cat 3 'subagent error: ' u.err.v)
-    ?~  items.v  ~
-    =/  last  (rear items.v)
-    ?:  &(?=(%assistant -.last) =(~ calls.last))
-      `body.last
-    ~
+  =/  result  (outcome:hl (play:hl log.u.mses))
   ?~  result  `state
+  =/  body=@t
+    ?-  -.u.result
+      %reply      body.u.result
+      %failure    (cat 3 'error: subagent failed: ' reason.u.result)
+      %cancelled  (cat 3 'error: subagent cancelled: ' reason.u.result)
+    ==
   ::  a rehearsal child answers a rehearse_skill call and is disposable;
   ::  an ordinary subagent answers run_subagent and is kept
   ::
@@ -1746,7 +1749,7 @@
   ?.  (authorized-call parent.u.link call-id.u.link tool-name)  `state
   =^  cs1  u.mp
     %^  record-all  parent.u.link  u.mp
-    ~[[%tool-completed call-id.u.link tool-name u.result]]
+    ~[[%tool-completed call-id.u.link tool-name body]]
   =^  cs2  state  (drive-put parent.u.link u.mp)
   ::  kick the disposed rehearsal child's ui subscription
   =/  kick=(list card)
@@ -1763,21 +1766,18 @@
   ?~  u.q  `state(serving (~(del by serving) sid))
   =/  mses  (~(get by sessions) sid)
   ?~  mses  `state
-  =/  v  (play:hl log.u.mses)
-  ?^  pending.v  `state
-  ?.  =(~ wait.v)  `state
-  =/  result=(unit (each @t @t))
-    ?^  err.v  `[%| (cat 3 'error: ' u.err.v)]
-    ?~  items.v  ~
-    =/  last  (rear items.v)
-    ?:  &(?=(%assistant -.last) =(~ calls.last))
-      `[%& body.last]
-    ~
-  ?~  result  `state
+  =/  outcome  (outcome:hl (play:hl log.u.mses))
+  ?~  outcome  `state
+  =/  result=(each @t @t)
+    ?-  -.u.outcome
+      %reply      [%& body.u.outcome]
+      %failure    [%| (cat 3 'error: ' reason.u.outcome)]
+      %cancelled  [%| (cat 3 'cancelled: ' reason.u.outcome)]
+    ==
   :_  state(serving (~(del by serving) sid))
   %+  turn  u.q
   |=  [=ship id=ask-id:h]
-  (answer-card:effects ship id u.result)
+  (answer-card:effects ship id result)
 ::  +handle-a2a: the wire protocol, both directions
 ::
 ++  handle-a2a

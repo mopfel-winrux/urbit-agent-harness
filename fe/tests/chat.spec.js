@@ -51,6 +51,13 @@ test('composer grows, keeps shift-enter, and renders streaming markdown', async 
   await expect.poll(() => page.evaluate(() => window.harnessFixture.sent.length)).toBe(2)
 })
 
+test('inference errors point to configuration, not a page refresh', async ({ page }) => {
+  await page.evaluate(() => window.harnessFixture.update({ error: 'http error 401: User not found.' }))
+  await expect(page.getByRole('alert')).toContainText('User not found.')
+  await expect(page.getByRole('button', { name: 'Model settings', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toHaveCount(0)
+})
+
 test('cancelled tool receipts remove running indicators', async ({ page }) => {
   await page.evaluate(() => window.harnessFixture.update({ phase: 'idle', entries: [
     { id: '3', role: 'assistant', calls: [{ id: 'slow', name: 'http_fetch', args: '{}' }] },

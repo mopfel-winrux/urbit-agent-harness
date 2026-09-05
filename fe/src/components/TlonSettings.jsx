@@ -6,6 +6,7 @@ import ShipPicker from './ShipPicker'
 import ToolOptions from './ToolOptions'
 import TlonIcon from './TlonIcon'
 import TlonProfile from './TlonProfile'
+import TlonModels from './TlonModels'
 
 const initial = { enabled: false, owner: null, mentions: true, trusted: [] }
 export default function TlonSettings({ onBack }) {
@@ -36,6 +37,7 @@ export default function TlonSettings({ onBack }) {
     <div className="settings-content">
       <div className="page-header"><span className="eyebrow">Conversation hand</span><h1><TlonIcon /> Tlon</h1><p>Talk with the harness through DMs, groups, and threads.</p></div>
       <TlonProfile />
+      <TlonModels sessions={state.value?.sessions} />
       <form className="settings-grid" onSubmit={save}>
         {(error || state.error || state.value?.error) && <div role="alert" className="inline-error">{error || state.error || state.value.error}</div>}
         <section className="panel settings-panel">

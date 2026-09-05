@@ -17,6 +17,16 @@ test('semantic head depends on nouns, not providers or transports', () => {
   assert.doesNotMatch(code('harness'), /\bjson\b|\.\^\(|%pass|bowl:gall/)
 })
 
+test('client settlement consumes the core outcome instead of defining completion', async () => {
+  const agent = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  for (const name of ['settle-acp', 'settle-hands', 'settle-sub', 'settle-asks']) {
+    const arm = agent.split(`++  ${name}\n`)[1]?.split('\n++  ')[0]
+    assert.ok(arm, `Missing settlement boundary: ${name}`)
+    assert.match(arm, /outcome:hl/)
+    assert.doesNotMatch(arm, /rear items|pending\.v|wait\.v|\[\[%cancelled/)
+  }
+})
+
 test('concrete bindings cannot import the session store or become an orchestrator', () => {
   for (const name of ['harness-effects', 'harness-acp']) {
     assert.doesNotMatch(code(name), /harness-store|state-\d|sessions=\(map/)

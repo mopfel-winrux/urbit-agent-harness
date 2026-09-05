@@ -1,6 +1,29 @@
 /-  t=harness-tlon, a=tlon-activity-ver, ct=tlon-contacts
-/+  *test, p=harness-tlon-policy, story=harness-tlon-story, ht=harness-tools, profile=harness-tlon-profile
+/+  *test, p=harness-tlon-policy, story=harness-tlon-story, ht=harness-tools, profile=harness-tlon-profile, presence=harness-tlon-presence
 |%
+++  test-presence-threads-share-one-context
+  =/  a=$>(%dm destination:t)  [%dm ~nec ~]
+  =/  b  a(parent `[~nec ~2026.9.4])
+  (expect-eq !>((context:presence a)) !>((context:presence b)))
+++  test-presence-aggregation-keeps-tools-visible
+  =/  to=destination:t  [%dm ~nec ~]
+  =/  active  (merge:presence ~ to &)
+  (expect-eq !>(active) !>((merge:presence active to |)))
+++  test-presence-renews-only-when-due
+  =/  active=(map path ?)  (my ~[[/dm/~nec |]])
+  =/  first  (sync:presence ~lux ~2026.9.5 ~ active)
+  =/  early  (sync:presence ~lux (add ~2026.9.5 ~s2) +.first active)
+  =/  due  (sync:presence ~lux (add ~2026.9.5 ~s10) +.early active)
+  (expect !>(&(=(1 (lent -.first)) =(~ -.early) =(1 (lent -.due)))))
+++  test-presence-clear-and-start-are-both-emitted
+  =/  old=(map path presence-lease:t)  (my ~[[/dm/~nec [~2026.9.5 |]]])
+  =/  active=(map path ?)  (my ~[[/dm/~zod &]])
+  =/  out  (sync:presence ~lux ~2026.9.5 old active)
+  (expect !>(&(=(2 (lent -.out)) !(~(has by +.out) /dm/~nec) (~(has by +.out) /dm/~zod))))
+++  test-presence-disable-clears-every-context
+  =/  old=(map path presence-lease:t)  (my ~[[/dm/~nec [~2026.9.5 |]] [/channel/chat/~nec/test [~2026.9.5 &]]])
+  =/  out  (sync:presence ~lux ~2026.9.5 old ~)
+  (expect !>(&(=(2 (lent -.out)) =(~ +.out))))
 ++  test-profile-edits-only-nickname-and-avatar
   =/  patch  (decode:profile (pairs:enjs:format ~[['nickname' %s 'Bot'] ['avatar' %s 'https://example.com/bot.png']]))
   (expect-eq !>(`contact:ct`(my ~[[%nickname %text 'Bot'] [%avatar %look %'https://example.com/bot.png']])) !>(patch))

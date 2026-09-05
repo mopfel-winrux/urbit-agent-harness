@@ -16,10 +16,13 @@
     |=  [e=event:h v=view:h]
     ^-  view:h
     ?-  -.e
-      %config-replaced       v(config config.e, err ~)
+      ::  Editing policy is not permission to restart a failed request.
+      %config-replaced       v(config config.e)
       %input-admitted        v(items [item.e items.v], err ~, cancelled ~)
       %input-received        v(items [item.input.e items.v], err ~, cancelled ~)
-      %llm-requested         v(pending `[req.e kind.e])
+      ::  A recorded request is an admitted continuation. Clearing the error
+      ::  here also keeps already-recorded config/retry exchanges replayable.
+      %llm-requested         v(pending `[req.e kind.e], err ~)
       %llm-failed            v(pending ~, err `err.e)
       %tool-requested        v(wait (~(put in wait.v) call-id.e))
       %retried               v(err ~, cancelled ~)
@@ -59,6 +62,20 @@
       ==
     ==
   reversed(items (flop items.reversed))
+::  Classify a turn at the settlement boundary. Outstanding effects are not
+::  terminal; an idle view without a final answer is not a successful reply.
+::  Cancellation is replayed state, not the position of an event in the log:
+::  a later config edit must not turn a cancelled turn into apparent success.
+++  outcome
+  |=  v=view:h
+  ^-  (unit outcome:h)
+  ?:  |(?=(^ pending.v) !=(~ wait.v))  ~
+  ?^  cancelled.v  `[%cancelled u.cancelled.v]
+  ?^  err.v  `[%failure u.err.v]
+  =/  last=(unit item:h)  ?~(items.v ~ `(rear items.v))
+  ?.  ?=([~ %assistant * ~] last)
+    `[%failure 'Session ended without a response']
+  `[%reply body.u.last]
 ::  The human transcript is independent of the provider's compacted context.
 ::  Event counts are stable message addresses within this session's history.
 ::

@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-const revision = '666d17bb6ebd1ec3aac194db386afe81310d12d0'
+const revision = '938f0c44d693f6f7391cca8107c7b3a40b834a01'
 const checkout = 'desk-deps/tlon'
 const output = process.argv[2]
 if (!output) throw new Error('Expected assembled desk directory')
@@ -37,5 +37,5 @@ async function stage(kind, name) {
   await mkdir(path.dirname(target), { recursive: true })
   await writeFile(target, lines.join('\n'))
 }
-for (const name of ['activity-ver', 'chat-ver', 'channels', 'contacts', 'story', 'groups']) await stage('sur', name)
+for (const name of ['activity-ver', 'chat-ver', 'channels', 'contacts', 'story', 'groups', 'presence']) await stage('sur', name)
 console.log(`Tlon: ${visited.size} namespaced protocol dependencies at ${revision.slice(0, 12)}`)

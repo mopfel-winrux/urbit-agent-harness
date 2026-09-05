@@ -186,8 +186,16 @@ notifications, and OAuth acquisition are separate optional hands.
 - **Replaceable hands:** ACP, React, providers, MCP, timers, peers, and native
   apps surround the same session head rather than owning it.
 - **Global policy, local divergence:** new conversations snapshot agent defaults;
-  subsequent per-conversation model, context, instructions, and tool changes are
+  subsequent per-conversation model, instructions, and tool changes are
   recorded independently.
+
+`harness/session/use-default-model` takes `{ "sessionId": "..." }` and explicitly
+adopts the current default endpoint, model, headers and context budget without
+changing that session's instructions or tool permissions. This is useful for
+clients managing existing conversations after changing defaults. It does not
+retry failed work; submit new input or explicitly retry. React derives context
+budgets from provider model metadata; the settings do not expose a manual budget
+control. Endpoints without published limits use the 80,000-token fallback.
 
 This split is the extension rule: add a small adapter or supervised hand, admit
 typed facts, and leave session ownership in Harness.

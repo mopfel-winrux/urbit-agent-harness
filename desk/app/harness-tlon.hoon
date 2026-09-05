@@ -3,7 +3,7 @@
 ::  Native hand requests and ACP use the same ledger gates. Messenger facts
 ::  are accepted only on our subscription to the local activity agent.
 /-  t=harness-tlon, h=harness, hh=harness-hand, ad=harness-adapter, a=tlon-activity-ver, ac=acp
-/+  default-agent, dbug, p=harness-tlon-policy, io=harness-tlon-io, profile=harness-tlon-profile, hj=harness-json, wire-codec=harness-acp
+/+  default-agent, dbug, p=harness-tlon-policy, io=harness-tlon-io, profile=harness-tlon-profile, presence=harness-tlon-presence, hj=harness-json, wire-codec=harness-acp
 |%
 +$  card  card:agent:gall
 --
@@ -20,9 +20,18 @@
 ++  on-save  !>(state)
 ++  on-load
   |=  old=vase
-  =.  state  !<(state:t old)
+  =.  state
+    ?:  ?=([%0 *] q.old)
+      =/  before  !<(state-0:t old)
+      [%1 ~ +.before]
+    !<(state:t old)
   =?  watching  !enabled.policy  |
-  =^  cards  state  abet:boot:cor
+  ::  Gall keeps acknowledged subscriptions across reloads. Re-watching that
+  ::  same duct raises a false adapter failure; only create a missing watch.
+  =^  cards  state
+    ?:  &(watching (~(has by wex.bowl) /activity our.bowl %activity))
+      abet:schedule:cor
+    abet:boot:cor
   [cards this]
 ++  on-poke
   |=  [=mark =vase]
@@ -91,6 +100,7 @@
       ['pending' (numb:enjs:format ~(wyt by jobs))]
       ['delivering' (numb:enjs:format ~(wyt by deliveries))]
       ['lanes' (numb:enjs:format ~(wyt by lanes))]
+      ['sessions' %a (turn ~(tap by lanes) |=([sid=@t lane=lane:t] `json`[%s sid]))]
       ['events' %a (turn (flop notices) notice-json)]
   ==
 ++  notice-json
@@ -157,6 +167,7 @@
   |=  new=policy:t
   ^+  cor
   ?:  =(new policy)  cor
+  =.  cor  (show-presence ~)
   ::  Fence admission and publication immediately. Retire every old lane's
   ::  grants and cancel its queued/running work before allowing a new epoch.
   ::  Already emitted network effects cannot be retracted by any revocation.
@@ -315,12 +326,38 @@
 ++  ledger
   ^-  state:hh
   .^(state:hh %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/hand-state/noun)
+++  show-presence
+  |=  active=(map path ?)
+  ^+  cor
+  =^  effects  computing  (sync:presence our.bowl now.bowl computing active)
+  (roll effects |=([effect=card c=_cor] (emit:c effect)))
+++  sync-presence
+  |=  db=state:hh
+  ^+  cor
+  =/  active=(map path ?)  ~
+  =.  active
+    %+  roll  ~(tap by jobs)
+    |=  [[id=@uv job=job:t] acc=_active]
+    ?:  =(%error stage.job)  acc
+    (merge:presence acc to.input.job |)
+  =.  active
+    %+  roll  ~(tap by active.db)
+    |=  [[sid=@t id=@uv] acc=_active]
+    =/  lane  (~(get by lanes) sid)
+    ?~  lane  acc
+    =/  found
+      %-  mule  |.
+      .^([revision=@ud view=view:h next=(unit step:h)] %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/head/[sid]/noun)
+    ?:  ?=(%| -.found)  acc
+    (merge:presence acc to.u.lane !=(~ wait.view.p.found))
+  (show-presence active)
 ++  poll
   ^+  cor
   ?.  enabled.policy  cor
   ?.  watching  boot
   =.  cor  schedule
   =/  db  ledger
+  =.  cor  (sync-presence db)
   ::  Honor explicit reconciliation and retirement in the shared ledger.
   ::  Uncertain sends still block their destination; only the owner can decide
   ::  their outcome. A confirmed failure followed by retry is a fresh claim.

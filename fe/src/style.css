@@ -477,11 +477,12 @@ input, select, .settings-panel textarea, .modal-card textarea {
 .settings-panel textarea,
 .modal-card textarea { min-height: 90px; padding: 9px 11px; resize: vertical; line-height: 1.5; }
 input:focus, select:focus, .settings-panel textarea:focus, .modal-card textarea:focus { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent); }
-.tlon-profile { margin-bottom: 18px; }
+.tlon-profile, .tlon-models { margin-bottom: 18px; }
 .tlon-profile fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 13px; }
 .two-fields { display: grid; grid-template-columns: minmax(150px, .68fr) minmax(0, 1.32fr); gap: 13px; }
 .two-fields.equal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .settings-panel > label + label { margin-top: 15px; }
+.settings-panel a { overflow-wrap: anywhere; }
 .field-help,
 .field-note { margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .segmented { width: fit-content; display: grid; grid-auto-flow: column; padding: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }

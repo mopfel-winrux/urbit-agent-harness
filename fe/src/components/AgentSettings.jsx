@@ -47,13 +47,8 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
   }
 
   function chooseModel(model) {
-    const context = catalog.contextFor(model)
     setDirty(true)
-    setForm((current) => ({
-      ...current,
-      model,
-      ...(context ? { 'max-context': context } : {}),
-    }))
+    setForm((current) => ({ ...current, model }))
   }
 
   async function save(event) {
@@ -65,7 +60,7 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
       key: '',
       headers: Array.isArray(form.headers) ? form.headers : [],
       system: form.system || '',
-      'max-context': Number(form['max-context']) || 80_000,
+      'max-context': catalog.contextFor(form.model?.trim() || PROVIDERS.openrouter.model) || 80_000,
       tools: Array.isArray(form.tools) ? form.tools : [],
     }
     try {
@@ -91,12 +86,11 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
       <label><span>Endpoint</span><input type="url" value={form.url || ''} onChange={(event) => { setProvider(providerOf(event.target.value)); field('url', event.target.value) }} /></label>
       {catalog.loading && <p className="field-note">Loading the provider’s model catalog…</p>}
       {catalog.error && provider !== 'custom' && <p className="field-note">Catalog unavailable: {catalog.error}. You can still type a model name.</p>}
-      {catalog.contextFor(form.model) && <p className="field-note">Provider reports a {catalog.contextFor(form.model).toLocaleString()} token context window. Selecting this model applies it automatically.</p>}
+      {catalog.contextFor(form.model) && <p className="field-note">Provider reports a {catalog.contextFor(form.model).toLocaleString()} token context window; applied automatically on save.</p>}
     </section>
     <section className="panel settings-panel">
-      <div className="section-title"><div><h2>Instructions & context</h2><p>These become part of this conversation’s event log.</p></div></div>
+      <div className="section-title"><div><h2>Instructions</h2><p>These become part of this conversation’s event log.</p></div></div>
       <label><span>System instructions</span><textarea rows="5" value={form.system || ''} onChange={(event) => field('system', event.target.value)} /></label>
-      <label><span>Context window</span><input type="number" min="1000" step="1000" value={form['max-context'] || ''} onChange={(event) => field('max-context', event.target.value)} /></label>
     </section>
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Tools</h2><p>Capabilities for <strong>{resources.chat}</strong>. New conversations begin with all of them enabled.</p></div><button type="button" className="text-button" onClick={() => field('tools', [...(tools.value || [])])}>Enable all</button></div>

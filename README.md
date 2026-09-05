@@ -19,7 +19,7 @@ flowchart LR
   Clients["Editors, services, channel adapters"] <-->|ACP| ACP
   ACP <-->|"commands / updates"| Head["%harness: ship-owned sessions"]
   Native["Native Urbit apps"] <-->|"nouns / scries"| Head
-  Tlon["Groups · DMs · threads"] <-->|"activity / Story"| Hand["%harness-tlon"]
+  Tlon["Groups · DMs · threads"] <-->|"activity · Story · presence"| Hand["%harness-tlon"]
   Hand <-->|"admission / publication receipts"| Head
   Head -->|requests| Effects["Provider, tool and peer executors"]
   Effects -->|results| Head
@@ -30,7 +30,9 @@ stop a session; changing a provider does not move its memory. One desk declares
 `%harness`, `%acp`, `%harness-grub`, `%harness-fileserver`, and the optional
 `%harness-tlon` hand. Configure its owner and per-ship tool grants through the
 **Tlon** sidebar button or ACP. The same page edits the ship's public nickname
-and avatar in Contacts; see [Tlon integration](docs-refs/tlon.md).
+and avatar in Contacts and applies model defaults to existing conversations.
+New conversations snapshot defaults; changing settings never silently retries
+failed work. See [Tlon integration](docs-refs/tlon.md).
 
 ## What works
 
@@ -204,6 +206,11 @@ The live checks use the ship's configured provider and incur inference usage.
 The distribution checks inspect `zig-out`, including every agent's explicit
 Ford file imports, so development-mount leftovers cannot hide missing files.
 They create uniquely named test sessions and remove those sessions afterward.
+`scripts/settlement-conformance.mjs` uses local provider fixtures to verify that
+cancelling a child settles its parent's tool, completes the parent ACP prompt,
+and fences late child replies. It needs `SHIP_URL` and `SHIP_COOKIE`, uses no
+provider credentials, and removes its test sessions.
+
 `scripts/cancellation-conformance.mjs` uses the same authentication with local
 provider/tool fixtures (no inference charges). Run it on the ship's host to
 check interruption during tool work, immediate continuation, provider transcript
@@ -223,9 +230,10 @@ live owner recovery and archive checks. Test archives remain in printed private
 temporary directories; they are not a production archive location.
 
 Run `-test /=harness=/tests/harness-tlon` for social authority, thread identity,
-and Story conversion. The [two-ship Tlon test](docs-refs/tlon.md#testing) exercises
+Story conversion, and computing leases. The [two-ship Tlon tests](docs-refs/tlon.md#testing) exercise
 actual Messenger delivery, ACP activity, and permission revocation without
-changing Groups code.
+changing Groups code, plus provider-failure recovery and remote thinking/tool
+indicators against Groups revision `938f0c4`.
 
 `SHIP_DOJO_PANE=0:1.1 node scripts/shadow-conformance.mjs` additionally requires
 the same ship cookie environment and an idle Dojo tmux pane. It corrupts only a

@@ -8,6 +8,12 @@
 +$  session-id  @t
 +$  request-kind  ?(%turn %compaction)
 +$  stop-reason  ?(%stop %tool-calls %length %error)
+::  Meaning of a settled turn, independent of the recipient's wire format.
++$  outcome
+  $%  [%reply body=@t]
+      [%failure reason=@t]
+      [%cancelled reason=@t]
+  ==
 +$  tool-call  [id=@t name=@t args=@t]
 +$  usage  [prompt=@ud completion=@ud]
 ::  Payloads may remain inline today, but every boundary can name durable

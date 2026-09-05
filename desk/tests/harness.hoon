@@ -1,6 +1,31 @@
 /-  h=harness
 /+  *test, hl=harness, hs=harness-session, hp=harness-provider, hj=harness-json
 |%
+++  test-outcome-waits-for-effects
+  =/  v=view:h  *view:h
+  =/  pending  (outcome:hl v(pending `[0 %turn]))
+  =/  tools  (outcome:hl v(wait (silt ~['call'])))
+  (expect !>(&(=(~ pending) =(~ tools))))
+++  test-outcome-requires-a-final-answer
+  =/  v=view:h  *view:h
+  =/  expected=(unit outcome:h)  `[%failure 'Session ended without a response']
+  (expect-eq !>(expected) !>((outcome:hl v)))
+++  test-outcome-preserves-empty-reply
+  =/  v=view:h  *view:h
+  =/  expected=(unit outcome:h)  `[%reply '']
+  (expect-eq !>(expected) !>((outcome:hl v(items ~[[%assistant '' ~]]))))
+++  test-outcome-does-not-call-tool-requests-replies
+  =/  v=view:h  *view:h
+  =/  result  (outcome:hl v(items ~[[%assistant 'working' ~[['call' 'http_fetch' '{}']]]]))
+  (expect !>(?=([~ %failure *] result)))
+++  test-outcome-cancellation-survives-config-edit
+  =/  v  (play:hl [[%config-replaced *config:h] interrupted-tools])
+  =/  expected=(unit outcome:h)  `[%cancelled 'cancelled by client']
+  (expect-eq !>(expected) !>((outcome:hl v)))
+++  test-outcome-error-is-terminal
+  =/  v=view:h  *view:h
+  =/  expected=(unit outcome:h)  `[%failure 'provider failed']
+  (expect-eq !>(expected) !>((outcome:hl v(err `'provider failed'))))
 ++  history
   ^-  (list event:h)
   %-  flop
@@ -81,6 +106,15 @@
   =/  log  [[%input-admitted [%user 'new request']] [%config-replaced cfg] interrupted-tools]
   =/  v  (play:hl log)
   (expect-eq !>(`(unit step:h)`[~ %turn ~]) !>((next:hs v ~)))
+++  test-config-does-not-retry-provider-failure
+  =/  log=(list event:h)
+    ~[[%config-replaced *config:h] [%llm-failed 0 'http error 401'] [%input-admitted [%user 'hello']]]
+  =/  v  (play:hl log)
+  (expect !>(&(=(`'http error 401' err.v) =(~ (next:hs v ~)))))
+++  test-recorded-continuation-clears-prior-failure
+  =/  log=(list event:h)
+    ~[[%llm-requested 1 %turn] [%config-replaced *config:h] [%llm-failed 0 'http error 401']]
+  (expect-eq !>(`(unit @t)`~) !>(err:(play:hl log)))
 ++  test-config-does-not-resume-cancelled-work
   =/  v  (play:hl [[%config-replaced *config:h] interrupted-tools])
   (expect-eq !>(`(unit step:h)`~) !>((next:hs v ~)))

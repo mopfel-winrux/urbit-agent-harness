@@ -19,6 +19,42 @@ the edit. Empty fields clear the corresponding attributes; other profile fields
 are untouched. Identity edits are independent of social policy and do not revoke
 grants or restart conversations.
 
+## Models and failures
+
+Tlon uses the same providers and credentials as every other Harness client.
+New conversations snapshot **Settings → Defaults**. Changing defaults does not
+retroactively change an existing DM or thread.
+
+The Tlon page shows the current default provider/model, links to each active
+conversation's settings, and offers **Apply defaults to Tlon conversations**.
+This explicitly copies the default endpoint, model, provider headers and reported
+context limit. It preserves instructions, transcripts and tool grants. Each
+conversation can also choose its own provider/model through its settings.
+Configuration changes affect subsequent requests; they do not interrupt an
+in-flight request or restart failed work. Send another message after correcting
+a failure. No provider configuration is duplicated in the adapter.
+
+“Work failed. The owner can inspect the session for details.” is a deliberately
+limited public reply. Open that session in Harness to see its provider error.
+An HTTP `401` is an inference authentication failure, not an Activity or Story
+mark error. Check the conversation's endpoint and its matching saved credential,
+not just the defaults for new conversations. Refreshing the page does not retry
+the provider request.
+
+## Thinking and tool activity
+
+Tlon revision `938f0c4` exposes chat computing indicators through `%presence`,
+using `%presence-action-1` and the `tlon.computing-status.v1` display payload.
+`%steward` provides run inspection and gateway liveness, not chat typing.
+The adapter publishes “Thinking...” or “Using tools...” in the DM/channel
+context, without prompts, tool arguments, or reasoning content.
+
+Activity is aggregated across actors and threads sharing a context. One thread
+finishing cannot clear another's indicator. The existing adapter poll updates
+phase changes, renews active leases every ten seconds, and clears settled or
+revoked work. Leases expire after thirty seconds if the adapter stops. Presence
+is presentation only: it neither admits work nor determines settlement.
+
 ## Authority and conversation scope
 
 - The owner has every tool family in the harness catalog.
@@ -110,11 +146,12 @@ pruning or offline activity-feed backfill yet.
 - `lib/harness-tlon-story`: pure text/Story conversion.
 - `lib/harness-tlon-profile`: pure public-profile projection and edit validation.
 - `lib/harness-tlon-io`: versioned Messenger effects and Contacts projection.
+- `lib/harness-tlon-presence`: pure context aggregation and leased display effects.
 - `app/harness-tlon`: subscription, admission and delivery lifecycle.
-- React `TlonSettings`, `TlonProfile`, `ShipPicker`, `ToolOptions`: replaceable configuration UI.
+- React `TlonSettings`, `TlonModels`, `TlonProfile`, `ShipPicker`, `ToolOptions`: replaceable configuration UI.
 
 `zig build` runs `scripts/stage-tlon.mjs`, which pins Tlon protocol dependencies
-at `666d17bb6ebd1ec3aac194db386afe81310d12d0` and stages only their source closure,
+at `938f0c44d693f6f7391cca8107c7b3a40b834a01` and stages only their source closure,
 prefixed `tlon-`. It imports no applications, desk bill, frontend, or ACP agent.
 The harness's generic ACP transport is unchanged. The protocol patterns draw on
 the `reid/tlon-acp` work in `tlon-apps`; the Story codec adapts the reusable
@@ -131,6 +168,13 @@ test channel such as `chat/~nec/harness-hand-test`). It temporarily grants the
 peer ownership, uses the configured inference provider, and restores policy in
 `finally`. Use disposable test ships: messages and auditable sessions are retained.
 Neither the test nor the adapter modifies the Groups desk's source code.
+
+`scripts/tlon-presence-conformance.mjs` uses the same two-ship cookie variables
+(no channel needed) and a controlled local provider. It checks a real DM's
+provider failure, explicit adoption of changed defaults, thinking/tool presence
+on the peer, cancellation, and resumed delivery. It restores the test ship's
+defaults and social policy. Do not run it concurrently with another test changing
+those settings or with a desk compilation.
 
 `scripts/tlon-profile-conformance.mjs` needs only `SHIP_URL` and `SHIP_COOKIE`.
 On a disposable ship it checks direct Contacts edits, acknowledged ACP writes,

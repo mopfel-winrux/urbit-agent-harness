@@ -37,7 +37,9 @@ export default function Chat({ chat, theme, onToggleTheme, onSettings, onFork, o
         <button className="icon-button" onClick={onToggleTheme} title={`Theme: ${theme}. Change theme`} aria-label={`Theme: ${theme}. Change theme`}><MoonIcon /></button>
       </div>
     </header>
-    {error && <div className="error-banner" role="alert">{error} <button className="text-button" onClick={session.refresh}>Refresh</button></div>}
+    {error && <div className="error-banner" role="alert">{error} {snapshot?.error
+      ? <button className="text-button" onClick={onSettings}>Model settings</button>
+      : <button className="text-button" onClick={session.refresh}>Refresh</button>}</div>}
     <div className="transcript-region"><section className="transcript" aria-label="Conversation messages" ref={transcript} onScroll={() => {
       const el = transcript.current
       follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96

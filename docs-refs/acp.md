@@ -34,6 +34,8 @@ Harness extensions use the same JSON-RPC connection:
 - `harness/tools`
 - `harness/defaults`
 - `harness/defaults/configure`
+- `harness/session/use-default-model` — adopt model defaults for an existing
+  session without changing its instructions or grants; does not retry work.
 - `harness/mcp/servers`
 - `harness/mcp/configure`
 - `harness/session/config`

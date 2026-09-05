@@ -46,7 +46,7 @@ export default function ProviderSettings({ provider, resources }) {
       key: '',
       headers: cleanHeaders,
       system: session.value?.system || '',
-      'max-context': catalog.contextFor(selectedModel) || session.value?.['max-context'] || 80_000,
+      'max-context': catalog.contextFor(selectedModel) || 80_000,
       tools: session.value?.tools || [],
     }
     try {

@@ -16,9 +16,11 @@
 +$  job  [input=input sid=@t stage=?(%create %bind %observe %error) error=@t]
 +$  delivery  [attempt=@ud stage=?(%claim %send %receipt) status=?(%delivered %failed %uncertain) external=@t]
 +$  notice  [sequence=@ud at=@da kind=@t actor=@p address=@t event=@t]
-+$  state
-  $:  %0
-      policy=policy
++$  presence-lease  [at=@da tools=?]
++$  state-0  [%0 data]
++$  state  [%1 computing=(map path presence-lease) data]
++$  data
+  $:  policy=policy
       epoch=@ud
       after=@da
       lanes=(map @t lane)  ::  current permission epoch only; head keeps history

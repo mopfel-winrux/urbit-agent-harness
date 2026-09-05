@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
 import { PROVIDERS } from './providers.js'
 
@@ -25,22 +25,33 @@ export function useProviderModels(provider, endpoint) {
   const details = PROVIDERS[provider]
   const modelsEndpoint = endpoint || details?.modelsEndpoint || ''
   const key = `${provider}:${modelsEndpoint}`
-  const [catalog, setCatalog] = useState(() => cache.get(key) || emptyCatalog())
+  const [result, setResult] = useState(() => ({ key, catalog: cache.get(key) || emptyCatalog() }))
+  const active = useRef(key)
+  active.current = key
+  const generation = useRef(0)
+  // Never show one provider's limits while the next provider is loading.
+  const catalog = result.key === key ? result.catalog : cache.get(key) || emptyCatalog()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const refresh = useCallback(async () => {
-    if (!modelsEndpoint) { setCatalog(emptyCatalog()); setError(''); return }
+    const request = ++generation.current
+    const current = () => active.current === key && generation.current === request
+    if (!modelsEndpoint) { setResult({ key, catalog: emptyCatalog() }); setError(''); setLoading(false); return }
     setLoading(true); setError('')
     try {
       const result = await api.models(provider, modelsEndpoint)
       const next = normalizeCatalog(result)
-      cache.set(key, next); setCatalog(next)
-    } catch (cause) { setError(cause.message) }
-    finally { setLoading(false) }
+      if (current()) { cache.set(key, next); setResult({ key, catalog: next }) }
+    } catch (cause) { if (current()) setError(cause.message) }
+    finally { if (current()) setLoading(false) }
   }, [key, modelsEndpoint, provider])
 
-  useEffect(() => { setCatalog(cache.get(key) || emptyCatalog()); void refresh() }, [key, refresh])
+  useEffect(() => {
+    setResult({ key, catalog: cache.get(key) || emptyCatalog() })
+    void refresh()
+    return () => { ++generation.current }
+  }, [key, refresh])
   return {
     models: catalog.models,
     contextFor: (model) => catalog.contexts[model] || null,

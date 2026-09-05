@@ -35,6 +35,14 @@ has no JSON, provider, credential or Gall dependency. Its budget argument is a
 pure gate returning an estimate, evaluated only when inference could run.
 Idle sessions and in-flight tools therefore do not pay for request encoding.
 
+`outcome` classifies a settled turn as a reply, failure or cancellation. It
+returns no outcome while effects are outstanding. ACP, conversation hands,
+subagents and peer asks all use this gate; they choose delivery format and
+diagnostic visibility, not completion semantics. A config edit does not clear
+cancellation. Both completion and cancellation run the same settlement path,
+so cancelling a child answers its parent's waiting tool instead of stranding it.
+An empty assistant reply is valid; absence of a final reply is not success.
+
 `harness-session` composes those semantics with the provider boundary's request
 byte estimate and client snapshot projection. This is a pure service boundary,
 shared by Gall and the supervised verifier, not another execution owner.
