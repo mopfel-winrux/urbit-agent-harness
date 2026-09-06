@@ -67,7 +67,7 @@
         ['stream' %b &]
         [limit-field (numb:enjs:format (output-budget:context max-context.config.v))]
     ==
-  =?  base  &(=(%turn kind) !=(~ tools.config.v))
+  =?  base  =(%turn kind)
     (snoc base ['tools' (tool-defs:ht tools.config.v)])
   (pairs:enjs:format base)
 ::  +responses-body: OpenAI Responses wire format, including the Codex
@@ -109,7 +109,7 @@
         ['store' %b |]
         ['stream' %b &]
     ==
-  =?  base  &(=(%turn kind) !=(~ tools.config.v))
+  =?  base  =(%turn kind)
     (snoc base ['tools' (responses-tool-defs tools.config.v)])
   (pairs:enjs:format base)
 ::

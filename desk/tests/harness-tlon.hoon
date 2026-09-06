@@ -1,6 +1,27 @@
-/-  t=harness-tlon, h=harness, a=tlon-activity-ver, ct=tlon-contacts, ad=harness-adapter, dv=tlon-channels-ver
+/-  t=harness-tlon, h=harness, a=tlon-activity-ver, ct=tlon-contacts, ad=harness-adapter, dv=tlon-channels-ver, cr=harness-cron, hh=harness-hand, d=tlon-story
 /+  *test, p=harness-tlon-policy, story=harness-tlon-story, ht=harness-tools, profile=harness-tlon-profile, presence=harness-tlon-presence, clock=harness-tlon-clock, io=harness-tlon-io, publication=harness-tlon-publication
 |%
+++  clear-fixture
+  =/  job=job:cr  *job:cr
+  =.  job  job(run-sid 'run', remaining 0, state %complete, last `0v1)
+  =/  db=state:hh  *state:hh
+  =.  observations.db  (my ~[[0v1 ['run' 'event' '~nec' 'task' ~2026.9.6 %completed]]])
+  [job db]
+++  test-finished-schedule-can-be-cleared-without-removing-head-evidence
+  =/  [job=job:cr db=state:hh]  clear-fixture
+  (expect !>((cron-clearable:p job db |)))
+++  test-active-nonzero-and-admitting-schedules-cannot-be-cleared
+  =/  [job=job:cr db=state:hh]  clear-fixture
+  (expect !>(&(!(cron-clearable:p job(state %active) db |) !(cron-clearable:p job(remaining 1) db |) !(cron-clearable:p job db &))))
+++  test-clear-rejects-running-and-missing-execution-evidence
+  =/  [job=job:cr db=state:hh]  clear-fixture
+  =/  running  (~(got by observations.db) 0v1)
+  (expect !>(&(!(cron-clearable:p job db(observations ~) |) !(cron-clearable:p job db(observations (my ~[[0v1 running(phase %running)]])) |))))
+++  test-clear-rejects-older-unresolved-publications-too
+  =/  [job=job:cr db=state:hh]  clear-fixture
+  =/  pub=publication:hh  *publication:hh
+  =.  pub  pub(sid 'run', status %uncertain)
+  (expect !>(!(cron-clearable:p job db(outbox (my ~[[0v2 pub]])) |)))
 ++  test-channel-confirmation-matches-author-and-client-stamp
   =/  post=post:v9:dv  *post:v9:dv
   =.  +.+.post  +.+.post(author ~lux, sent ~2026.9.5)
@@ -202,4 +223,12 @@
   (expect-eq !>(`@t`'```js\0a**literal**\0a\0aline\0a\0a```') !>((story-to-text:story (text-to-story:story '```js\0a**literal**\0a\0aline\0a```'))))
 ++  test-story-links-keep-their-destination
   (expect-eq !>('docs (https://urbit.org)') !>((story-to-text:story (text-to-story:story '[docs](https://urbit.org)'))))
+++  test-image-line-native-block
+  (expect-eq !>(`story:d`~[[%block %image 'https://example.com/a.png' 0 0 'A picture']]) !>((text-to-story:story '![A picture](https://example.com/a.png)')))
+++  test-image-line-prose-order
+  (expect-eq !>(`@t`'before\0a\0a[Image: A - https://example.com/a.png]\0aafter') !>((story-to-text:story (text-to-story:story 'before\0a![A](https://example.com/a.png)\0aafter'))))
+++  test-image-fence-remains-literal
+  (expect-eq !>(`@t`'```md\0a![A](https://example.com/a.png)\0a\0a```') !>((story-to-text:story (text-to-story:story '```md\0a![A](https://example.com/a.png)\0a```'))))
+++  test-image-invalid-line-not-native
+  (expect !>(?&(=(~ (image-line:story '![A](javascript:alert)')) =(~ (image-line:story '![A](https://example.com/a.png) trailing')) =(~ (image-line:story '![A](https://)')) =(~ (image-line:story '![A](https://example.com/a b)')))))
 --

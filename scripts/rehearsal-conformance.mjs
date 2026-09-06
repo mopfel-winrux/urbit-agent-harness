@@ -25,7 +25,7 @@ const server = createServer(async (req, res) => {
     let calls = [], content = 'PARENT_OK'
     if (child) {
       childTurns++
-      assert.deepEqual(body.tools.map((t) => t.function.name).sort(), ['list_desk_files', 'list_desk_scopes', 'read_desk_file', 'read_skill'])
+      assert.deepEqual(body.tools.map((t) => t.function.name).sort(), ['current_time', 'list_desk_files', 'list_desk_scopes', 'read_desk_file', 'read_skill'])
       if (!receipts.length) {
         // Even an explicit config edit cannot turn the special-purpose child
         // into an effectful executor while its provider request is outstanding.

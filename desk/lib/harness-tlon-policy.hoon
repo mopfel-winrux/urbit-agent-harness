@@ -1,9 +1,19 @@
 ::  Pure social boundary: authentic source nouns -> allowed, addressed input.
 ::  Nicknames are presentation, never identity or authority. Sessions separate
 ::  sender, destination and grant epoch so privilege cannot bleed across chats.
-/-  t=harness-tlon, h=harness, a=tlon-activity-ver
+/-  t=harness-tlon, h=harness, a=tlon-activity-ver, cr=harness-cron, hh=harness-hand
 /+  ht=harness-tools, hj=harness-json, story=harness-tlon-story
 |%
+++  cron-clearable
+  |=  [job=job:cr db=state:hh admitting=?]
+  ^-  ?
+  ?:  |(admitting !=(0 remaining.job) =(%active state.job))  |
+  ?~  last.job  |
+  =/  last  (~(get by observations.db) u.last.job)
+  ?~  last  |
+  ?.  =(run-sid.job binding.u.last)  |
+  ?:  (lien ~(val by observations.db) |=(o=observation:hh &(=(run-sid.job binding.o) ?=(?(%queued %running) phase.o))))  |
+  !(lien ~(val by outbox.db) |=(p=publication:hh &(=(run-sid.job sid.p) ?=(?(%pending %claimed %uncertain) status.p))))
 ++  grants
   |=  [policy=policy:t actor=@p owner-tools=(list tool-grant:h)]
   ^-  (unit (list tool-grant:h))
@@ -124,8 +134,21 @@
   ==
 ++  upgrade-delivery
   |=  old=state-5:t
-  ^-  state:t
+  ^-  state-6:t
   [%6 `@da`0 +.old]
+++  upgrade-media
+  |=  old=state-6:t
+  ^-  state-7:t
+  [%7 ['' ''] ~ +.old]
+++  upgrade-hosted-media
+  |=  old=state-7:t
+  ^-  state-8:t
+  [%8 +.old]
+++  upgrade-native-media
+  |=  old=state-8:t
+  ^-  state:t
+  ::  Drop the worker URL/token; on-load retires old pending requests.
+  [%9 +.+.old]
 ++  next-message-stamp
   |=  [now=@da previous=@da]
   ^-  @da

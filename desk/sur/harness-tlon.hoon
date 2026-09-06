@@ -29,8 +29,19 @@
   [%4 tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease-0) data]
 +$  state-5
   [%5 tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
-+$  state
++$  state-6
   [%6 last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
++$  media-config  [url=@t token=@t]
++$  upload-7
+  [stage=?(%fetch %put %put-no-acl) storage=@uv key=@t mime=@t public-url=@t bytes=octs]
++$  state-7
+  [%7 media=media-config uploads=(map @uv upload-7) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
++$  upload
+  [stage=?(%fetch %put %put-no-acl %grant %hosted-put) storage=@uv key=@t mime=@t public-url=@t bytes=octs]
++$  state-8
+  [%8 media=media-config uploads=(map @uv upload) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
++$  state
+  [%9 uploads=(map @uv upload) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
 +$  data
   $:  policy=policy
       epoch=@ud

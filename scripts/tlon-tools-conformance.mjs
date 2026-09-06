@@ -34,6 +34,7 @@ const server = createServer(async (req, res) => {
     const scheduled = body.messages.some((m) => m.role === 'system' && m.content.includes('This is a bounded scheduled task'))
     if (scheduled) {
       scheduledRequests++
+      assert.ok(body.tools.some((t) => t.function.name === 'current_time'))
       assert.ok(!body.messages.some((m) => m.content?.includes('PRIVATE_SCHEDULING_CONTEXT')))
       assert.ok(!body.tools.some((t) => ['cron_add', 'run_subagent'].includes(t.function.name)))
       if (mode === 'cron-revoke') { held = res; return }
@@ -122,11 +123,25 @@ try {
   mode = 'cron'; await send(`${marker}-cron PRIVATE_SCHEDULING_CONTEXT`)
   await until('schedule creation acknowledged', () => schedules.length === 1)
   const first = (await client.call('harness/tlon/cron')).find((j) => j.id === schedules[0]); sourceSid = first.sessionId; scheduledSid = first.runSessionId
+  await assert.rejects(client.call('harness/tlon/cron/clear', { id: first.id }), /finished zero-run/)
   await until('scheduled input completed and publication delivered', async () => {
     const job = (await client.call('harness/tlon/cron')).find((j) => j.id === schedules[0])
     return job?.state === 'complete' && job.remaining === 0 && job.execution === 'completed' && job.delivery === 'delivered'
   }, 95000)
   assert.ok(JSON.stringify(await page(false, true)).includes(`${marker}-scheduled-ok`))
+  const finished = (await client.call('harness/tlon/cron')).find((j) => j.id === first.id)
+  assert.equal(finished.clearable, true)
+  const before = await client.call('harness/session/snapshot', { sessionId: first.runSessionId })
+  const cleared = await client.call('harness/tlon/cron/clear', { id: first.id })
+  assert.ok(!cleared.some((j) => j.id === first.id))
+  assert.deepEqual(await client.call('harness/session/snapshot', { sessionId: first.runSessionId }), before)
+  const evidence = await client.call('harness/hand', { effect: { hand: 'tlon', effect: finished.lastInput } })
+  assert.equal(evidence.status, 'delivered')
+  const binding = await client.call('harness/hand', { status: { binding: first.runSessionId } })
+  assert.equal(binding.enabled, false)
+  await client.call('session/prompt', { sessionId: first.runSessionId, prompt: [{ type: 'text', text: 'Check that clearing the schedule did not broaden its tool authority.' }] })
+  assert.ok(!(await client.call('harness/tlon/cron')).some((j) => j.runSessionId === first.runSessionId))
+  console.log('PASS clearing finished schedule preserves transcript and delivery evidence, and disables its binding')
   mode = 'cron-revoke'; await send(`${marker}-cron-revoke PRIVATE_SCHEDULING_CONTEXT`)
   await until('second schedule acknowledged', () => schedules.length === 2)
   await until('scheduled inference is in flight', () => held, 95000)

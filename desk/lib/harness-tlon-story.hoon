@@ -84,7 +84,27 @@
     ?~  lang
       $(lines t.lines, lang `(rsh 3^3 line), buf '', out (weld out (prose-to-story buf)))
     $(lines t.lines, lang ~, buf '', out (snoc out [%block %code buf u.lang]))
+  =/  picture  ?~(lang (image-line line) ~)
+  ?^  picture
+    $(lines t.lines, buf '', out (snoc (weld out (prose-to-story buf)) u.picture))
   $(lines t.lines, buf (rap 3 buf line ?~(t.lines '' '\0a') ~))
+::  Only standalone image syntax becomes a native block. Fenced examples,
+::  inline mentions and malformed destinations remain ordinary prose.
+++  image-line
+  |=  line=@t
+  ^-  (unit verse:d)
+  ?.  =('![' (end 3^2 line))  ~
+  =/  label  (try-delimited "](" (trip (rsh 3^2 line)))
+  ?~  label  ~
+  =/  target  (try-delimited ")" +.u.label)
+  ?~  target  ~
+  ?.  =(~ +.u.target)  ~
+  =/  url=@t  (crip -.u.target)
+  ?.  &((lte (met 3 url) 2.048) |(=('https://' (end 3^8 url)) =('http://' (end 3^7 url))))  ~
+  ?.  (gth (met 3 url) ?:(=('https://' (end 3^8 url)) 8 7))  ~
+  ?:  (lien -.u.target |=(c=@t (lte c 32)))  ~
+  ?~  (de-purl:html url)  ~
+  `[%block %image url 0 0 (crip -.u.label)]
 ++  split-lines
   |=  chars=tape
   ^-  (list @t)

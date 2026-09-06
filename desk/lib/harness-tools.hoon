@@ -179,6 +179,7 @@
     %'tlon_read_history'  `%tlon-read
     %'tlon_react'         `%tlon-write
     %'tlon_unreact'       `%tlon-write
+    %'tlon_upload_image'  `%tlon-write
     %'cron_add'           `%cron
     %'cron_list'          `%cron
     %'cron_remove'        `%cron
@@ -192,6 +193,7 @@
 ++  tool-granted
   |=  [name=@t tools=(list tool-grant:h)]
   ^-  ?
+  ?:  =('current_time' name)  &
   =/  family  (tool-family name)
   ?~  family  |
   (lien (tool-families tools) |=(candidate=term =(candidate u.family)))
@@ -220,6 +222,7 @@
   |=  tools=(list tool-grant:h)
   ^-  json
   :-  %a
+  :-  (fun-json 'current_time' 'Read the current ship time in UTC, including ISO 8601 time, Unix seconds and weekday. Use before calculating cron schedules or relative dates; do not guess the user timezone. Always available; takes no arguments.' ~)
   %-  zing
   %+  turn  (tool-families tools)
   |=  t=term
@@ -260,6 +263,7 @@
       %tlon-write
     :~  (fun-json 'tlon_react' 'React in this Tlon DM or channel using a message ID returned by history. Reports local Messenger acceptance, not remote delivery.' ~[['message_id' 'Exact ID returned by tlon_read_history'] ['emoji' 'Unicode emoji, at most 32 bytes']])
         (fun-json 'tlon_unreact' 'Remove your own reaction in this Tlon DM or channel.' ~[['message_id' 'Exact ID returned by tlon_read_history']])
+        (fun-json 'tlon_upload_image' 'Download a public PNG, JPEG, GIF or WebP up to 8 MiB and upload it using the owner-configured Tlon storage (custom S3 or hosted presigned URLs). Returns a URL; it does not send a message. Use ![description](url) on its own line in your final reply for a native image. Never repeat an uncertain upload automatically.' ~[['url' 'Public HTTPS image URL with a DNS hostname; no credentials or custom ports. Use the final URL: redirects are not followed']])
     ==
       %cron
     :~  (fun-json 'cron_add' 'Schedule a bounded recurring prompt in this exact Tlon conversation. UTC only; never guess a local timezone. Each run uses the durable input/publication ledger.' ~[['schedule' 'Five-field cron expression in UTC'] ['timezone' 'Must be UTC'] ['prompt' 'Instruction for each run, at most 4096 bytes'] ['runs' 'Maximum number of runs, decimal integer from 1 to 100']])

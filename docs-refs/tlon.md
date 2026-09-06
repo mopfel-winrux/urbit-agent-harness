@@ -81,6 +81,65 @@ should use the existing head/hand records and distinguish completion, local send
 acceptance, and uncertain delivery; it must not create a second run authority or
 blind retry path.
 
+## Images and storage
+
+Final replies support standalone `![description](https://image-url)` lines as
+native Story image blocks in DMs, channels and both thread types. Fenced examples
+remain literal code. Images use the existing publication ledger; there is no
+separate image-message send path.
+
+`tlon_upload_image` is an implicit in-conversation Tlon write tool. It downloads
+a public image and uploads it using the ship's existing Tlon storage selection.
+It returns a URL without publishing a message. The final reply chooses whether
+to include that URL as an image. No separate media grant or S3 credential form is
+needed in Harness. Both custom S3 credentials and Tlon-hosted presigned URLs are
+supported; the `service` toggle in Tlon chooses the path.
+
+Configure custom S3 credentials, bucket, region and optional public URL base in
+Tlon's storage settings, or select presigned-URL hosting on a hosted ship.
+Public readability of custom storage is the operator's responsibility.
+There is no separate Harness storage setup, download worker, token or service.
+
+The ship downloads PNG, JPEG, GIF and WebP directly through Iris, checks their
+file signatures and MIME types, and limits them to 8 MiB. Source URLs must be
+HTTPS with a qualified DNS hostname, no credentials, custom port, fragment or
+local-name suffix. IP literals are rejected. Downloads send no ship credentials.
+All HTTP requests disable redirects and transport retries. Iris does not expose
+DNS-answer validation or connection pinning, so hostname checks do not guarantee
+that a domain resolves to a public IP; this is not a private-network isolation
+boundary. There are at most four pending uploads and a one-minute call deadline.
+
+Hosted mode reads the ship's `%genuine` identity and asks the fixed
+`https://memex.tlon.network/v1/<ship>/upload` endpoint for an upload URL, with the
+exact file name, byte count and MIME type. Memex owns cloud authentication/signing;
+no static cloud keys or workload-identity credentials are copied into Harness.
+The returned GCS upload URL is used unchanged, with matching content type and
+cache-control headers. Only its separate public file URL reaches the model.
+The identity token is never sent to the image source or storage PUT. Arbitrary
+custom presigning endpoints are not supported, even if `presignedUrl` is populated.
+
+The hand checks current conversation authority and unchanged storage credentials
+before each PUT. A positive `AccessControlListNotSupported` rejection permits
+one retry without the signed `public-read` ACL, using the same object key. Other
+ACL incompatibilities are reported as failures, not blindly retried.
+DigitalOcean Spaces also receives a signed `x-amz-acl: public-read` header;
+its uploads cannot rely on the ACL query parameter alone. The owner maintenance
+script `scripts/spaces-media-repair.mjs` inspects this ship's `harness-*` image
+objects, with `--apply` limited to repairing owner-only ACLs. It never changes
+bucket policy or replaces custom object grants.
+Reloads and permission changes retire unfinished downloads; a dispatched PUT
+without acceptance evidence stays uncertain and is never automatically repeated.
+An interrupted hosted URL request is also uncertain: the broker may have allocated
+quota, but the result explicitly states that no image PUT was sent.
+Already dispatched storage writes cannot be undone by revoking permissions.
+An accepted upload does not guarantee public readability or remote message delivery.
+
+The live fixture is `scripts/tlon-media-conformance.mjs`; it requires
+`MEDIA_TEST_STORAGE=1`, the usual two-ship test variables, and optionally
+`TEST_PANE` for adapter suspension/reload checks. It downloads a real public
+image through the ship, temporarily configures a local independently verifying
+S3 endpoint, and restores the test ship's storage configuration.
+
 ## Authority and conversation scope
 
 - New owner conversations inherit the tools in **Settings → Defaults**, not the
@@ -113,7 +172,7 @@ messages and replies are normalized once, using the durable source message key.
 Channel replies retain their parent activity time; DM replies retain the author's
 writ id, **not** its local activity timestamp. Styled input retains text, links,
 ship mentions, code, lists and image descriptions. Replies translate Markdown
-paragraphs, emphasis, headings, quotes, links and fenced code into Story. This is
+paragraphs, emphasis, headings, quotes, links, standalone images and fenced code into Story. This is
 a small codec, not a complete CommonMark renderer; unsupported syntax remains text.
 
 The first DM is an invitation rather than a post notification. After accepting,
@@ -255,14 +314,17 @@ idempotent hand observation and follows the normal execution/publication ledger.
 Downtime coalesces to one due run, without replaying a missed backlog. Runs do not
 overlap pending execution or an uncertain publication. The schedule advances in
 the same state transition that records its pending admission. The first version
-retains at most 64 schedule records; it never deletes old head evidence to free
-capacity. Richer archival and resumption controls remain future work.
+retains at most 64 schedule records. Clear finished zero-run schedules in the GUI
+to free capacity; transcripts and delivery evidence remain. Running, pending or
+uncertain work cannot be cleared. Clearing disables the binding and removes its
+execution authority. Schedule resumption remains future work.
 
 Settings → Tlon → Scheduled work shows the schedule, remaining runs, execution,
 delivery and pause reason. Cancellation is immediate for pending work but cannot
 retract an already dispatched effect. A locally fired or completed run is not
 represented as a delivered reminder. ACP exposes `harness/tlon/cron` and
-`harness/tlon/cron/cancel` (`{"id":"…"}`) for owner inspection and cancellation.
+`harness/tlon/cron/cancel` and `harness/tlon/cron/clear` (`{"id":"…"}`). The
+server's `clearable` field controls the GUI and is rechecked on every clear.
 
 ## Testing
 

@@ -16,7 +16,12 @@ api.read = async (path) => path === 'tlon/cron' ? structuredClone(window.tlonFix
   { ship: '~nec', nickname: 'Alice', contact: true },
   { ship: '~bud', nickname: 'Alice peer', contact: false },
 ]
-api.action = async ({ tlon, tlonProfile, cancelCron }) => {
+api.action = async ({ tlon, tlonProfile, cancelCron, clearCron }) => {
+  if (clearCron) {
+    if (window.tlonFixture.clearError) throw new Error(window.tlonFixture.clearError)
+    window.tlonFixture.cron = window.tlonFixture.cron.filter((job) => job.id !== clearCron)
+    return structuredClone(window.tlonFixture.cron)
+  }
   if (cancelCron) {
     window.tlonFixture.cancelled.push(cancelCron)
     window.tlonFixture.cron = window.tlonFixture.cron.map((job) => job.id === cancelCron ? { ...job, state: 'cancelled', reason: 'Cancelled in owner settings' } : job)

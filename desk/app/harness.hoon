@@ -555,7 +555,7 @@
     [~[(acp-result-card:wire-codec connection u.id acp-initialize-result:wire-codec)] state]
   ::  Optional hands own their settings and social protocols. Forward the
   ::  authenticated request; the hand replies on the same ACP connection.
-      ?(%'harness/tlon' %'harness/tlon/configure' %'harness/tlon/contacts' %'harness/tlon/watch' %'harness/tlon/profile' %'harness/tlon/profile/set' %'harness/tlon/cron' %'harness/tlon/cron/cancel')
+      ?(%'harness/tlon' %'harness/tlon/configure' %'harness/tlon/contacts' %'harness/tlon/watch' %'harness/tlon/profile' %'harness/tlon/profile/set' %'harness/tlon/cron' %'harness/tlon/cron/cancel' %'harness/tlon/cron/clear')
     ?~  id  `state
     :_  state
     :~  [%pass /adapter/tlon/[connection]/(scot %uv (jam u.id)) %agent [our.bowl %harness-tlon] %poke %noun !>(`request:adapter`[connection u.id p.u.method params])]

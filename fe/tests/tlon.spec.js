@@ -1,5 +1,32 @@
 import { expect, test } from '@playwright/test'
 
+test('Tlon settings require no separate image worker configuration', async ({ page }) => {
+  await page.goto('/apps/harness/tests/tlon-fixture.html')
+  await expect(page.getByLabel('Media worker URL')).toHaveCount(0)
+  await expect(page.getByLabel('Worker token')).toHaveCount(0)
+})
+
+test('finished schedules clear with acknowledged state; unresolved work stays', async ({ page }) => {
+  await page.goto('/apps/harness/tests/tlon-fixture.html')
+  await page.evaluate(() => {
+    window.tlonFixture.cron = [
+      { id: '0v1', prompt: 'Finished task', remaining: 0, state: 'complete', clearable: true },
+      { id: '0v2', prompt: 'Uncertain task', remaining: 0, state: 'complete', delivery: 'uncertain', clearable: false },
+    ]
+    window.tlonFixture.clearError = 'Schedule is no longer clearable'
+  })
+  const clear = page.getByRole('button', { name: 'Clear finished schedule', exact: true })
+  await expect(clear).toHaveCount(1, { timeout: 8000 })
+  await clear.click()
+  await expect(page.getByRole('alert')).toHaveText('Schedule is no longer clearable')
+  await expect(page.getByText('Finished task', { exact: true })).toBeVisible()
+  await page.evaluate(() => { window.tlonFixture.clearError = '' })
+  await clear.click()
+  await expect(page.getByText('Finished task', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('Uncertain task', { exact: true })).toBeVisible()
+  expect(await page.evaluate(() => window.tlonFixture.saves)).toEqual([])
+})
+
 test('scheduled work distinguishes delivery from execution and cancels independently of policy', async ({ page }) => {
   await page.goto('/apps/harness/tests/tlon-fixture.html')
   await page.evaluate(() => { window.tlonFixture.cron = [{ id: '0v1', runSessionId: 'cron-test', prompt: 'Morning summary', schedule: '0 9 * * *', state: 'active', remaining: 4, next: '~2026.9.6..09.00.00', execution: 'completed', delivery: 'uncertain' }] })

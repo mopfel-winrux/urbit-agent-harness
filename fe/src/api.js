@@ -7,6 +7,7 @@ async function action(value) {
   if (value.tlon) return acp.call('harness/tlon/configure', value.tlon)
   if (value.tlonProfile) return acp.call('harness/tlon/profile/set', value.tlonProfile)
   if (value.cancelCron) return acp.call('harness/tlon/cron/cancel', { id: value.cancelCron })
+  if (value.clearCron) return acp.call('harness/tlon/cron/clear', { id: value.clearCron })
   if (value.config) return acp.call('harness/session/configure', { sessionId: value.config.sid, config: value.config.config })
   if (value.defaults) return acp.call('harness/defaults/configure', { config: value.defaults })
   if (value.mcp) return acp.call('harness/mcp/configure', { servers: value.mcp })

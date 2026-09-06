@@ -36,6 +36,8 @@ failed work. See [Tlon integration](docs-refs/tlon.md).
 
 ## What works
 
+- Always-available `current_time`: the ship's UTC clock, Unix seconds and weekday,
+  with no permission setting. Other tools retain their resource grants.
 - Independent, durable conversations with replay, append-only cancellation,
   fork provenance, retry, compaction, timers, subagents, skills, and peer calls.
 - OpenRouter, OpenAI, Anthropic, and custom OpenAI-compatible endpoints, with
@@ -73,9 +75,11 @@ failed work. See [Tlon integration](docs-refs/tlon.md).
   deduplicated input queues, and publication claims/receipts independent of
   inference, fair admission limits, fenced owner recovery and explicit archive
   retirement. See [the hand contract](docs-refs/hands.md).
-- Native Tlon history and reaction tools, scoped to the bound DM/channel. Owner-only
-  UTC cron schedules feed durable inputs and the existing publication ledger;
-  scheduled work has bounded runs, cancellation and separate execution/delivery status.
+- Native Tlon images, history, reactions and UTC cron in authorized conversations, without
+  per-tool switches. Schedules have bounded runs, cancellation, finished-record
+  cleanup and separate execution/delivery status.
+  [Image uploads](docs-refs/tlon.md#images-and-storage) run natively on the ship,
+  using its existing custom S3 or hosted presigned-URL storage; no extra service.
 - Per-conversation tools for path-scoped Clay reads, HTTP, skills, subagents, explicitly granted
   peers, and experimental skill authoring. Fresh-install defaults grant web
   access and skill reading only. Saved defaults and existing conversation grants

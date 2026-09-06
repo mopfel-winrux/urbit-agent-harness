@@ -45,6 +45,8 @@
   ?.  (call-granted:ht c tools)
     [%tool-completed id.c name.c 'rejected: tool or path is not granted for this session']
   =/  out=@t
+    ?:  =(name.c 'current_time')
+      (current-time now.bowl)
     ?:  =(name.c 'list_desk_scopes')
       (en:json:html [%a (turn (clay-scopes:ht tools) |=(p=path `json`[%s (crip (spud p))]))])
     ?:  =(name.c 'read_desk_file')
@@ -63,6 +65,17 @@
       `(pairs:enjs:format ~[['id' %s id] ['name' %s name.server]])
     (cat 3 'unknown tool: ' name.c)
   [%tool-completed id.c name.c out]
+++  current-time
+  |=  now=@da
+  ^-  @t
+  =/  d=date  (yore now)
+  =/  pad  |=(n=@ud ^-(tape ?:((lth n 10) "0{(a-co:co n)}" (a-co:co n))))
+  =/  utc=@t
+    (crip "{(a-co:co y.d)}-{(pad m.d)}-{(pad d.t.d)}T{(pad h.t.d)}:{(pad m.t.d)}:{(pad s.t.d)}Z")
+  =/  seconds  (div (sub now ~1970.1.1) ~s1)
+  =/  weekday  (snag (mod (add (div seconds 86.400) 4) 7) `(list @t)`~['Sunday' 'Monday' 'Tuesday' 'Wednesday' 'Thursday' 'Friday' 'Saturday'])
+  %-  en:json:html
+  (pairs:enjs:format ~[['utc' %s utc] ['timezone' %s 'UTC'] ['unixSeconds' (numb:enjs:format seconds)] ['weekday' %s weekday]])
 ::  +read-skill: fetch a skill body from the library
 ::
 ++  read-skill
