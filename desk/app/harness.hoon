@@ -11,7 +11,7 @@
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-11
+=|  state-12
 =*  state  -
 ^-  agent:gall
 =<
@@ -27,8 +27,16 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =.  state  !<(state-11 on-save:next)
-      =/  out  (filter:oauth -.result openai-auth provider-keys now.bowl)
+      =/  loaded  !<(state-12 on-save:next)
+      ::  Invalidate native hands after committing ledger/session changes.
+      ::  No transcript is broadcast: subscribers read the durable ledger.
+      ::  Read-only ACP requests must not create a notification feedback loop.
+      =/  changed  |(!=(hands hands.loaded) !=(sessions sessions.loaded))
+      =.  state  loaded
+      =/  cards
+        ?.  changed  -.result
+        (snoc -.result [%give %fact ~[/hand-events] %noun !>(%changed)])
+      =/  out  (filter:oauth cards openai-auth provider-keys now.bowl)
       =^  cards  state  (accept-auth:hc out)
       [cards this]
 ::
@@ -47,7 +55,7 @@
   |=  old-vase=vase
   %-  flush-auth
   ^-  (quip card _this)
-  =/  new=state-11  (load:storage old-vase)
+  =/  new=state-12  (load:storage old-vase)
   :_  this(state new)
   =/  base=(list card)
     :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
@@ -98,6 +106,7 @@
   ^-  (quip card _this)
   ?>  =(src.bowl our.bowl)
   ?+  path  (on-watch:def path)
+    [%hand-events ~]     [~[[%give %fact ~[path] %noun !>(%changed)]] this]
     [%session @ ~]       `this
     [%hands @ ~]         `this
     [%http-response *]   `this
@@ -154,6 +163,12 @@
       [%x %verification @ ~]
     ``json+!>((shadow-status:hc i.t.t.path))
   ::
+      [%x %tool-call @ @ @ ~]
+    =/  sid=@t  i.t.t.path
+    =/  generation=@ud  (slav %ud i.t.t.t.path)
+    =/  call-id=@t  i.t.t.t.t.path
+    ``noun+!>((hand-tool-authority:hc sid generation call-id))
+  ::
       [%x %status ~]
     :^  ~  ~  %json
     !>  ^-  json
@@ -162,7 +177,7 @@
       [%x %tools ~]
     :^  ~  ~  %json
     !>  ^-  json
-    [%a (turn all-tools:ht |=(t=term `json`[%s t]))]
+    [%a (turn configurable-tools:ht |=(t=term `json`[%s t]))]
   ::
       [%x %defaults ~]
     ``json+!>((config-json:hj defaults))
@@ -216,6 +231,18 @@
   %-  flush-auth
   ^-  (quip card _this)
   ?+  wire  (on-agent:def wire sign)
+      [%hand-tool @ @ @ ~]
+    =/  sid=@t  i.t.wire
+    =/  generation=@ud  (slav %ud i.t.t.wire)
+    =/  call-id=@t  i.t.t.t.wire
+    ?:  ?=(%fact -.sign)
+      ?>  =(%noun p.cage.sign)
+      =^  cards  state  (finish-hand-tool:hc sid generation call-id !<(@t q.cage.sign))
+      [[[%pass wire %agent [our.bowl %harness-tlon] %leave ~] cards] this]
+    ?.  |(?=(%kick -.sign) ?&(?=(%poke-ack -.sign) ?=(^ p.sign)) ?&(?=(%watch-ack -.sign) ?=(^ p.sign)))  `this
+    =^  cards  state  (finish-hand-tool:hc sid generation call-id 'error: tool hand unavailable; no automatic retry')
+    [cards this]
+  ::
       [%adapter %tlon @ @ ~]
     ?.  ?=(%poke-ack -.sign)  `this
     ?~  p.sign  `this
@@ -528,7 +555,7 @@
     [~[(acp-result-card:wire-codec connection u.id acp-initialize-result:wire-codec)] state]
   ::  Optional hands own their settings and social protocols. Forward the
   ::  authenticated request; the hand replies on the same ACP connection.
-      ?(%'harness/tlon' %'harness/tlon/configure' %'harness/tlon/contacts' %'harness/tlon/watch' %'harness/tlon/profile' %'harness/tlon/profile/set')
+      ?(%'harness/tlon' %'harness/tlon/configure' %'harness/tlon/contacts' %'harness/tlon/watch' %'harness/tlon/profile' %'harness/tlon/profile/set' %'harness/tlon/cron' %'harness/tlon/cron/cancel')
     ?~  id  `state
     :_  state
     :~  [%pass /adapter/tlon/[connection]/(scot %uv (jam u.id)) %agent [our.bowl %harness-tlon] %poke %noun !>(`request:adapter`[connection u.id p.u.method params])]
@@ -638,7 +665,7 @@
       %'harness/tools'
     ?~  id  `state
     =/  result=json
-      [%a (turn all-tools:ht |=(t=term `json`[%s t]))]
+      [%a (turn configurable-tools:ht |=(t=term `json`[%s t]))]
     [~[(acp-result-card:wire-codec connection u.id result)] state]
   ::
       %'harness/defaults'
@@ -1433,6 +1460,15 @@
           %+  snoc  evs.acc
           `event:h`[%tool-completed id.c name.c 'rejected: tool is not granted for this session']
         ==
+      =/  hand  (tool-hand:ht name.c)
+      ?^  hand
+        =/  req=tool-request:adapter  [sid next-req.ses c]
+        =/  id=@uv  (sham req)
+        =/  wire=wire  /hand-tool/[sid]/(scot %ud next-req.ses)/[id.c]
+        %=  acc
+          evs  (snoc evs.acc [%tool-requested id.c name.c])
+          tcards  (weld tcards.acc `(list card)`~[[%pass wire %agent [our.bowl u.hand] %watch /tools/(scot %uv id)] [%pass wire %agent [our.bowl u.hand] %poke %harness-tool !>(req)]])
+        ==
       ?:  =(name.c 'write_skill')
         =/  nam  (tool-str:effects args.c 'name')
         =/  dsc  (tool-str:effects args.c 'description')
@@ -1838,6 +1874,24 @@
 ++  execution-tools
   |=  [sid=session-id:h granted=(list tool-grant:h)]
   ^-  (list tool-grant:h)
+  =/  tlon
+    (lien ~(val by bindings.hands) |=(b=binding:hh &(=(sid sid.b) =('tlon' hand.b))))
+  ::  Saved legacy flags never grant Tlon authority to an unbound session.
+  =.  granted  ?:(tlon (with-tlon:ht granted) (without-tlon:ht granted))
+  =/  authority=hand-authority:adapter
+    ?.  tlon  [& ~]
+    ::  An unavailable hand grants no effects, but must not prevent the head
+    ::  from recording a model result and its durable publication. Gall's
+    ::  live-agent scry is total; a missing application scry is not catchable
+    ::  merely by wrapping it in +mole.
+    ?.  .^(? %gu /(scot %p our.bowl)/harness-tlon/(scot %da now.bowl)/$)  [| ~]
+    =/  found
+      %-  mole  |.
+      .^(hand-authority:adapter %gx /(scot %p our.bowl)/harness-tlon/(scot %da now.bowl)/authority/[sid]/noun)
+    (fall found [| ~])
+  ?.  live.authority  ~
+  =?  granted  ?=(^ ceiling.authority)
+    (skim granted |=(grant=tool-grant:h (lien u.ceiling.authority |=(cap=tool-grant:h =(grant cap)))))
   ?.  (~(has by rehearsals) sid)  granted
   (rehearsal-tools:ht granted)
 ::  Self-pokes are not ambient authority: both a grant and an outstanding
@@ -1867,6 +1921,37 @@
   $(events t.events)
 ::  +handle-tool-response: an async tool result re-enters as an event
 ::
+++  hand-tool-authority
+  |=  [sid=@t generation=@ud call-id=@t]
+  ^-  (unit tool-authority:adapter)
+  =/  ses  (~(get by sessions) sid)
+  ?~  ses  ~
+  ?.  =(generation next-req.u.ses)  ~
+  =/  v  (play:hl log.u.ses)
+  ?.  (~(has in wait.v) call-id)  ~
+  =/  call  (requested-call u.ses call-id)
+  ?~  call  ~
+  =/  tools  (execution-tools sid tools.config.v)
+  ?.  (call-granted:ht u.call tools)  ~
+  ?~  (tool-hand:ht name.u.call)  ~
+  `[u.call tools]
+++  finish-hand-tool
+  |=  [sid=@t generation=@ud call-id=@t body=@t]
+  ^-  (quip card _state)
+  =/  maybe  (~(get by sessions) sid)
+  ?~  maybe  `state
+  =/  ses  u.maybe
+  ?.  =(generation next-req.ses)  `state
+  =/  v  (play:hl log.ses)
+  ?.  (~(has in wait.v) call-id)  `state
+  =/  call  (requested-call ses call-id)
+  ?~  call  `state
+  ?~  (tool-hand:ht name.u.call)  `state
+  =?  body  =(~ (hand-tool-authority sid generation call-id))
+    'rejected: hand tool is no longer authorized'
+  =^  cs1  ses  (record-all sid ses ~[[%tool-completed call-id name.u.call (clip:ht body 24.000)]])
+  =^  cs2  state  (drive-put sid ses)
+  [(weld cs1 cs2) state]
 ++  handle-tool-response
   |=  [sid=session-id:h call-id=@t res=client-response:iris]
   ^-  (quip card _state)

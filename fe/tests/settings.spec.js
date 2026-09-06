@@ -40,6 +40,23 @@ for (const surface of ['global', 'conversation']) test(`${surface}: bootstrap to
   await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)?.tools)).toEqual(['web', 'skills', 'author'])
 })
 
+for (const surface of ['global', 'conversation']) test(`${surface}: Clay grants name paths and survive reload independently of MCP`, async ({ page }) => {
+  await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}`)
+  await page.getByLabel('Clay read path').fill('/harness/lib')
+  await page.getByRole('button', { name: 'Grant Clay path' }).click()
+  await expect(page.getByRole('checkbox', { name: /^Clay: \/harness\/lib/ })).toBeChecked()
+  await page.getByRole('checkbox', { name: /^MCP: Calendar/ }).check()
+  const save = () => page.getByRole('button', { name: surface === 'global' ? 'Save defaults' : 'Save conversation' }).click()
+  await save()
+  await page.reload()
+  await expect(page.getByRole('checkbox', { name: /^Clay: \/harness\/lib/ })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: /^MCP: Calendar/ })).toBeChecked()
+  await page.getByRole('checkbox', { name: /^Clay: \/harness\/lib/ }).click()
+  await expect(page.getByRole('checkbox', { name: /^Clay: \/harness\/lib/ })).toHaveCount(0)
+  await save()
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1).tools)).toEqual(['web', 'skills', { mcp: 'calendar' }])
+})
+
 test('search key can be configured, survives reload, and can be removed', async ({ page }) => {
   await page.goto('/apps/harness/tests/settings-fixture.html?page=search')
   await expect(page.getByText('key needed', { exact: true })).toBeVisible()

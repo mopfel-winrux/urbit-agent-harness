@@ -73,7 +73,10 @@ failed work. See [Tlon integration](docs-refs/tlon.md).
   deduplicated input queues, and publication claims/receipts independent of
   inference, fair admission limits, fenced owner recovery and explicit archive
   retirement. See [the hand contract](docs-refs/hands.md).
-- Per-conversation tools for Clay, HTTP, skills, subagents, explicitly granted
+- Native Tlon history and reaction tools, scoped to the bound DM/channel. Owner-only
+  UTC cron schedules feed durable inputs and the existing publication ledger;
+  scheduled work has bounded runs, cancellation and separate execution/delivery status.
+- Per-conversation tools for path-scoped Clay reads, HTTP, skills, subagents, explicitly granted
   peers, and experimental skill authoring. Fresh-install defaults grant web
   access and skill reading only. Saved defaults and existing conversation grants
   are preserved; additional capabilities require an explicit grant.

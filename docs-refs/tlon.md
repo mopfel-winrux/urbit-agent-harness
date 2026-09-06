@@ -52,17 +52,34 @@ See [conversation commands](acp.md#conversation-commands) for semantics.
 
 ## Thinking and tool activity
 
-Tlon revision `938f0c4` exposes chat computing indicators through `%presence`,
-using `%presence-action-1` and the `tlon.computing-status.v1` display payload.
-`%steward` provides run inspection and gateway liveness, not chat typing.
-The adapter publishes “Thinking...” or “Using tools...” in the DM/channel
-context, without prompts, tool arguments, or reasoning content.
+Chat computing indicators use `%presence-action-1` and the
+`tlon.computing-status.v1` display payload. The pinned Presence noun is identical
+to Lux's installed Groups noun; the payload was also checked against the current
+Groups client (`95dee1d917f0`), not just the older Claw integration.
+The adapter publishes “Thinking...” or named tool activity (for example,
+“Searching the web” or “Reading chat history”) in the DM/channel context.
+Only unfinished calls in the latest tool batch contribute. Names are restricted
+to the native catalog; unknown calls get a generic label. No prompts, arguments,
+MCP server/tool identifiers, results, or reasoning content are included.
 
 Activity is aggregated across actors and threads sharing a context. One thread
-finishing cannot clear another's indicator. The existing adapter poll updates
-phase changes, renews active leases every ten seconds, and clears settled or
-revoked work. Leases expire after thirty seconds if the adapter stops. Presence
+finishing cannot clear another's indicator. Head events update tool/phase changes
+and clear settled or revoked work. A lease deadline renews active presence every
+ten seconds. Leases expire after thirty seconds if the adapter stops. Presence
 is presentation only: it neither admits work nor determines settlement.
+
+Steward's separate Lens module supports durable run/tool inspection via
+`%steward-lens-action-1` (`entry`, with a JSON payload and final flag). Current
+Groups expects a `{schemaVersion: 1, lens: ...}` payload and optional
+`tlon-context-lens` post pointers containing `lensId` and `botShip`.
+Harness does not yet export those traces or stamp pointers. Steward forwards
+local entries to its configured owner, and cross-ship storage requires explicit
+trust on that owner ship. Its shared owner configuration also affects gateway
+behavior: enabling chat status must not silently configure it or start an
+external-process heartbeat for this on-ship harness. A future opt-in projection
+should use the existing head/hand records and distinguish completion, local send
+acceptance, and uncertain delivery; it must not create a second run authority or
+blind retry path.
 
 ## Authority and conversation scope
 
@@ -122,7 +139,7 @@ These owner-authenticated extensions work from any initialized ACP client:
   "enabled": true,
   "owner": "~sampel-palnet",
   "mentions": true,
-  "trusted": [{ "ship": "~sampel-sipnup", "tools": ["clay"] }]
+  "trusted": [{ "ship": "~sampel-sipnup", "tools": [{ "clay": "/harness/lib" }] }]
 }
 ```
 
@@ -139,12 +156,40 @@ participants the ship login code.
 
 ## Delivery and operation
 
+Messages are event-driven. The head emits a native `/hand-events` invalidation
+after a ledger or session change, and the adapter reads the durable outbox.
+Every subscription starts with an invalidation, so reload/reconnect recovers
+pending replies without another incoming message. Receipt events release the
+next reply at that destination. There is no message polling timer.
+
+The adapter retains a monotonic native message stamp: multiple replies in one
+Gall event must not reuse `now.bowl` as their Messenger ID. This counter survives
+reloads and does not delay delivery. When the adapter is stopped, the head can
+still save completed replies; unavailable Tlon authority grants no tool effects.
+
 Admission, inference, and publication are separate. The adapter claims a terminal
 publication and records its claim attempt before emitting the Messenger poke.
-Its receipt records Messenger's **local acceptance**, not remote reading or even
-remote network delivery. A local negative acknowledgement records failure.
+DM receipts record Messenger's **local acceptance**, not remote network delivery
+or reading. Channel publications keep Groups' versioned client action and wait
+for a host-confirmed post/reply on its native response subscription. The receipt
+identifies that channel post, not the local client's optimistic queue entry.
+This does not mean that every subscriber has received or read it. Suppressed or
+unconfirmed posts remain unresolved; a negative local acknowledgement records
+failure, and an unknown outcome never authorizes a resend.
 Timeouts or restarts never authorize automatic resending of uncertain sends.
 Reconcile them using `harness/hand` health, effect, and resolve operations.
+
+Reload recovery distinguishes an unprocessed claim, an emitted send with unknown
+outcome, and a recorded receipt. It can finish a provably undispatched claim or
+replay a receipt, but never blindly repeat a Messenger send. Late claim and
+receipt responses are fenced by dispatch stage and attempt. Claimed or uncertain
+ledger records block their destination even if this adapter has no cached entry.
+
+Timers are reserved for actual cron deadlines, presence-lease renewal, tool
+acknowledgement timeouts, and Activity subscription recovery. An idle connected
+hand without a schedule has no wake. Status exposes `deliveryMode: "events"`,
+`headConnected`, `publicationsConnected`, and nullable `maintenanceWake`;
+`connected` continues to describe the Activity subscription.
 
 Only one publication per destination is sent at a time; unrelated conversations
 proceed independently. Pending admission is capped at 64 adapter jobs and 128
@@ -172,6 +217,53 @@ the `reid/tlon-acp` work in `tlon-apps`; the Story codec adapts the reusable
 `story-parse` library in `np/claw`, with thread addressing and fenced-code handling
 implemented here.
 
+## Conversation tools and scheduled work
+
+Three separate opt-in grants are available: `tlon-read`, `tlon-write`, and `cron`.
+None is added to bootstrap defaults. A grant alone is insufficient: these tools
+require a current Tlon lane and a matching outstanding head request. They do not
+work in an unrelated browser session or a child without a Tlon binding.
+
+`tlon_read_history` returns at most 20 recent top-level messages in the bound DM
+or channel, with durable IDs, authors and clipped text. `tlon_react` and
+`tlon_unreact` operate on those IDs in that same chat, adding/removing the ship's
+own reaction. No model argument can select another destination. Reactions use a
+persisted invocation receipt and report local Messenger acknowledgement, not
+remote delivery. Missing acknowledgements become uncertain after a minute and
+are not automatically retried. Ordinary final replies still use the publication
+ledger; there is no arbitrary cross-chat send or group-management grant here.
+
+The owner can use `cron_add`, `cron_list`, and `cron_remove` from a conversation
+granted `cron`. Creation requires `schedule`, `timezone: "UTC"`, `prompt`, and
+`runs` (a decimal string, 1–100). Five-field expressions support `*`, steps,
+ranges and lists; weekdays are 0=Sunday through 6=Saturday. Restricted
+day-of-month and weekday fields use OR semantics. Local/IANA timezones and DST
+are not supported yet; convert deliberately to UTC, never guess. Invalid or
+impossible schedules fail rather than becoming a more frequent schedule.
+The next occurrence must fall within the bounded four-year search horizon.
+
+Each schedule owns a separate session at the exact original destination,
+including its thread address. It receives the configured instructions and grants,
+but no parent transcript, no cron grant, and no subagent grant. The source grant
+ceiling remains effective even if the scheduled session's configuration is edited.
+The source snapshot is rechecked at admission, tool dispatch and publication; changing source
+grants pauses the schedule and requires explicit rescheduling. Changing Tlon
+policy currently pauses schedules along with retiring the old lanes.
+
+Behn drives the existing hand maintenance loop. A due occurrence becomes an
+idempotent hand observation and follows the normal execution/publication ledger.
+Downtime coalesces to one due run, without replaying a missed backlog. Runs do not
+overlap pending execution or an uncertain publication. The schedule advances in
+the same state transition that records its pending admission. The first version
+retains at most 64 schedule records; it never deletes old head evidence to free
+capacity. Richer archival and resumption controls remain future work.
+
+Settings → Tlon → Scheduled work shows the schedule, remaining runs, execution,
+delivery and pause reason. Cancellation is immediate for pending work but cannot
+retract an already dispatched effect. A locally fired or completed run is not
+represented as a delivered reminder. ACP exposes `harness/tlon/cron` and
+`harness/tlon/cron/cancel` (`{"id":"…"}`) for owner inspection and cancellation.
+
 ## Testing
 
 `desk/tests/harness-tlon.hoon` exercises the pure authority, scope and Story rules.
@@ -180,13 +272,24 @@ ACP activity, global session discovery, and revocation between two ships. Supply
 `SHIP_COOKIE`, `PEER_COOKIE`, `PEER_URL`, and `TEST_NEST` (an existing peer-owned
 test channel, in the form `chat/<peer-ship>/<channel-name>`). It temporarily grants the
 peer ownership, uses the configured inference provider, and restores policy in
-`finally`. Use disposable test ships: messages and auditable sessions are retained.
+`finally`. Set `CONTROLLED_MODEL=1` to use a deterministic local provider and
+restore the previous defaults afterward. Use disposable test ships: messages and
+auditable sessions are retained.
 Neither the test nor the adapter modifies the Groups desk's source code.
+
+`scripts/tlon-delivery-conformance.mjs` additionally needs `SHIP_DOJO_PANE` for
+real Gall suspension/revival. It checks offline completion, explicit retry,
+uncertainty, ordered outbox draining, distinct IDs, whole-desk revival and an idle
+hand with no timer. `SURFACE=channel` plus `TEST_NEST` selects channels. Supplying
+`CHANNEL_HOST_DOJO_PANE` also temporarily suspends the channel host to test a lost
+confirmation and recovery from native publication evidence. Every suspended
+agent is revived in cleanup; fixture messages and receipts remain.
 
 `scripts/tlon-presence-conformance.mjs` uses the same two-ship cookie variables
 (no channel needed) and a controlled local provider. It checks a real DM's
 provider failure, explicit adoption of changed defaults, thinking/tool presence
-on the peer, cancellation, and resumed delivery. It restores the test ship's
+on the peer, renewal during long inference, cancellation, and resumed delivery.
+It restores the test ship's
 defaults and social policy. Do not run it concurrently with another test changing
 those settings or with a desk compilation.
 
@@ -195,3 +298,10 @@ On a disposable ship it checks direct Contacts edits, acknowledged ACP writes,
 validation, clearing, and preservation of unrelated fields and policy. It restores
 the touched profile fields in `finally`; test identity changes may already have
 been published to peers. The React tests cover external refresh and draft safety.
+
+`scripts/tlon-tools-conformance.mjs` uses a local provider and the same two-ship
+variables plus an existing `TEST_NEST`. It checks unbound-call denial, bounded
+history, real DM/channel reaction state, cron delivery, transcript isolation,
+recursive-schedule denial and mid-flight source revocation. It restores defaults
+and policy and cancels fixture schedules; messages and their receipts remain.
+`desk/tests/harness-cron.hoon` covers the pure UTC calendar and strict parser.

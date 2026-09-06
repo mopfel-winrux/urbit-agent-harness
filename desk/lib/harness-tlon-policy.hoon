@@ -82,7 +82,7 @@
   policy
 ++  scope-mcp
   |=  [old=state-1:t servers=(list @t)]
-  ^-  state:t
+  ^-  state-2:t
   =.  trusted.policy.old
     %+  roll  ~(tap by trusted.policy.old)
     |=  [[who=@p tools=(list tool-grant:h)] acc=(map @p (list tool-grant:h))]
@@ -92,4 +92,44 @@
     |=  [[sid=@t lane=lane:t] acc=(map @t lane:t)]
     (~(put by acc) sid lane(tools (scope-mcp:ht tools.lane servers)))
   [%2 +.old]
+++  scope-clay
+  |=  old=state-2:t
+  ^-  state-3:t
+  =.  trusted.policy.old
+    %+  roll  ~(tap by trusted.policy.old)
+    |=  [[who=@p tools=(list tool-grant:h)] acc=(map @p (list tool-grant:h))]
+    (~(put by acc) who (scope-clay:ht tools))
+  =.  lanes.old
+    %+  roll  ~(tap by lanes.old)
+    |=  [[sid=@t lane=lane:t] acc=(map @t lane:t)]
+    (~(put by acc) sid lane(tools (scope-clay:ht tools.lane)))
+  [%3 +.old]
+++  upgrade-tools
+  |=  old=state-3:t
+  ^-  state-4:t
+  [%4 ~ ~ +.old]
+++  upgrade-presence
+  |=  old=state-4:t
+  ^-  state-5:t
+  ::  Keep contexts so idle leases can still be cleared after reload. A zero
+  ::  timestamp forces active contexts to refresh their richer projection.
+  =/  leases=(map path presence-lease:t)
+    %+  roll  ~(tap by computing.old)
+    |=  [[ctx=path lease=presence-lease-0:t] acc=(map path presence-lease:t)]
+    (~(put by acc) ctx [`@da`0 ~])
+  :*  %5  tool-receipts.old  cron.old  leases
+      policy.old  epoch.old  after.old  lanes.old  jobs.old
+      deliveries.old  notices.old  next-notice.old  listeners.old
+      watching.old  wake.old  error.old
+  ==
+++  upgrade-delivery
+  |=  old=state-5:t
+  ^-  state:t
+  [%6 `@da`0 +.old]
+++  next-message-stamp
+  |=  [now=@da previous=@da]
+  ^-  @da
+  ::  Native Gall cascades can share one +now. Distinct publications must
+  ::  still have distinct Messenger identities; this schedules no wake.
+  (max now +(previous))
 --

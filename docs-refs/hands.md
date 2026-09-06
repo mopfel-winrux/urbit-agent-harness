@@ -138,11 +138,19 @@ sessions. A queued turn sees preceding completed context. Native sends cannot
 splice input into an active hand turn; timer wakes wait for it. Webhooks cannot
 write bound sessions: use the authenticated hand protocol and its actor checks.
 
-Poll `status` for admission recovery and `outbox` for delivery work. Inspect
+Use `status` for admission recovery and `outbox` for delivery work. Inspect
 native snapshots or `harness/session/snapshot` for progress and diagnostics.
 No client connection owns the run. `session/cancel` cancels both the active turn
 and queued observations for that session. Queued cancellations appear in status
 without creating a reply; active cancellations produce a cancellation publication.
+
+Native local hands can watch `%harness` at `/hand-events`. The initial fact and
+subsequent ledger/session invalidations are `%noun` `%changed`, with no transcript
+or provider data. Read the authoritative ledger on each invalidation; do not
+interpret the notification as permission to send or as a second event log.
+Read-only status requests emit no invalidation. Re-subscribe after a kick; the
+initial fact reconciles work completed while disconnected. `%harness-tlon` uses
+this path, not a publication polling timer.
 
 Publications carry `version`, `effectId`, `inputId`, `binding`, `hand`, `address`,
 `sessionId`, `capability`, `kind`, `text`, `status`, `worker`, `externalId`, and

@@ -1,5 +1,17 @@
 import { expect, test } from '@playwright/test'
 
+test('scheduled work distinguishes delivery from execution and cancels independently of policy', async ({ page }) => {
+  await page.goto('/apps/harness/tests/tlon-fixture.html')
+  await page.evaluate(() => { window.tlonFixture.cron = [{ id: '0v1', runSessionId: 'cron-test', prompt: 'Morning summary', schedule: '0 9 * * *', state: 'active', remaining: 4, next: '~2026.9.6..09.00.00', execution: 'completed', delivery: 'uncertain' }] })
+  await expect(page.getByText('Morning summary', { exact: true })).toBeVisible({ timeout: 8000 })
+  await expect(page.getByText(/Execution: completed · Delivery: uncertain/)).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Scheduled conversation' })).toHaveAttribute('href', '#/settings/cron-test')
+  await page.getByRole('button', { name: 'Cancel schedule', exact: true }).click()
+  await expect(page.getByText('Cancelled in owner settings')).toBeVisible()
+  expect(await page.evaluate(() => window.tlonFixture.cancelled)).toEqual(['0v1'])
+  expect(await page.evaluate(() => window.tlonFixture.saves)).toEqual([])
+})
+
 test('profile reflects Contacts, protects drafts, and saves separately from permissions', async ({ page }) => {
   await page.goto('/apps/harness/tests/tlon-fixture.html')
   const nickname = page.getByRole('textbox', { name: 'Nickname', exact: true })
@@ -41,6 +53,8 @@ test('nickname suggestions select concrete ships; tools are explicitly granted',
   await expect(page.getByRole('option').first()).toContainText('~nec')
   await page.getByRole('option').first().click()
   await page.locator('.trusted-ship summary').click()
+  await expect(page.getByText(/Tlon actions are available within the conversation without extra grants/)).toBeVisible()
+  await expect(page.getByRole('checkbox', { name: /tlon-read|tlon-write|cron/i })).toHaveCount(0)
   await expect(page.getByRole('checkbox', { name: 'Web search & requests' })).not.toBeChecked()
   await page.getByRole('checkbox', { name: 'Web search & requests' }).check()
   await page.getByRole('checkbox', { name: /^MCP: Calendar/ }).check()

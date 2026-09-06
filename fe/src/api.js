@@ -6,6 +6,7 @@ async function action(value) {
   await acp.start()
   if (value.tlon) return acp.call('harness/tlon/configure', value.tlon)
   if (value.tlonProfile) return acp.call('harness/tlon/profile/set', value.tlonProfile)
+  if (value.cancelCron) return acp.call('harness/tlon/cron/cancel', { id: value.cancelCron })
   if (value.config) return acp.call('harness/session/configure', { sessionId: value.config.sid, config: value.config.config })
   if (value.defaults) return acp.call('harness/defaults/configure', { config: value.defaults })
   if (value.mcp) return acp.call('harness/mcp/configure', { servers: value.mcp })
@@ -20,6 +21,7 @@ async function read(path) {
   if (path === 'tlon') return acp.call('harness/tlon')
   if (path === 'tlon/contacts') return acp.call('harness/tlon/contacts')
   if (path === 'tlon/profile') return acp.call('harness/tlon/profile')
+  if (path === 'tlon/cron') return acp.call('harness/tlon/cron')
   if (path === 'sessions') return (await acp.call('session/list')).sessions?.map((session) => session.sessionId) || []
   if (path === 'status') return acp.call('harness/status')
   if (path.startsWith('status/')) return acp.call('harness/status', { provider: path.slice('status/'.length) })

@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { Client, base, cookie } from './lib/ship-client.mjs'
 
 const client = new Client(), sessions = [], proposals = [], failures = []
-const broad = ['clay', 'skills', 'web', { mcp: 'not-granted' }, 'author', 'skill-write', 'subagents', 'peers', 'code']
+const broad = [{ clay: '/harness/lib' }, 'skills', 'web', { mcp: 'not-granted' }, 'author', 'skill-write', 'subagents', 'peers', 'code']
 let sessionId, skill, url, config, editChild = false, childTurns = 0, effects = 0
 const call = (id, name, args) => ({ id, type: 'function', function: { name, arguments: JSON.stringify(args) } })
 const read = async (path) => {
@@ -25,7 +25,7 @@ const server = createServer(async (req, res) => {
     let calls = [], content = 'PARENT_OK'
     if (child) {
       childTurns++
-      assert.deepEqual(body.tools.map((t) => t.function.name).sort(), ['list_desk_files', 'read_desk_file', 'read_skill'])
+      assert.deepEqual(body.tools.map((t) => t.function.name).sort(), ['list_desk_files', 'list_desk_scopes', 'read_desk_file', 'read_skill'])
       if (!receipts.length) {
         // Even an explicit config edit cannot turn the special-purpose child
         // into an effectful executor while its provider request is outstanding.

@@ -5,18 +5,23 @@ import TlonSettings from '../src/components/TlonSettings'
 import '../src/style.css'
 
 let state = { policy: { enabled: false, owner: '~zod', mentions: true, trusted: [] }, connected: false, sessions: ['nec-dm-test'] }
-window.tlonFixture = { saves: [], modelUpdates: [], profile: { nickname: 'Existing bot', avatar: 'https://example.com/bot.png' }, profileError: '' }
+window.tlonFixture = { saves: [], modelUpdates: [], cron: [], cancelled: [], profile: { nickname: 'Existing bot', avatar: 'https://example.com/bot.png' }, profileError: '' }
 acp.call = async (method, params) => {
   if (method !== 'harness/session/use-default-model') throw new Error('Unexpected fixture method')
   window.tlonFixture.modelUpdates.push(params.sessionId)
   return {}
 }
-api.read = async (path) => path === 'mcp' ? [{ id: 'calendar', name: 'Calendar', enabled: true }, { id: 'notes', name: 'Notes', enabled: true }] : path === 'defaults' ? { url: 'https://openrouter.ai/api/v1/chat/completions', model: 'test/model' } : path === 'tlon/profile' ? structuredClone(window.tlonFixture.profile) : path === 'tlon' ? structuredClone(state) : path === 'tools' ? ['clay', 'web', 'mcp'] : [
+api.read = async (path) => path === 'tlon/cron' ? structuredClone(window.tlonFixture.cron) : path === 'mcp' ? [{ id: 'calendar', name: 'Calendar', enabled: true }, { id: 'notes', name: 'Notes', enabled: true }] : path === 'defaults' ? { url: 'https://openrouter.ai/api/v1/chat/completions', model: 'test/model' } : path === 'tlon/profile' ? structuredClone(window.tlonFixture.profile) : path === 'tlon' ? structuredClone(state) : path === 'tools' ? ['clay', 'web', 'mcp', 'tlon-read', 'tlon-write', 'cron'] : [
   { ship: '~zod', nickname: 'Owner', contact: true },
   { ship: '~nec', nickname: 'Alice', contact: true },
   { ship: '~bud', nickname: 'Alice peer', contact: false },
 ]
-api.action = async ({ tlon, tlonProfile }) => {
+api.action = async ({ tlon, tlonProfile, cancelCron }) => {
+  if (cancelCron) {
+    window.tlonFixture.cancelled.push(cancelCron)
+    window.tlonFixture.cron = window.tlonFixture.cron.map((job) => job.id === cancelCron ? { ...job, state: 'cancelled', reason: 'Cancelled in owner settings' } : job)
+    return structuredClone(window.tlonFixture.cron)
+  }
   if (tlonProfile) {
     if (window.tlonFixture.profileError) throw new Error(window.tlonFixture.profileError)
     window.tlonFixture.profile = structuredClone(tlonProfile)

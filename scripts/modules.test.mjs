@@ -58,3 +58,16 @@ test('Tlon is a replaceable hand, not an inference engine', async () => {
   assert.doesNotMatch(adapter, /%connect\b|%request.*%iris|harness-provider|harness-store/)
   assert.match(adapter, /%harness-hand/)
 })
+
+test('Tlon messages are driven by head facts and receipts, never maintenance wakes', async () => {
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const arm = (name) => adapter.split(`++  ${name}\n`)[1]?.split('\n++  ')[0]
+  assert.match(arm('on-arvo'), /maintain:cor/)
+  assert.doesNotMatch(arm('maintain'), /reconcile|%claim|publish/)
+  assert.match(arm('agent'), /\[%head ~\][\s\S]*%fact[\s\S]*reconcile/)
+  assert.match(arm('agent'), /%receipt phase\)[\s\S]*attempt\.u\.delivery[\s\S]*reconcile\(deliveries/)
+  assert.doesNotMatch(code('harness-tlon-clock'), /deliveries|observations|outbox|jobs/)
+  assert.match(arm('watch-head'), /%watch \/hand-events/)
+  assert.match(arm('claimed'), /%claim stage\.u\.delivery/)
+  assert.match(arm('claimed'), /attempt:\(get-control:hd db id\)/)
+})

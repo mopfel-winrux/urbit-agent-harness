@@ -320,6 +320,8 @@
   |=  grant=tool-grant:h
   ^-  json
   ?:  ?=(@ grant)  [%s grant]
+  ?:  ?=(%clay -.grant)
+    (pairs:enjs:format ~[['clay' %s (crip (spud prefix.grant))]])
   (pairs:enjs:format ~[['mcp' %s server.grant]])
 ++  json-grant
   |=  jon=json
@@ -327,11 +329,18 @@
   =,  dejs:format
   ?:  ?=(%s -.jon)
     =/  family  ((su sym) jon)
-    ~|  'MCP grants must name a server, for example {"mcp":"calendar"}.'
-    ?>  !=(%mcp family)
+    ~|  'MCP grants must name a server; Clay grants must name a path prefix.'
+    ?>  &(!=(%mcp family) !=(%clay family))
     family
   ?>  ?=(%o -.jon)
   ?>  =(1 ~(wyt by p.jon))
+  =/  clay  (~(get by p.jon) 'clay')
+  ?^  clay
+    ?>  ?=(%s -.u.clay)
+    ?>  (lte (met 3 p.u.clay) 2.048)
+    =/  prefix  (need (rush p.u.clay stap))
+    ?>  !(lien prefix |=(segment=@ta |(=('.' segment) =('..' segment))))
+    [%clay prefix]
   =/  server  (~(get by p.jon) 'mcp')
   ?>  ?=([~ %s *] server)
   ?>  &(!=('' p.u.server) (lte (met 3 p.u.server) 256))

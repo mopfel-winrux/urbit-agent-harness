@@ -42,7 +42,11 @@
 ++  run-tool
   |=  [c=tool-call:h sk=(map @t skill:h) tools=(list tool-grant:h)]
   ^-  event:h
+  ?.  (call-granted:ht c tools)
+    [%tool-completed id.c name.c 'rejected: tool or path is not granted for this session']
   =/  out=@t
+    ?:  =(name.c 'list_desk_scopes')
+      (en:json:html [%a (turn (clay-scopes:ht tools) |=(p=path `json`[%s (crip (spud p))]))])
     ?:  =(name.c 'read_desk_file')
       (read-desk-file args.c)
     ?:  =(name.c 'list_desk_files')
@@ -103,9 +107,9 @@
     %-  mole  |.
     ?.  .^(? %cu (weld bas spur))  'error: no such file'
     =/  ext  (rear spur)
-    =/  =tube:clay  .^(tube:clay %cc (weld bas /[ext]/mime))
-    =/  =mime  !<(mime (tube .^(vase %cr (weld bas spur))))
-    (clip:ht q.q.mime 50.000)
+    ::  %q reads the stored noun without invoking desk-defined marks. Scoped
+    ::  reads must not gain authority through a mark's conversion/import code.
+    (clay-text:ht ext .^(noun %cq (weld bas spur)))
   ?~  res  'error: could not read file'
   u.res
 ::

@@ -297,12 +297,36 @@ current sessions migrate once. Session migration appends a configuration event;
 the old history remains intact. A historical bare `mcp` grant is readable but
 inactive, and new JSON policy must name servers. Later registration grants nothing.
 
+Clay grants name component-wise prefixes, such as `{"clay":"/harness/lib"}`.
+They permit reads and listings at that path and below, not sibling paths or
+ancestor listings. Discovery exposes only granted roots. Reads fetch raw stored
+nouns and render known formats locally; desk-defined converters never execute.
+Version 12 (Tlon version 3) migrates legacy broad Clay authority to an explicit
+`{"clay":"/"}` compatibility grant, preserving history with appended config
+events. The UI labels that grant as broad and supports replacing it with paths.
+Bare `clay` strings are inactive and rejected in new policy writes.
+
 Search-provider configuration belongs to the effect owner, not model arguments.
 Version 11 retains Brave as the upgrade default and adds SearXNG's configured
 instance URL. Both use `web_search` and the Web grant. Pending searches retain
 their dispatch provider across configuration changes and reloads. SearXNG uses
 form POST to `<instance-base>/search`, with JSON results normalized to the same
 bounded title/link/excerpt contract; Brave credentials are never sent there.
+
+The Tlon tool bridge illustrates the same boundary for native hands: the head
+records a tool request, the hand validates its exact call and provider generation,
+and a persisted hand receipt settles that outstanding exchange. Local Messenger
+acknowledgement is distinct from remote delivery. Old invocation IDs cannot settle
+new calls with a reused provider call ID. Optional hand authority is rechecked at
+dispatch and receipt admission, including scheduled sessions' source grants.
+
+`harness-cron` provides pure strict UTC calendar logic and schedule data. Its first
+host is the Tlon hand, not another inference agent. Scheduled sessions inherit no
+parent transcript and cannot recursively schedule or delegate. Due occurrences
+become idempotent hand observations; normal head settlement produces publication
+evidence. The Tlon version-4 envelope retains schedule and tool receipt state
+without changing the head's persistence layout. See [Tlon scheduling](tlon.md#conversation-tools-and-scheduled-work)
+for the initial limits and owner controls.
 
 Experimental skill authoring can stage, rehearse, publish or discard instructions.
 It is not enabled by bootstrap defaults. Rehearsals only retain inherited Clay

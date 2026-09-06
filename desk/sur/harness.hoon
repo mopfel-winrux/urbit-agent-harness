@@ -17,7 +17,7 @@
 +$  tool-call  [id=@t name=@t args=@t]
 ::  Plain families retain their noun shape. MCP authority names one server;
 ::  the old bare %mcp atom stays readable in history, but grants no access.
-+$  tool-grant  $@(term [%mcp server=@t])
++$  tool-grant  $@(term $%([%mcp server=@t] [%clay prefix=path]))
 +$  search-provider  ?(%brave %searxng)
 +$  search-config  [provider=search-provider instance-url=@t]
 +$  search-requests  (map [session-id @t] search-provider)

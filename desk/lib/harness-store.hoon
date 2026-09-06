@@ -6,7 +6,10 @@
 |%
 ++  load
   |=  old-vase=vase
-  ^-  state-11
+  ^-  state-12
+  =/  twelfth  (mule |.(!<(state-12 old-vase)))
+  ?:  ?=(%& -.twelfth)  p.twelfth
+  %-  migrate-11
   =/  eleventh  (mule |.(!<(state-11 old-vase)))
   ?:  ?=(%& -.eleventh)  p.eleventh
   %-  migrate-10
@@ -325,4 +328,23 @@
       [%brave '']
       *search-requests:h
   ==
+++  migrate-11
+  |=  old=state-11
+  ^-  state-12
+  =.  sessions.old
+    %+  roll  ~(tap by sessions.old)
+    |=  [[sid=session-id:h ses=session:h] acc=(map session-id:h session:h)]
+    =/  cfg  config:(play:hl log.ses)
+    =/  scoped  (scope-clay:ht tools.cfg)
+    ?:  =(scoped tools.cfg)  (~(put by acc) sid ses)
+    (~(put by acc) sid ses(log [[%config-replaced cfg(tools scoped)] log.ses]))
+  =.  defaults.old  defaults.old(tools (scope-clay:ht tools.defaults.old))
+  =.  peer-base.old
+    ?~  peer-base.old  ~
+    `u.peer-base.old(tools (scope-clay:ht tools.u.peer-base.old))
+  =.  peers.old
+    %+  roll  ~(tap by peers.old)
+    |=  [[ship=@p grant=peer-grant:h] acc=(map @p peer-grant:h)]
+    (~(put by acc) ship grant(tools (scope-clay:ht tools.grant)))
+  [%12 +.old]
 --

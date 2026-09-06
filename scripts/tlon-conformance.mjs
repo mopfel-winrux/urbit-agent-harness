@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
+import { createServer } from 'node:http'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { Client, cookie as harnessCookie, base as harnessUrl } from './lib/ship-client.mjs'
 
@@ -54,7 +55,19 @@ const da = () => (((BigInt(Date.now()) * (1n << 64n)) / 1000n) + 170141184475152
 await client.start()
 console.log(`Connected: ${peer} → ${ship}, ${nest}`)
 const original = (await client.call('harness/tlon')).policy
+let fixtureServer, originalDefaults
 try {
+  if (process.env.CONTROLLED_MODEL === '1') {
+    originalDefaults = await client.call('harness/defaults')
+    fixtureServer = createServer(async (req, res) => {
+      let raw = ''; for await (const chunk of req) raw += chunk
+      const words = [...raw.matchAll(/grove-\d+-[a-z-]+/g)]
+      res.setHeader('content-type', 'application/json')
+      res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: words.at(-1)?.[0] || 'missing-fixture-prompt' } }] }))
+    })
+    await new Promise((resolve) => fixtureServer.listen(0, '127.0.0.1', resolve))
+    await client.call('harness/defaults/configure', { config: { ...originalDefaults, url: `http://127.0.0.1:${fixtureServer.address().port}/completions`, model: 'fixture', key: '', tools: [], headers: [] } })
+  }
   await client.call('harness/tlon/configure', { enabled: true, owner: peer, mentions: true, trusted: [] })
   await client.call('harness/tlon/watch')
   console.log('Testing DM admission and remote delivery')
@@ -107,7 +120,12 @@ try {
   console.log('PASS revocation denies admission and clears executable grants')
 } finally {
   await client.call('harness/tlon/configure', original)
+  if (originalDefaults) await client.call('harness/defaults/configure', { config: { ...originalDefaults, key: '' } })
   await client.close()
+  if (fixtureServer) {
+    fixtureServer.closeAllConnections()
+    await new Promise((resolve) => fixtureServer.close(resolve))
+  }
   // Close the HTTP channel as well; no subscriptions or authenticated queues leak.
   await fetch(`${peerUrl}/~/channel/${channel}`, { method: 'PUT', headers: { cookie: peerCookie, 'content-type': 'application/json' }, body: JSON.stringify([{ id: ++event, action: 'delete' }]) })
 }

@@ -75,6 +75,10 @@ try {
   const firstPresence = await until('peer sees computing', async () => (await presence())?.display.text === 'Thinking...' && await presence())
   assert.equal(JSON.parse(firstPresence.display.blob).protocol, 'tlon.computing-status.v1')
   assert.equal(firstPresence.timing.timeout, '~s30')
+  await until('long-running inference renews its presence lease', async () => {
+    const current = await presence()
+    return current && current.timing.since !== firstPresence.timing.since
+  })
   requests[0].res.writeHead(401, { 'content-type': 'application/json' })
   requests[0].res.end('{"error":{"message":"User not found.","code":401}}')
   await until('provider error is visible in the shared session', async () => (await snapshot()).error?.includes('http error 401'))
@@ -100,7 +104,15 @@ try {
   assert.equal(requests[1].url, '/second'); assert.equal(requests[1].body.model, 'second-model'); assert.equal(requests[1].header, 'second')
   answer(requests[1].res, '', [{ id: 'presence-slow', type: 'function', function: { name: 'http_fetch', arguments: JSON.stringify({ url: `${url}/slow-tool` }) } }])
   await until('tool starts', () => tools.length === 1)
-  await until('peer sees tool activity', async () => (await presence())?.display.text === 'Using tools...')
+  const toolPresence = await until('peer sees named tool activity', async () => {
+    const current = await presence()
+    return current?.display.text === 'Fetching a page' && current
+  })
+  assert.deepEqual(JSON.parse(toolPresence.display.blob), {
+    protocol: 'tlon.computing-status.v1', thinking: false,
+    toolCalls: [{ toolName: 'http_fetch', label: 'Fetching a page' }],
+  })
+  assert.ok(!JSON.stringify(toolPresence).includes(url), 'presence does not expose tool arguments')
   await send('/stop')
   await until('cancellation clears computing', async () => !await presence())
   await until('slash stop acknowledgement reaches the peer', async () => JSON.stringify(await scry(`chat/v4/dm/${ship}/writs/newest/8/light`)).includes('Stopped.'))

@@ -36,7 +36,7 @@ try {
     sessions.push(sessionId)
     const config = await first.call('harness/session/config', { sessionId })
     await first.call('harness/session/configure', { sessionId, config: {
-      ...config, key: '', tools: hand === chat ? ['clay'] : [],
+      ...config, key: '', tools: hand === chat ? [{ clay: '/harness/sur' }] : [],
     } })
     await hand.bind(name, { address: `opaque:${hand.hand}/thread-7`, sessionId, actors: ['alice'] })
     bindings.push([hand, name])

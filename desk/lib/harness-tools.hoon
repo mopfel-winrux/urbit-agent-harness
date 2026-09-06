@@ -63,14 +63,66 @@
 ++  all-tools
   ^-  (list term)
   :~  %clay  %web  %skills  %skill-write
-      %author  %subagents  %peers  %mcp
+      %author  %subagents  %peers  %mcp  %tlon-read  %tlon-write  %cron
   ==
+::  Tlon families are implementation vocabulary, not configurable grants.
+::  A live Tlon hand supplies them from its actor/conversation authority.
+++  tlon-tools
+  ^-  (list tool-grant:h)
+  ~[%tlon-read %tlon-write %cron]
+++  without-tlon
+  |=  tools=(list tool-grant:h)
+  ^+  tools
+  (skip tools |=(grant=tool-grant:h (lien tlon-tools |=(implicit=tool-grant:h =(grant implicit)))))
+++  with-tlon
+  |=  tools=(list tool-grant:h)
+  ^+  tools
+  (weld (without-tlon tools) tlon-tools)
+++  configurable-tools
+  ^-  (list term)
+  (skip all-tools |=(family=term ?=(?(%tlon-read %tlon-write %cron) family)))
 ::  Rehearsals may inspect inherited source material, never dispatch effects
 ::  or publish instructions. An allowlist keeps future families out by default.
 ++  rehearsal-tools
   |=  tools=(list tool-grant:h)
   ^-  (list tool-grant:h)
-  (skim tools |=(tool=tool-grant:h ?=(?(%clay %skills) tool)))
+  (skim tools |=(tool=tool-grant:h |(=(%skills tool) ?=([%clay *] tool))))
+++  scope-clay
+  |=  tools=(list tool-grant:h)
+  ^-  (list tool-grant:h)
+  (turn tools |=(tool=tool-grant:h ?:(=(%clay tool) `tool-grant:h`[%clay ~] tool)))
+++  path-within
+  |=  [prefix=path target=path]
+  ^-  ?
+  ?~  prefix  &
+  ?~  target  |
+  &(=(i.prefix i.target) $(prefix t.prefix, target t.target))
+++  clay-granted
+  |=  [target=path tools=(list tool-grant:h)]
+  ^-  ?
+  ?~  target  |
+  ?:  (lien `path`target |=(segment=@ta |(=('.' segment) =('..' segment))))  |
+  %+  lien  tools
+  |=  tool=tool-grant:h
+  ?.  ?=([%clay *] tool)  |
+  (path-within prefix.tool target)
+++  clay-text
+  |=  [ext=@ta raw=*]
+  ^-  @t
+  =/  rendered
+    %-  mole  |.
+    ?+  ext  'error: unsupported Clay data format; desk-defined converters are not executed'
+      %hoon  ?:(?=(@ raw) `@t`raw 'error: invalid Hoon source data')
+      %txt   (of-wain:format ;;(wain raw))
+      %json  (en:json:html ;;(json raw))
+      %mime  q.q:;;(mime raw)
+    ==
+  ?~  rendered  'error: invalid Clay data'
+  (clip u.rendered 50.000)
+++  clay-scopes
+  |=  tools=(list tool-grant:h)
+  ^-  (list path)
+  (murn tools |=(tool=tool-grant:h ?:(?=([%clay *] tool) `prefix.tool ~)))
 ::  Used once when loading pre-scope policy, never when admitting new grants.
 ::  Snapshot registered IDs so adding a server later cannot widen authority.
 ++  scope-mcp
@@ -94,8 +146,8 @@
   =/  granted=(set term)
     %+  roll  tools
     |=  [tool=tool-grant:h out=(set term)]
-    ?:  ?=(^ tool)  (~(put in out) %mcp)
-    ?:  =(%mcp tool)  out
+    ?:  ?=(^ tool)  (~(put in out) -.tool)
+    ?:  |(=(%mcp tool) =(%clay tool))  out
     (~(put in out) tool)
   (skim (snoc all-tools %code) |=(family=term (~(has in granted) family)))
 ::  Resolve provider-returned function names to the capability family that
@@ -108,6 +160,7 @@
   ?+  name  ~
     %'read_desk_file'   `%clay
     %'list_desk_files'  `%clay
+    %'list_desk_scopes'  `%clay
     %'http_fetch'       `%web
     %'web_search'       `%web
     %'read_skill'       `%skills
@@ -123,7 +176,19 @@
     %'list_mcp_tools'   `%mcp
     %'list_mcp_servers'  `%mcp
     %'call_mcp_tool'    `%mcp
+    %'tlon_read_history'  `%tlon-read
+    %'tlon_react'         `%tlon-write
+    %'tlon_unreact'       `%tlon-write
+    %'cron_add'           `%cron
+    %'cron_list'          `%cron
+    %'cron_remove'        `%cron
   ==
+++  tool-hand
+  |=  name=@t
+  ^-  (unit term)
+  =/  family  (tool-family name)
+  ?~  family  ~
+  ?:(?=(?(%tlon-read %tlon-write %cron) u.family) `%harness-tlon ~)
 ++  tool-granted
   |=  [name=@t tools=(list tool-grant:h)]
   ^-  ?
@@ -135,6 +200,14 @@
   |=  [call=tool-call:h tools=(list tool-grant:h)]
   ^-  ?
   ?.  (tool-granted name.call tools)  |
+  ?:  |(=('read_desk_file' name.call) =('list_desk_files' name.call))
+    =/  jon  (de:json:html args.call)
+    ?.  ?=([~ %o *] jon)  |
+    =/  value  (~(get by p.u.jon) 'path')
+    ?.  ?=([~ %s *] value)  |
+    =/  target  (rush p.u.value stap)
+    ?~  target  |
+    (clay-granted u.target tools)
   ?.  |(=('list_mcp_tools' name.call) =('call_mcp_tool' name.call))  &
   =/  jon  (de:json:html args.call)
   ?.  ?=([~ %o *] jon)  |
@@ -153,17 +226,18 @@
   ^-  (list json)
   ?+  t  ~
       %clay
-    :~  %^    fun-json
+    :~  (fun-json 'list_desk_scopes' 'List Clay path prefixes granted to this conversation. Read and list only these paths and their descendants.' ~)
+        %^    fun-json
             'read_desk_file'
           %-  crip
           %+  weld
-            "Read a file from the ship's filesystem (clay). "
+            "Read a file under a granted Clay path prefix (see list_desk_scopes). "
           "Path is /desk/spur, e.g. /harness/lib/harness/hoon"
         ~[['path' 'the file path, as /desk/spur/file/ext']]
       ::
         %^    fun-json
             'list_desk_files'
-          'List files under a clay directory. Path is /desk or /desk/spur'
+          'List files under a granted Clay directory. Path is /desk or /desk/spur; see list_desk_scopes.'
         ~[['path' 'the directory path, as /desk/spur']]
     ==
   ::
@@ -181,6 +255,17 @@
         ['body' 'optional request body']
     ==
   ::
+      %tlon-read
+    ~[(fun-json 'tlon_read_history' 'Read up to 20 recent messages from this Tlon DM or channel, with authors and durable message IDs. No other destination can be selected.' ~)]
+      %tlon-write
+    :~  (fun-json 'tlon_react' 'React in this Tlon DM or channel using a message ID returned by history. Reports local Messenger acceptance, not remote delivery.' ~[['message_id' 'Exact ID returned by tlon_read_history'] ['emoji' 'Unicode emoji, at most 32 bytes']])
+        (fun-json 'tlon_unreact' 'Remove your own reaction in this Tlon DM or channel.' ~[['message_id' 'Exact ID returned by tlon_read_history']])
+    ==
+      %cron
+    :~  (fun-json 'cron_add' 'Schedule a bounded recurring prompt in this exact Tlon conversation. UTC only; never guess a local timezone. Each run uses the durable input/publication ledger.' ~[['schedule' 'Five-field cron expression in UTC'] ['timezone' 'Must be UTC'] ['prompt' 'Instruction for each run, at most 4096 bytes'] ['runs' 'Maximum number of runs, decimal integer from 1 to 100']])
+        (fun-json 'cron_list' 'List scheduled work in this exact Tlon conversation, including state and remaining runs.' ~)
+        (fun-json 'cron_remove' 'Cancel a recurring schedule in this conversation. Does not retract already dispatched effects.' ~[['id' 'Schedule ID returned by cron_add or cron_list']])
+    ==
       %skills
     :_  ~
     %^    fun-json

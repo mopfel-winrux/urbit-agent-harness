@@ -1,7 +1,7 @@
 ::  Messenger effects and contact projection. Only this module knows which
 ::  public Gall marks a DM, channel post, or invitation needs.
 /-  t=harness-tlon, dv=tlon-channels-ver, cv=tlon-chat-ver, ct=tlon-contacts, a=tlon-activity-ver
-/+  story=harness-tlon-story, profile=harness-tlon-profile
+/+  story=harness-tlon-story, profile=harness-tlon-profile, ht=harness-tools, publication=harness-tlon-publication
 |_  bowl=bowl:gall
 +$  card  card:agent:gall
 ++  publish
@@ -16,11 +16,39 @@
       [u.parent.to %reply [our.bowl sent] ~ %add [memo ~] `sent]
     [%pass wire %agent [our.bowl %chat] %poke %chat-dm-action-2 !>(`action:dm:v7:cv`[who.to diff])]
       %channel
+    ::  Use the versioned client action: Groups owns host negotiation. Its
+    ::  later channel-response confirms the host-assigned post/reply identity.
     =/  act=a-channels:v9:dv
       ?~  parent.to  [%channel nest.to %post %add [memo [kind.nest.to ~] ~ ~]]
       [%channel nest.to %post %reply u.parent.to %add memo]
     [%pass wire %agent [our.bowl %channels] %poke %channel-action-1 !>(act)]
   ==
+++  published
+  |=  [to=destination:t external=@t]
+  ^-  (unit publication-proof:t)
+  ?.  ?=(%channel -.to)  ~
+  ?.  .^(? %gu /(scot %p our.bowl)/channels/(scot %da now.bowl)/$)  ~
+  ::  Read the versioned native cache once on recovery, never poll it. Missing
+  ::  channels/parents are ordinary map misses, not uncatchable failed scries.
+  =/  channels=v-channels:v9:dv
+    .^(v-channels:v9:dv %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/v-channels/noun)
+  =/  channel  (~(get by channels) nest.to)
+  ?~  channel  ~
+  =/  candidates=(list publication-proof:t)
+    ?~  parent.to
+      %+  murn  (top:mo-v-posts:v9:dv posts.u.channel 64)
+      |=  [id=@da value=(may:v9:dv v-post:v9:dv)]
+      ?:  ?=(%| -.value)  ~
+      (proof:publication our.bowl to author:+.+.+.value sent:+.+.+.value id)
+    =/  parent  (get:on-v-posts:v9:dv posts.u.channel u.parent.to)
+    ?.  ?=([~ %& *] parent)  ~
+    %+  murn  (top:mo-v-replies:v9:dv replies.u.parent 64)
+    |=  [id=@da value=(may:v9:dv v-reply:v9:dv)]
+    ?:  ?=(%| -.value)  ~
+    (proof:publication our.bowl to author:+.+.+.value sent:+.+.+.value id)
+  =/  found
+    (skim candidates |=(p=publication-proof:t =(external (rap 3 (scot %p our.bowl) '/' (scot %da sent.p) ~))))
+  ?~(found ~ `i.found)
 ++  invitation-posts
   |=  [who=@p since=@da]
   ^-  (list incoming-event:v8:a)
@@ -36,6 +64,58 @@
   =/  post  +.item
   ?.  &(=(who p.id:-.post) (gth time since) =(chat+/ kind:+.post))  ~
   `[%dm-post [id:-.post time] [%ship who] content:+.post |]
+++  history
+  |=  to=destination:t
+  ^-  (list [id=@t author=@p sent=@da text=@t])
+  ?-  -.to
+      %dm
+    =/  page=paged-writs:v7:cv
+      .^(paged-writs:v7:cv %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/v4/dm/(scot %p who.to)/writs/newest/20/light/chat-paged-writs-4)
+    %+  murn  (tap:on:writs:v7:cv writs.page)
+    |=  [time=@da item=(may:v7:cv writ:v7:cv)]
+    ^-  (unit [id=@t author=@p sent=@da text=@t])
+    ?.  ?=(%& -.item)  ~
+    =/  post  +.item
+    =/  author  author:+.post
+    `[(rap 3 (scot %p p.id:-.post) '/' (scot %da q.id:-.post) ~) ?@(author author ship.author) sent:+.post (clip:ht (story-to-text:story content:+.post) 800)]
+      %channel
+    =/  page=paged-posts:v9:dv
+      .^(paged-posts:v9:dv %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/[kind.nest.to]/(scot %p ship.nest.to)/[name.nest.to]/posts/newest/20/outline/channel-posts-4)
+    %+  murn  (tap:on-posts:v9:dv posts.page)
+    |=  [time=@da item=(may:v9:dv post:v9:dv)]
+    ^-  (unit [id=@t author=@p sent=@da text=@t])
+    ?.  ?=(%& -.item)  ~
+    =/  post  +.item
+    =/  author  author:+.+.post
+    `[(scot %da id:-.post) ?@(author author ship.author) sent:+.+.post (clip:ht (story-to-text:story content:+.+.post) 800)]
+  ==
+++  history-json
+  |=  to=destination:t
+  ^-  json
+  :-  %a
+  %+  turn  (history to)
+  |=  [id=@t author=@p sent=@da text=@t]
+  (pairs:enjs:format ~[['message_id' %s id] ['author' %s (scot %p author)] ['sent' %s (scot %da sent)] ['text' %s text]])
+++  reaction
+  |=  [wire=wire to=destination:t message=@t emoji=(unit @t)]
+  ^-  card
+  ::  Match a concrete message in the bounded current-chat projection. A
+  ::  guessed ID or a model-supplied destination cannot expand this effect.
+  ?>  (lien (history to) |=([id=@t author=@p sent=@da text=@t] =(id message)))
+  ?-  -.to
+      %dm
+    =/  parts  (need (rush (cat 3 '/' message) stap))
+    ?>  ?=([@ @ ~] parts)
+    =/  id=id:v7:cv  [(slav %p i.parts) (slav %da i.t.parts)]
+    =/  delta=delta:writs:v7:cv
+      ?~(emoji [%del-react our.bowl] [%add-react our.bowl u.emoji])
+    [%pass wire %agent [our.bowl %chat] %poke %chat-dm-action-2 !>(`action:dm:v7:cv`[who.to id delta])]
+      %channel
+    =/  id=@da  (slav %da message)
+    =/  act=a-channels:v9:dv
+      [%channel nest.to %post ?~(emoji [%del-react id our.bowl] [%add-react id our.bowl u.emoji])]
+    [%pass wire %agent [our.bowl %channels] %poke %channel-action-1 !>(act)]
+  ==
 ++  self-profile
   ^-  json
   %-  encode:profile
