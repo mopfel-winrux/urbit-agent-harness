@@ -40,8 +40,12 @@
   [stage=?(%fetch %put %put-no-acl %grant %hosted-put) storage=@uv key=@t mime=@t public-url=@t bytes=octs]
 +$  state-8
   [%8 media=media-config uploads=(map @uv upload) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
-+$  state
++$  state-9
   [%9 uploads=(map @uv upload) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
++$  lens-export
+  [owner=@p revision=@ud digest=@uv status=?(%queued %sending %accepted %failed %revoked) at=@da sent=(unit @da)]
++$  state
+  [%10 lens-after=@da lenses=(map @uv lens-export) uploads=(map @uv upload) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
 +$  data
   $:  policy=policy
       epoch=@ud

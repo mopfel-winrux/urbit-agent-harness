@@ -5,7 +5,7 @@ import TlonSettings from '../src/components/TlonSettings'
 import '../src/style.css'
 
 let state = { policy: { enabled: false, owner: '~zod', mentions: true, trusted: [] }, connected: false, sessions: ['nec-dm-test'] }
-window.tlonFixture = { saves: [], modelUpdates: [], cron: [], cancelled: [], profile: { nickname: 'Existing bot', avatar: 'https://example.com/bot.png' }, profileError: '' }
+window.tlonFixture = { saves: [], modelUpdates: [], cron: [], cancelled: [], lens: { owner: '~zod', accepted: 2, pending: 0, failed: 0 }, lensRetries: 0, profile: { nickname: 'Existing bot', avatar: 'https://example.com/bot.png' }, profileError: '' }
 acp.call = async (method, params) => {
   if (method !== 'harness/session/use-default-model') throw new Error('Unexpected fixture method')
   window.tlonFixture.modelUpdates.push(params.sessionId)
@@ -16,7 +16,15 @@ api.read = async (path) => path === 'tlon/cron' ? structuredClone(window.tlonFix
   { ship: '~nec', nickname: 'Alice', contact: true },
   { ship: '~bud', nickname: 'Alice peer', contact: false },
 ]
-api.action = async ({ tlon, tlonProfile, cancelCron, clearCron }) => {
+const read = api.read
+api.read = async (path) => path === 'tlon' ? { ...await read(path), lens: structuredClone(window.tlonFixture.lens) } : read(path)
+api.action = async ({ tlon, tlonProfile, cancelCron, clearCron, tlonLensRetry }) => {
+  if (tlonLensRetry) {
+    window.tlonFixture.lensRetries++
+    if (window.tlonFixture.lensError) throw new Error(window.tlonFixture.lensError)
+    window.tlonFixture.lens = { ...window.tlonFixture.lens, failed: 0, pending: 1 }
+    return api.read('tlon')
+  }
   if (clearCron) {
     if (window.tlonFixture.clearError) throw new Error(window.tlonFixture.clearError)
     window.tlonFixture.cron = window.tlonFixture.cron.filter((job) => job.id !== clearCron)

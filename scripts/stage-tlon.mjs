@@ -29,13 +29,14 @@ async function stage(kind, name) {
     for (const token of line.slice(4).split(/[, ]+/).filter(Boolean)) {
       const [alias, dep] = token.includes('=') ? token.split('=') : [token, token.replace(/^\*/, '')]
       await stage(depKind, dep)
-      imports.push(alias.startsWith('*') ? `*tlon-${dep}` : `${alias}=tlon-${dep}`)
+      const flattened = dep.replaceAll('/', '-')
+      imports.push(alias.startsWith('*') ? `*tlon-${flattened}` : `${alias}=tlon-${flattened}`)
     }
     lines.push(`${line.slice(0, 4)}${imports.join(', ')}`)
   }
-  const target = path.join(output, kind, `tlon-${name}.hoon`)
+  const target = path.join(output, kind, `tlon-${name.replaceAll('/', '-')}.hoon`)
   await mkdir(path.dirname(target), { recursive: true })
   await writeFile(target, lines.join('\n'))
 }
-for (const name of ['activity-ver', 'chat-ver', 'channels', 'contacts', 'story', 'groups', 'presence']) await stage('sur', name)
+for (const name of ['activity-ver', 'chat-ver', 'channels', 'contacts', 'story', 'groups', 'presence', 'steward', 'steward/lens']) await stage('sur', name)
 console.log(`Tlon: ${visited.size} namespaced protocol dependencies at ${revision.slice(0, 12)}`)

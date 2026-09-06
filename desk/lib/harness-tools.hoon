@@ -259,7 +259,7 @@
     ==
   ::
       %tlon-read
-    ~[(fun-json 'tlon_read_history' 'Read up to 20 recent messages from this Tlon DM or channel, with authors and durable message IDs. No other destination can be selected.' ~)]
+    ~[(fun-json 'tlon_read_history' 'Read up to 20 messages from this exact Tlon conversation, with authors and durable message IDs. In a DM or channel thread, returns the parent followed by up to 19 recent replies, not unrelated top-level messages. No other destination can be selected.' ~)]
       %tlon-write
     :~  (fun-json 'tlon_react' 'React in this Tlon DM or channel using a message ID returned by history. Reports local Messenger acceptance, not remote delivery.' ~[['message_id' 'Exact ID returned by tlon_read_history'] ['emoji' 'Unicode emoji, at most 32 bytes']])
         (fun-json 'tlon_unreact' 'Remove your own reaction in this Tlon DM or channel.' ~[['message_id' 'Exact ID returned by tlon_read_history']])

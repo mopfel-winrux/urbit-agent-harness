@@ -146,9 +146,14 @@
   [%8 +.old]
 ++  upgrade-native-media
   |=  old=state-8:t
-  ^-  state:t
+  ^-  state-9:t
   ::  Drop the worker URL/token; on-load retires old pending requests.
   [%9 +.+.old]
+++  upgrade-lens
+  |=  [old=state-9:t now=@da]
+  ^-  state:t
+  ::  New summaries only: enabling the integration is not a history export.
+  [%10 now ~ +.old]
 ++  next-message-stamp
   |=  [now=@da previous=@da]
   ^-  @da

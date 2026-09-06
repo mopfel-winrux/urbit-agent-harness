@@ -47,6 +47,21 @@ test('Harness libraries have no dependency cycles', () => {
   for (const name of sources.keys()) visit(name)
 })
 
+test('Lens is a redacted projection, with no run or publication retry authority', async () => {
+  assert.doesNotMatch(code('harness-run-report'), /tlon|steward|%pass|\.\^\(|bowl:gall/)
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const retry = adapter.split("%'harness/tlon/lens/retry'\n")[1].split("%'harness/tlon/cron'\n")[0]
+  const ack = adapter.split('[%lens @ @ ~]\n')[1].split('[%publications ~]\n')[0]
+  for (const path of [retry, ack]) {
+    assert.match(path, /sync-lenses/)
+    assert.doesNotMatch(path, /reconcile|%claim|publish|hand:c|head:c/)
+  }
+  const sync = adapter.split('++  sync-lenses\n')[1].split('\n++  ')[0]
+  assert.match(sync, /lens-after/)
+  assert.match(sync, /owner\.u\.old owner\.policy\.c/)
+  assert.doesNotMatch(sync, /reconcile|%claim|publish|head:c/)
+})
+
 test('Tlon is a replaceable hand, not an inference engine', async () => {
   for (const name of ['harness', 'harness-session', 'harness-hand']) {
     assert.doesNotMatch(code(name), /tlon|groups|contacts/)

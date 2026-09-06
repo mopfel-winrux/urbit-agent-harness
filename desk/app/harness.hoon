@@ -6,7 +6,7 @@
 ::  live in named modules so this file can concentrate on lifecycle ownership.
 ::
 /-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, *harness-store
-/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, failure=harness-failure, policy=harness-defaults, storage=harness-store, transport=harness-acp, bindings=harness-effects, default-agent, dbug
+/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, failure=harness-failure, policy=harness-defaults, storage=harness-store, transport=harness-acp, bindings=harness-effects, run-report=harness-run-report, default-agent, dbug
 |%
 +$  card  card:agent:gall
 --
@@ -162,6 +162,11 @@
   ::
       [%x %verification @ ~]
     ``json+!>((shadow-status:hc i.t.t.path))
+  ::
+      [%x %run-report @ @ ~]
+    =/  ses  (~(get by sessions) `session-id:h`i.t.t.path)
+    ?~  ses  [~ ~]
+    ``noun+!>((collect:run-report log.u.ses (slav %uv i.t.t.t.path)))
   ::
       [%x %tool-call @ @ @ ~]
     =/  sid=@t  i.t.t.path
@@ -555,7 +560,7 @@
     [~[(acp-result-card:wire-codec connection u.id acp-initialize-result:wire-codec)] state]
   ::  Optional hands own their settings and social protocols. Forward the
   ::  authenticated request; the hand replies on the same ACP connection.
-      ?(%'harness/tlon' %'harness/tlon/configure' %'harness/tlon/contacts' %'harness/tlon/watch' %'harness/tlon/profile' %'harness/tlon/profile/set' %'harness/tlon/cron' %'harness/tlon/cron/cancel' %'harness/tlon/cron/clear')
+      ?(%'harness/tlon' %'harness/tlon/configure' %'harness/tlon/contacts' %'harness/tlon/watch' %'harness/tlon/profile' %'harness/tlon/profile/set' %'harness/tlon/lens/retry' %'harness/tlon/cron' %'harness/tlon/cron/cancel' %'harness/tlon/cron/clear')
     ?~  id  `state
     :_  state
     :~  [%pass /adapter/tlon/[connection]/(scot %uv (jam u.id)) %agent [our.bowl %harness-tlon] %poke %noun !>(`request:adapter`[connection u.id p.u.method params])]

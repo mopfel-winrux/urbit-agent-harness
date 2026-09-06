@@ -83,7 +83,9 @@ Status: bounded Tlon history/reactions and UTC cron implemented and verified.
 
 - [x] Read authorized Tlon conversation history with bounded work and attributed
   results through native interfaces.
-- [ ] Add bounded search and deeper thread-history navigation.
+- [x] Read the actual bound DM/channel thread (parent plus bounded recent replies)
+  and route reactions to those replies, excluding unrelated top-level messages.
+- [ ] Add bounded search and history pagination beyond the recent window.
 - [ ] Expose explicit scoped memory updates with durable acknowledgement.
 - [ ] Add a narrow Tlon write operation with destination authorization and an
   actual receipt. Do not infer permission from model-generated prose.
@@ -103,9 +105,9 @@ inspector; verify resulting state/delivery evidence rather than answer text.
 
 Status: queued; existing no-blind-resend behavior must remain intact.
 
-- [ ] Add explicit opt-in Steward Lens projection and reply pointers against
+- [x] Add automatic owner-only Steward Lens projection and reply pointers against
   current Groups schemas, with redacted tool metadata and acknowledged export
-  state. Preserve existing owner/trust configuration; do not enable gateway
+  state. Add native trust when saving owner/trusted ships; do not enable gateway
   liveness or turn Lens retries into blind repeats of uncertain sends.
 - [ ] Provide owner-visible received/working/completed/sending/uncertain states
   and concrete safe recovery actions using the existing ledger.

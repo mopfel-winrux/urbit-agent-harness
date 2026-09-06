@@ -3,7 +3,7 @@
 ::  Native hand requests and ACP use the same ledger gates. Messenger facts
 ::  are accepted only on our subscription to the local activity agent.
 /-  t=harness-tlon, h=harness, hh=harness-hand, ad=harness-adapter, a=tlon-activity-ver, dv=tlon-channels-ver, ac=acp, cr=harness-cron
-/+  default-agent, dbug, p=harness-tlon-policy, io=harness-tlon-io, publication=harness-tlon-publication, profile=harness-tlon-profile, presence=harness-tlon-presence, clock=harness-tlon-clock, hj=harness-json, wire-codec=harness-acp, ht=harness-tools, cron-lib=harness-cron, hd=harness-hand, media-lib=harness-tlon-media, s3=harness-s3
+/+  default-agent, dbug, p=harness-tlon-policy, io=harness-tlon-io, publication=harness-tlon-publication, profile=harness-tlon-profile, presence=harness-tlon-presence, clock=harness-tlon-clock, hj=harness-json, wire-codec=harness-acp, ht=harness-tools, cron-lib=harness-cron, hd=harness-hand, media-lib=harness-tlon-media, s3=harness-s3, lens=harness-tlon-lens, run-report=harness-run-report
 |%
 +$  card  card:agent:gall
 +$  storage-source  $%([%credentials creds=credentials:s3] [%hosted token=@t config=json])
@@ -17,12 +17,14 @@
 +*  this  .
     def   ~(. (default-agent this %.n) bowl)
     cor   ~(. +> [bowl ~])
-++  on-init  `this(policy [| ~ ~ &], watching |)
+++  on-init  `this(policy [| ~ ~ &], watching |, lens-after now.bowl)
 ++  on-save  !>(state)
 ++  on-load
   |=  old=vase
   =.  state
-    ?:  ?=([%9 *] q.old)  !<(state:t old)
+    ?:  ?=([%10 *] q.old)  !<(state:t old)
+    %-  |=(previous=state-9:t (upgrade-lens:p previous now.bowl))
+    ?:  ?=([%9 *] q.old)  !<(state-9:t old)
     %-  upgrade-native-media:p
     ?:  ?=([%8 *] q.old)  !<(state-8:t old)
     %-  upgrade-hosted-media:p
@@ -174,6 +176,7 @@
       ['headConnected' %b ?~(head-watch | acked.u.head-watch)]
       ['publicationsConnected' %b publications-connected]
       ['deliveryMode' %s 'events']
+      ['lens' (status:lens owner.policy lenses)]
       ['maintenanceWake' ?~(wake ~ [%s (scot %da u.wake)])]
       ['error' %s error]
       ['pending' (numb:enjs:format ~(wyt by jobs))]
@@ -209,6 +212,13 @@
   ?+  method.req
     (emit (acp-error-card:codec connection.req id.req '-32601' 'Unknown Tlon method'))
       %'harness/tlon'
+    (emit (acp-result-card:codec connection.req id.req status))
+      %'harness/tlon/lens/retry'
+    =.  lenses
+      %+  roll  ~(tap by lenses)
+      |=  [[id=@uv record=lens-export:t] out=(map @uv lens-export:t)]
+      (~(put by out) id ?:(=(%failed status.record) record(status %queued, digest 0v0) record))
+    =.  cor  (sync-lenses ledger)
     (emit (acp-result-card:codec connection.req id.req status))
       %'harness/tlon/cron'
     (emit (acp-result-card:codec connection.req id.req (cron-json ~)))
@@ -632,9 +642,16 @@
 ++  configure
   |=  new=policy:t
   ^+  cor
+  ::  Saving the same policy can repair native trust without resetting lanes.
+  =.  error  ''
+  =.  cor  (roll (trust-policy:messenger new) |=([card=card c=_cor] (emit:c card)))
   ?:  =(new policy)  cor
   =.  cor  (show-presence ~)
   =.  cor  retire-uploads
+  =.  lenses
+    %+  roll  ~(tap by lenses)
+    |=  [[id=@uv record=lens-export:t] out=(map @uv lens-export:t)]
+    (~(put by out) id (revoke:lens record))
   ::  Fence admission and publication immediately. Retire every old lane's
   ::  grants and cancel its queued/running work before allowing a new epoch.
   ::  Already emitted network effects cannot be retracted by any revocation.
@@ -670,6 +687,17 @@
   |=  [wire=wire sign=sign:agent:gall]
   ^+  cor
   ?+  wire  cor
+      [%steward-trust @ @ ~]
+    ?.  &(?=(%poke-ack -.sign) =((scot %uv (sham policy)) i.t.wire))  cor
+    ?~  p.sign  cor
+    cor(error (rap 3 'Native Steward trust failed for ' i.t.t.wire '. Tlon settings were saved; save again to retry trust.' ~))
+      [%lens @ @ ~]
+    ?.  ?=(%poke-ack -.sign)  cor
+    =/  id  (slav %uv i.t.wire)
+    =/  record  (~(get by lenses) id)
+    ?.  ?&(?=(^ record) =(%sending status.u.record) =((slav %ud i.t.t.wire) revision.u.record))  cor
+    =.  lenses  (~(put by lenses) id (acknowledge:lens u.record (slav %ud i.t.t.wire) ?=(~ p.sign)))
+    (sync-lenses ledger)
       [%publications ~]
     ?+  -.sign  cor
       %watch-ack
@@ -874,6 +902,50 @@
     ?:  ?=(%| -.found)  acc
     (merge:presence acc to.u.lane (names:presence view.p.found))
   (show-presence active)
+++  sync-lenses
+  |=  db=state:hh
+  ^+  cor
+  ::  Export metadata follows the bounded hand outbox, not an independent log.
+  =.  lenses
+    %+  roll  ~(tap by lenses)
+    |=  [[id=@uv record=lens-export:t] out=(map @uv lens-export:t)]
+    ?:  (~(has by outbox.db) id)  (~(put by out) id record)
+    out
+  ?.  enabled.policy  cor
+  ?~  owner.policy  cor
+  %+  roll  ~(tap by outbox.db)
+  |=  [[id=@uv pub=publication:hh] c=_cor]
+  ?.  =('tlon' hand.pub)  c
+  ?~  owner.policy.c  c
+  =/  obs  (~(get by observations.db) id)
+  =/  lane  (~(get by lanes.c) sid.pub)
+  ?.  ?&(?=(^ obs) ?=(^ lane) =(epoch.u.lane epoch.c) ?=(^ (grants:p policy.c actor.u.lane ~)) (cron-lane-live:c sid.pub))  c
+  =/  old  (~(get by lenses.c) id)
+  ?~  old
+    ?:  (lth at.u.obs lens-after.c)  c
+    ::  A self-targeted Steward poke may forward to its shared gateway owner;
+    ::  never silently configure that owner or send data to an unknown target.
+    =/  record=lens-export:t  [u.owner.policy.c 0 0v0 ?:(=(our.bowl u.owner.policy.c) %failed %queued) now.bowl ~]
+    $(c c(lenses (~(put by lenses.c) id record)))
+  ?.  =(`owner.u.old owner.policy.c)  c
+  ?:  =(our.bowl owner.u.old)
+    c(lenses (~(put by lenses.c) id u.old(status %failed)))
+  ?:  ?=(?(%sending %failed %revoked) status.u.old)  c
+  =/  summary
+    %-  mole  |.
+    .^((unit report:run-report) %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/run-report/[sid.pub]/(scot %uv id)/noun)
+  =/  projection
+    %-  mole  |.
+    (payload:lens our.bowl id pub u.obs to.u.lane ?~(summary ~ u.summary) at.u.old attempt:(get-control:hd db id) (lien ~(val by cron.c) |=(job=job:cr =(sid.pub run-sid.job))) sent.u.old)
+  ?~  projection
+    c(lenses (~(put by lenses.c) id u.old(status %failed)))
+  =/  payload  u.projection
+  =/  digest  (sham payload)
+  ?:  &(=(%accepted status.u.old) =(digest digest.u.old))  c
+  ?:  (gte (lent (skim ~(val by lenses.c) |=(r=lens-export:t =(%sending status.r)))) 16)  c
+  =/  next  u.old(revision +(revision.u.old), digest digest, status %sending)
+  =.  lenses.c  (~(put by lenses.c) id next)
+  (emit:c (entry:lens owner.next id revision.next payload))
 ++  maintain
   ^+  cor
   ?.  enabled.policy  cor
@@ -942,6 +1014,7 @@
   =.  cor  poll-tools
   =/  db  ledger
   =.  cor  (sync-presence db)
+  =.  cor  (sync-lenses db)
   =.  cor  schedule
   ::  Honor explicit reconciliation and retirement in the shared ledger.
   ::  Uncertain sends still block their destination; only the owner can decide
@@ -997,5 +1070,10 @@
   =.  last-sent  (next-message-stamp:p now.bowl last-sent)
   =/  external=@t  (rap 3 (scot %p our.bowl) '/' (scot %da last-sent) ~)
   =.  deliveries  (~(put by deliveries) id [attempt %send %uncertain external])
-  (emit (publish:messenger /publish/(scot %uv id)/(scot %ud attempt) to.u.lane body.pub last-sent))
+  =/  record  (~(get by lenses) id)
+  =?  lenses  ?=(^ record)  (~(put by lenses) id u.record(sent `last-sent))
+  =/  blob=(unit @t)
+    ?:  |(?=(~ record) =(%revoked status.u.record))  ~
+    `(pointer:lens our.bowl id)
+  (emit (publish:messenger /publish/(scot %uv id)/(scot %ud attempt) to.u.lane body.pub last-sent blob))
 --

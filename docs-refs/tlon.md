@@ -72,14 +72,32 @@ Steward's separate Lens module supports durable run/tool inspection via
 `%steward-lens-action-1` (`entry`, with a JSON payload and final flag). Current
 Groups expects a `{schemaVersion: 1, lens: ...}` payload and optional
 `tlon-context-lens` post pointers containing `lensId` and `botShip`.
-Harness does not yet export those traces or stamp pointers. Steward forwards
-local entries to its configured owner, and cross-ship storage requires explicit
-trust on that owner ship. Its shared owner configuration also affects gateway
-behavior: enabling chat status must not silently configure it or start an
-external-process heartbeat for this on-ship harness. A future opt-in projection
-should use the existing head/hand records and distinguish completion, local send
-acceptance, and uncertain delivery; it must not create a second run authority or
-blind retry path.
+Harness automatically stamps reply pointers on all four conversation surfaces
+and exports redacted summaries directly to the configured Tlon owner's Steward.
+The owner's native Steward must trust the bot. Saving Harness owner/trusted-ship
+settings also adds those ships to the local Steward's trusted-bot set. This is
+additive: removing a Harness grant does not remove independently managed native
+Steward trust. Saving identical settings repairs trust without rotating lanes;
+a native rejection is shown in settings and can be retried by saving again.
+There is no extra Harness Lens
+permission, external service, or heartbeat. Harness never changes Steward's
+shared gateway owner. Self-owned bots currently need a separate native storage
+path; Harness reports an export failure instead of risking forwarding elsewhere.
+
+Summaries project the existing head/hand records: run outcome, public tool names
+and receipt classes, and publication evidence. Prompts, replies, arguments,
+results, private tool identifiers and credentials are not exported. Missing
+context counts and per-tool timing are explicitly unreported. Run completion,
+local DM acceptance, channel-host confirmation and uncertain delivery remain
+distinct; none is a read receipt. Summaries are owner-only and subject to native
+Steward retention and the client Lens feature's availability.
+
+Only new work is exported after upgrading. Export bookkeeping is bounded by
+the existing publication ledger; one in-flight revision per entry prevents
+reordering. Owner/policy changes fence old exports. A rejected export does not
+block chat. Settings offers **Retry Lens exports**, which only updates summaries:
+it cannot rerun tools or resend replies. The Tlon Lens run-retry control is not
+implemented by Harness and does not rerun work.
 
 ## Images and storage
 
@@ -278,15 +296,18 @@ implemented here.
 
 ## Conversation tools and scheduled work
 
-Three separate opt-in grants are available: `tlon-read`, `tlon-write`, and `cron`.
-None is added to bootstrap defaults. A grant alone is insufficient: these tools
-require a current Tlon lane and a matching outstanding head request. They do not
+Tlon reads, writes and cron are implicit within an authorized Tlon conversation.
+These tools require a current Tlon lane and a matching outstanding head request. They do not
 work in an unrelated browser session or a child without a Tlon binding.
 
-`tlon_read_history` returns at most 20 recent top-level messages in the bound DM
-or channel, with durable IDs, authors and clipped text. `tlon_react` and
-`tlon_unreact` operate on those IDs in that same chat, adding/removing the ship's
-own reaction. No model argument can select another destination. Reactions use a
+`tlon_read_history` returns at most 20 messages with durable IDs, authors and
+clipped text. Top-level conversations return recent top-level messages. A bound
+DM/channel thread returns its parent followed by up to 19 recent replies, omitting
+deleted replies and unrelated top-level messages. Native tree traversal and
+channel reply requests are bounded; no whole-thread JSON conversion is needed.
+`tlon_react` and `tlon_unreact` operate on those IDs in that same conversation,
+including the parent or individual thread replies. No model argument can select
+another destination or expand the history window. Reactions use a
 persisted invocation receipt and report local Messenger acknowledgement, not
 remote delivery. Missing acknowledgements become uncertain after a minute and
 are not automatically retried. Ordinary final replies still use the publication

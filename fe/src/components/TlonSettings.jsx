@@ -8,6 +8,7 @@ import TlonIcon from './TlonIcon'
 import TlonProfile from './TlonProfile'
 import TlonModels from './TlonModels'
 import TlonCron from './TlonCron'
+import TlonLens from './TlonLens'
 
 const initial = { enabled: false, owner: null, mentions: true, trusted: [] }
 export default function TlonSettings({ onBack }) {
@@ -41,6 +42,7 @@ export default function TlonSettings({ onBack }) {
       <TlonProfile />
       <TlonModels sessions={state.value?.sessions} />
       <TlonCron />
+      <TlonLens resource={state} />
       <form className="settings-grid" onSubmit={save}>
         {(error || state.error || state.value?.error) && <div role="alert" className="inline-error">{error || state.error || state.value.error}</div>}
         <section className="panel settings-panel">
@@ -62,6 +64,7 @@ export default function TlonSettings({ onBack }) {
             <button type="button" className="text-button" onClick={() => change({ trusted: policy.trusted.filter((p) => p.ship !== entry.ship) })}>Remove {entry.ship}</button>
           </details>)}
         </section>
+        <p className="field-note">Saving also adds the owner and trusted ships to native Steward trust. Existing native trust is not removed here.</p>
         <div className="save-bar"><span>{saved ? 'Saved.' : 'Permission changes stop active Tlon work and start fresh sessions.'}</span><button className="button primary" disabled={busy || state.loading || (policy.enabled && !policy.owner)}>{busy ? 'Saving…' : 'Save Tlon settings'}</button></div>
       </form>
     </div>

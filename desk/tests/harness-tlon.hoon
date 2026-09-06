@@ -46,12 +46,12 @@
 ++  test-channel-publication-keeps-the-versioned-groups-client-route
   =/  bowl=bowl:gall  *bowl:gall
   =.  our.bowl  ~lux
-  =/  card  (publish:~(. io bowl) /test [%channel [%chat ~nec %fixture] ~] 'hello' ~2026.9.5)
-  (expect !>(?=([%pass * %agent [@ %channels] %poke %channel-action-1 *] card)))
+  =/  card  (publish:~(. io bowl) /test [%channel [%chat ~nec %fixture] ~] 'hello' ~2026.9.5 ~)
+  (expect !>(?=([%pass * %agent [@ %channels] %poke %channel-action-2 *] card)))
 ++  test-dm-publication-keeps-its-native-local-messenger-route
   =/  bowl=bowl:gall  *bowl:gall
   =.  our.bowl  ~lux
-  =/  card  (publish:~(. io bowl) /test [%dm ~nec ~] 'hello' ~2026.9.5)
+  =/  card  (publish:~(. io bowl) /test [%dm ~nec ~] 'hello' ~2026.9.5 ~)
   (expect !>(?=([%pass * %agent [@ %chat] %poke %chat-dm-action-2 *] card)))
 ++  test-message-stamps-are-distinct-in-one-native-event
   =/  first  (next-message-stamp:p ~2026.9.5 `@da`0)
