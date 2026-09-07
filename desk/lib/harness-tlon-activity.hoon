@@ -5,7 +5,7 @@
 +$  row  [at=@da event=event:v10:a]
 ++  upgrade
   |=  [old=state-12:t now=@da]
-  ^-  state:t
+  ^-  state-13:t
   ::  There was no durable cursor before this version. Start at migration,
   ::  preserving existing jobs, instead of re-answering older conversations.
   [%13 now | +.old]

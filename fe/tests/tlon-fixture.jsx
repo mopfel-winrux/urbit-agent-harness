@@ -5,7 +5,7 @@ import TlonSettings from '../src/components/TlonSettings'
 import '../src/style.css'
 
 let state = { policy: { enabled: false, owner: '~zod', mentions: true, trusted: [] }, connected: false, sessions: ['nec-dm-test'] }
-window.tlonFixture = { saves: [], modelUpdates: [], cron: [], cancelled: [], work: { records: [], next: null, headConnected: true }, workReads: [], recoveries: [], recoveryError: '', lens: { owner: '~zod', accepted: 2, pending: 0, failed: 0 }, lensRetries: 0, profile: { nickname: 'Existing bot', avatar: 'https://example.com/bot.png' }, profileError: '' }
+window.tlonFixture = { saves: [], modelUpdates: [], cron: [], cancelled: [], work: { records: [], next: null, headConnected: true }, workReads: [], recoveries: [], recoveryError: '', profile: { nickname: 'Existing bot', avatar: 'https://example.com/bot.png' }, profileError: '' }
 acp.call = async (method, params) => {
   if (method !== 'harness/session/use-default-model') throw new Error('Unexpected fixture method')
   window.tlonFixture.modelUpdates.push(params.sessionId)
@@ -19,9 +19,9 @@ api.read = async (path) => path === 'tlon/cron' ? structuredClone(window.tlonFix
 const read = api.read
 api.read = async (path) => {
   if (path.startsWith('tlon/work')) { window.tlonFixture.workReads.push(path); return structuredClone(window.tlonFixture.work) }
-  return path === 'tlon' ? { ...await read(path), lens: structuredClone(window.tlonFixture.lens) } : read(path)
+  return read(path)
 }
-api.action = async ({ tlon, tlonProfile, cancelCron, clearCron, tlonLensRetry, hand, retryAdmission }) => {
+api.action = async ({ tlon, tlonProfile, cancelCron, clearCron, hand, retryAdmission }) => {
   if (hand || retryAdmission) {
     if (window.tlonFixture.recoveryError) throw new Error(window.tlonFixture.recoveryError)
     window.tlonFixture.recoveries.push(hand || { retryAdmission })
@@ -30,12 +30,6 @@ api.action = async ({ tlon, tlonProfile, cancelCron, clearCron, tlonLensRetry, h
       return { ...record, status: hand?.resolve?.status || 'completed', canResolve: false, canRetry: false }
     })
     return {}
-  }
-  if (tlonLensRetry) {
-    window.tlonFixture.lensRetries++
-    if (window.tlonFixture.lensError) throw new Error(window.tlonFixture.lensError)
-    window.tlonFixture.lens = { ...window.tlonFixture.lens, failed: 0, pending: 1 }
-    return api.read('tlon')
   }
   if (clearCron) {
     if (window.tlonFixture.clearError) throw new Error(window.tlonFixture.clearError)

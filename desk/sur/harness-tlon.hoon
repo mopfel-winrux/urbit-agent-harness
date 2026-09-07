@@ -77,7 +77,7 @@
       computing=(map path presence-lease)
       data
   ==
-+$  state
++$  state-13
   $:  %13
       activity-through=@da
       catching-up=$~(| ?)
@@ -87,6 +87,21 @@
       channel-after=@da
       lens-after=@da
       lenses=(map @uv lens-export)
+      uploads=(map @uv upload)
+      last-sent=@da
+      tool-receipts=(map @uv tool-receipt)
+      cron=(map @uv job:cron)
+      computing=(map path presence-lease)
+      data
+  ==
++$  state
+  $:  %14
+      activity-through=@da
+      catching-up=$~(| ?)
+      identities=(map [actor=@p to=destination] @t)
+      routes=(map @t route)
+      cuts=(map @p @da)
+      channel-after=@da
       uploads=(map @uv upload)
       last-sent=@da
       tool-receipts=(map @uv tool-receipt)

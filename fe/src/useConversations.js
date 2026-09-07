@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { acp } from './acp'
 import { resourcesFor } from './api'
+import { sortConversations } from './conversations'
 
 export function useConversations(current, onSelect) {
   const [chats, setChats] = useState([])
@@ -12,7 +13,7 @@ export function useConversations(current, onSelect) {
     try {
       await acp.start()
       const result = await acp.call('session/list')
-      setChats((result?.sessions || []).map((session) => session.sessionId))
+      setChats(sortConversations(result?.sessions || []))
       setError('')
     } catch (cause) { setError(cause.message) }
     finally { setLoading(false) }

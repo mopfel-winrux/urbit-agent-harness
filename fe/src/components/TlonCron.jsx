@@ -27,6 +27,6 @@ export default function TlonCron() {
       {job.clearable ? <button type="button" className="text-button" disabled={busy !== null} onClick={() => update(job.id, true)}>{busy === job.id ? 'Clearing…' : 'Clear finished schedule'}</button>
         : job.state !== 'cancelled' && <button type="button" className="text-button" disabled={busy !== null} onClick={() => update(job.id)}>{busy === job.id ? 'Cancelling…' : 'Cancel schedule'}</button>}
     </article>)}
-    <p className="field-note">Cancellation cannot retract dispatched effects. Clear removes finished zero-run schedules; conversation history and delivery receipts remain.</p>
+    <p className="field-note">Cancellation cannot retract dispatched effects. Clear removes completed or cancelled schedules only after their work is settled; conversation history and delivery receipts remain.</p>
   </section>
 }

@@ -2,7 +2,23 @@
 // not an admission receipt; snapshots remain replaceable client state.
 export function applySnapshot(previous, next) {
   if (previous && next.revision < previous.revision) return previous
-  return { ...next, entries: next.entries ?? previous?.entries ?? [] }
+  if (next.entries == null) return { ...next, entries: previous?.entries ?? [], before: previous?.before ?? null }
+  // Only join overlapping windows. After a long disconnect a gap must stay
+  // discoverable through the ship's cursor, not look like complete history.
+  const overlap = previous?.entries?.some((old) => next.entries.some((row) => row.id === old.id))
+  if (!overlap) return next
+  return { ...next, entries: mergeEntries(previous.entries, next.entries), before: previous.before ?? null }
+}
+
+function mergeEntries(older, newer) {
+  const rows = new Map(older.map((row) => [row.id, row]))
+  for (const row of newer) rows.set(row.id, row)
+  return [...rows.values()].sort((a, b) => a.eventCount - b.eventCount)
+}
+
+export function applyHistory(previous, page, before) {
+  if (!previous || previous.before !== before || page.revision > previous.revision) return previous
+  return { ...previous, entries: mergeEntries(page.entries, previous.entries), before: page.before }
 }
 
 export function admitted(pending, entries) {

@@ -12,7 +12,7 @@
 ++  test-rehearsal-does-not-add-read-authority
   (expect-eq !>(`(list term)`~) !>((rehearsal-tools:ht ~[%web %mcp])))
 ++  test-current-store-load-is-an-identity
-  =/  saved=state-12  *state-12
+  =/  saved=state-13  *state-13
   =.  defaults.saved  builtin-config:policy
   =.  provider-keys.saved  (my ~[['fixture' 'test-secret']])
   =.  search-config.saved  [%searxng 'https://search.example']
@@ -20,7 +20,7 @@
   =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced defaults.saved]] 37]]])
   (expect-eq !>(saved) !>((load:storage !>(saved))))
 ++  test-saved-tool-policy-is-not-replaced-by-bootstrap-defaults
-  =/  saved=state-12  *state-12
+  =/  saved=state-13  *state-13
   =/  cfg  builtin-config:policy
   =.  defaults.saved  cfg(tools ~[%author %skill-write [%mcp 'calendar']])
   =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced defaults.saved]] 0]]])

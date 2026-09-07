@@ -109,19 +109,18 @@ inspector; verify resulting state/delivery evidence rather than answer text.
 
 ## 4. Make recovery understandable
 
-Status: owner-visible recovery is implemented; retention and long-lived costs
-remain explicit capacity boundaries.
+Status: owner-visible recovery, explicit retention and paged inspection are
+implemented. Retained history still determines replay and loom costs.
 
-- [x] Add automatic owner-only Steward Lens projection and reply pointers against
-  current Groups schemas, with redacted tool metadata and acknowledged export
-  state. Add native trust when saving owner/trusted ships; do not enable gateway
-  liveness or turn Lens retries into blind repeats of uncertain sends.
+- [x] Keep run inspection and recovery inside Harness, without external
+  inspector exports, reply pointers or changes to another agent's trust.
 - [x] Provide owner-visible received/working/completed/sending/uncertain states
   and concrete safe recovery actions using the existing ledger.
 - [x] Add bounded activity catch-up with durable cursors and deduplication.
-- [ ] Define lane retirement and history retention without deleting evidence to
-  make room. Bound long-session inspection, transport queues and maintenance work.
-- [ ] Test interruption during inference, tools and publication; provider outage;
+- [x] Define lane retirement and history retention without deleting evidence to
+  make room. Page long-session inspection; bound transport admission and adapter
+  maintenance. Paging bounds output, not the cost of replaying retained history.
+- [x] Test interruption during inference, tools and publication; provider outage;
   duplicate input; revoked permission; restart; delayed result; long-lived usage.
 
 Acceptance: an owner can distinguish unfinished work from an uncertain send and
@@ -129,18 +128,19 @@ recover without SQL, Dojo surgery, or accidental duplicate external actions.
 
 ## 5. Earn the runtime and hosting shape
 
-Status: the [versioned hosting contract](hosting-contract.md) is defined.
-Representative measurements and lifecycle acceptance remain required.
+Status: the [versioned hosting contract](hosting-contract.md), native lifecycle
+checks and capacity measurements support retaining the current runtime ownership.
 
-- [ ] Measure admission/stop latency, replay and mirror work, idle traffic, loom
+- [x] Measure admission/stop latency, replay and mirror work, idle traffic, loom
   growth and per-conversation costs on a representative hosted moon.
-- [ ] Evaluate on-demand verification versus continuous mirroring. Account for
+- [x] Evaluate on-demand verification versus continuous mirroring. Account for
   native mirror consumers. Same-code replay is not an independent semantic oracle.
 - [x] Define a small versioned hosting contract for acknowledged configuration,
   health, credentials/billing policy and release identity. Assign each field one
   authority; avoid generated-file overlay precedence and configuration repair loops.
-- [ ] Pilot fresh installation, upgrade, backup/restore and controlled outages
-  without making optional executor availability a prerequisite for ordinary chat.
+- [x] Pilot fresh installation, upgrade and controlled outages on disposable
+  fake ships or newly provisioned moons, without copying or restoring piers.
+  Ordinary chat must not require optional executors.
 
 Defer richer self-authoring, agent society, supervised per-session/run ownership,
 general approval languages and feature parity until these slices are proven.

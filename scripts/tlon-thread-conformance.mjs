@@ -1,4 +1,4 @@
-// Native settings->Steward trust and exact-thread history/reaction fixtures.
+// Native Harness settings and exact-thread history/reaction fixtures.
 // Restores test-ship settings and original native trust memberships.
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
@@ -6,7 +6,6 @@ import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { Client, cookie, base } from './lib/ship-client.mjs'
-import { trusts } from './lib/steward-test-state.mjs'
 
 assert.equal(process.env.THREAD_TEST_TRUST, '1')
 const peerUrl = process.env.PEER_URL, nest = process.env.TEST_NEST, extra = '~bud'
@@ -15,7 +14,7 @@ const row = (await readFile(process.env.PEER_COOKIE, 'utf8')).split('\n').find((
 const peerCookie = `${row[5]}=${row[6]}`, peer = row[5].slice('urbauth-'.length)
 const ship = cookie.split('=')[0].slice('urbauth-'.length), marker = `thread-${randomUUID()}`, client = new Client()
 let mode = 'root', surface = 'dm', event = 0, originals, targetId, parentId, unrelatedId
-const failures = [], trustBefore = new Map()
+const failures = []
 async function until(label, check) {
   const end = Date.now() + 45000
   while (Date.now() < end) {
@@ -85,11 +84,9 @@ async function send(parent) {
 try {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)); await client.start()
   originals = { defaults: await client.call('harness/defaults'), policy: (await client.call('harness/tlon')).policy }
-  for (const who of [peer, extra]) trustBefore.set(who, await trusts(base, cookie, who))
   await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '', url: `http://127.0.0.1:${server.address().port}`, model: 'fixture', headers: [], tools: [] } })
   const policy = { enabled: true, owner: peer, trusted: [{ ship: extra, tools: [] }], mentions: true }
   await client.call('harness/tlon/configure', policy)
-  for (const who of [peer, extra]) await until('settings automatically add native owner/trusted-ship trust', () => trusts(base, cookie, who))
   for (surface of ['dm', 'channel']) {
     mode = 'root'; await send()
     const root = await until(`${surface} parent established`, async () => (await posts()).find(([, p]) => matches(p.essay, mode)))
@@ -100,19 +97,13 @@ try {
     mode = 'thread'; await send(parentId)
     await until(`${surface} thread history and scoped reactions complete`, async () => (await posts()).some(([, p]) => Object.values(p.seal?.replies || {}).some((r) => matches(r['reply-essay'], 'thread-done'))))
     const saved = (await client.call('harness/tlon')).sessions
-    await client.pokeAgent('steward', 'steward-action-1', { 'untrust-bot': { ship: extra } })
-    await until('native trust temporarily removed for repair test', async () => !await trusts(base, cookie, extra))
     await client.call('harness/tlon/configure', policy)
-    await until('identical settings save repairs native trust', () => trusts(base, cookie, extra))
     assert.deepEqual((await client.call('harness/tlon')).sessions, saved)
   }
 } finally {
   if (originals) {
     await client.call('harness/tlon/configure', originals.policy)
     await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '' } })
-  }
-  for (const [who, wasTrusted] of trustBefore) {
-    await client.pokeAgent('steward', 'steward-action-1', { [wasTrusted ? 'trust-bot' : 'untrust-bot']: { ship: who } })
   }
   await client.close(); server.closeAllConnections(); await new Promise((resolve) => server.close(resolve))
 }

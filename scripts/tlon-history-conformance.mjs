@@ -6,7 +6,6 @@ import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { Client, cookie, base } from './lib/ship-client.mjs'
-import { trusts } from './lib/steward-test-state.mjs'
 
 assert.equal(process.env.HISTORY_TEST_MESSAGES, '1')
 const peerUrl = process.env.PEER_URL, nest = process.env.TEST_NEST
@@ -14,7 +13,7 @@ assert.ok(peerUrl && nest && process.env.PEER_COOKIE)
 const row = (await readFile(process.env.PEER_COOKIE, 'utf8')).split('\n').find((r) => /\turbauth-~/.test(r)).split('\t')
 const peerCookie = `${row[5]}=${row[6]}`, peer = row[5].slice('urbauth-'.length)
 const ship = cookie.split('=')[0].slice('urbauth-'.length), marker = `history-${randomUUID()}`, client = new Client()
-let surface = 'dm', parent, event = 0, stamp = 0, originals, trustBefore, firstCursor, firstIds, searchCursor, foreignCursor
+let surface = 'dm', parent, event = 0, stamp = 0, originals, firstCursor, firstIds, searchCursor, foreignCursor
 const failures = []
 const insertions = new Map()
 const responses = new Map()
@@ -138,7 +137,6 @@ const server = createServer(async (req, res) => {
 try {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)); await client.start()
   originals = { defaults: await client.call('harness/defaults'), policy: (await client.call('harness/tlon')).policy }
-  trustBefore = await trusts(base, cookie, peer)
   await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '', url: `http://127.0.0.1:${server.address().port}`, model: 'fixture', headers: [], tools: [] } })
   for (surface of ['dm', 'channel']) for (const thread of [false, true]) {
     await client.call('harness/tlon/configure', { ...originals.policy, enabled: false })
@@ -165,6 +163,5 @@ try {
     await client.call('harness/tlon/configure', originals.policy)
     await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '' } })
   }
-  if (trustBefore !== undefined) await client.pokeAgent('steward', 'steward-action-1', { [trustBefore ? 'trust-bot' : 'untrust-bot']: { ship: peer } })
   await client.close(); server.closeAllConnections(); await new Promise((resolve) => server.close(resolve))
 }

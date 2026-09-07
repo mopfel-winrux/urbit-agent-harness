@@ -3,7 +3,7 @@
 ::  Native hand requests and ACP use the same ledger gates. Messenger facts
 ::  are accepted only on our subscription to the local activity agent.
 /-  t=harness-tlon, h=harness, hh=harness-hand, ad=harness-adapter, a=tlon-activity-ver, dv=tlon-channels-ver, ac=acp, cr=harness-cron
-/+  default-agent, dbug, p=harness-tlon-policy, continuity=harness-tlon-continuity, io=harness-tlon-io, publication=harness-tlon-publication, profile=harness-tlon-profile, presence=harness-tlon-presence, clock=harness-tlon-clock, hj=harness-json, wire-codec=harness-acp, ht=harness-tools, cron-lib=harness-cron, reminder=harness-reminder, hd=harness-hand, media-lib=harness-tlon-media, s3=harness-s3, lens=harness-tlon-lens, run-report=harness-run-report, history-page=harness-tlon-history-page, history-read=harness-tlon-history-read, public-context=harness-tlon-context, work=harness-tlon-work, activity-read=harness-tlon-activity
+/+  default-agent, dbug, p=harness-tlon-policy, continuity=harness-tlon-continuity, io=harness-tlon-io, publication=harness-tlon-publication, profile=harness-tlon-profile, presence=harness-tlon-presence, clock=harness-tlon-clock, hj=harness-json, wire-codec=harness-acp, ht=harness-tools, cron-lib=harness-cron, reminder=harness-reminder, hd=harness-hand, media-lib=harness-tlon-media, s3=harness-s3, history-page=harness-tlon-history-page, history-read=harness-tlon-history-read, public-context=harness-tlon-context, work=harness-tlon-work, activity-read=harness-tlon-activity
 |%
 +$  card  card:agent:gall
 +$  storage-source  $%([%credentials creds=credentials:s3] [%hosted token=@t config=json])
@@ -17,12 +17,14 @@
 +*  this  .
     def   ~(. (default-agent this %.n) bowl)
     cor   ~(. +> [bowl ~])
-++  on-init  `this(policy [| ~ ~ &], watching |, lens-after now.bowl, activity-through now.bowl)
+++  on-init  `this(policy [| ~ ~ &], watching |, activity-through now.bowl)
 ++  on-save  !>(state)
 ++  on-load
   |=  old=vase
   =.  state
-    ?:  ?=([%13 *] q.old)  !<(state:t old)
+    ?:  ?=([%14 *] q.old)  !<(state:t old)
+    %-  local-only:p
+    ?:  ?=([%13 *] q.old)  !<(state-13:t old)
     %-  |=(previous=state-12:t (upgrade:activity-read previous now.bowl))
     ?:  ?=([%12 *] q.old)  !<(state-12:t old)
     %-  upgrade-reminders:p
@@ -186,7 +188,6 @@
       ['headConnected' %b &(head-live ?~(head-watch | acked.u.head-watch))]
       ['publicationsConnected' %b publications-connected]
       ['deliveryMode' %s 'events']
-      ['lens' (status:lens owner.policy lenses)]
       ['maintenanceWake' ?~(wake ~ [%s (scot %da u.wake)])]
       ['error' %s error]
       ['pending' (numb:enjs:format ~(wyt by jobs))]
@@ -250,13 +251,6 @@
       (emit (acp-error-card:codec connection.req id.req '-32602' 'Admission no longer has current authority'))
     =.  cor  ?:((route-ready sid.u.job) (bind-job u.parsed u.job) (start-route sid.u.job))
     (emit (acp-result-card:codec connection.req id.req (pairs:enjs:format ~[['accepted' %b &]])))
-      %'harness/tlon/lens/retry'
-    =.  lenses
-      %+  roll  ~(tap by lenses)
-      |=  [[id=@uv record=lens-export:t] out=(map @uv lens-export:t)]
-      (~(put by out) id ?:(=(%failed status.record) record(status %queued, digest 0v0) record))
-    =.  cor  (sync-lenses ledger)
-    (emit (acp-result-card:codec connection.req id.req status))
       %'harness/tlon/cron'
     (emit (acp-result-card:codec connection.req id.req (cron-json ~)))
       ?(%'harness/tlon/cron/cancel' %'harness/tlon/cron/clear')
@@ -269,10 +263,11 @@
     ?~  job  (emit (acp-error-card:codec connection.req id.req '-32602' 'Unknown schedule ID'))
     ?:  =('harness/tlon/cron/clear' method.req)
       ?.  (clearable-cron u.job)
-        (emit (acp-error-card:codec connection.req id.req '-32602' 'Only finished zero-run schedules with no pending or uncertain work can be cleared'))
+        (emit (acp-error-card:codec connection.req id.req '-32602' 'Only completed or cancelled schedules with no pending or uncertain work can be cleared'))
       ::  Remove scheduling state and its authority, never head evidence. The
       ::  retained disabled binding still fences this session's old grants.
-      =.  cor  (hand %disable (need parsed) [%enable run-sid.u.job |])
+      =?  cor  (~(has by bindings:ledger) run-sid.u.job)
+        (hand %disable (need parsed) [%enable run-sid.u.job |])
       =.  lanes  (~(del by lanes) run-sid.u.job)
       =.  routes  (~(del by routes) run-sid.u.job)
       =.  cron  (~(del by cron) (need parsed))
@@ -575,6 +570,7 @@
 ++  clearable-cron
   |=  job=job:cr
   ^-  ?
+  ?.  head-live  |
   =/  admitting  (lien ~(val by jobs) |=(pending=job:t =(sid.pending run-sid.job)))
   (cron-clearable:p job ledger admitting)
 ++  cron-json
@@ -765,9 +761,7 @@
 ++  configure
   |=  new=policy:t
   ^+  cor
-  ::  Saving the same policy can repair native trust without resetting lanes.
   =.  error  ''
-  =.  cor  (roll (trust-policy:messenger new) |=([card=card c=_cor] (emit:c card)))
   ?:  =(new policy)  cor
   =/  before  policy
   =/  affected=(set @t)
@@ -780,15 +774,7 @@
   =.  cuts  (cutoffs:continuity before new identities cuts now.bowl)
   =?  channel-after  !=(mentions.before mentions.new)  now.bowl
   =?  after  !=(enabled.before enabled.new)  now.bowl
-  =/  owner-changed  |(!=(owner.before owner.new) !=(enabled.before enabled.new))
-  =?  lens-after  owner-changed  now.bowl
   =/  db  ledger
-  =.  lenses
-    %+  roll  ~(tap by lenses)
-    |=  [[id=@uv record=lens-export:t] out=(map @uv lens-export:t)]
-    =/  pub  (~(get by outbox.db) id)
-    =/  retire  |(owner-changed ?&(?=(^ pub) (~(has in affected) sid.u.pub)))
-    (~(put by out) id ?:(retire (revoke:lens record) record))
   ::  Withdraw affected routes immediately. Old immutable bindings remain
   ::  disabled; later authorized input gets a fresh binding, never old sends.
   ::  Stable identity, source configuration and evidence remain untouched.
@@ -824,17 +810,6 @@
   |=  [wire=wire sign=sign:agent:gall]
   ^+  cor
   ?+  wire  cor
-      [%steward-trust @ @ ~]
-    ?.  &(?=(%poke-ack -.sign) =((scot %uv (sham policy)) i.t.wire))  cor
-    ?~  p.sign  cor
-    cor(error (rap 3 'Native Steward trust failed for ' i.t.t.wire '. Tlon settings were saved; save again to retry trust.' ~))
-      [%lens @ @ ~]
-    ?.  ?=(%poke-ack -.sign)  cor
-    =/  id  (slav %uv i.t.wire)
-    =/  record  (~(get by lenses) id)
-    ?.  ?&(?=(^ record) =(%sending status.u.record) =((slav %ud i.t.t.wire) revision.u.record))  cor
-    =.  lenses  (~(put by lenses) id (acknowledge:lens u.record (slav %ud i.t.t.wire) ?=(~ p.sign)))
-    (sync-lenses ledger)
       [%publications ~]
     ?+  -.sign  cor
       %watch-ack
@@ -1187,50 +1162,6 @@
     ?:  ?=(%| -.found)  acc
     (merge:presence acc to.u.lane (names:presence view.p.found))
   (show-presence active)
-++  sync-lenses
-  |=  db=state:hh
-  ^+  cor
-  ::  Export metadata follows the bounded hand outbox, not an independent log.
-  =.  lenses
-    %+  roll  ~(tap by lenses)
-    |=  [[id=@uv record=lens-export:t] out=(map @uv lens-export:t)]
-    ?:  (~(has by outbox.db) id)  (~(put by out) id record)
-    out
-  ?.  enabled.policy  cor
-  ?~  owner.policy  cor
-  %+  roll  ~(tap by outbox.db)
-  |=  [[id=@uv pub=publication:hh] c=_cor]
-  ?.  =('tlon' hand.pub)  c
-  ?~  owner.policy.c  c
-  =/  obs  (~(get by observations.db) id)
-  =/  lane  (~(get by lanes.c) sid.pub)
-  ?.  ?&(?=(^ obs) ?=(^ lane) (publication-current:c pub) ?=(^ (grants:p policy.c actor.u.lane ~)) (cron-lane-live:c sid.pub))  c
-  =/  old  (~(get by lenses.c) id)
-  ?~  old
-    ?:  (lth at.u.obs lens-after.c)  c
-    ::  A self-targeted Steward poke may forward to its shared gateway owner;
-    ::  never silently configure that owner or send data to an unknown target.
-    =/  record=lens-export:t  [u.owner.policy.c 0 0v0 ?:(=(our.bowl u.owner.policy.c) %failed %queued) now.bowl ~]
-    $(c c(lenses (~(put by lenses.c) id record)))
-  ?.  =(`owner.u.old owner.policy.c)  c
-  ?:  =(our.bowl owner.u.old)
-    c(lenses (~(put by lenses.c) id u.old(status %failed)))
-  ?:  ?=(?(%sending %failed %revoked) status.u.old)  c
-  =/  summary
-    %-  mole  |.
-    .^((unit report:run-report) %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/run-report/[sid.pub]/(scot %uv id)/noun)
-  =/  projection
-    %-  mole  |.
-    (payload:lens our.bowl id pub u.obs to.u.lane ?~(summary ~ u.summary) at.u.old attempt:(get-control:hd db id) (lien ~(val by cron.c) |=(job=job:cr =(sid.pub run-sid.job))) sent.u.old)
-  ?~  projection
-    c(lenses (~(put by lenses.c) id u.old(status %failed)))
-  =/  payload  u.projection
-  =/  digest  (sham payload)
-  ?:  &(=(%accepted status.u.old) =(digest digest.u.old))  c
-  ?:  (gte (lent (skim ~(val by lenses.c) |=(r=lens-export:t =(%sending status.r)))) 16)  c
-  =/  next  u.old(revision +(revision.u.old), digest digest, status %sending)
-  =.  lenses.c  (~(put by lenses.c) id next)
-  (emit:c (entry:lens owner.next id revision.next payload))
 ++  maintain
   ^+  cor
   ?.  enabled.policy  cor
@@ -1311,7 +1242,6 @@
   =.  cor  poll-tools
   =/  db  ledger
   =.  cor  (sync-presence db)
-  =.  cor  (sync-lenses db)
   =.  cor  schedule
   ::  Honor explicit reconciliation and retirement in the shared ledger.
   ::  Uncertain sends still block their destination; only the owner can decide
@@ -1367,10 +1297,5 @@
   =.  last-sent  (next-message-stamp:p now.bowl last-sent)
   =/  external=@t  (rap 3 (scot %p our.bowl) '/' (scot %da last-sent) ~)
   =.  deliveries  (~(put by deliveries) id [attempt %send %uncertain external])
-  =/  record  (~(get by lenses) id)
-  =?  lenses  ?=(^ record)  (~(put by lenses) id u.record(sent `last-sent))
-  =/  blob=(unit @t)
-    ?:  |(?=(~ record) =(%revoked status.u.record))  ~
-    `(pointer:lens our.bowl id)
-  (emit (publish:messenger /publish/(scot %uv id)/(scot %ud attempt) to.u.lane body.pub last-sent blob))
+  (emit (publish:messenger /publish/(scot %uv id)/(scot %ud attempt) to.u.lane body.pub last-sent))
 --

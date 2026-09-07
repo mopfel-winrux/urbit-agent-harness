@@ -7,9 +7,10 @@
 ++  transcript-json
   |=  log=(list event:h)
   ^-  json
-  :-  %a
-  %+  turn  (transcript:hl log)
+  [%a (turn (transcript:hl log) transcript-row-json)]
+++  transcript-row-json
   |=  [at=@ud input-id=(unit input-id:h) =item:h]
+  ^-  json
   =/  row  (item-ui-json item)
   ?>  ?=(%o -.row)
   :-  %o

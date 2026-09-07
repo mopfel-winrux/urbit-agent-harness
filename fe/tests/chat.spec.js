@@ -5,6 +5,20 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'A small head, capable hands' })).toBeAttached()
 })
 
+test('earlier history remains loaded through live snapshot polling', async ({ page }) => {
+  await page.goto('/apps/harness/tests/fixture.html?history')
+  await expect(page.locator('.message.assistant')).toHaveCount(40)
+  const earlier = page.getByRole('button', { name: 'Load earlier messages', exact: true })
+  await earlier.click()
+  await expect(page.locator('.message.assistant')).toHaveCount(80)
+  await earlier.click()
+  await expect(page.locator('.message.assistant')).toHaveCount(95)
+  await expect(earlier).toHaveCount(0)
+  await page.evaluate(() => window.harnessFixture.update({ phase: 'thinking' }))
+  await expect(page.locator('.message.assistant:not(.thinking-message)')).toHaveCount(95)
+  await expect(page.getByText('History reply 1', { exact: true })).toBeAttached()
+})
+
 test('renders GFM safely while preserving literal user messages', async ({ page }) => {
   const reply = page.locator('.message.assistant')
   await expect(reply.locator('strong')).toHaveText('ship owns the session')

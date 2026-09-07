@@ -1,5 +1,5 @@
 // Admission-time public reference, private-note isolation and shared-library ceiling.
-// Uses uniquely marked native threads; restores settings and Steward membership.
+// Uses uniquely marked native threads; restores Harness settings.
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
@@ -8,7 +8,6 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { Client, base, cookie } from './lib/ship-client.mjs'
-import { trusts } from './lib/steward-test-state.mjs'
 
 assert.equal(process.env.CONTEXT_TEST_MESSAGES, '1')
 const peerUrl = process.env.PEER_URL, nest = process.env.TEST_NEST
@@ -19,7 +18,7 @@ const ship = cookie.split('=')[0].slice('urbauth-'.length), marker = `context-${
 const client = new Client(), contexts = [{ kind: 'dm' }, { kind: 'channel' }], failures = []
 const note = `c${randomUUID().slice(0, 8)}`, secret = `${marker}-private-note`, skillName = `${marker}-forbidden`
 const run = promisify(execFile), reminders = new Map(), reminderSpecs = new Map()
-let event = 0, stamp = 0, originals, wasTrusted, requests = 0, completed = false, adapterStopped = false
+let event = 0, stamp = 0, originals, requests = 0, completed = false, adapterStopped = false
 async function scry(path, remote = false) {
   const response = await fetch(`${remote ? peerUrl : base}/~/scry/${path}.json`, { headers: { cookie: remote ? peerCookie : cookie }, signal: AbortSignal.timeout(15000) })
   assert.ok(response.ok, `${path}: ${response.status}`); return response.json()
@@ -112,7 +111,6 @@ const server = createServer(async (req, res) => {
 try {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)); await client.start()
   originals = { defaults: await client.call('harness/defaults'), policy: (await client.call('harness/tlon')).policy, skills: await scry('harness/skills'), staged: await scry('harness/staged') }
-  wasTrusted = await trusts(base, cookie, peer)
   await client.call('harness/tlon/configure', { ...originals.policy, enabled: false })
   for (const ctx of contexts) {
     await send(ctx, `${marker}-${ctx.kind}-parent`)
@@ -224,7 +222,6 @@ try {
     for (const ctx of contexts) if (ctx.sid) await client.call('session/cancel', { sessionId: ctx.sid }).catch(() => {})
     await client.call('harness/tlon/configure', originals.policy)
     await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '' } })
-    if (wasTrusted !== undefined) await client.pokeAgent('steward', 'steward-action-1', { [wasTrusted ? 'trust-bot' : 'untrust-bot']: { ship: peer } })
   }
   await client.close(); server.closeAllConnections(); await new Promise((resolve) => server.close(resolve))
 }

@@ -53,8 +53,12 @@ try {
     url: `${url}/completions`, model: 'cancellation-fixture', key: '', headers: [],
     system: 'Test fixture', 'max-context': 100_000, tools: [toolName === 'curl' ? 'curl' : 'web'],
   } })
-  const pending = prompt('Start both tools')
+  const admissionStart = Date.now(), clientMessageId = randomUUID()
+  const pending = client.call('session/prompt', { sessionId, clientMessageId, prompt: [{ type: 'text', text: 'Start both tools' }] })
   pending.catch(() => {})
+  await until(() => client.updates.some((frame) => frame.params?.update?.sessionUpdate === 'harness_prompt_admitted'
+    && frame.params.update.clientMessageId === clientMessageId), 'durable input acknowledgement')
+  const admissionMs = Date.now() - admissionStart
   await until(async () => {
     const state = await snapshot()
     return held.length && state.phase === 'tools' && state.entries.some((e) => e.body?.includes('ALREADY_DONE'))
@@ -101,7 +105,7 @@ try {
   assert.equal(requests.length, 4)
   const native = await fetch(`${base}/~/scry/harness/snapshot/${sessionId}.json`, { headers: { cookie } }).then((r) => r.json())
   assert.deepEqual(native.entries, final.entries)
-  console.log(JSON.stringify({ ok: true, toolName, cancelMs, checks: ['in-flight HTTP cancellation', 'completed sibling retained',
+  console.log(JSON.stringify({ ok: true, toolName, admissionMs, cancelMs, timing: 'Client observed, including transport and 100ms polling', checks: ['in-flight HTTP cancellation', 'completed sibling retained',
     'terminal ACP tool update', 'immediate next prompt', 'no duplicate execution', 'valid provider transcript',
     'late result fenced', 'native/ACP parity'] }, null, 2))
 } finally {

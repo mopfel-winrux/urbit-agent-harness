@@ -1,5 +1,5 @@
 // Real DM/channel threads and native permission edits, with a local provider.
-// Keeps marked test evidence; restores policy/defaults and native trust.
+// Keeps marked test evidence; restores Harness policy/defaults.
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
@@ -8,7 +8,6 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { Client, base, cookie } from './lib/ship-client.mjs'
-import { trusts } from './lib/steward-test-state.mjs'
 
 assert.equal(process.env.CONTINUITY_TEST_MESSAGES, '1')
 const peerUrl = process.env.PEER_URL, nest = process.env.TEST_NEST, pane = process.env.TEST_PANE
@@ -17,7 +16,7 @@ const row = (await readFile(process.env.PEER_COOKIE, 'utf8')).split('\n').find((
 const peerCookie = `${row[5]}=${row[6]}`, peer = row[5].slice('urbauth-'.length)
 const ship = cookie.split('=')[0].slice('urbauth-'.length), extra = '~bud'
 const marker = `continuity-${randomUUID()}`, client = new Client(), run = promisify(execFile)
-const contexts = [{ kind: 'dm' }, { kind: 'channel' }], held = [], failures = [], children = [], trustBefore = new Map()
+const contexts = [{ kind: 'dm' }, { kind: 'channel' }], held = [], failures = [], children = []
 const responses = new Map(), requests = [], note = `c${randomUUID().slice(0, 8)}`
 let event = 0, stamp = 0, originals, policy, url, stopped = false, headStopped = false, cron
 const tag = (ctx) => `${marker}-${ctx.kind}`
@@ -132,7 +131,6 @@ try {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)); url = `http://127.0.0.1:${server.address().port}`
   await client.start()
   originals = { defaults: await client.call('harness/defaults'), policy: (await status()).policy }
-  for (const who of [peer, extra, ship]) trustBefore.set(who, await trusts(base, cookie, who))
   await configure({ ...originals.policy, enabled: false })
   for (const ctx of contexts) {
     await send(ctx, `${tag(ctx)}-parent`)
@@ -282,6 +280,5 @@ try {
     await client.call('harness/tlon/configure', originals.policy)
     await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '' } })
   }
-  for (const [who, trusted] of trustBefore) await client.pokeAgent('steward', 'steward-action-1', { [trusted ? 'trust-bot' : 'untrust-bot']: { ship: who } })
   await client.close(); server.closeAllConnections(); await new Promise((resolve) => server.close(resolve))
 }

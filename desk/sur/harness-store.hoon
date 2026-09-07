@@ -265,6 +265,7 @@
       search-config=search-config:h
       search-requests=search-requests:h
   ==
++$  state-13  [%13 modified=(map session-id:h @da) state-12]
 +$  state-12
   $:  %12
       sessions=(map session-id:h session:h)

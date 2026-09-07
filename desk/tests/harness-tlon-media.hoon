@@ -99,7 +99,7 @@
   =/  out  (~(on-load adapter bowl) !>(old))
   ?>  !(lien -.out |=(c=card:agent:gall ?=([%pass * %arvo %i %request *] c)))
   =/  next  !<(state:t ~(on-save +.out bowl))
-  (expect !>(&(=(%13 -.next) =(~ uploads.next) =(%done stage:(~(got by tool-receipts.next) 0v1)))))
+  (expect !>(&(=(%14 -.next) =(~ uploads.next) =(%done stage:(~(got by tool-receipts.next) 0v1)))))
 ++  test-hosted-grant-reload-is-uncertain-without-claiming-a-put
   =/  state  (reload %grant)
   =/  receipt  (~(got by tool-receipts.state) 0v1)

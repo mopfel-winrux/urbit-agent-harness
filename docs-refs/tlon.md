@@ -116,36 +116,8 @@ and clear settled or revoked work. A lease deadline renews active presence every
 ten seconds. Leases expire after thirty seconds if the adapter stops. Presence
 is presentation only: it neither admits work nor determines settlement.
 
-Steward's separate Lens module supports durable run/tool inspection via
-`%steward-lens-action-1` (`entry`, with a JSON payload and final flag). Current
-Groups expects a `{schemaVersion: 1, lens: ...}` payload and optional
-`tlon-context-lens` post pointers containing `lensId` and `botShip`.
-Harness automatically stamps reply pointers on all four conversation surfaces
-and exports redacted summaries directly to the configured Tlon owner's Steward.
-The owner's native Steward must trust the bot. Saving Harness owner/trusted-ship
-settings also adds those ships to the local Steward's trusted-bot set. This is
-additive: removing a Harness grant does not remove independently managed native
-Steward trust. Saving identical settings repairs trust without rotating lanes;
-a native rejection is shown in settings and can be retried by saving again.
-There is no extra Harness Lens
-permission, external service, or heartbeat. Harness never changes Steward's
-shared gateway owner. Self-owned bots currently need a separate native storage
-path; Harness reports an export failure instead of risking forwarding elsewhere.
-
-Summaries project the existing head/hand records: run outcome, public tool names
-and receipt classes, and publication evidence. Prompts, replies, arguments,
-results, private tool identifiers and credentials are not exported. Missing
-context counts and per-tool timing are explicitly unreported. Run completion,
-local DM acceptance, channel-host confirmation and uncertain delivery remain
-distinct; none is a read receipt. Summaries are owner-only and subject to native
-Steward retention and the client Lens feature's availability.
-
-Only new work is exported after upgrading. Export bookkeeping is bounded by
-the existing publication ledger; one in-flight revision per entry prevents
-reordering. Owner/policy changes fence old exports. A rejected export does not
-block chat. Settings offers **Retry Lens exports**, which only updates summaries:
-it cannot rerun tools or resend replies. The Tlon Lens run-retry control is not
-implemented by Harness and does not rerun work.
+Run inspection stays on the ship in Harness. Replies carry no external inspector
+pointers, and saving Harness policy does not configure another agent's trust.
 
 ## Images and storage
 
@@ -500,8 +472,9 @@ idempotent hand observation and follows the normal execution/publication ledger.
 Downtime coalesces to one due run, without replaying a missed backlog. Runs do not
 overlap pending execution or an uncertain publication. The schedule advances in
 the same state transition that records its pending admission. The first version
-retains at most 64 schedule records. Clear finished zero-run schedules in the GUI
-to free capacity; transcripts and delivery evidence remain. Running, pending or
+retains at most 64 schedule records. Clear completed or cancelled schedules in the
+GUI to free capacity; unused runs do not prevent clearing a cancellation, even
+before its first run. Transcripts and delivery evidence remain. Running, pending or
 uncertain work cannot be cleared. Clearing disables the binding and removes its
 execution authority. Schedule resumption remains future work.
 

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { resourcesFor, scryUrl } from './api.js'
+import { api, resourcesFor, scryUrl } from './api.js'
+import { acp } from './acp.js'
 import { DEFAULT_SYSTEM_PROMPT, defaultConfig } from './defaults.js'
 
 test('native Harness scries encode the typed Gall namespace', () => {
@@ -47,4 +48,19 @@ test('bootstrap grants are fresh per conversation and preserve explicit override
   first.tools.push('author')
   assert.deepEqual(defaultConfig().tools, ['web', 'skills'])
   assert.deepEqual(defaultConfig({ tools: ['clay', 'mcp'] }).tools, ['clay', 'mcp'])
+})
+
+test('skill settings use acknowledged owner ACP operations with literal names and revisions', async () => {
+  const start = acp.start, call = acp.call, seen = []
+  acp.start = async () => {}
+  acp.call = async (...args) => { seen.push(args); return { acknowledged: true } }
+  try {
+    await api.read('skills')
+    await api.read('skill/report / 雪')
+    const skill = { name: 'report / 雪', desc: 'When relevant', body: 'Keep\ntext', revision: '0v1' }
+    assert.deepEqual(await api.action({ saveSkill: skill }), { acknowledged: true })
+    await api.action({ deleteSkill: { name: skill.name, revision: skill.revision } })
+    assert.deepEqual(seen, [['harness/skills'], ['harness/skill', { name: skill.name }],
+      ['harness/skill/save', skill], ['harness/skill/delete', { name: skill.name, revision: skill.revision }]])
+  } finally { acp.start = start; acp.call = call }
 })

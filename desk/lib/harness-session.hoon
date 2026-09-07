@@ -43,6 +43,9 @@
     ?:  !=(~ wait.v)  'tools'
     ?^  err.v  'error'
     'idle'
+  =/  page=[entries=json before=json]
+    ?:  ?&(?=(^ since) =(u.since revision))  [~ ~]
+    (history ses ~)
   %-  pairs:enjs:format
   :~  ['revision' (numb:enjs:format revision)]
       ['phase' %s phase]
@@ -56,8 +59,25 @@
       :-  'origin'
       ?~  origin.v  ~
       (pairs:enjs:format ~[['sessionId' %s from.u.origin.v] ['eventCount' (numb:enjs:format at.u.origin.v)]])
-      :-  'entries'
-      ?:  ?&(?=(^ since) =(u.since revision))  ~
-      (transcript-json:hj log.ses)
+      ['entries' entries.page]
+      ['before' before.page]
   ==
+++  history
+  |=  [ses=session:h before=(unit @ud)]
+  ^-  [entries=json before=json]
+  ::  Event addresses are immutable. Keep all rows at an address together,
+  ::  including synthetic cancellation receipts; pagination never edits history.
+  =/  rows  (flop (transcript:hl log.ses))
+  =/  ceiling=@ud  ?~(before +((lent log.ses)) u.before)
+  =/  count=@ud  0
+  =/  oldest=@ud  ceiling
+  =/  bytes=@ud  0
+  =|  page=(list json)
+  |-  ^-  [entries=json before=json]
+  ?~  rows  [[%a page] ~]
+  ?:  (gte at.i.rows ceiling)  $(rows t.rows)
+  ?:  &(!=(oldest at.i.rows) |((gte count 40) (gte bytes 262.144)))
+    [[%a page] (numb:enjs:format oldest)]
+  =/  row  (transcript-row-json:hj i.rows)
+  $(rows t.rows, count +(count), oldest at.i.rows, bytes (add bytes (met 3 (en:json:html row))), page [row page])
 --

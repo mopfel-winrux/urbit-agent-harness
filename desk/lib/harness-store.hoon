@@ -2,9 +2,16 @@
 ::  Load preserves the saved envelope; it does not dispatch work. Explicit
 ::  constructors make every retained field auditable across version changes.
 /-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, *harness-store
-/+  hl=harness, ht=harness-tools, hd=harness-hand, policy=harness-defaults
+/+  hl=harness, ht=harness-tools, hd=harness-hand, policy=harness-defaults, index=harness-session-index
 |%
 ++  load
+  |=  old-vase=vase
+  ^-  state-13
+  =/  current  (mule |.(!<(state-13 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  =/  prior  (load-12 old-vase)
+  [%13 (seed:index sessions.prior) prior]
+++  load-12
   |=  old-vase=vase
   ^-  state-12
   =/  twelfth  (mule |.(!<(state-12 old-vase)))

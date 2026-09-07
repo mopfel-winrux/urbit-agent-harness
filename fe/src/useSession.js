@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { acp } from './acp'
-import { admitted, applySnapshot } from './session'
+import { admitted, applySnapshot, applyHistory } from './session'
 
 export function useSession(chat) {
   const [snapshot, setSnapshot] = useState(null)
@@ -8,6 +8,7 @@ export function useSession(chat) {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
+  const [loadingHistory, setLoadingHistory] = useState(false)
   const current = useRef(null)
   const live = useRef(false)
   const fetching = useRef(null)
@@ -77,7 +78,22 @@ export function useSession(chat) {
     catch (cause) { if (live.current) setActionError(cause.message) }
   }
 
+  async function loadHistory() {
+    const before = current.current?.before
+    if (before == null || loadingHistory) return
+    setLoadingHistory(true)
+    try {
+      const page = await acp.call('harness/session/history', { sessionId: chat, before })
+      if (!live.current) return
+      // Refresh live state before joining a page captured after our snapshot.
+      if (page.revision > current.current.revision) await refresh()
+      current.current = applyHistory(current.current, page, before)
+      setSnapshot(current.current)
+    } catch (cause) { if (live.current) setActionError(cause.message) }
+    finally { if (live.current) setLoadingHistory(false) }
+  }
+
   const active = ['thinking', 'tools', 'compacting'].includes(snapshot?.phase)
   return { snapshot, pending, error: error || actionError || snapshot?.error || '', loading: !snapshot,
-    busy: sending || active, send, stop, refresh }
+    busy: sending || active, send, stop, refresh, loadHistory, loadingHistory }
 }

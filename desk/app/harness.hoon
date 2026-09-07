@@ -6,12 +6,12 @@
 ::  live in named modules so this file can concentrate on lifecycle ownership.
 ::
 /-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, *harness-store
-/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, failure=harness-failure, policy=harness-defaults, storage=harness-store, transport=harness-acp, bindings=harness-effects, run-report=harness-run-report, default-agent, dbug
+/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, failure=harness-failure, policy=harness-defaults, storage=harness-store, index=harness-session-index, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 |%
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-12
+=|  state-13
 =*  state  -
 ^-  agent:gall
 =<
@@ -27,17 +27,20 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =/  loaded  !<(state-12 on-save:next)
+      =/  loaded  !<(state-13 on-save:next)
+      =/  before-sessions  sessions
+      =/  before-hands  hands
+      =.  state  loaded
+      =/  out  (filter:oauth -.result openai-auth provider-keys now.bowl)
+      =^  cards  state  (accept-auth:hc out)
+      =?  modified  !=(before-sessions sessions)
+        (update:index before-sessions sessions modified now.bowl)
       ::  Invalidate native hands after committing ledger/session changes.
       ::  No transcript is broadcast: subscribers read the durable ledger.
       ::  Read-only ACP requests must not create a notification feedback loop.
-      =/  changed  |(!=(hands hands.loaded) !=(sessions sessions.loaded))
-      =.  state  loaded
-      =/  cards
-        ?.  changed  -.result
-        (snoc -.result [%give %fact ~[/hand-events] %noun !>(%changed)])
-      =/  out  (filter:oauth cards openai-auth provider-keys now.bowl)
-      =^  cards  state  (accept-auth:hc out)
+      =/  changed  |(!=(before-hands hands) !=(before-sessions sessions))
+      =?  cards  changed
+        (snoc cards [%give %fact ~[/hand-events] %noun !>(%changed)])
       [cards this]
 ::
 ++  on-init
@@ -53,20 +56,24 @@
 ::
 ++  on-load
   |=  old-vase=vase
+  =/  new=state-13  (load:storage old-vase)
+  =.  state  new
   %-  flush-auth
   ^-  (quip card _this)
-  =/  new=state-12  (load:storage old-vase)
-  :_  this(state new)
+  :_  this
   =/  base=(list card)
     :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
         acp-open-card:wire-codec
-        acp-watch-card:wire-codec
-        (watch:hg our.bowl shadow-channel:hc)
     ==
-  %+  weld  base
-  %+  turn  ~(tap by sessions.new)
-  |=  [sid=session-id:h ses=session:h]
-  (shadow-put-card:hc sid ses)
+  ::  Gall retains subscriptions across code reloads. A new mirror watch
+  ::  reprojects on acknowledgement; a surviving watch needs one refresh here.
+  =?  base  !(~(has by wex.bowl) /acp/watch our.bowl %acp)
+    (snoc base acp-watch-card:wire-codec)
+  =/  mirror  (~(get by wex.bowl) /harness-grub/sessions our.bowl %harness-grub)
+  ?~  mirror
+    (snoc base (watch:hg our.bowl shadow-channel:hc))
+  ?.  acked.u.mirror  base
+  (weld base shadow-all-cards:hc)
 ++  on-poke
   |=  [=mark =vase]
   %-  flush-auth
@@ -173,11 +180,6 @@
   ::
       [%x %verification @ ~]
     ``json+!>((shadow-status:hc i.t.t.path))
-  ::
-      [%x %run-report @ @ ~]
-    =/  ses  (~(get by sessions) `session-id:h`i.t.t.path)
-    ?~  ses  [~ ~]
-    ``noun+!>((collect:run-report log.u.ses (slav %uv i.t.t.t.path)))
   ::
       [%x %tool-call @ @ @ ~]
     =/  sid=@t  i.t.t.path
@@ -610,15 +612,7 @@
   ::
       %'session/list'
     ?~  id  `state
-    =/  listed=(list json)
-      %+  turn  ~(tap in ~(key by sessions))
-      |=  sid=session-id:h
-      %-  pairs:enjs:format
-      :~  ['sessionId' %s sid]
-          ['title' %s sid]
-          ['cwd' %s '/']
-      ==
-    =/  result=json  (pairs:enjs:format ~[['sessions' %a listed]])
+    =/  result=json  (list-json:index sessions modified)
     [~[(acp-result-card:wire-codec connection u.id result)] state]
   ::
       %'session/load'
@@ -629,6 +623,9 @@
     ?.  (~(has by sessions) u.sid)
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Unknown session')] state]
     =/  current=session:h  (need (~(get by sessions) u.sid))
+    =/  page  (history:hs current ~)
+    ?:  |(?=(^ before.page) (gth (met 3 (en:json:html entries.page)) 262.144))
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Transcript exceeds single-load budget; use session/resume and harness/session/history')] state]
     =/  replay=(list card)
       (acp-item-cards:wire-codec connection u.sid 0 (transcript-items:hl log.current))
     [:(weld replay ~[(acp-result-card:wire-codec connection u.id (pairs:enjs:format ~)) (acp-session-update-card:wire-codec connection u.sid advertised:command)]) state]
@@ -777,6 +774,18 @@
     ?~  current
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Unknown session')] state]
     =/  result=json  (view-json:hj (play:hl log.u.current))
+    [~[(acp-result-card:wire-codec connection u.id result)] state]
+  ::
+      %'harness/session/history'
+    ?~  id  `state
+    =/  sid  (acp-param-string:wire-codec params 'sessionId')
+    ?~  sid
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Expected sessionId')] state]
+    =/  current  (~(get by sessions) u.sid)
+    ?~  current
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Unknown session')] state]
+    =/  page  (history:hs u.current (acp-param-number:wire-codec params 'before'))
+    =/  result  (pairs:enjs:format ~[['revision' (numb:enjs:format (lent log.u.current))] ['entries' entries.page] ['before' before.page]])
     [~[(acp-result-card:wire-codec connection u.id result)] state]
   ::
       %'harness/session/snapshot'

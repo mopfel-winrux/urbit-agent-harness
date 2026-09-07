@@ -5,11 +5,10 @@ import test from 'node:test'
 import { access, readFile, readdir } from 'node:fs/promises'
 
 const desk = new URL('../zig-out/', import.meta.url)
-test('nested Steward protocol types are flattened into Ford-safe imports', async () => {
-  const types = await readFile(new URL('sur/tlon-steward-lens.hoon', desk), 'utf8')
-  assert.match(types, /%entry/)
-  const imports = await readFile(new URL('lib/harness-tlon-lens.hoon', desk), 'utf8')
-  assert.match(imports, /sl=tlon-steward-lens/)
+test('the distribution has no Steward export integration', async () => {
+  await assert.rejects(access(new URL('sur/tlon-steward-lens.hoon', desk)))
+  await assert.rejects(access(new URL('lib/harness-tlon-lens.hoon', desk)))
+  await assert.rejects(access(new URL('lib/harness-run-report.hoon', desk)))
   await assert.rejects(access(new URL('sur/tlon-steward/lens.hoon', desk)))
 })
 test('the distribution declares only the five Harness agents', async () => {

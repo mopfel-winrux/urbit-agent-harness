@@ -6,7 +6,6 @@ async function action(value) {
   await acp.start()
   if (value.tlon) return acp.call('harness/tlon/configure', value.tlon)
   if (value.tlonProfile) return acp.call('harness/tlon/profile/set', value.tlonProfile)
-  if (value.tlonLensRetry) return acp.call('harness/tlon/lens/retry')
   if (value.cancelCron) return acp.call('harness/tlon/cron/cancel', { id: value.cancelCron })
   if (value.clearCron) return acp.call('harness/tlon/cron/clear', { id: value.clearCron })
   if (value.hand) return acp.call('harness/hand', value.hand)

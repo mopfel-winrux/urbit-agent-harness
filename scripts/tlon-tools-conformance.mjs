@@ -123,7 +123,7 @@ try {
   mode = 'cron'; await send(`${marker}-cron PRIVATE_SCHEDULING_CONTEXT`)
   await until('schedule creation acknowledged', () => schedules.length === 1)
   const first = (await client.call('harness/tlon/cron')).find((j) => j.id === schedules[0]); sourceSid = first.sessionId; scheduledSid = first.runSessionId
-  await assert.rejects(client.call('harness/tlon/cron/clear', { id: first.id }), /finished zero-run/)
+  await assert.rejects(client.call('harness/tlon/cron/clear', { id: first.id }), /completed or cancelled/)
   await until('scheduled input completed and publication delivered', async () => {
     const job = (await client.call('harness/tlon/cron')).find((j) => j.id === schedules[0])
     return job?.state === 'complete' && job.remaining === 0 && job.execution === 'completed' && job.delivery === 'delivered'

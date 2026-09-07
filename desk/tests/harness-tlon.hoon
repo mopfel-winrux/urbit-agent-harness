@@ -17,6 +17,14 @@
   =/  [job=job:cr db=state:hh]  clear-fixture
   =/  running  (~(got by observations.db) 0v1)
   (expect !>(&(!(cron-clearable:p job db(observations ~) |) !(cron-clearable:p job db(observations (my ~[[0v1 running(phase %running)]])) |))))
+++  test-cancelled-unused-runs-do-not-leak-schedule-capacity
+  =/  [job=job:cr db=state:hh]  clear-fixture
+  ;:  weld
+    (expect !>((cron-clearable:p job(state %cancelled, remaining 3) db |)))
+    (expect !>((cron-clearable:p job(state %cancelled, remaining 3, last ~) db(observations ~) |)))
+    (expect !>(!(cron-clearable:p job(state %paused, remaining 0) db |)))
+    (expect !>(!(cron-clearable:p job(state %cancelled, last ~) db &)))
+  ==
 ++  test-clear-rejects-older-unresolved-publications-too
   =/  [job=job:cr db=state:hh]  clear-fixture
   =/  pub=publication:hh  *publication:hh
@@ -46,12 +54,12 @@
 ++  test-channel-publication-keeps-the-versioned-groups-client-route
   =/  bowl=bowl:gall  *bowl:gall
   =.  our.bowl  ~lux
-  =/  card  (publish:~(. io bowl) /test [%channel [%chat ~nec %fixture] ~] 'hello' ~2026.9.5 ~)
+  =/  card  (publish:~(. io bowl) /test [%channel [%chat ~nec %fixture] ~] 'hello' ~2026.9.5)
   (expect !>(?=([%pass * %agent [@ %channels] %poke %channel-action-2 *] card)))
 ++  test-dm-publication-keeps-its-native-local-messenger-route
   =/  bowl=bowl:gall  *bowl:gall
   =.  our.bowl  ~lux
-  =/  card  (publish:~(. io bowl) /test [%dm ~nec ~] 'hello' ~2026.9.5 ~)
+  =/  card  (publish:~(. io bowl) /test [%dm ~nec ~] 'hello' ~2026.9.5)
   (expect !>(?=([%pass * %agent [@ %chat] %poke %chat-dm-action-2 *] card)))
 ++  test-message-stamps-are-distinct-in-one-native-event
   =/  first  (next-message-stamp:p ~2026.9.5 `@da`0)

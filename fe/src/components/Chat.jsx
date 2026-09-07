@@ -46,6 +46,7 @@ export default function Chat({ chat, theme, onToggleTheme, onSettings, onFork, o
       setAtBottom(follow.current)
     }}><div className="transcript-inner">
       {snapshot?.origin && <p className="branch-origin">Branched from <button className="text-button" onClick={() => onSelect(snapshot.origin.sessionId)}>{snapshot.origin.sessionId}</button></p>}
+      {snapshot?.before != null && <button className="text-button" disabled={session.loadingHistory} onClick={() => { follow.current = false; void session.loadHistory() }}>{session.loadingHistory ? 'Loading…' : 'Load earlier messages'}</button>}
       {loading ? <p className="transcript-loading" role="status">Loading conversation…</p> : <Transcript items={entries} pending={pending} thinking={busy} streaming={snapshot?.streaming} phase={phase} onFork={onFork} />}
     </div></section>
     {!atBottom && <button className="jump-to-latest" onClick={scrollToLatest}>↓ Latest messages</button>}

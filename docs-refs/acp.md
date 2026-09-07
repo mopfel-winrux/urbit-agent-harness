@@ -93,6 +93,14 @@ not automatically retry. See the [ACP slash-command protocol](https://agentclien
 
 Harness extensions use the same JSON-RPC connection:
 
+`session/list` orders conversations by durable modification time, descending,
+and includes `modifiedAt` as Unix milliseconds. Reads and verifier refreshes do
+not modify this timestamp. Creation, accepted input, results, configuration and
+rename do; deletion removes the index entry. Migration uses the newest retained
+input timestamp where available, otherwise null rather than a fabricated time.
+The GUI searches conversation names across the list and shows 20 matches at a
+time, with explicit loading of additional matches. Search does not read bodies.
+
 - `harness/status`
 - `harness/tools`
 - `harness/skills` — shared catalog, with names and descriptions only.
@@ -115,6 +123,7 @@ Harness extensions use the same JSON-RPC connection:
 - `harness/session/configure`
 - `harness/session/rename`
 - `harness/session/snapshot`
+- `harness/session/history`
 - `harness/session/verify`
 - `harness/session/recheck`
 - `harness/session/fork`
@@ -138,8 +147,11 @@ running inference. See [architecture](architecture.md#grubberys-role) for its
 sandbox, crash checkpoint and limits; it does not yet verify all dispatched
 effects.
 
-`session/load` replays the full durable transcript, not the compacted model
-context, before its result. `session/resume` attaches without replay;
+`session/load` replays the durable transcript, not the compacted model
+context, before its result when it fits the single-load budget (40 rows and
+256 KiB of transcript JSON). Larger loads return an explicit error before any
+replay frames; use `session/resume` and paged `harness/session/history`.
+`session/resume` attaches without replay;
 `session/close` detaches without cancelling. Text prompt
 blocks are joined; image, audio, embedded context, and client-supplied MCP
 servers are not advertised. Filesystem and terminal authority stays behind
@@ -165,11 +177,22 @@ log changes.
 
 `harness/session/snapshot` takes `sessionId` and optional numeric `since`.
 It returns `revision`, `phase`, `model`, `error`, cumulative `usage`,
-`compactions`, `compactionUsage`, `origin`, and chronological `entries`. When `since` equals the
-current revision, `entries` is null: retain the prior entries. An empty array
+`compactions`, `compactionUsage`, `origin`, chronological recent `entries`, and
+`before`. When `since` equals the current revision, `entries` is null: retain
+the prior entries and cursor. An empty array
 means the transcript is empty. ACP also includes accumulated `streaming` text
 while a normal provider turn is active. Snapshots are readable from any
 authorized connection, not just the one that started a prompt.
+
+`harness/session/history` takes `sessionId` and optional numeric `before`, an
+exclusive event-count cursor. It returns `revision`, chronological `entries`
+and the next `before` (null at the beginning). Pages target 40 rows or 256 KiB;
+rows from one event stay together, so a single event may exceed that target.
+No message text is truncated or deleted. New events do not shift older cursors.
+The browser preserves loaded history across overlapping live updates; after a
+disconnected gap it starts a fresh pageable window instead of concealing the gap.
+Paging bounds projection output, not reducer replay: inspection still traverses
+retained history, and long-session CPU and loom costs remain capacity concerns.
 
 Entries carry a stable `id` (the decimal event count), numeric `eventCount`,
 and optional `inputId`. Pass optional `clientMessageId` with `session/prompt`;

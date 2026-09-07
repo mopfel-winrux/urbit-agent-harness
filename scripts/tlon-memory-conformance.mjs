@@ -8,7 +8,6 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { Client, base, cookie } from './lib/ship-client.mjs'
-import { trusts } from './lib/steward-test-state.mjs'
 
 assert.equal(process.env.MEMORY_TEST_MESSAGES, '1')
 const peerUrl = process.env.PEER_URL, nest = process.env.TEST_NEST
@@ -21,7 +20,7 @@ const failures = [], responses = new Map(), run = promisify(execFile)
 const noteName = `m${randomUUID().slice(0, 8)}`
 const ordered = (memory) => [...memory].sort((a, b) => a.name.localeCompare(b.name))
 const withNote = (ctx, body) => ordered([...ctx.baseline, { name: noteName, body }])
-let event = 0, stamp = 0, originals, trustBefore, headStopped = false
+let event = 0, stamp = 0, originals, headStopped = false
 const label = (ctx) => `${marker}-${ctx.kind}-${ctx.thread ? 'thread' : 'top'}`
 const snapshot = (ctx) => client.call('harness/session/snapshot', { sessionId: ctx.sid })
 async function scry(path, remote = false) {
@@ -97,7 +96,6 @@ async function enableHead(enabled) {
 try {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)); await client.start()
   originals = { defaults: await client.call('harness/defaults'), policy: (await client.call('harness/tlon')).policy }
-  trustBefore = await trusts(base, cookie, peer)
   await client.call('harness/tlon/configure', { ...originals.policy, enabled: false })
   for (const ctx of contexts.filter((ctx) => ctx.thread)) {
     await send(ctx, `${label(ctx)}-parent`)
@@ -151,6 +149,5 @@ try {
     await client.call('harness/tlon/configure', originals.policy)
     await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '' } })
   }
-  if (trustBefore !== undefined) await client.pokeAgent('steward', 'steward-action-1', { [trustBefore ? 'trust-bot' : 'untrust-bot']: { ship: peer } })
   await client.close(); server.closeAllConnections(); await new Promise((resolve) => server.close(resolve))
 }

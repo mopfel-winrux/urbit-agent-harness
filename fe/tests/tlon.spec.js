@@ -32,24 +32,12 @@ test('literal reminders show their destination and explicit timezone without imp
   await expect(page.getByText(/Execution: completed · Delivery: uncertain/)).toBeVisible()
 })
 
-test('Lens export retry is separate from permission changes and retains rejected exports', async ({ page }) => {
+test('Tlon settings keep inspection local without export controls', async ({ page }) => {
   await page.goto('/apps/harness/tests/tlon-fixture.html')
-  await expect(page.getByText('Owner-side storage: ~zod. 2 exports acknowledged, 0 pending.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Steward Lens' })).toHaveCount(0)
   await expect(page.getByRole('checkbox', { name: /lens/i })).toHaveCount(0)
-  await page.evaluate(() => {
-    window.tlonFixture.lens.failed = 1
-    window.tlonFixture.lensError = 'Export unavailable'
-  })
   const retry = page.getByRole('button', { name: 'Retry Lens exports', exact: true })
-  await expect(retry).toBeVisible({ timeout: 8000 })
-  await retry.click()
-  await expect(page.getByRole('alert')).toHaveText('Export unavailable')
-  await expect(retry).toBeEnabled()
-  await page.evaluate(() => { window.tlonFixture.lensError = '' })
-  await retry.click()
   await expect(retry).toHaveCount(0)
-  await expect(page.getByText('Owner-side storage: ~zod. 2 exports acknowledged, 1 pending.')).toBeVisible()
-  expect(await page.evaluate(() => window.tlonFixture.lensRetries)).toBe(2)
   expect(await page.evaluate(() => window.tlonFixture.saves)).toEqual([])
 })
 

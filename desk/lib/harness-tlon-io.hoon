@@ -1,22 +1,13 @@
 ::  Messenger effects and contact projection. Only this module knows which
 ::  public Gall marks a DM, channel post, or invitation needs.
-/-  t=harness-tlon, dv=tlon-channels-ver, cv=tlon-chat-ver, ct=tlon-contacts, a=tlon-activity-ver, st=tlon-steward
+/-  t=harness-tlon, dv=tlon-channels-ver, cv=tlon-chat-ver, ct=tlon-contacts, a=tlon-activity-ver
 /+  story=harness-tlon-story, profile=harness-tlon-profile, ht=harness-tools, publication=harness-tlon-publication, hist=harness-tlon-history
 |_  bowl=bowl:gall
 +$  card  card:agent:gall
-++  trust-policy
-  |=  policy=policy:t
-  ^-  (list card)
-  ::  Additive native trust only. Do not configure gateway ownership or remove
-  ::  trust that may also have been established outside Harness.
-  =/  ships  ~(key by trusted.policy)
-  =?  ships  ?=(^ owner.policy)  (~(put in ships) u.owner.policy)
-  %+  turn  ~(tap in ships)
-  |=  ship=@p
-  [%pass /steward-trust/(scot %uv (sham policy))/(scot %p ship) %agent [our.bowl %steward] %poke %steward-action-1 !>(`action:v1:st`[%trust-bot ship])]
 ++  publish
-  |=  [wire=wire to=destination:t text=@t sent=@da blob=(unit @t)]
+  |=  [wire=wire to=destination:t text=@t sent=@da]
   ^-  card
+  =/  blob=(unit @t)  ~
   =/  memo=memo:v9:dv  [(text-to-story:story text) our.bowl sent]
   ?-  -.to
       %dm

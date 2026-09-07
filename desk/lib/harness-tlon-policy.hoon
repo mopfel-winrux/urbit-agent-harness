@@ -4,6 +4,18 @@
 /-  t=harness-tlon, h=harness, a=tlon-activity-ver, cr=harness-cron, hh=harness-hand
 /+  ht=harness-tools, hj=harness-json, story=harness-tlon-story, input=harness-tlon-input
 |%
+++  local-only
+  |=  old=state-13:t
+  ^-  state:t
+  ::  Remove the derived export queue only. Accepted work and delivery evidence
+  ::  remain in the head ledger; no cleanup poke is sent to any other agent.
+  :*  %14  activity-through.old  catching-up.old  identities.old  routes.old
+      cuts.old  channel-after.old  uploads.old  last-sent.old
+      tool-receipts.old  cron.old  computing.old
+      policy.old  epoch.old  after.old  lanes.old  jobs.old
+      deliveries.old  notices.old  next-notice.old  listeners.old
+      watching.old  wake.old  error.old
+  ==
 ++  upgrade-reminders
   |=  old=state-11:t
   ^-  state-12:t
@@ -23,13 +35,16 @@
 ++  cron-clearable
   |=  [job=job:cr db=state:hh admitting=?]
   ^-  ?
-  ?:  |(admitting !=(0 remaining.job) =(%active state.job))  |
-  ?~  last.job  |
+  ?:  admitting  |
+  ?.  |(=(%cancelled state.job) &(=(%complete state.job) =(0 remaining.job)))  |
+  ?:  (lien ~(val by observations.db) |=(o=observation:hh &(=(run-sid.job binding.o) ?=(?(%queued %running) phase.o))))  |
+  ?:  (lien ~(val by outbox.db) |=(p=publication:hh &(=(run-sid.job sid.p) ?=(?(%pending %claimed %uncertain) status.p))))  |
+  ::  A schedule cancelled before its first admission has no execution receipt.
+  ::  Remaining runs are an unused budget, not work that must be performed.
+  ?~  last.job  =(%cancelled state.job)
   =/  last  (~(get by observations.db) u.last.job)
   ?~  last  |
-  ?.  =(run-sid.job binding.u.last)  |
-  ?:  (lien ~(val by observations.db) |=(o=observation:hh &(=(run-sid.job binding.o) ?=(?(%queued %running) phase.o))))  |
-  !(lien ~(val by outbox.db) |=(p=publication:hh &(=(run-sid.job sid.p) ?=(?(%pending %claimed %uncertain) status.p))))
+  =(run-sid.job binding.u.last)
 ++  grants
   |=  [policy=policy:t actor=@p owner-tools=(list tool-grant:h)]
   ^-  (unit (list tool-grant:h))

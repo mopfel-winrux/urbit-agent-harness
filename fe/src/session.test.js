@@ -1,6 +1,30 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { admitted, applySnapshot, transcriptEntries } from './session.js'
+import { admitted, applySnapshot, applyHistory, transcriptEntries } from './session.js'
+
+test('history joins preserve live state, stable ordering and the oldest cursor', () => {
+  const row = (eventCount) => ({ id: String(eventCount), eventCount, body: String(eventCount) })
+  const old = { revision: 90, before: 50, phase: 'thinking', entries: [row(50), row(80)] }
+  const next = applySnapshot(old, { revision: 92, before: 80, phase: 'idle', entries: [row(80), row(92)] })
+  assert.equal(next.before, 50)
+  assert.deepEqual(next.entries.map((r) => r.eventCount), [50, 80, 92])
+  const page = { revision: 90, before: null, entries: [row(1), row(49)] }
+  const joined = applyHistory(next, page, 50)
+  assert.equal(joined.revision, 92)
+  assert.equal(joined.phase, 'idle')
+  assert.equal(joined.before, null)
+  assert.deepEqual(joined.entries.map((r) => r.eventCount), [1, 49, 50, 80, 92])
+  assert.equal(applyHistory(joined, page, 50), joined, 'duplicate or stale page cannot move cursor')
+  assert.equal(applyHistory(next, { ...page, revision: 93 }, 50), next, 'refresh before merging newer history')
+})
+
+test('disconnected snapshot gaps stay pageable and unchanged polls retain the cursor', () => {
+  const old = { revision: 50, before: 20, entries: [{ id: '50', eventCount: 50 }] }
+  const same = applySnapshot(old, { revision: 50, entries: null, before: null })
+  assert.equal(same.before, 20)
+  const fresh = { revision: 200, before: 160, entries: [{ id: '160', eventCount: 160 }] }
+  assert.equal(applySnapshot(old, fresh), fresh)
+})
 
 test('admission uses ship input identity even for repeated identical prompts', () => {
   const entries = [{ body: 'same', inputId: 'first' }]
