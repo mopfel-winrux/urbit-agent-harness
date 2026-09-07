@@ -62,7 +62,7 @@ try {
     ;({ sessionId: sid } = await client.call('session/new', { name: `${prefix}-${mode}` }))
     sessions.push(sid)
     config = { url: `${url}/completions`, model: 'fixture', key: '', headers: [], system: 'Fixture', 'max-context': 80000, tools: [{ mcp: a }] }
-    if (mode === 'child') { config.tools.push('subagents'); sessions.push(`${sid}--child`) }
+    if (mode === 'child') { config.tools.push('subagents'); sessions.push(`${sid}--1--child`) }
     await client.call('harness/session/configure', { sessionId: sid, config })
     await client.call('session/prompt', { sessionId: sid, prompt: [{ type: 'text', text: 'Run the fixture.' }] })
     if (mode === 'scope') {
@@ -74,7 +74,7 @@ try {
       assert.equal(mcpCalls.length, 0)
       assert.deepEqual(JSON.parse(childReceipts.find((r) => r.tool_call_id === 'discover').content).map((s) => s.id), [a])
       assert.match(childReceipts.find((r) => r.tool_call_id === 'b-list').content, /not granted/)
-      const childConfig = await client.call('harness/session/config', { sessionId: `${sid}--child` })
+      const childConfig = await client.call('harness/session/config', { sessionId: `${sid}--1--child` })
       assert.deepEqual(childConfig.tools, [{ mcp: a }])
     } else {
       assert.equal(mcpCalls.length, 1)

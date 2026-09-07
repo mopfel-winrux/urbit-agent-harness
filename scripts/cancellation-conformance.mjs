@@ -7,6 +7,8 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { Client, base, cookie } from './lib/ship-client.mjs'
 
 const client = new Client(), observer = new Client()
+const toolName = process.env.TOOL_NAME || 'http_fetch'
+assert.ok(['http_fetch', 'curl'].includes(toolName))
 const requests = [], toolRequests = [], held = []
 let sessionId, url
 const server = createServer(async (req, res) => {
@@ -21,11 +23,14 @@ const server = createServer(async (req, res) => {
   for await (const chunk of req) body += chunk
   requests.push(JSON.parse(body))
   const first = requests.length === 1
+  const reuse = requests.length === 3
   res.writeHead(200, { 'content-type': 'application/json' })
-  res.end(JSON.stringify({ choices: [{ finish_reason: first ? 'tool_calls' : 'stop', message: {
-    role: 'assistant', content: first ? '' : 'CONTINUED_OK',
-    ...(first ? { tool_calls: ['fast', 'slow'].map((name) => ({ id: `cancel-test-${name}`, type: 'function',
-      function: { name: 'http_fetch', arguments: JSON.stringify({ url: `${url}/${name}` }) } })) } : {}),
+  res.end(JSON.stringify({ choices: [{ finish_reason: first || reuse ? 'tool_calls' : 'stop', message: {
+    role: 'assistant', content: first || reuse ? '' : 'CONTINUED_OK',
+    ...(first || reuse ? { tool_calls: (first ? ['fast', 'slow'] : ['slow']).map((name) => ({ id: `cancel-test-${name}`, type: 'function',
+      function: { name: toolName, arguments: JSON.stringify({ url: `${url}/${name}`,
+        ...(toolName === 'curl' ? { method: 'PATCH', headers: { 'X-Fixture': 'cancel' }, body: 'mutation' } : {}),
+      }) } })) } : {}),
   } }], usage: { prompt_tokens: 10, completion_tokens: 2 } }))
 })
 const snapshot = () => observer.call('harness/session/snapshot', { sessionId })
@@ -46,7 +51,7 @@ try {
   ;({ sessionId } = await client.call('session/new', { name: `cancel-test-${randomUUID().slice(0, 8)}` }))
   await client.call('harness/session/configure', { sessionId, config: {
     url: `${url}/completions`, model: 'cancellation-fixture', key: '', headers: [],
-    system: 'Test fixture', 'max-context': 100_000, tools: ['web'],
+    system: 'Test fixture', 'max-context': 100_000, tools: [toolName === 'curl' ? 'curl' : 'web'],
   } })
   const pending = prompt('Start both tools')
   pending.catch(() => {})
@@ -81,12 +86,22 @@ try {
   const finished = await snapshot()
   assert.equal(finished.phase, 'idle')
   assert.equal(finished.entries.at(-1).body, 'CONTINUED_OK')
-  for (const res of held) res.end('LATE_RESULT_MUST_NOT_APPEAR')
+  const repeated = prompt('Reuse the previous tool-call ID in a new request')
+  repeated.catch(() => {})
+  await until(async () => held.length === 2 && (await snapshot()).phase === 'tools', 'new generation reuses the old call ID')
+  const waiting = await snapshot()
+  held[0].end('LATE_RESULT_MUST_NOT_APPEAR')
   await sleep(500)
-  assert.deepEqual(await snapshot(), finished, 'late result cannot revive the cancelled exchange')
+  assert.deepEqual(await snapshot(), waiting, 'old receipt cannot complete the new request with the same call ID')
+  held[1].end('NEW_GENERATION_RESULT')
+  assert.equal((await repeated).stopReason, 'end_turn')
+  const final = await snapshot()
+  assert.ok(final.entries.some((e) => e.body?.includes('NEW_GENERATION_RESULT')))
+  assert.ok(!JSON.stringify(final).includes('LATE_RESULT_MUST_NOT_APPEAR'))
+  assert.equal(requests.length, 4)
   const native = await fetch(`${base}/~/scry/harness/snapshot/${sessionId}.json`, { headers: { cookie } }).then((r) => r.json())
-  assert.deepEqual(native.entries, finished.entries)
-  console.log(JSON.stringify({ ok: true, cancelMs, checks: ['in-flight HTTP cancellation', 'completed sibling retained',
+  assert.deepEqual(native.entries, final.entries)
+  console.log(JSON.stringify({ ok: true, toolName, cancelMs, checks: ['in-flight HTTP cancellation', 'completed sibling retained',
     'terminal ACP tool update', 'immediate next prompt', 'no duplicate execution', 'valid provider transcript',
     'late result fenced', 'native/ACP parity'] }, null, 2))
 } finally {

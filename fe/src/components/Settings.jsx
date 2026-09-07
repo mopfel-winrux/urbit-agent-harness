@@ -5,9 +5,11 @@ import GlobalSettings from './GlobalSettings'
 import McpSettings from './McpSettings'
 import SearchSettings from './SearchSettings'
 import ProviderSettings from './ProviderSettings'
+import SkillSettings from './SkillSettings'
 
 const baseTabs = [
   ['defaults', 'Defaults'],
+  ['skills', 'Skills'],
   ['mcp', 'MCP'],
   ['search', 'Search'],
   ['openrouter', 'OpenRouter'],
@@ -29,6 +31,7 @@ export default function Settings({ resources, theme, onThemeChange, onBack }) {
       </nav>
       {tab === 'conversation' && <AgentSettings resources={resources} theme={theme} onThemeChange={onThemeChange} />}
       {tab === 'defaults' && <GlobalSettings resources={resources} theme={theme} onThemeChange={onThemeChange} />}
+      {tab === 'skills' && <SkillSettings />}
       {tab === 'mcp' && <McpSettings resources={resources} />}
       {tab === 'search' && <SearchSettings />}
       {['openrouter', 'openai', 'anthropic', 'custom'].includes(tab) && <ProviderSettings provider={tab} resources={resources} />}

@@ -2,8 +2,24 @@
 ::  Nicknames are presentation, never identity or authority. Sessions separate
 ::  sender, destination and grant epoch so privilege cannot bleed across chats.
 /-  t=harness-tlon, h=harness, a=tlon-activity-ver, cr=harness-cron, hh=harness-hand
-/+  ht=harness-tools, hj=harness-json, story=harness-tlon-story
+/+  ht=harness-tools, hj=harness-json, story=harness-tlon-story, input=harness-tlon-input
 |%
+++  upgrade-reminders
+  |=  old=state-11:t
+  ^-  state-12:t
+  =/  cron
+    %-  ~(run by cron.old)
+    |=  job=job-0:cr
+    ^-  job:cr
+    =/  lane  (~(get by lanes.old) run-sid.job)
+    [%prompt 'UTC' ?~(lane '' (address to.u.lane)) job]
+  :*  %12  identities.old  routes.old  cuts.old  channel-after.old
+      lens-after.old  lenses.old  uploads.old  last-sent.old
+      tool-receipts.old  cron  computing.old
+      policy.old  epoch.old  after.old  lanes.old  jobs.old
+      deliveries.old  notices.old  next-notice.old  listeners.old
+      watching.old  wake.old  error.old
+  ==
 ++  cron-clearable
   |=  [job=job:cr db=state:hh admitting=?]
   ^-  ?
@@ -52,9 +68,9 @@
       ?.  ?=(%ship -.whom.event)  ~
       `[p.id.key.event key.event [%dm p.whom.event `id.parent.event] (story-to-text:story content.event) &]
         %post
-      `[p.id.key.event key.event [%channel channel.event ~] (story-to-text:story content.event) mention.event]
+      `[p.id.key.event key.event [%channel channel.event ~] (text:input our content.event) mention.event]
         %reply
-      `[p.id.key.event key.event [%channel channel.event `time.parent.event] (story-to-text:story content.event) |(mention.event =(our p.id.parent.event))]
+      `[p.id.key.event key.event [%channel channel.event `time.parent.event] (text:input our content.event) |(mention.event =(our p.id.parent.event))]
     ==
   ?~  item  ~
   ?:  =(actor.u.item our)  ~
@@ -151,7 +167,7 @@
   [%9 +.+.old]
 ++  upgrade-lens
   |=  [old=state-9:t now=@da]
-  ^-  state:t
+  ^-  state-10:t
   ::  New summaries only: enabling the integration is not a history export.
   [%10 now ~ +.old]
 ++  next-message-stamp

@@ -149,6 +149,8 @@
   $%  [%config-replaced =config]
       [%input-admitted =item]
       [%input-received input=admitted-input]
+      ::  Bounded source material captured at admission, never a human command.
+      [%context-received input-id=input-id body=@t]
       ::  Local command reply, linked to its admitted input; not inference.
       [%command-completed input-id=input-id name=@t body=@t]
       ::  Explicit conversation notes, independent of generated checkpoints.
@@ -158,6 +160,7 @@
       [%llm-completed req=@ud stop=stop-reason =usage =item]
       [%llm-failed req=@ud err=@t]
       [%tool-requested call-id=@t name=@t]
+      [%tool-requested-2 generation=@ud call-id=@t name=@t]
       [%tool-completed call-id=@t name=@t body=@t]
       [%compaction-completed req=@ud summary=@t]
       [%compaction-planned req=@ud plan=compaction-plan]
@@ -205,6 +208,7 @@
       [%fork-at from=session-id to=session-id at=@ud]
       [%compact sid=session-id]
       [%cancel sid=session-id]
+      [%fence sid=session-id]
       [%delete sid=session-id]
       [%retry sid=session-id]
       [%config sid=session-id =config]
@@ -236,6 +240,8 @@
       ::
       [%rehearse sid=session-id call-id=@t name=@t input=@t]
   ==
+::  Generation-fenced internal dispatch. Legacy action pokes remain readable.
++$  effect  [generation=@ud act=action]
 ::  facts
 ::
 +$  update

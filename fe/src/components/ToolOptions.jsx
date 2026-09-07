@@ -1,7 +1,8 @@
 import { useState } from 'react'
 
 const copy = {
-  web: ['Web search & requests', 'Search with the configured provider and fetch HTTP resources.'],
+  web: ['Web search & GET', 'Search with the configured provider and read HTTP resources using GET.'],
+  curl: ['Curl / general HTTP', 'Make HTTP requests with custom methods, headers and bodies. Can write to external services and reach private addresses.'],
   skills: ['Skills', 'Read instructions from the skill library.'],
   'skill-write': ['Write shared skills', 'Create, overwrite or delete instructions used by other conversations.'],
   author: ['Skill experiments', 'Stage instructions, try read-only rehearsals, and publish to the shared library. Publishing is not protected by a review gate.'],

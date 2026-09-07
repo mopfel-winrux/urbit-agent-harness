@@ -5,7 +5,7 @@ import TlonSettings from '../src/components/TlonSettings'
 import '../src/style.css'
 
 let state = { policy: { enabled: false, owner: '~zod', mentions: true, trusted: [] }, connected: false, sessions: ['nec-dm-test'] }
-window.tlonFixture = { saves: [], modelUpdates: [], cron: [], cancelled: [], lens: { owner: '~zod', accepted: 2, pending: 0, failed: 0 }, lensRetries: 0, profile: { nickname: 'Existing bot', avatar: 'https://example.com/bot.png' }, profileError: '' }
+window.tlonFixture = { saves: [], modelUpdates: [], cron: [], cancelled: [], work: { records: [], next: null, headConnected: true }, workReads: [], recoveries: [], recoveryError: '', lens: { owner: '~zod', accepted: 2, pending: 0, failed: 0 }, lensRetries: 0, profile: { nickname: 'Existing bot', avatar: 'https://example.com/bot.png' }, profileError: '' }
 acp.call = async (method, params) => {
   if (method !== 'harness/session/use-default-model') throw new Error('Unexpected fixture method')
   window.tlonFixture.modelUpdates.push(params.sessionId)
@@ -17,8 +17,20 @@ api.read = async (path) => path === 'tlon/cron' ? structuredClone(window.tlonFix
   { ship: '~bud', nickname: 'Alice peer', contact: false },
 ]
 const read = api.read
-api.read = async (path) => path === 'tlon' ? { ...await read(path), lens: structuredClone(window.tlonFixture.lens) } : read(path)
-api.action = async ({ tlon, tlonProfile, cancelCron, clearCron, tlonLensRetry }) => {
+api.read = async (path) => {
+  if (path.startsWith('tlon/work')) { window.tlonFixture.workReads.push(path); return structuredClone(window.tlonFixture.work) }
+  return path === 'tlon' ? { ...await read(path), lens: structuredClone(window.tlonFixture.lens) } : read(path)
+}
+api.action = async ({ tlon, tlonProfile, cancelCron, clearCron, tlonLensRetry, hand, retryAdmission }) => {
+  if (hand || retryAdmission) {
+    if (window.tlonFixture.recoveryError) throw new Error(window.tlonFixture.recoveryError)
+    window.tlonFixture.recoveries.push(hand || { retryAdmission })
+    window.tlonFixture.work.records = window.tlonFixture.work.records.map((record) => {
+      if (record.id !== (hand?.resolve?.effect || hand?.retry?.effect || retryAdmission)) return record
+      return { ...record, status: hand?.resolve?.status || 'completed', canResolve: false, canRetry: false }
+    })
+    return {}
+  }
   if (tlonLensRetry) {
     window.tlonFixture.lensRetries++
     if (window.tlonFixture.lensError) throw new Error(window.tlonFixture.lensError)

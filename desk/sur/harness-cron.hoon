@@ -10,7 +10,7 @@
       any-day=?
       any-weekday=?
   ==
-+$  job
++$  job-0
   $:  sid=@t
       run-sid=@t
       expression=@t
@@ -23,4 +23,5 @@
       reason=@t
       last=(unit @uv)
   ==
++$  job  [kind=?(%prompt %reminder) timezone=@t destination=@t job-0]
 --

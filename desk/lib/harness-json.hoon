@@ -29,6 +29,10 @@
   |=  [name=@t s=skill:h]
   ^-  json
   (pairs:enjs:format ~[['name' %s name] ['desc' %s desc.s]])
+++  skill-json
+  |=  [name=@t s=skill:h]
+  ^-  json
+  (pairs:enjs:format ~[['name' %s name] ['desc' %s desc.s] ['body' %s body.s] ['revision' %s (scot %uv (sham s))]])
 ::  json for configuration surfaces (key withheld)
 ::
 ++  config-json
@@ -145,6 +149,9 @@
       %memory-set
     (pairs:enjs:format ~[['type' %s 'memory-set'] ['name' %s name.e] ['body' ?~(body.e ~ [%s u.body.e])]])
   ::
+      %context-received
+    (pairs:enjs:format ~[['type' %s 'context-received'] ['inputId' %s (scot %uv input-id.e)] ['body' %s body.e]])
+  ::
       %llm-requested
     %-  pairs:enjs:format
     :~  ['type' %s 'llm-requested']
@@ -174,6 +181,13 @@
     %-  pairs:enjs:format
     :~  ['type' %s 'tool-requested']
         ['name' %s name.e]
+    ==
+  ::
+      %tool-requested-2
+    %-  pairs:enjs:format
+    :~  ['type' %s 'tool-requested']
+        ['name' %s name.e]
+        ['generation' (numb:enjs:format generation.e)]
     ==
   ::
       %tool-completed

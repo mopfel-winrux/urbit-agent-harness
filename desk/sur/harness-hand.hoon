@@ -59,6 +59,9 @@
       [%enable id=@t enabled=?]
       [%remove id=@t]
       [%observe binding=@t event=@t actor=@t text=@t]
+      ::  Literal hand-owned output, with the same admission/delivery ledger
+      ::  but no model turn and no interpretation of its text as a command.
+      [%notify binding=@t event=@t actor=@t text=@t]
       [%claim hand=@t effect=input-id:h worker=@t]
       [%receipt hand=@t effect=input-id:h worker=@t status=?(%delivered %failed %uncertain) external=@t]
       [%receipt-at hand=@t effect=input-id:h worker=@t attempt=@ud status=?(%delivered %failed %uncertain) external=@t]

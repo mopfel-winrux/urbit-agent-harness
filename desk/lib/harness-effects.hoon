@@ -10,20 +10,20 @@
 ::  +run-js-poke: a run_js tool call becomes a poke to ourselves
 ::
 ++  run-js-poke
-  |=  [sid=session-id:h call-id=@t code=@t]
+  |=  [sid=session-id:h generation=@ud call-id=@t code=@t]
   ^-  card
   :*  %pass  `wire`[%runjs `@ta`sid `@ta`call-id ~]
       %agent  [our.bowl dap.bowl]  %poke
-      %harness-action  !>(`action:h`[%run-js sid call-id code])
+      %harness-effect  !>(`effect:h`[generation [%run-js sid call-id code]])
   ==
 ::  +rehearse-poke: a rehearse_skill tool call becomes a poke to ourselves
 ::
 ++  rehearse-poke
-  |=  [sid=session-id:h call-id=@t name=@t input=@t]
+  |=  [sid=session-id:h generation=@ud call-id=@t name=@t input=@t]
   ^-  card
   :*  %pass  `wire`[%reh `@ta`sid `@ta`call-id ~]
       %agent  [our.bowl dap.bowl]  %poke
-      %harness-action  !>(`action:h`[%rehearse sid call-id name input])
+      %harness-effect  !>(`effect:h`[generation [%rehearse sid call-id name input]])
   ==
 ::
 ++  wait-card
@@ -146,7 +146,7 @@
 ::  credentials remain agent configuration, while results enter the log.
 ::
 ++  mcp-card
-  |=  [sid=session-id:h c=tool-call:h tools=(list tool-grant:h)]
+  |=  [sid=session-id:h generation=@ud c=tool-call:h tools=(list tool-grant:h)]
   ^-  (unit card)
   ?.  (call-granted:ht c tools)  ~
   =/  server-id  (tool-str args.c 'server')
@@ -184,32 +184,29 @@
   =/  =request:http
     [%'POST' url.u.configured hed `(as-octs:mimes:html (en:json:html payload))]
   :-  ~
-  :*  %pass  `wire`[%tool `@ta`sid `@ta`id.c ~]
+  :*  %pass  `wire`[%tool-2 `@ta`sid (scot %ud generation) `@ta`id.c ~]
       %arvo  %i  %request  request  *outbound-config:iris
   ==
 ::  +fetch-card: an http_fetch tool call becomes an iris request
 ::
 ++  fetch-card
-  |=  [sid=session-id:h c=tool-call:h]
+  |=  [sid=session-id:h generation=@ud c=tool-call:h]
   ^-  (unit card)
   =/  jon  (de:json:html args.c)
   ?~  jon  ~
   ?.  ?=([%o *] u.jon)  ~
   =/  url  (~(get by p.u.jon) 'url')
   ?.  ?=([~ %s *] url)  ~
-  =/  method=method:http
-    =/  m  (~(get by p.u.jon) 'method')
-    ?:(&(?=([~ %s *] m) =('POST' p.u.m)) %'POST' %'GET')
-  =/  body=(unit octs)
-    =/  b  (~(get by p.u.jon) 'body')
-    ?.  ?=([~ %s *] b)  ~
-    `(as-octs:mimes:html p.u.b)
-  =/  hdrs=header-list:http
-    ?~(body ~ ~[['content-type' 'application/json']])
-  =/  =request:http  [method p.u.url hdrs body]
+  ?.  &((lte (met 3 p.u.url) 8.192) |(=('http://' (end [3 7] p.u.url)) =('https://' (end [3 8] p.u.url))))  ~
+  ?:  (lien (trip p.u.url) |=(c=@t |((lte c 32) (gte c 127) =(c '#') =(c '@') =(c 92))))  ~
+  ?~  (de-purl:html p.u.url)  ~
+  =/  method  (~(get by p.u.jon) 'method')
+  ?:  ?&(?=(^ method) !=([%s 'GET'] u.method))  ~
+  ?:  (~(has by p.u.jon) 'body')  ~
+  =/  =request:http  [%'GET' p.u.url ~ ~]
   :-  ~
-  :*  %pass  `wire`[%tool `@ta`sid `@ta`id.c ~]
-      %arvo  %i  %request  request  *outbound-config:iris
+  :*  %pass  `wire`[%tool-2 `@ta`sid (scot %ud generation) `@ta`id.c ~]
+      %arvo  %i  %request  request  [0 0]
   ==
 ::  +answer-card: send a typed answer back over ames
 ::
@@ -223,7 +220,7 @@
 ::  +ask-peer-card: an ask_peer tool call becomes a poke to ourselves
 ::
 ++  ask-peer-card
-  |=  [sid=session-id:h c=tool-call:h]
+  |=  [sid=session-id:h generation=@ud c=tool-call:h]
   ^-  (unit card)
   =/  shp  (tool-str args.c 'ship')
   =/  prm  (tool-str args.c 'prompt')
@@ -236,12 +233,12 @@
   :-  ~
   :*  %pass  `wire`[%aski `@ta`sid `@ta`id.c ~]
       %agent  [our.bowl dap.bowl]  %poke
-      %harness-action  !>(`action:h`[%ask-peer sid id.c u.who u.prm])
+      %harness-effect  !>(`effect:h`[generation [%ask-peer sid id.c u.who u.prm]])
   ==
 ::  +spawn-card: a run_subagent tool call becomes a poke to ourselves
 ::
 ++  spawn-card
-  |=  [sid=session-id:h c=tool-call:h]
+  |=  [sid=session-id:h generation=@ud c=tool-call:h]
   ^-  (unit card)
   =/  jon  (de:json:html args.c)
   ?~  jon  ~
@@ -254,7 +251,7 @@
   :-  ~
   :*  %pass  `wire`[%spawn `@ta`sid `@ta`id.c ~]
       %agent  [our.bowl dap.bowl]  %poke
-      %harness-action  !>(`action:h`[%spawn sid id.c p.u.p sys])
+      %harness-effect  !>(`effect:h`[generation [%spawn sid id.c p.u.p sys]])
   ==
 ::
 ++  give-http

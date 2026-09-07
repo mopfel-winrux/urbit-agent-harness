@@ -50,12 +50,60 @@ Channel mention policy still applies. `/stop` interrupts current work and clears
 that session's queued inputs; other commands wait for the current turn to settle.
 See [conversation commands](acp.md#conversation-commands) for semantics.
 
+### Explicit conversation notes
+
+Use `/remember preference Keep replies short.` to save or replace a pinned note,
+`/memory` to list notes, and `/forget preference` to unpin one. These are human
+commands, not model tools: ordinary prose and a model reply containing `/remember`
+cannot update memory. Successful saves record the note and acknowledgement in the
+same head admission; Tlon sends that acknowledgement through its normal delivery
+ledger. It is not a remote read receipt.
+
+In mention-only channels, select the bot's native mention first, then type the
+plain slash command in the same paragraph—for example, **@Bot /memory**. The
+addressing prefix is removed before the shared command interpreter runs; it does
+not bypass sender or mention authorization. Plain-text ship spellings, other
+ships' mentions, formatted command text and multi-paragraph messages do not use
+this shortcut. DMs and replies to the bot's own channel posts do not need it.
+
+Notes belong to the current sender/conversation: private DM notes are not injected
+into channel or thread requests. They remain verbatim across compaction and head
+reloads. Limits are 16 notes, 1,024 UTF-8 bytes per body and 8,192 bytes total,
+including names; overflow is rejected, never silently evicted. Unpinning does not
+erase earlier messages, note events or checkpoints. Conversation identity and
+notes survive permission edits, revocation/regrant, and disable/re-enable. An
+affected conversation must establish fresh authorization before new input runs;
+retaining a note never retains a revoked capability.
+
+### One companion, scoped conversations
+
+The companion's stable social identity is the ship, not a model, nickname,
+provider, permission revision or shared transcript. Contacts owns its public
+name and avatar. Defaults supply initial behavior; existing conversations retain
+their chosen instructions and model. There is no second personality database.
+
+Preferences are explicit pinned notes in one sender/destination conversation.
+Saving a preference in a DM does not authorize publishing it into a channel.
+Skills are an owner-managed shared instruction library, not personal memory.
+Social conversations and their descendants cannot write, stage or publish into
+that library, even if an old saved configuration contains those grants. An
+operator can deliberately install reusable instructions outside a social
+conversation; existing library contents are not silently removed.
+
+For a channel thread, ordinary message admission captures the native parent
+and up to eight recent replies as attributed public reference material. The
+snapshot records destination, message IDs, ships, timestamps and clipped text
+separately from the current input. It never reads another actor's Harness log or
+notes, and it grants no execution authority. Its encoded message budget is 6 KB;
+each message has the history reader's 800-byte text limit. Snapshots may omit
+older replies. Commands do not retrieve or interpret this material. DMs and
+top-level channel conversations receive no automatic cross-message context.
+
 ## Thinking and tool activity
 
 Chat computing indicators use `%presence-action-1` and the
-`tlon.computing-status.v1` display payload. The pinned Presence noun is identical
-to Lux's installed Groups noun; the payload was also checked against the current
-Groups client (`95dee1d917f0`), not just the older Claw integration.
+`tlon.computing-status.v1` display payload, matching the versioned Groups
+Presence protocol.
 The adapter publishes “Thinking...” or named tool activity (for example,
 “Searching the web” or “Reading chat history”) in the DM/channel context.
 Only unfinished calls in the latest tool batch contribute. Names are restricted
@@ -173,17 +221,39 @@ S3 endpoint, and restores the test ship's storage configuration.
 - Channels require a mention by default. Replies to the bot's own posts count
   as addressed; DMs do not require mentions. Turn the requirement off to answer
   every message from allowed actors in channels the ship has joined.
-- Sender, destination/thread, and policy epoch determine the session. A shared
+- Sender and exact destination/thread determine the stable conversation. A shared
   channel does not share the owner's private DM transcript or execution grants.
   Channel answers are still public to that channel's members: granting file,
   web, skills, peer, or MCP access can expose whatever those tools can read.
 
-Saving changed policy stops queued/running Tlon work, disables existing bindings,
-and clears those sessions' tool grants. New input starts a fresh session epoch.
-Revoked routing records are discarded; the head retains bindings, transcripts and
-delivery evidence. Saving unchanged policy leaves routes and sessions alone.
-Previously emitted network operations cannot be undone. Publication checks the
-current epoch and actor again after claiming, before sending.
+Permission changes retire only affected authorization routes. Adding an unrelated
+trusted actor leaves existing conversations, in-flight work, notes, saved model
+settings and schedules alone. Changing the mention requirement affects channels,
+not DMs; changing an actor's role or effective grants affects that actor's work.
+Grant order alone is not a revocation. Disabling Tlon affects every route.
+
+Affected queued/running work is cancelled, old bindings are disabled, native
+timers and delegated work are fenced, and source schedules are paused until
+explicitly rescheduled. The head retains its transcript, pinned notes and chosen
+configuration. New authorized input resumes that same head only after cancellation
+and a tools-only configuration update have been acknowledged, using a fresh
+binding. Old publications cannot move to the new binding. Actor-specific admission
+cutoffs reject queued pre-grant messages without dropping unrelated input.
+
+Publication checks the exact current binding and actor again after claiming,
+before sending. Async callbacks and self-dispatched work carry request generations,
+so reusing a tool-call ID cannot revive an old request. Previously emitted network
+operations cannot be undone; their receipts and uncertainty remain evidence.
+Saving unchanged policy leaves routes and sessions alone. Migration retains each
+currently routed conversation's existing head ID; it does not merge transcripts
+from earlier retired policy epochs or alias scheduled runs as conversations.
+
+`scripts/tlon-continuity-conformance.mjs` exercises native DM/channel threads,
+unrelated and affected permission edits, notes, chosen settings, timers, schedules,
+late HTTP/child results, and reload. It requires `CONTINUITY_TEST_MESSAGES=1`, the
+usual ship/peer/nest variables, and `TEST_PANE` for the test ship's Dojo. It restores
+policy, defaults and original native trust; marked test messages and audit records
+remain in the disposable conversations.
 
 The adapter watches `/v4` with the version-8 activity vocabulary. Top-level
 messages and replies are normalized once, using the durable source message key.
@@ -210,6 +280,8 @@ These owner-authenticated extensions work from any initialized ACP client:
 | `harness/tlon/profile` | `{}` | Public `nickname` and `avatar` from Contacts |
 | `harness/tlon/profile/set` | `{ "nickname": "Bot", "avatar": "https://…" }` | Profile read back after Contacts acknowledges the two-field edit |
 | `harness/tlon/watch` | `{}` | State plus subsequent `harness/tlon/activity` notifications |
+| `harness/tlon/work` | Optional `before` cursor | At most 16 admission/ledger records, continuation cursor and head availability |
+| `harness/tlon/admission/retry` | Admission job `id` | Resume setup/admission against current authority; original source identity is retained |
 
 ```json
 {
@@ -226,8 +298,9 @@ notifications do not themselves grant tools or instruct the model. Recent activi
 is a bounded 128-entry diagnostic feed, not a second transcript. Use session
 snapshots and the [hand ledger](hands.md) for admitted work and delivery audit.
 
-The head forwards only the named Tlon methods through `harness-adapter`'s tiny
-request envelope. Adapter errors become ACP errors instead of indefinite waits.
+The head forwards the authenticated `harness/tlon` namespace through
+`harness-adapter`'s tiny request envelope; the adapter owns its method vocabulary.
+Adapter errors become ACP errors instead of indefinite waits.
 Transport authentication has owner authority; do not give untrusted chat
 participants the ship login code.
 
@@ -256,6 +329,15 @@ failure, and an unknown outcome never authorizes a resend.
 Timeouts or restarts never authorize automatic resending of uncertain sends.
 Reconcile them using `harness/hand` health, effect, and resolve operations.
 
+The owner-facing Work panel projects received, working, completed, sending,
+uncertain and terminal states from that same ledger. It includes failed
+pre-admission work and retains old-binding evidence. Recovery requires a reason,
+explicit evidence confirmation and the observed attempt number. A stale attempt
+is rejected without discarding the draft. Marking an action failed does not
+resend it: retry is a separate, explicit operation, available only for current
+authority and a known-unsent failed publication. Uncertain sends never get an
+automatic retry. Closing the panel stops its inspection polling.
+
 Reload recovery distinguishes an unprocessed claim, an emitted send with unknown
 outcome, and a recorded receipt. It can finish a provably undispatched claim or
 replay a receipt, but never blindly repeat a Messenger send. Late claim and
@@ -263,16 +345,58 @@ receipt responses are fenced by dispatch stage and attempt. Claimed or uncertain
 ledger records block their destination even if this adapter has no cached entry.
 
 Timers are reserved for actual cron deadlines, presence-lease renewal, tool
-acknowledgement timeouts, and Activity subscription recovery. An idle connected
+acknowledgement timeouts, Activity subscription recovery and bounded catch-up.
+An idle connected
 hand without a schedule has no wake. Status exposes `deliveryMode: "events"`,
 `headConnected`, `publicationsConnected`, and nullable `maintenanceWake`;
 `connected` continues to describe the Activity subscription.
 
+Activity catch-up uses a durable native ingestion-time cursor. Each turn walks
+at most 16 selected events plus one lookahead in the current native ordered
+tree; it does not serialize or convert the whole feed. Recovery starts on
+reconnection, then uses bounded wakes only while behind. It pauses before
+advancing past an input when the adapter or head waiting queue lacks room,
+counting in-flight admissions as reservations. Current actor/channel cutoffs,
+mentions and grants still apply. The normal source-event identity prevents
+re-admission across restart; quoted messages and new nonconversational Activity
+variants do not acquire command authority.
+
+The cursor recovers events still retained by native Activity. It is not a promise
+to recover deleted or expired native history. Migration starts at its own time
+instead of answering old conversations retroactively; already retained jobs
+remain recoverable. `activityThrough` and `catchingUp` expose the checkpoint and
+whether more work remains.
+
+### Retention and capacity
+
+Conversation identities and their notes outlive route authorization. Revocation
+disables the old binding and fences its work; it does not delete its evidence or
+assign its old publications to a new binding. Operational limits are admission
+backpressure, never permission to prune primary history: 128 retained social
+identities, 64 pending admissions and 64 retained schedules, in addition to the
+[shared hand limits and archive protocol](hands.md#fair-admission-and-explicit-retention).
+
+To reclaim a settled binding's operational ledger, stop admission by disabling
+the adapter, resolve its unfinished work, and export/retire the disabled binding
+through that protocol. Re-enabling creates a fresh authorization binding for
+future input while preserving the same conversation head and notes. Do not
+relabel old events into the new binding. The activity cutoff deliberately starts
+a new admission period when the adapter is re-enabled; disabling is not the
+same as downtime recovery.
+
+Retiring a ledger binding does not release a social identity or delete a session
+log. At identity capacity, existing conversations remain usable and new ones
+are rejected visibly. Automatic identity eviction and primary-history pruning
+are not implemented. Do not present a ledger archive as an export of the full
+conversation or as proof that external storage is durable.
+
 Only one publication per destination is sent at a time; unrelated conversations
-proceed independently. Pending admission is capped at 64 adapter jobs and 128
-session lanes in the current permission epoch, in addition to the head's ledger
-limits. Capacity errors are reported, not solved by deleting history. Binding export/retirement and adapter
-lane rotation need explicit operational care; there is no automatic history
+proceed independently. Pending admission is capped at 64 adapter jobs; the stable
+conversation directory retains up to 128 identities, including inactive ones.
+Schedules have their own 64-entry cap, in addition to the head's ledger limits.
+Capacity errors are reported, not solved by deleting history. Binding
+export/retirement and conversation-directory capacity need explicit operational
+care; there is no automatic history
 pruning or offline activity-feed backfill yet.
 
 ## Source boundaries
@@ -305,16 +429,40 @@ clipped text. Top-level conversations return recent top-level messages. A bound
 DM/channel thread returns its parent followed by up to 19 recent replies, omitting
 deleted replies and unrelated top-level messages. Native tree traversal and
 channel reply requests are bounded; no whole-thread JSON conversion is needed.
+
+`tlon_history_page` walks older messages in the same conversation. Pass an empty
+`cursor` for the newest page, then the returned `next_cursor`. Each page inspects
+at most 20 entries and returns at most 20 messages in chronological order.
+`tlon_search_history` takes a nonblank `query` (at most 128 bytes) and optional
+`cursor`. It performs literal ASCII-case-insensitive matching within the first
+800 rendered text bytes per message, inspecting at most 64 entries and returning
+at most 20 matches per call. This is bounded local history search, not a complete
+index. An empty page with `has_more: true` is not an exhaustive no-match.
+
+Both return `messages`, a separate thread `parent`, `next_cursor`, `has_more`,
+`scanned`, `scan_limit`, and `text_limit_bytes`; search also reports the parent's
+match through `parent_matches`. Deleted entries advance the cursor without
+returning deleted text. Serialized result size can reduce the message count;
+the next cursor preserves the first unreturned match. Positions use native local
+history keys, not author timestamps, so new arrivals do not shift older pages.
+Cursors are scoped to the conversation, actor, authorization generation, tool and
+normalized query. Unrelated policy edits leave them valid; affected authorization
+changes invalidate them. They never select another destination or confer authority.
+The two-ship `scripts/tlon-history-conformance.mjs` fixture requires
+`HISTORY_TEST_MESSAGES=1` and the usual peer/nest variables. It leaves uniquely
+marked native test messages, while restoring defaults, policy and native trust.
+
 `tlon_react` and `tlon_unreact` operate on those IDs in that same conversation,
 including the parent or individual thread replies. No model argument can select
-another destination or expand the history window. Reactions use a
+another destination or expand the recent reaction window. Reading older pages
+or search results does not authorize reactions to older messages. Reactions use a
 persisted invocation receipt and report local Messenger acknowledgement, not
 remote delivery. Missing acknowledgements become uncertain after a minute and
 are not automatically retried. Ordinary final replies still use the publication
 ledger; there is no arbitrary cross-chat send or group-management grant here.
 
-The owner can use `cron_add`, `cron_list`, and `cron_remove` from a conversation
-granted `cron`. Creation requires `schedule`, `timezone: "UTC"`, `prompt`, and
+An admitted actor can use `cron_add`, `cron_list`, and `cron_remove` within their
+bound conversation. Creation requires `schedule`, `timezone: "UTC"`, `prompt`, and
 `runs` (a decimal string, 1–100). Five-field expressions support `*`, steps,
 ranges and lists; weekdays are 0=Sunday through 6=Saturday. Restricted
 day-of-month and weekday fields use OR semantics. Local/IANA timezones and DST
@@ -327,8 +475,25 @@ including its thread address. It receives the configured instructions and grants
 but no parent transcript, no cron grant, and no subagent grant. The source grant
 ceiling remains effective even if the scheduled session's configuration is edited.
 The source snapshot is rechecked at admission, tool dispatch and publication; changing source
-grants pauses the schedule and requires explicit rescheduling. Changing Tlon
-policy currently pauses schedules along with retiring the old lanes.
+grants pauses the schedule and requires explicit rescheduling. Unrelated social
+policy edits preserve the schedule; affected authorization changes fence it.
+
+`reminder_add` creates a one-shot literal reminder, not a scheduled model prompt.
+Supply the exact conversation `destination`, `text` (1–4,096 UTF-8 bytes), and
+an `at` timestamp such as `2026-09-07T09:00:00-05:00`. A timezone is mandatory:
+`Z` is UTC; explicit offsets range through ±14:00. Missing offsets, the unknown
+offset `-00:00`, invalid calendar dates, past times and times more than 365 days
+ahead are rejected. IANA timezone inference and recurring local-time/DST rules
+are deliberately absent. Ask for the intended offset when it is not known.
+
+Reminders share cron's retained-record limit, Behn wake, cancellation controls,
+authorization fences and publication ledger. The scheduling acknowledgement
+reports the resolved time and exact destination; it is not a delivery receipt.
+When due, the head records a completed literal notification and a pending
+publication without inference, private transcript inheritance or command parsing.
+Text beginning with `/remember` remains message text. Provider availability and
+credits are not required at delivery time. An uncertain send is never repeated
+automatically, including after a restart or permission change.
 
 Behn drives the existing hand maintenance loop. A due occurrence becomes an
 idempotent hand observation and follows the normal execution/publication ledger.

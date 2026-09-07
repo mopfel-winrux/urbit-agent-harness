@@ -1,3 +1,5 @@
+import { canonicalShip } from './people.js'
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export function webConnection() {
@@ -19,19 +21,43 @@ export class AcpClient extends EventTarget {
     this.lastError = null
     this.recovering = null
     this.receivedThrough = 0
+    this.host = null
+    this.identity = null
   }
 
   ship() {
-    return window.ship || (document.cookie.match(/urbauth-~([a-z-]+)/) || [])[1] || 'zod'
+    if (!this.host) throw new Error('The current ship has not been identified.')
+    return this.host
+  }
+
+  async identify() {
+    if (this.identity) return this.identity
+    this.identity = (async () => {
+      // Cookies are shared across ports. Eyre knows both this server's ship
+      // and the authenticated identity; browser globals/cookie order do not.
+      const read = async (path) => {
+        const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(15_000) })
+        if (!response.ok) throw new Error(`Could not identify this ship (HTTP ${response.status}).`)
+        const ship = canonicalShip(await response.text())
+        if (!ship) throw new Error('The server did not return a valid ship identity.')
+        return ship
+      }
+      const [host, identity] = await Promise.all([read('/~/host'), read('/~/name')])
+      if (host !== identity) throw new Error('Sign in to this ship, then reload Harness.')
+      this.host = host.slice(1)
+      return this.host
+    })().catch((error) => { this.identity = null; this.host = null; throw error })
+    return this.identity
   }
 
   async poke(json) {
+    const ship = await this.identify()
     const response = await fetch(`/~/channel/${this.channel}`, {
       method: 'PUT', credentials: 'same-origin',
       signal: AbortSignal.timeout(15_000),
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify([{
-        id: ++this.eventId, action: 'poke', ship: this.ship(), app: 'acp',
+        id: ++this.eventId, action: 'poke', ship, app: 'acp',
         mark: 'acp-action-1', json,
       }]),
     })

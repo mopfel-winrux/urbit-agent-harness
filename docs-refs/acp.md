@@ -15,6 +15,15 @@ only frames it has consumed. Harness acknowledges agent-bound frames only after
 admission. Queues survive ordinary process reloads and prevent one client from
 stealing another client's updates.
 
+Queue admission is bounded by both count and bytes: 1,024 frames and 4 MiB per
+direction on one connection, with 8,192 frames and 16 MiB across all connections.
+Individual frames remain limited to 1 MiB. Existing queues above a new limit
+survive upgrades unchanged; acknowledgements release space. Exhaustion rejects
+new frames, not old evidence. An explicitly closed transport can be discarded;
+it is not the primary conversation log or publication ledger. A rejected or
+missing response does not prove the corresponding mutation was never admitted:
+inspect durable state before retrying it.
+
 ## Protocol surface
 
 ### Conversation commands

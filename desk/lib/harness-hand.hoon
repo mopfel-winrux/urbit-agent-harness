@@ -159,6 +159,25 @@
     =.  queue.db  (snoc queue.db id)
     [%& db (admission-json id obs)]
   ::
+      %notify
+    =/  id  (input-id binding.act event.act)
+    =/  old  (~(get by observations.db) id)
+    =/  admitted  $(act [%observe binding.act event.act actor.act text.act])
+    ?:  ?=(%| -.admitted)  admitted
+    ?^  old
+      =/  pub  (~(get by outbox.db) id)
+      ?.  ?&(?=(^ pub) =(%completed phase.u.old) =(%reply kind.u.pub) =(text.act body.u.pub))
+        [%| 'Source event already belongs to different work']
+      [%& db (admission-json id u.old)]
+    =.  db  db.p.admitted
+    =/  obs  (~(got by observations.db) id)
+    =/  cfg  (~(got by bindings.db) binding.act)
+    =/  pub=publication:hh  [id binding.act hand.cfg address.cfg sid.cfg %reply text.act %pending '' '' ~]
+    =.  observations.db  (~(put by observations.db) id obs(phase %completed))
+    =.  queue.db  (skip queue.db |=(queued=input-id:h =(id queued)))
+    =.  outbox.db  (~(put by outbox.db) id pub)
+    [%& db (admission-json id obs(phase %completed))]
+  ::
       %claim
     ?.  (lte (met 3 worker.act) 128)  [%| 'Worker identity exceeds its limit']
     =/  pub  (~(get by outbox.db) effect.act)
@@ -449,6 +468,7 @@
       enable+(ot ~[id+so enabled+bo])
       remove+(ot ~[id+so])
       observe+(ot ~[binding+so event+so actor+so text+so])
+      notify+(ot ~[binding+so event+so actor+so text+so])
       claim+(ot ~[hand+so effect+id worker+so])
       receipt+(ot ~[hand+so effect+id worker+so status+json-receipt-status external+so])
       receipt-at+(ot ~[hand+so effect+id worker+so attempt+ni status+json-receipt-status external+so])

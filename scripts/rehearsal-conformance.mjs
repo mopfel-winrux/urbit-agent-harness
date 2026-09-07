@@ -30,7 +30,7 @@ const server = createServer(async (req, res) => {
         // Even an explicit config edit cannot turn the special-purpose child
         // into an effectful executor while its provider request is outstanding.
         if (editChild) await client.call('harness/session/configure', {
-          sessionId: `rehearse--${sessionId}--try-skill`,
+          sessionId: `rehearse--${sessionId}--1--try-skill`,
           config: { ...config, system: 'This is a read-only rehearsal fixture.', tools: broad },
         })
         calls = [
@@ -72,7 +72,7 @@ try {
     editChild = widen; childTurns = 0
     skill = `rehearsal-${randomUUID()}`; proposals.push(skill)
     ;({ sessionId } = await client.call('session/new', { name: `rehearsal-${randomUUID().slice(0, 8)}` }))
-    sessions.push(sessionId, `rehearse--${sessionId}--try-skill`)
+    sessions.push(sessionId, `rehearse--${sessionId}--1--try-skill`)
     config = { url: `${url}/completions`, model: 'fixture', key: '', headers: [],
       system: 'Parent test fixture', 'max-context': 80000, tools: broad }
     await client.call('harness/session/configure', { sessionId, config })

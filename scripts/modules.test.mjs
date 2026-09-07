@@ -74,6 +74,25 @@ test('Tlon is a replaceable hand, not an inference engine', async () => {
   assert.match(adapter, /%harness-hand/)
 })
 
+test('history pagination is bounded, read-only and follows current lane authority', async () => {
+  const reader = code('harness-tlon-history-read')
+  assert.doesNotMatch(reader, /%poke|%pass|%watch|harness-store/)
+  assert.match(reader, /\(lte count 65\)/)
+  assert.match(reader, /\/older\/\(scot %ud u.before\)/)
+  assert.doesNotMatch(code('harness-tlon-history-page'), /\.\^\(|%pass|bowl:gall/)
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const tool = adapter.split('++  tool\n')[1].split('\n++  ')[0]
+  assert.ok(tool.indexOf('(tool-authority req)') < tool.indexOf("=('tlon_history_page'"))
+  assert.match(tool, /sham \[sid.req epoch.u.lane actor.u.lane to.u.lane name.call.req needle\]/)
+  assert.match(tool, /load:~\(\. history-read bowl\) to.u.lane before/)
+})
+
+test('Tlon addressing cannot become a second memory or command authority', () => {
+  assert.doesNotMatch(code('harness-tlon-input'), /%memory-set|%command-completed|harness-provider|harness-memory|harness-command|%pass|\.\^\(/)
+  assert.match(code('harness-tlon-policy'), /text:input our content.event/)
+  assert.doesNotMatch(code('harness-memory'), /\.\^\(|%pass|bowl:gall|harness-store|session-id/)
+})
+
 test('Tlon messages are driven by head facts and receipts, never maintenance wakes', async () => {
   const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
   const arm = (name) => adapter.split(`++  ${name}\n`)[1]?.split('\n++  ')[0]

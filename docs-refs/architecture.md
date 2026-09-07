@@ -71,6 +71,7 @@ The contingent pieces have narrow jobs:
 | `harness-json` | Client projections and command decoding | Persisted state or provider wire formats |
 | `harness-tools` | Schemas, function-to-family grants, executor safeguards | Tool execution |
 | `harness-effects` | Concrete ship reads and HTTP/MCP/timer/peer cards | Session store or continuation |
+| `harness-curl` | General HTTP schema, validated request cards and bounded response rendering | Grants, credentials, retry ownership or session state |
 | `harness-acp` | ACP frames, terminal updates and transport cards | Prompt ownership or admission |
 | `harness-defaults` | Bootstrap instructions and policy | Existing conversation configuration |
 | `sur/lib/harness-store` | Exact saved envelopes and version conversion | The running decision loop |
@@ -210,8 +211,9 @@ the inspector validates locally so malformed diagnostics cannot fail an ACP
 update. ACP `harness/session/recheck` republishes the current authoritative
 source without adding a semantic event or running inference.
 
-This is an independent replay/current-decision checkpoint, **not a second
+This is a separately executed replay/current-decision checkpoint, **not a second
 executor** and not proof that every actual dispatched effect was correct.
+It uses the same reducer, so agreement is not an independent semantic oracle.
 Snapshots often include an already-pending effect, so the next decision can
 be empty. Capturing and comparing the complete intent/receipt sequence at
 dispatch boundaries remains necessary before moving session ownership.
@@ -372,6 +374,25 @@ contract to implement across all hands, not an executor boundary already in use.
   admission, and are never returned by status.
 - ACP does not advertise ambient filesystem or terminal access.
 - Tool families are explicit session grants.
+- `http_fetch` only emits GET, without a request body, injected credentials,
+  redirects or transport retries. It is not a private-network isolation boundary:
+  Iris does not expose DNS-answer validation with pinned public-IP connections.
+  Arbitrary POST requests are not part of the web grant.
+- `curl` has its own explicit `%curl` grant, absent from bootstrap defaults.
+  It uses native Iris, not a shell or external worker, and supports the runtime's
+  nine HTTP methods, explicit string-valued headers and an optional UTF-8 body.
+  There is no destination allowlist or private-address restriction. Request
+  syntax/resource bounds are 8 KiB URL, 128 headers (256-byte names and 16 KiB
+  values), and 4 MiB body. Credentials are never injected. Supplied headers and
+  bodies are ordinary durable tool-call arguments, not a secret vault.
+  Redirects default to zero; an explicit budget up to 20 enables Iris's native
+  301/303/307 handling with absolute Location URLs, preserving the original
+  method, headers and body even across hosts. Other redirects are returned for
+  inspection. There are no automatic retries. Results include status, up to
+  8,000 bytes each of response headers and body text; this is an output bound,
+  not an Iris download-size cap. Cancellation withdraws the local wait and
+  fences late receipts, but cannot undo a remote write. Destination-specific
+  writes may instead use separately authorized hands or configured MCP servers.
 - External channels and remote peers require narrow typed adapters.
 
 ## Build discipline

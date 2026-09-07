@@ -1,5 +1,5 @@
-::  Maintenance deadlines only. Observations and publications do not create
-::  timers: native head invalidations and receipts drive message delivery.
+::  Maintenance and bounded Activity catch-up only. Publication retries never
+::  create timers: native head invalidations and receipts drive delivery.
 /-  t=harness-tlon, cr=harness-cron
 |%
 ++  deadline
@@ -13,6 +13,7 @@
       (murn ~(val by tool-receipts.state) |=(r=tool-receipt:t ?:(=(%sending stage.r) `(add at.r ~m1) ~)))
     (murn ~(val by cron.state) |=(j=job:cr ?:(=(%active state.j) `next.j ~)))
   =?  times  !watching.state  [(add now ~s2) times]
+  =?  times  catching-up.state  [(add now ~s1) times]
   ?~  times  ~
   =/  earliest=@da
     =/  least  i.times

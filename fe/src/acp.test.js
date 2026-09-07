@@ -35,3 +35,49 @@ test('queue recovery never repeats a possibly admitted mutation', async () => {
   assert.equal(sent.length, 1)
   assert.ok(sent[0].open)
 })
+
+test('ACP targets the current server, ignoring other localhost cookies and globals', async (t) => {
+  const savedWindow = globalThis.window, savedDocument = globalThis.document
+  globalThis.window = { ship: 'lux' }
+  globalThis.document = { get cookie() { throw new Error('Cookie guessing must not be used') } }
+  t.after(() => { globalThis.window = savedWindow; globalThis.document = savedDocument })
+  const requests = []
+  t.mock.method(globalThis, 'fetch', async (path, options) => {
+    requests.push({ path, options })
+    return new Response(path.startsWith('/~/channel/') ? '' : '~fasbud-nomtud-sitful-hatred')
+  })
+  const client = new AcpClient()
+  await Promise.all([client.poke({ open: { connection: 'a' } }), client.poke({ open: { connection: 'b' } })])
+  assert.equal(requests.filter((r) => r.path === '/~/host').length, 1)
+  assert.equal(requests.filter((r) => r.path === '/~/name').length, 1)
+  for (const request of requests.filter((r) => r.path.startsWith('/~/channel/'))) {
+    assert.equal(JSON.parse(request.options.body)[0].ship, 'fasbud-nomtud-sitful-hatred')
+  }
+})
+
+test('invalid, unavailable or unauthenticated identity never emits an ACP poke', async (t) => {
+  for (const mode of ['invalid', 'unavailable', 'signed-out']) {
+    const requests = []
+    const mocked = t.mock.method(globalThis, 'fetch', async (path) => {
+      requests.push(path)
+      if (mode === 'unavailable') return new Response('', { status: 503 })
+      return new Response(mode === 'invalid' ? '<html>login</html>' : path === '/~/host' ? '~nec' : '~zod')
+    })
+    const client = new AcpClient()
+    assert.throws(() => client.ship(), /not been identified/)
+    await assert.rejects(client.poke({ open: { connection: 'a' } }), /identity|identify|Sign in/)
+    assert.deepEqual(requests.sort(), ['/~/host', '/~/name'])
+    assert.equal(client.identity, null)
+    mocked.mock.restore()
+  }
+})
+
+test('identity lookup can recover after failure without inventing a destination', async (t) => {
+  let available = false
+  t.mock.method(globalThis, 'fetch', async () => new Response(available ? '~nec' : '', { status: available ? 200 : 503 }))
+  const client = new AcpClient()
+  await assert.rejects(client.identify())
+  available = true
+  assert.equal(await client.identify(), 'nec')
+  assert.equal(client.ship(), 'nec')
+})

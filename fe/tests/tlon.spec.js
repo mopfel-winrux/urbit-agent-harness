@@ -1,5 +1,37 @@
 import { expect, test } from '@playwright/test'
 
+test('work recovery is explicit, attempt-fenced and never silently retries an uncertain send', async ({ page }) => {
+  await page.goto('/apps/harness/tests/tlon-fixture.html')
+  expect(await page.evaluate(() => window.tlonFixture.workReads)).toEqual([])
+  await page.evaluate(() => { window.tlonFixture.work.records = [{ kind: 'input', id: '0v1', sessionId: 'thread', actor: '~nec', destination: 'dm/~nec', text: 'Requested task', reply: 'Recorded reply', status: 'uncertain', attempt: 7, canResolve: true, canRetry: false, current: true }] })
+  await page.getByText('Work and delivery', { exact: true }).click()
+  await expect(page.getByText('Send uncertain', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Retry failed send' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Resolve delivery', exact: true }).click()
+  const form = page.getByRole('form', { name: 'Delivery recovery' })
+  await expect(form.getByRole('button', { name: 'Record outcome' })).toBeDisabled()
+  await form.getByLabel('Recorded outcome').selectOption('delivered')
+  await form.getByLabel('Evidence or reason').fill('Verified the native message.')
+  await form.getByRole('checkbox').check()
+  await page.evaluate(() => { window.tlonFixture.recoveryError = 'Wrong hand or stale recovery attempt' })
+  await form.getByRole('button', { name: 'Record outcome' }).click()
+  await expect(form.getByRole('alert')).toHaveText('Wrong hand or stale recovery attempt')
+  await expect(form.getByLabel('Evidence or reason')).toHaveValue('Verified the native message.')
+  await page.evaluate(() => { window.tlonFixture.recoveryError = '' })
+  await form.getByRole('button', { name: 'Record outcome' }).click()
+  await expect(page.getByText('Delivered', { exact: true })).toBeVisible()
+  expect(await page.evaluate(() => window.tlonFixture.recoveries)).toEqual([{ resolve: { hand: 'tlon', effect: '0v1', attempt: 7, status: 'delivered', external: '', reason: 'Verified the native message.' } }])
+  expect(await page.evaluate(() => window.tlonFixture.saves)).toEqual([])
+})
+
+test('literal reminders show their destination and explicit timezone without implying delivery', async ({ page }) => {
+  await page.goto('/apps/harness/tests/tlon-fixture.html')
+  await page.evaluate(() => { window.tlonFixture.cron = [{ id: '0v2', kind: 'reminder', prompt: 'Take a break', destination: 'dm/~nec', timezone: 'UTC+05:30', state: 'complete', remaining: 0, execution: 'completed', delivery: 'uncertain' }] })
+  await expect(page.getByText(/UTC\+05:30 · literal reminder/)).toBeVisible({ timeout: 8000 })
+  await expect(page.getByText('Destination: dm/~nec', { exact: true })).toBeVisible()
+  await expect(page.getByText(/Execution: completed · Delivery: uncertain/)).toBeVisible()
+})
+
 test('Lens export retry is separate from permission changes and retains rejected exports', async ({ page }) => {
   await page.goto('/apps/harness/tests/tlon-fixture.html')
   await expect(page.getByText('Owner-side storage: ~zod. 2 exports acknowledged, 0 pending.')).toBeVisible()

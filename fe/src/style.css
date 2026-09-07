@@ -98,7 +98,15 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
   letter-spacing: -.025em;
 }
 
-.brand svg { color: var(--accent); }
+.brand-logo {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  padding: 3px;
+  border-radius: 8px;
+  background: #fff;
+  object-fit: contain;
+}
 
 .sidebar-heading {
   display: flex;

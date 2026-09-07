@@ -7,12 +7,11 @@
 ::    the adapter's newline-delimited stdio stream.
 ::
 /-  ac=acp
-/+  default-agent, dbug
+/+  default-agent, dbug, queue-budget=harness-acp-queue
 |%
 +$  card  card:agent:gall
 +$  state-0  [%0 connections=(map connection-id:v1:ac connection:v1:ac)]
 ++  max-connections       256
-++  max-queued-per-peer   10.000
 ++  max-payload-bytes     1.048.576
 ++  max-id-bytes          128
 --
@@ -168,16 +167,16 @@
   =/  old  (~(get by connections.state) id)
   ?~  old  ~|(unknown-acp-connection+id !!)
   ?>  open.u.old
+  ~|  acp-queue-capacity+id
+  ?>  (room:queue-budget connections.state id target payload)
   =/  seq  ?:(=(target %client) next-to-client.u.old next-to-agent.u.old)
   =/  msg=message:v1:ac  [seq now.bowl payload]
   =/  con=connection:v1:ac  u.old
   ?:  =(target %client)
-    ?>  (lth ~(wyt by to-client.con) max-queued-per-peer)
     =.  to-client.con  (~(put by to-client.con) seq msg)
     =.  next-to-client.con  +(seq)
     =.  connections.state  (~(put by connections.state) id con)
     (give-update [%messages id target ~[msg]] id target)
-  ?>  (lth ~(wyt by to-agent.con) max-queued-per-peer)
   =.  to-agent.con  (~(put by to-agent.con) seq msg)
   =.  next-to-agent.con  +(seq)
   =.  connections.state  (~(put by connections.state) id con)

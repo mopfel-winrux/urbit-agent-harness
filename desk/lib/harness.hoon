@@ -5,6 +5,55 @@
 ::
 /-  h=harness
 |%
+::  Shared libraries are not private conversation memory. Durable source
+::  provenance also protects an operator-created fork of a social transcript.
+++  social-context
+  |=  log=(list event:h)
+  ^-  ?
+  %+  lien  log
+  |=  e=event:h
+  ?&(?=(%input-received -.e) ?=(?(%hand %peer) -.source.input.e))
+::  Durable lineage survives completion and forks; ephemeral waiter maps do
+::  not. The runtime uses it to fence descendants without erasing history.
+++  delegation
+  |=  log=(list event:h)
+  ^-  (unit [parent=session-id:h call-id=@t rehearsal=?])
+  ?~  log  ~
+  ?:  ?=(%input-received -.i.log)
+    =/  source  source.input.i.log
+    ?:  ?=(%subagent -.source)  `[parent.source call-id.source |]
+    ?:  ?=(%rehearsal -.source)  `[parent.source call-id.source &]
+    $(log t.log)
+  $(log t.log)
+++  delegated-id
+  |=  [parent=session-id:h call-id=@t rehearsal=? generation=(unit @ud)]
+  ^-  session-id:h
+  %+  rap  3
+  :~  ?:(rehearsal 'rehearse--' '')
+      parent  '--'
+      ?~(generation '' (cat 3 (scot %ud u.generation) '--'))
+      call-id
+  ==
+::  Read the newest marker, including legacy in-flight requests. A legacy
+::  receipt can never borrow a later generation that reused its call ID.
+++  request-generation
+  |=  [ses=session:h call-id=@t]
+  ^-  (unit @ud)
+  =/  events  log.ses
+  |-  ^-  (unit @ud)
+  ?~  events  ~
+  ?:  ?&(?=(%tool-requested-2 -.i.events) =(call-id call-id.i.events))
+    `generation.i.events
+  ?:  ?&(?=(%tool-requested -.i.events) =(call-id call-id.i.events))
+    ~
+  $(events t.events)
+++  request-current
+  |=  [ses=session:h generation=(unit @ud) call-id=@t]
+  ^-  ?
+  ?.  (~(has in wait:(play log.ses)) call-id)  |
+  ?.  =(generation (request-generation ses call-id))  |
+  ?~  generation  &
+  =(u.generation next-req.ses)
 ::  +play: fold the event log (newest first) into a view
 ::
 ++  play
@@ -20,6 +69,7 @@
       %config-replaced       v(config config.e)
       %input-admitted        v(items [item.e items.v], err ~, cancelled ~, compact-attempts 0)
       %input-received        v(items [item.input.e items.v], err ~, cancelled ~, compact-attempts 0)
+      %context-received      v(items [[%user body.e] items.v])
       %command-completed    v(items [[%assistant body.e ~] items.v])
       %memory-set           v(memory ?~(body.e (~(del by memory.v) name.e) (~(put by memory.v) name.e u.body.e)))
       ::  A recorded request is an admitted continuation. Clearing the error
@@ -27,6 +77,7 @@
       %llm-requested         v(pending `[req.e kind.e], err ~)
       %llm-failed            v(pending ~, compaction ~, err `err.e)
       %tool-requested        v(wait (~(put in wait.v) call-id.e))
+      %tool-requested-2      v(wait (~(put in wait.v) call-id.e))
       %retried               v(err ~, cancelled ~)
       %halted                v(pending ~, err `reason.e)
       %forked                v(pending ~, compaction ~, wait ~, cancelled ~, origin `[from.e at.e])

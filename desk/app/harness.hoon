@@ -74,12 +74,23 @@
   ?+  mark  (on-poke:def mark vase)
       %harness-action
     ?>  =(src.bowl our.bowl)
-    =^  cards  state  (handle-action:hc !<(action:h vase))
+    =/  act  !<(action:h vase)
+    ?.  (dispatch-current:hc ~ act)  `this
+    =^  cards  state  (handle-action:hc act)
     [cards this]
   ::
       %noun
     ?>  =(src.bowl our.bowl)
-    =^  cards  state  (handle-action:hc ;;(action:h q.vase))
+    =/  act  ;;(action:h q.vase)
+    ?.  (dispatch-current:hc ~ act)  `this
+    =^  cards  state  (handle-action:hc act)
+    [cards this]
+  ::
+      %harness-effect
+    ?>  =(src.bowl our.bowl)
+    =/  eff  !<(effect:h vase)
+    ?.  (dispatch-current:hc `generation.eff act.eff)  `this
+    =^  cards  state  (handle-action:hc act.eff)
     [cards this]
   ::
       %harness-hand
@@ -403,7 +414,13 @@
     =/  call-id=@t  i.t.t.wire
     ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
     =^  cards  state
-      (handle-tool-response:hc sid call-id client-response.sign)
+      (handle-tool-response:hc sid ~ call-id client-response.sign)
+    [cards this]
+  ::
+      [%tool-2 @ @ @ ~]
+    ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
+    =^  cards  state
+      (handle-tool-response:hc i.t.wire `(slav %ud i.t.t.wire) i.t.t.t.wire client-response.sign)
     [cards this]
   ::
       [%timer @ @ ~]
@@ -551,6 +568,13 @@
   ?.  ?=([~ %s *] method)  `state
   =/  id  (~(get by p.jon) 'id')
   =/  params  (~(get by p.jon) 'params')
+  ::  The hand, not the head, owns its method vocabulary. Keep one
+  ::  authenticated namespace boundary instead of duplicating every endpoint.
+  ?:  |(=('harness/tlon' p.u.method) =('harness/tlon/' (end [3 13] p.u.method)))
+    ?~  id  `state
+    :_  state
+    :~  [%pass /adapter/tlon/[connection]/(scot %uv (jam u.id)) %agent [our.bowl %harness-tlon] %poke %noun !>(`request:adapter`[connection u.id p.u.method params])]
+    ==
   ?+  p.u.method
     ?~  id  `state
     [~[(acp-error-card:wire-codec connection u.id '-32601' 'Method not found')] state]
@@ -558,13 +582,6 @@
       %initialize
     ?~  id  `state
     [~[(acp-result-card:wire-codec connection u.id acp-initialize-result:wire-codec)] state]
-  ::  Optional hands own their settings and social protocols. Forward the
-  ::  authenticated request; the hand replies on the same ACP connection.
-      ?(%'harness/tlon' %'harness/tlon/configure' %'harness/tlon/contacts' %'harness/tlon/watch' %'harness/tlon/profile' %'harness/tlon/profile/set' %'harness/tlon/lens/retry' %'harness/tlon/cron' %'harness/tlon/cron/cancel' %'harness/tlon/cron/clear')
-    ?~  id  `state
-    :_  state
-    :~  [%pass /adapter/tlon/[connection]/(scot %uv (jam u.id)) %agent [our.bowl %harness-tlon] %poke %noun !>(`request:adapter`[connection u.id p.u.method params])]
-    ==
   ::
       %'harness/hand'
     ?~  id  `state
@@ -672,6 +689,37 @@
     =/  result=json
       [%a (turn configurable-tools:ht |=(t=term `json`[%s t]))]
     [~[(acp-result-card:wire-codec connection u.id result)] state]
+  ::
+      %'harness/skills'
+    ?~  id  `state
+    [~[(acp-result-card:wire-codec connection u.id (skills-json:hj skills))] state]
+  ::
+      ?(%'harness/skill' %'harness/skill/save' %'harness/skill/delete')
+    ?~  id  `state
+    =/  name  (acp-param-string:wire-codec params 'name')
+    ?~  name
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Expected skill name')] state]
+    =/  old  (~(get by skills) u.name)
+    ?:  =('harness/skill' method)
+      ?~  old
+        [~[(acp-error-card:wire-codec connection u.id '-32602' 'Unknown skill')] state]
+      [~[(acp-result-card:wire-codec connection u.id (skill-json:hj u.name u.old))] state]
+    =/  expected  (acp-param-string:wire-codec params 'revision')
+    ?.  ?&(?=(^ expected) =(u.expected ?~(old '' (scot %uv (sham u.old)))))
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Skill changed; reload it before saving or deleting')] state]
+    ?:  =('harness/skill/delete' method)
+      ?~  old
+        [~[(acp-error-card:wire-codec connection u.id '-32602' 'Unknown skill')] state]
+      =^  changed  state  (handle-action [%skill-del u.name])
+      [:(weld changed ~[(acp-result-card:wire-codec connection u.id (skills-json:hj skills))]) state]
+    =/  desc  (acp-param-string:wire-codec params 'desc')
+    =/  body  (acp-param-string:wire-codec params 'body')
+    ?.  ?&(?=(^ desc) ?=(^ body))
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Expected description and instructions')] state]
+    ?.  ?&(!=('' u.name) (lte (met 3 u.name) 128) (lte (met 3 u.desc) 1.024) !=('' u.body) (lte (met 3 u.body) 65.536))
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Name: 1-128 bytes; description: up to 1024 bytes; instructions: 1-65536 bytes')] state]
+    =^  changed  state  (handle-action [%skill-add u.name u.desc u.body])
+    [:(weld changed ~[(acp-result-card:wire-codec connection u.id (skill-json:hj u.name [u.desc u.body]))]) state]
   ::
       %'harness/defaults'
     ?~  id  `state
@@ -982,6 +1030,17 @@
     =^  driven  state  (drive-put sid ses)
     [:(weld recorded started driven) state]
   =/  events=(list event:h)  ~[event]
+  ::  Capture a hand's public reference separately from the original input.
+  ::  Slash commands never read external context or interpret quoted commands.
+  =?  events  ?=(~ cmd)
+    =/  source  source.input.event
+    ?.  ?&(?=(%hand -.source) =('tlon' hand.source))  events
+    ?.  .^(? %gu /(scot %p our.bowl)/harness-tlon/(scot %da now.bowl)/$)  events
+    =/  reference
+      .^((unit @t) %gx /(scot %p our.bowl)/harness-tlon/(scot %da now.bowl)/context/[sid]/[binding.source]/noun)
+    ?~  reference  events
+    ?:  (gth (met 3 u.reference) 8.192)  events
+    [[%context-received id.input.event u.reference] events]
   =?  events  ?=(^ cmd)
     =/  v  (play:hl log.ses)
     =/  result  (evaluate:command u.cmd v defaults (skills-visible sid skills))
@@ -1077,6 +1136,30 @@
     =^  driven  state  (drive-put sid.act ses)
     [(weld cards driven) state]
   ::
+      %fence
+    ::  Revocation is wider than a user stop: retire descendant work and
+    ::  scheduled continuations, retaining the source's transcript/config.
+    =/  source  sid.act
+    =/  descendants
+      %+  skim  ~(tap in ~(key by sessions))
+      |=  sid=session-id:h
+      ^-  ?
+      ?:  =(sid source)  |
+      =/  depth=@ud  0
+      |-  ^-  ?
+      ?:  =(depth 8)  |
+      =/  ses  (~(get by sessions) sid)
+      ?~  ses  |
+      =/  parent  (delegation:hl log.u.ses)
+      ?~  parent  |
+      ?:  =(parent.u.parent source)  &
+      $(sid parent.u.parent, depth +(depth))
+    =^  cards  state  (fence-session source |)
+    |-  ^-  (quip card _state)
+    ?~  descendants  [cards state]
+    =^  more  state  (fence-session i.descendants &)
+    $(descendants t.descendants, cards (weld cards more))
+  ::
       %cancel
     =/  ses  (need-session sid.act)
     =/  v  (play:hl log.ses)
@@ -1089,8 +1172,12 @@
       ^-  (unit card)
       =/  name  (requested-tool ses call-id)
       ?~  name  ~
-      ?.  |(=(u.name 'http_fetch') =(u.name 'web_search') =(u.name 'list_mcp_tools') =(u.name 'call_mcp_tool'))  ~
-      `[%pass `wire`[%tool `@ta`sid.act `@ta`call-id ~] %arvo %i %cancel-request ~]
+      ?.  |(=(u.name 'http_fetch') =(u.name 'curl') =(u.name 'web_search') =(u.name 'list_mcp_tools') =(u.name 'call_mcp_tool'))  ~
+      =/  generation  (request-generation:hl ses call-id)
+      =/  wire=wire
+        ?~  generation  [%tool `@ta`sid.act `@ta`call-id ~]
+        [%tool-2 `@ta`sid.act (scot %ud u.generation) `@ta`call-id ~]
+      `[%pass wire %arvo %i %cancel-request ~]
     =?  withdrawn  ?=(^ pending.v)
       :_  withdrawn
       :*  %pass  `wire`[%llm `@ta`sid.act (scot %ud req.u.pending.v) kind.u.pending.v ~]
@@ -1105,10 +1192,11 @@
     =^  cards  ses  (record-all sid.act ses ~[event])
     =.  sessions  (~(put by sessions) sid.act ses)
     =.  hands  (cancel-queued:hd hands sid.act)
+    =^  auxiliary  state  (withdraw-auxiliary sid.act)
     ::  Cancellation owes a terminal result to every kind of waiter, including
     ::  a parent session or peer. Use the same boundary as normal completion.
     =^  settled  state  (settle sid.act)
-    [:(weld cards withdrawn ~[(shadow-put-card sid.act ses)] settled) state]
+    [:(weld cards withdrawn auxiliary ~[(shadow-put-card sid.act ses)] settled) state]
   ::
       %delete
     ?>  !(lien ~(val by bindings.hands) |=(b=binding:hh =(sid.b sid.act)))
@@ -1196,10 +1284,10 @@
     =/  pses  (~(get by sessions) parent.act)
     ?~  pses  `state
     =/  pv  (play:hl log.u.pses)
-    =/  csid=session-id:h  (rap 3 parent.act '--' call-id.act ~)
+    =/  csid=session-id:h  (rap 3 parent.act '--' (scot %ud next-req.u.pses) '--' call-id.act ~)
     =/  ccfg=config:h
       %=  config.pv
-        tools   (skip tools.config.pv |=(t=tool-grant:h =(%subagents t)))
+        tools   (skip (execution-tools parent.act tools.config.pv) |=(t=tool-grant:h =(%subagents t)))
         system  %+  fall  system.act
                 %^  cat  3  system.config.pv
                 ' You are a subagent: complete the task and reply with only your final answer.'
@@ -1233,10 +1321,10 @@
     =/  pses  (~(get by sessions) sid.act)
     ?~  pses  `state
     =/  pv  (play:hl log.u.pses)
-    =/  csid=session-id:h  (rap 3 'rehearse--' sid.act '--' call-id.act ~)
+    =/  csid=session-id:h  (rap 3 'rehearse--' sid.act '--' (scot %ud next-req.u.pses) '--' call-id.act ~)
     =/  ccfg=config:h
       %=  config.pv
-        tools   (rehearsal-tools:ht tools.config.pv)
+        tools   (rehearsal-tools:ht (execution-tools sid.act tools.config.pv))
         system  %+  rap  3
                 :~  system.config.pv
                     ' You are a read-only rehearsal of a skill named "'
@@ -1471,7 +1559,7 @@
         =/  id=@uv  (sham req)
         =/  wire=wire  /hand-tool/[sid]/(scot %ud next-req.ses)/[id.c]
         %=  acc
-          evs  (snoc evs.acc [%tool-requested id.c name.c])
+          evs  (snoc evs.acc [%tool-requested-2 next-req.ses id.c name.c])
           tcards  (weld tcards.acc `(list card)`~[[%pass wire %agent [our.bowl u.hand] %watch /tools/(scot %uv id)] [%pass wire %agent [our.bowl u.hand] %poke %harness-tool !>(req)]])
         ==
       ?:  =(name.c 'write_skill')
@@ -1550,8 +1638,8 @@
         ?.  &(?=(^ nam) ?=(^ inp))
           acc(evs (snoc evs.acc [%tool-completed id.c name.c 'error: need name and input']))
         %=  acc
-          evs     (snoc evs.acc `event:h`[%tool-requested id.c name.c])
-          tcards  (snoc tcards.acc (rehearse-poke:effects sid id.c u.nam u.inp))
+          evs     (snoc evs.acc `event:h`[%tool-requested-2 next-req.ses id.c name.c])
+          tcards  (snoc tcards.acc (rehearse-poke:effects sid next-req.ses id.c u.nam u.inp))
         ==
       ::  run_js: reject synchronously on the loop guard or bad args so
       ::  the model gets immediate feedback; otherwise self-poke to spawn
@@ -1565,24 +1653,25 @@
         ?^  reject
           acc(evs (snoc evs.acc [%tool-completed id.c name.c u.reject]))
         %=  acc
-          evs     (snoc evs.acc `event:h`[%tool-requested id.c name.c])
-          tcards  (snoc tcards.acc (run-js-poke:effects sid id.c u.code))
+          evs     (snoc evs.acc `event:h`[%tool-requested-2 next-req.ses id.c name.c])
+          tcards  (snoc tcards.acc (run-js-poke:effects sid next-req.ses id.c u.code))
         ==
       ?:  =(name.c 'web_search')
         =/  built  (configured-request:search args.c (provider-key 'brave') search-config)
         ?:  ?=(%| -.built)
           acc(evs (snoc evs.acc [%tool-completed id.c name.c p.built]))
         %=  acc
-          evs  (snoc evs.acc [%tool-requested id.c name.c])
-          tcards  (snoc tcards.acc [%pass `wire`[%tool `@ta`sid `@ta`id.c ~] %arvo %i %request p.built [0 0]])
+          evs  (snoc evs.acc [%tool-requested-2 next-req.ses id.c name.c])
+          tcards  (snoc tcards.acc [%pass `wire`[%tool-2 `@ta`sid (scot %ud next-req.ses) `@ta`id.c ~] %arvo %i %request p.built [0 0]])
           sr  (~(put by sr.acc) [sid id.c] provider.search-config)
         ==
       =/  async=(unit (unit card))
-        ?:  =(name.c 'http_fetch')     `(fetch-card:effects sid c)
+        ?:  =(name.c 'http_fetch')     `(fetch-card:effects sid next-req.ses c)
+        ?:  =(name.c 'curl')           `(request-card:curl:ht sid next-req.ses c)
         ?:  |(=(name.c 'list_mcp_tools') =(name.c 'call_mcp_tool'))
-          `(mcp-card:effects sid c tools.config.v)
-        ?:  =(name.c 'run_subagent')   `(spawn-card:effects sid c)
-        ?:  =(name.c 'ask_peer')       `(ask-peer-card:effects sid c)
+          `(mcp-card:effects sid next-req.ses c tools.config.v)
+        ?:  =(name.c 'run_subagent')   `(spawn-card:effects sid next-req.ses c)
+        ?:  =(name.c 'ask_peer')       `(ask-peer-card:effects sid next-req.ses c)
         ~
       ?~  async
         acc(evs (snoc evs.acc (run-tool:effects c (skills-visible sid sk.acc) tools.config.v)))
@@ -1592,7 +1681,7 @@
           `event:h`[%tool-completed id.c name.c 'error: bad tool arguments']
         ==
       %=  acc
-        evs     (snoc evs.acc `event:h`[%tool-requested id.c name.c])
+        evs     (snoc evs.acc `event:h`[%tool-requested-2 next-req.ses id.c name.c])
         tcards  (snoc tcards.acc u.u.async)
       ==
     =.  skills  sk.acc
@@ -1860,25 +1949,112 @@
   =/  id=input-id:h
     `@uv`(end [3 16] (shas %harness-input (jam [eny.bowl now.bowl source actor reply item])))
   [%input-received [id source actor reply now.bowl item]]
-::  +requested-tool / +authorized-call: internal self-pokes are still pokes,
-::  so execution checks both a durable request marker and the current grant.
+::  Cancellation removes auxiliary waiter identities before a reused tool ID
+::  can arrive. Revocation additionally fences timers and descendant sessions.
 ::
+++  withdraw-auxiliary
+  |=  sid=session-id:h
+  ^-  (quip card _state)
+  =/  pending  (skim ~(tap by jobs) |=([tid=@ta s=session-id:h *] =(s sid)))
+  =/  cards=(list card)
+    %-  zing
+    %+  turn  pending
+    |=  [tid=@ta s=session-id:h call-id=@t deadline=@da]
+    ^-  (list card)
+    :~  [%pass `wire`[%jsstop tid ~] %agent [our.bowl %spider] %poke %spider-stop !>([tid &])]
+        [%pass `wire`[%jsdog tid ~] %arvo %b %rest deadline]
+    ==
+  =.  jobs
+    %-  ~(gas by *(map @ta [session-id:h @t @da]))
+    (skip ~(tap by jobs) |=([tid=@ta s=session-id:h *] =(s sid)))
+  =.  asks
+    %-  ~(gas by *(map ask-id:h [session-id:h @t ship]))
+    (skip ~(tap by asks) |=([id=ask-id:h s=session-id:h *] =(s sid)))
+  [cards state]
+++  fence-session
+  |=  [sid=session-id:h restrict=?]
+  ^-  (quip card _state)
+  =/  found  (~(get by sessions) sid)
+  ?~  found  `state
+  =/  v  (play:hl log.u.found)
+  =|  cards=(list card)
+  =^  more  state
+    ?.  |(?=(^ pending.v) !=(~ wait.v) (~(has by active.hands) sid))  `state
+    (handle-action [%cancel sid])
+  =.  cards  (weld cards more)
+  =.  hands  (cancel-queued:hd hands sid)
+  =/  tkeys  (skim ~(tap in ~(key by timers)) |=([s=session-id:h *] =(s sid)))
+  =.  cards
+    %+  weld  cards
+    %+  turn  tkeys
+    |=  [s=session-id:h name=@ta]
+    (rest-card:effects s name at:(~(got by timers) [s name]))
+  =.  timers
+    %-  ~(gas by *(map [session-id:h @ta] timer:h))
+    (skip ~(tap by timers) |=([[s=session-id:h @ta] timer:h] =(s sid)))
+  =^  more  state  (withdraw-auxiliary sid)
+  =.  cards  (weld cards more)
+  =.  subs
+    %-  ~(gas by *(map session-id:h [session-id:h @t]))
+    (skip ~(tap by subs) |=([child=session-id:h parent=session-id:h *] |(=(child sid) =(parent sid))))
+  ?.  restrict  [cards state]
+  =/  retained  (~(get by sessions) sid)
+  ?~  retained  [cards state]
+  =/  ses  u.retained
+  =/  cfg  config:(play:hl log.ses)
+  ?:  =(~ tools.cfg)  [cards state]
+  =^  more  ses  (record-all sid ses ~[[%config-replaced cfg(tools ~)]])
+  =.  sessions  (~(put by sessions) sid ses)
+  [:(weld cards more ~[(shadow-put-card sid ses)]) state]
 ++  requested-tool
   |=  [ses=session:h call-id=@t]
   ^-  (unit @t)
   =/  events  log.ses
   |-  ^-  (unit @t)
   ?~  events  ~
-  ?:  ?&  ?=(%tool-requested -.i.events)
-           =(call-id call-id.i.events)
-       ==
+  ?:  ?&(?=(%tool-requested -.i.events) =(call-id call-id.i.events))
+    `name.i.events
+  ?:  ?&(?=(%tool-requested-2 -.i.events) =(call-id call-id.i.events))
     `name.i.events
   $(events t.events)
+::  Only internal asynchronous actions may use the generation envelope.
+++  dispatch-current
+  |=  [generation=(unit @ud) act=action:h]
+  ^-  ?
+  =/  call=(unit [sid=session-id:h call-id=@t])
+    ?+  -.act  ~
+      %spawn     `[parent.act call-id.act]
+      %ask-peer  `[sid.act call-id.act]
+      %run-js    `[sid.act call-id.act]
+      %rehearse  `[sid.act call-id.act]
+    ==
+  ?~  call  ?=(~ generation)
+  =/  ses  (~(get by sessions) sid.u.call)
+  ?~  ses  |
+  (request-current:hl u.ses generation call-id.u.call)
 ::  A rehearsal stays read-only even if an old saved config or an owner edit
 ::  carries broader grants. This restriction also fences queued self-pokes.
 ++  execution-tools
   |=  [sid=session-id:h granted=(list tool-grant:h)]
   ^-  (list tool-grant:h)
+  =/  depth=@ud  0
+  |-  ^-  (list tool-grant:h)
+  ?:  =(depth 8)  ~
+  =/  ses  (~(get by sessions) sid)
+  =?  granted  ?&(?=(^ ses) (social-context:hl log.u.ses))
+    (conversation-tools:ht granted)
+  =/  parent  ?~(ses ~ (delegation:hl log.u.ses))
+  =?  granted  ?=(^ parent)
+    =/  pses  (~(get by sessions) parent.u.parent)
+    ?~  pses  ~
+    =/  generation  (request-generation:hl u.pses call-id.u.parent)
+    ?.  =(sid (delegated-id:hl parent.u.parent call-id.u.parent rehearsal.u.parent generation))  ~
+    ?.  (request-current:hl u.pses generation call-id.u.parent)  ~
+    =/  pv  (play:hl log.u.pses)
+    =/  ceiling  $(sid parent.u.parent, granted tools.config.pv, depth +(depth))
+    =/  name  ?:(rehearsal.u.parent 'rehearse_skill' 'run_subagent')
+    ?.  (tool-granted:ht name ceiling)  ~
+    (skim granted |=(g=tool-grant:h &(!=(g %subagents) (lien ceiling |=(c=tool-grant:h =(g c))))))
   =/  tlon
     (lien ~(val by bindings.hands) |=(b=binding:hh &(=(sid sid.b) =('tlon' hand.b))))
   ::  Saved legacy flags never grant Tlon authority to an unbound session.
@@ -1958,12 +2134,13 @@
   =^  cs2  state  (drive-put sid ses)
   [(weld cs1 cs2) state]
 ++  handle-tool-response
-  |=  [sid=session-id:h call-id=@t res=client-response:iris]
+  |=  [sid=session-id:h generation=(unit @ud) call-id=@t res=client-response:iris]
   ^-  (quip card _state)
   ?:  ?=(%progress -.res)  `state
   =/  mses  (~(get by sessions) sid)
   ?~  mses  `state
   =/  ses  u.mses
+  ?.  (request-current:hl ses generation call-id)  `state
   =/  v  (play:hl log.ses)
   ::  ignore stale results (cancelled or forked-away requests)
   ::
@@ -1975,12 +2152,8 @@
       ?~  full-file.res  ''
       (clip:ht q.data.u.full-file.res 8.000)
     (rap 3 'HTTP ' (scot %ud status) '\0a\0a' txt ~)
-  =/  tname=@t
-    |-  ^-  @t
-    ?~  log.ses  'http_fetch'
-    ?:  ?&(?=(%tool-requested -.i.log.ses) =(call-id call-id.i.log.ses))
-      name.i.log.ses
-    $(log.ses t.log.ses)
+  =/  tname=@t  (fall (requested-tool ses call-id) 'http_fetch')
+  =?  body  =('curl' tname)  (response:curl:ht res)
   =/  provider  (~(get by search-requests) [sid call-id])
   =.  search-requests  (~(del by search-requests) [sid call-id])
   =?  body  =('web_search' tname)  (configured-response:search res ?~(provider %brave u.provider))
@@ -1995,6 +2168,8 @@
     ?~  server  'rejected: MCP server is no longer available'
     ?.  enabled.u.server  'rejected: MCP server is no longer available'
     body
+  =?  body  &(!|(=('list_mcp_tools' tname) =('call_mcp_tool' tname)) !(authorized-call sid call-id tname))
+    'rejected: tool request is no longer authorized'
   =^  cs1  ses  (record-all sid ses ~[[%tool-completed call-id tname body]])
   =^  cs2  state  (drive-put sid ses)
   [(weld cs1 cs2) state]
@@ -2072,6 +2247,8 @@
   =?  sessions    ?=(^ reh)  (~(del by sessions) sid)
   =/  mp  (~(get by sessions) parent.u.link)
   ?~  mp  `state
+  =/  generation  (request-generation:hl u.mp call-id.u.link)
+  ?.  =(sid (delegated-id:hl parent.u.link call-id.u.link ?=(^ reh) generation))  `state
   ?.  (authorized-call parent.u.link call-id.u.link tool-name)  `state
   =^  cs1  u.mp
     %^  record-all  parent.u.link  u.mp

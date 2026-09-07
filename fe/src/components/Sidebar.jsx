@@ -1,10 +1,10 @@
-import { HarnessIcon, PlusIcon, RenameIcon, SettingsIcon, TrashIcon } from './Icons'
+import { PlusIcon, RenameIcon, SettingsIcon, TrashIcon } from './Icons'
 import TlonIcon from './TlonIcon'
 
 export default function Sidebar({ chats, current, onSelect, onNew, onRename, onDelete, settings, onSettings, tlon, onTlon }) {
   return (
     <aside className="sidebar">
-      <div className="brand"><HarnessIcon size={20} /><span>Harness</span></div>
+      <div className="brand"><img className="brand-logo" src={`${import.meta.env.BASE_URL}harness-logo.png`} alt="Harness" width="32" height="32" /><span aria-hidden="true">Harness</span></div>
       <div className="sidebar-heading"><span>Conversations</span><button className="icon-button" onClick={onNew} title="New conversation" aria-label="New conversation"><PlusIcon /></button></div>
       <nav className="chat-list" aria-label="Conversations">
         {chats.map((chat) => (

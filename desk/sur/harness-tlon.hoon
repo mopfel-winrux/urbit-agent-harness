@@ -26,31 +26,79 @@
 +$  tool-receipt
   [request=tool-request:ad stage=?(%sending %done %uncertain) body=@t at=@da]
 +$  state-4
-  [%4 tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease-0) data]
+  [%4 tool-receipts=(map @uv tool-receipt) cron=(map @uv job-0:cron) computing=(map path presence-lease-0) data]
 +$  state-5
-  [%5 tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
+  [%5 tool-receipts=(map @uv tool-receipt) cron=(map @uv job-0:cron) computing=(map path presence-lease) data]
 +$  state-6
-  [%6 last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
+  [%6 last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job-0:cron) computing=(map path presence-lease) data]
 +$  media-config  [url=@t token=@t]
 +$  upload-7
   [stage=?(%fetch %put %put-no-acl) storage=@uv key=@t mime=@t public-url=@t bytes=octs]
 +$  state-7
-  [%7 media=media-config uploads=(map @uv upload-7) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
+  [%7 media=media-config uploads=(map @uv upload-7) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job-0:cron) computing=(map path presence-lease) data]
 +$  upload
   [stage=?(%fetch %put %put-no-acl %grant %hosted-put) storage=@uv key=@t mime=@t public-url=@t bytes=octs]
 +$  state-8
-  [%8 media=media-config uploads=(map @uv upload) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
+  [%8 media=media-config uploads=(map @uv upload) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job-0:cron) computing=(map path presence-lease) data]
 +$  state-9
-  [%9 uploads=(map @uv upload) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
+  [%9 uploads=(map @uv upload) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job-0:cron) computing=(map path presence-lease) data]
 +$  lens-export
   [owner=@p revision=@ud digest=@uv status=?(%queued %sending %accepted %failed %revoked) at=@da sent=(unit @da)]
++$  state-10
+  [%10 lens-after=@da lenses=(map @uv lens-export) uploads=(map @uv upload) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job-0:cron) computing=(map path presence-lease) data]
++$  route  [binding=@t phase=?(%ready %create %fence %config)]
++$  state-11
+  $:  %11
+      identities=(map [actor=@p to=destination] @t)
+      routes=(map @t route)
+      cuts=(map @p @da)
+      channel-after=@da
+      lens-after=@da
+      lenses=(map @uv lens-export)
+      uploads=(map @uv upload)
+      last-sent=@da
+      tool-receipts=(map @uv tool-receipt)
+      cron=(map @uv job-0:cron)
+      computing=(map path presence-lease)
+      data
+  ==
++$  state-12
+  $:  %12
+      identities=(map [actor=@p to=destination] @t)
+      routes=(map @t route)
+      cuts=(map @p @da)
+      channel-after=@da
+      lens-after=@da
+      lenses=(map @uv lens-export)
+      uploads=(map @uv upload)
+      last-sent=@da
+      tool-receipts=(map @uv tool-receipt)
+      cron=(map @uv job:cron)
+      computing=(map path presence-lease)
+      data
+  ==
 +$  state
-  [%10 lens-after=@da lenses=(map @uv lens-export) uploads=(map @uv upload) last-sent=@da tool-receipts=(map @uv tool-receipt) cron=(map @uv job:cron) computing=(map path presence-lease) data]
+  $:  %13
+      activity-through=@da
+      catching-up=$~(| ?)
+      identities=(map [actor=@p to=destination] @t)
+      routes=(map @t route)
+      cuts=(map @p @da)
+      channel-after=@da
+      lens-after=@da
+      lenses=(map @uv lens-export)
+      uploads=(map @uv upload)
+      last-sent=@da
+      tool-receipts=(map @uv tool-receipt)
+      cron=(map @uv job:cron)
+      computing=(map path presence-lease)
+      data
+  ==
 +$  data
   $:  policy=policy
       epoch=@ud
       after=@da
-      lanes=(map @t lane)  ::  current permission epoch only; head keeps history
+      lanes=(map @t lane)  ::  admitted authorization generations; head keeps history
       jobs=(map @uv job)
       deliveries=(map @uv delivery)
       notices=(list notice)
