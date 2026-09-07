@@ -700,14 +700,14 @@
     ?~  name
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Expected skill name')] state]
     =/  old  (~(get by skills) u.name)
-    ?:  =('harness/skill' method)
+    ?:  =('harness/skill' p.u.method)
       ?~  old
         [~[(acp-error-card:wire-codec connection u.id '-32602' 'Unknown skill')] state]
       [~[(acp-result-card:wire-codec connection u.id (skill-json:hj u.name u.old))] state]
     =/  expected  (acp-param-string:wire-codec params 'revision')
     ?.  ?&(?=(^ expected) =(u.expected ?~(old '' (scot %uv (sham u.old)))))
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Skill changed; reload it before saving or deleting')] state]
-    ?:  =('harness/skill/delete' method)
+    ?:  =('harness/skill/delete' p.u.method)
       ?~  old
         [~[(acp-error-card:wire-codec connection u.id '-32602' 'Unknown skill')] state]
       =^  changed  state  (handle-action [%skill-del u.name])

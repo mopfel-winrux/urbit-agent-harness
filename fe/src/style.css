@@ -108,6 +108,14 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
   object-fit: contain;
 }
 
+.skill-list { display: grid; gap: 6px; max-height: 280px; overflow-y: auto; }
+.skill-list-item { display: grid; gap: 4px; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); overflow-wrap: anywhere; cursor: pointer; }
+.skill-list-item span { color: var(--muted); font-size: 11px; }
+.skill-list-item.active { border-color: var(--accent); background: var(--accent-soft); }
+.settings-panel .skill-instructions { min-height: 280px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; tab-size: 2; }
+.skill-editor-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
+.skill-editor-actions > span { margin-right: auto; color: var(--muted); font-size: 11px; }
+
 .sidebar-heading {
   display: flex;
   align-items: center;

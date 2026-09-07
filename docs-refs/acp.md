@@ -95,6 +95,16 @@ Harness extensions use the same JSON-RPC connection:
 
 - `harness/status`
 - `harness/tools`
+- `harness/skills` — shared catalog, with names and descriptions only.
+- `harness/skill` — read one skill by `name`, including instructions and revision.
+- `harness/skill/save` — owner save with `name`, `desc`, `body`, and `revision`.
+  Creation requires an empty revision; updates require the revision from the last
+  read. Conflicts leave the current skill unchanged. Names are 1–128 UTF-8 bytes,
+  descriptions at most 1024, and instructions 1–65536. No Markdown parsing or
+  tool-permission changes occur when saving.
+- `harness/skill/delete` — owner deletion by name and matching revision.
+  Settings exposes these shared instructions in a themed plain-text editor;
+  conversation-scoped private notes remain a separate resource.
 - `harness/defaults`
 - `harness/defaults/configure`
 - `harness/session/use-default-model` — adopt model defaults for an existing
