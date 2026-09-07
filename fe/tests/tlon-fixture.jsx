@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { api } from '../src/api'
 import { acp } from '../src/acp'
 import TlonSettings from '../src/components/TlonSettings'
+import Sidebar from '../src/components/Sidebar'
 import '../src/style.css'
 
 let state = { policy: { enabled: false, owner: '~zod', mentions: true, trusted: [] }, connected: false, sessions: ['nec-dm-test'] }
@@ -50,4 +51,4 @@ api.action = async ({ tlon, tlonProfile, cancelCron, clearCron, hand, retryAdmis
   state = { ...state, policy: tlon }
   return state
 }
-createRoot(document.getElementById('root')).render(<div className="app-shell"><TlonSettings onBack={() => {}} /></div>)
+createRoot(document.getElementById('root')).render(<div className="app-shell"><Sidebar chats={['daily-notes']} tlon onSelect={() => {}} onNew={() => {}} /><TlonSettings onBack={() => {}} /></div>)

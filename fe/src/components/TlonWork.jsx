@@ -69,10 +69,10 @@ function WorkList() {
       <p className="field-note">{record.kind === 'admission' ? `Admission: ${record.stage}` : `Attempt ${record.attempt} · ${record.current ? 'current authorization' : 'retired or disabled authorization'}`}</p>
       {record.error && <p className="inline-error">{record.error}</p>}
       {record.externalId && <p className="field-note">Native reference: <code>{record.externalId}</code></p>}
-      <a href={`#/settings/${encodeURIComponent(record.sessionId)}`}>Conversation settings</a>
+      <div className="settings-actions"><a href={`#/settings/${encodeURIComponent(record.sessionId)}`}>Conversation settings</a>
       {record.kind === 'admission' && record.canRetry && <button type="button" className="text-button" disabled={busy !== null} onClick={() => retryAdmission(record.id)}>Resume admission</button>}
       {record.kind === 'input' && record.canRetry && <button type="button" className="text-button" onClick={() => setRecovery({ record, mode: 'retry' })}>Retry failed send</button>}
-      {record.canResolve && <button type="button" className="text-button" onClick={() => setRecovery({ record, mode: 'resolve' })}>Resolve delivery</button>}
+      {record.canResolve && <button type="button" className="text-button" onClick={() => setRecovery({ record, mode: 'resolve' })}>Resolve delivery</button>}</div>
       {recovery?.record.id === record.id && <Recovery key={`${record.id}:${recovery.mode}`} {...recovery} onClose={() => setRecovery(null)} onSaved={refresh} />}
     </article>)}
     <div className="form-actions">
@@ -85,7 +85,8 @@ function WorkList() {
 export default function TlonWork() {
   const [open, setOpen] = useState(false)
   return <section className="panel settings-panel"><details onToggle={(event) => setOpen(event.currentTarget.open)}>
-    <summary>Work and delivery</summary>
+    <summary>Delivery diagnostics</summary>
+    <p className="field-note">Inspect stuck work or failed replies. This history also includes successful deliveries; no action is needed for those.</p>
     {open && <WorkList />}
   </details></section>
 }

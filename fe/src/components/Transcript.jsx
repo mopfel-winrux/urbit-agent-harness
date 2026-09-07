@@ -19,7 +19,6 @@ function ThinkingMessage({ streaming, phase }) {
 export default function Transcript({ items, pending, thinking, streaming, phase, onFork }) {
   const entries = useMemo(() => transcriptEntries(items), [items])
   if (!entries.length && !pending && !thinking) return <div className="empty-chat">
-    <div className="empty-orbit"><span /></div><span className="eyebrow">New conversation</span>
     <h2>What should we work on?</h2><p>Start a conversation, inspect tool work as it happens, and return whenever you like.</p>
   </div>
   return <>{entries.map((entry) => entry.type === 'tool'

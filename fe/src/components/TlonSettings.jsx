@@ -38,16 +38,12 @@ export default function TlonSettings({ onBack }) {
   return <main className="workspace settings-workspace">
     <header className="topbar"><button className="back-button" onClick={onBack}><BackIcon />Conversations</button></header>
     <div className="settings-content">
-      <div className="page-header"><span className="eyebrow">Conversation hand</span><h1><TlonIcon /> Tlon</h1><p>Talk with the harness through DMs, groups, and threads.</p></div>
-      <TlonProfile />
-      <TlonModels sessions={state.value?.sessions} />
-      <TlonCron />
-      <TlonWork />
+      <div className="page-header"><h1><TlonIcon /> Tlon</h1><p>Talk with the harness through DMs, groups, and threads.</p></div>
       <form className="settings-grid" onSubmit={save}>
         {(error || state.error || state.value?.error) && <div role="alert" className="inline-error">{error || state.error || state.value.error}</div>}
         <section className="panel settings-panel">
           <div className="section-title"><div><h2>Connection</h2><p>{state.value?.connected ? 'Listening to Tlon activity.' : policy.enabled ? 'Connecting to Tlon activity…' : 'Enable when your owner and permissions are ready.'}</p></div></div>
-          <label className="tool-option"><input type="checkbox" checked={policy.enabled} onChange={(e) => change({ enabled: e.target.checked })} /><span><strong>Enable Tlon hand</strong><small>Reply only to your owner and trusted ships.</small></span></label>
+          <label className="tool-option"><input type="checkbox" checked={policy.enabled} onChange={(e) => change({ enabled: e.target.checked })} /><span><strong>Enable Tlon replies</strong><small>Reply only to your owner and trusted ships.</small></span></label>
           <label className="tool-option"><input type="checkbox" checked={policy.mentions} onChange={(e) => change({ mentions: e.target.checked })} /><span><strong>Require channel mentions</strong><small>DMs and replies to the bot’s posts do not need a mention.</small></span></label>
         </section>
         <section className="panel settings-panel">
@@ -67,6 +63,7 @@ export default function TlonSettings({ onBack }) {
         <p className="field-note">These permissions belong to Harness. Conversation tools cannot publish private material into the shared skill library.</p>
         <div className="save-bar"><span>{saved ? 'Saved.' : 'Changed permissions stop affected work. Conversations and notes remain; unrelated chats continue.'}</span><button className="button primary" disabled={busy || state.loading || (policy.enabled && !policy.owner)}>{busy ? 'Saving…' : 'Save Tlon settings'}</button></div>
       </form>
+      <div className="settings-group"><TlonProfile /><TlonModels sessions={state.value?.sessions} /><TlonCron /><TlonWork /></div>
     </div>
   </main>
 }

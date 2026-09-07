@@ -82,20 +82,20 @@ export default function ProviderSettings({ provider, resources }) {
   }
 
   return <form className="settings-grid" onSubmit={save}>
-    {(error || session.error || status.error) && <div className="inline-error">{error || session.error || status.error}</div>}
+    {(error || session.error || status.error) && <div className="inline-error" role="alert">{error || session.error || status.error}</div>}
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>{details.title}</h2><p>{details.copy}</p></div><span className={`status ${configured ? 'good' : ''}`}>{configured ? 'credential configured' : 'credential needed'}</span></div>
       <ProviderRoute provider={provider} value={form} onChange={edit} />
       {provider === 'openai' && method === 'device' && status.value?.['renewal-error'] && <div className="inline-error">{status.value['renewal-error']}</div>}
       {provider === 'openai' && method === 'device' && !session.loading && <OpenAIDeviceLogin key={resources.chat || 'defaults'} onCredential={acceptCredential} />}
       {provider === 'anthropic' && method === 'device' && !session.loading && <AnthropicDeviceLogin key={resources.chat || 'defaults'} onCredential={acceptCredential} />}
-      {method === 'api-key' && <label><span>{provider === 'custom' ? 'Bearer token (optional)' : 'API key'}</span><input type="password" autoComplete="off" value={key} onChange={(event) => { dirty.current = true; setKey(event.target.value) }} placeholder={details.placeholder} /></label>}
+      {method === 'api-key' && <label><span>{provider === 'custom' ? 'Bearer token (optional)' : 'API key'}</span><input type="password" autoComplete="off" value={key} onChange={(event) => { dirty.current = true; setSaved(false); setKey(event.target.value) }} placeholder={details.placeholder} /></label>}
       <label><span>Model</span><input list={`provider-models-${provider}`} value={form.model || ''} onChange={(event) => edit({ ...form, model: event.target.value })} placeholder={details.model || 'model-name'} /><datalist id={`provider-models-${provider}`}>{catalog.models.map((name) => <option key={name} value={name} />)}</datalist></label>
       {catalog.loading && <p className="field-note">Loading the provider’s model catalog…</p>}
       {catalog.error && provider !== 'custom' && <p className="field-note">Catalog unavailable: {catalog.error}. You can still type a model name.</p>}
       {catalog.contextFor(form.model) && <p className="field-note">Provider reports a {catalog.contextFor(form.model).toLocaleString()} token context window. It will be applied when you save.</p>}
       <HeaderEditor value={form.headers || []} onChange={(headers) => edit({ ...form, headers })} />
     </section>
-    <div className="save-bar"><span>{saved ? 'Saved.' : resources.chat ? 'Saving selects this provider and authentication for the conversation.' : 'Saving selects this provider and authentication for new conversations.'}</span><button className="button primary" disabled={busy || session.loading}>{busy ? 'Saving…' : `Save ${details.title}`}</button></div>
+    <div className="save-bar"><span role="status">{saved ? 'Saved.' : resources.chat ? 'Saving selects this provider and authentication for the conversation.' : 'Saving selects this provider and authentication for new conversations.'}</span><button className="button primary" disabled={busy || session.loading}>{busy ? 'Saving…' : `Save ${details.title}`}</button></div>
   </form>
 }

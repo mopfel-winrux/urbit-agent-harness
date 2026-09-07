@@ -46,10 +46,10 @@ export default function ToolOptions({ available = [], selected = [], servers = [
       <input type="checkbox" checked onChange={() => onChange(grant)} />
       <span><strong>{grant.clay === '/' ? 'All Clay files (broad access)' : `Clay: ${grant.clay}`}</strong><small>{grant.clay === '/' ? 'Preserved legacy grant. This can read every desk, including future files. Remove it and grant narrower paths.' : 'Read and list this path and its descendants, including future files under it.'}</small></span>
     </label>)}
-    {available.includes('clay') && <div>
+    {available.includes('clay') && <div className="tool-path-grant">
       <label><span>Clay read path</span><input value={clayPath} onChange={(event) => { setClayPath(event.target.value); setPathError('') }} placeholder="/harness/lib" /></label>
-      <button type="button" className="text-button" onClick={addClay}>Grant Clay path</button>
-      {pathError && <p className="inline-error">{pathError}</p>}
+      <button type="button" className="button ghost" onClick={addClay}>Grant Clay path</button>
+      {pathError && <p className="inline-error" role="alert">{pathError}</p>}
     </div>}
     {selected.includes('clay') && <label className="tool-option"><input type="checkbox" checked onChange={() => onChange('clay')} /><span><strong>Legacy Clay grant (inactive)</strong><small>Remove this historical grant and select a path.</small></span></label>}
     {[...registry.values()].map((server) => {

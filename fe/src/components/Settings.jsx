@@ -12,29 +12,31 @@ const baseTabs = [
   ['skills', 'Skills'],
   ['mcp', 'MCP'],
   ['search', 'Search'],
-  ['openrouter', 'OpenRouter'],
-  ['openai', 'OpenAI'],
-  ['anthropic', 'Anthropic'],
-  ['custom', 'Custom'],
 ]
+const providerTabs = [['openrouter', 'OpenRouter'], ['openai', 'OpenAI'], ['anthropic', 'Anthropic'], ['custom', 'Custom']]
 
 export default function Settings({ resources, theme, onThemeChange, onBack }) {
   const [tab, setTab] = useState(resources.chat ? 'conversation' : 'defaults')
-  const tabs = resources.chat ? [['conversation', 'Conversation'], ...baseTabs] : baseTabs
+  const [provider, setProvider] = useState('openrouter')
+  const tabs = resources.chat ? [['conversation', 'Conversation'], ...baseTabs] : [...baseTabs]
+  tabs.splice(1, 0, ['providers', 'Providers'])
 
   return <main className="workspace settings-workspace">
     <header className="topbar"><button className="back-button" onClick={onBack}><BackIcon />Conversations</button></header>
     <div className="settings-content">
-      <div className="page-header"><span className="eyebrow">Configuration</span><h1>Settings</h1></div>
+      <div className="page-header"><h1>Settings</h1></div>
       <nav className="settings-tabs" aria-label="Settings sections">
-        {tabs.map(([id, label]) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{label}</button>)}
+        {tabs.map(([id, label]) => <button key={id} className={tab === id ? 'active' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)}>{label}</button>)}
       </nav>
       {tab === 'conversation' && <AgentSettings resources={resources} theme={theme} onThemeChange={onThemeChange} />}
       {tab === 'defaults' && <GlobalSettings resources={resources} theme={theme} onThemeChange={onThemeChange} />}
       {tab === 'skills' && <SkillSettings />}
       {tab === 'mcp' && <McpSettings resources={resources} />}
       {tab === 'search' && <SearchSettings />}
-      {['openrouter', 'openai', 'anthropic', 'custom'].includes(tab) && <ProviderSettings provider={tab} resources={resources} />}
+      {tab === 'providers' && <>
+        <nav className="provider-options segmented" aria-label="Provider settings">{providerTabs.map(([id, label]) => <button key={id} className={provider === id ? 'active' : ''} aria-current={provider === id ? 'page' : undefined} onClick={() => setProvider(id)}>{label}</button>)}</nav>
+        <ProviderSettings key={provider} provider={provider} resources={resources} />
+      </>}
     </div>
   </main>
 }

@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { api, resourcesFor } from '../src/api'
 import { defaultConfig } from '../src/defaults'
@@ -8,6 +8,8 @@ import ProviderSettings from '../src/components/ProviderSettings'
 import SearchSettings from '../src/components/SearchSettings'
 import McpSettings from '../src/components/McpSettings'
 import SkillSettings from '../src/components/SkillSettings'
+import Settings from '../src/components/Settings'
+import Sidebar from '../src/components/Sidebar'
 import '../src/style.css'
 
 const pending = new Map()
@@ -79,9 +81,16 @@ api.action = async (action) => {
   sessionStorage.setItem('settings-fixture-config', JSON.stringify(config))
   return config
 }
-const component = params.get('page') === 'skills' ? <SkillSettings /> : params.get('page') === 'mcp' ? <McpSettings resources={resourcesFor('')} /> : params.get('page') === 'search' ? <SearchSettings /> : params.get('page') === 'provider'
+function SettingsFixture() {
+  const [theme, setTheme] = useState('system')
+  const changeTheme = (next) => { document.documentElement.dataset.theme = next; setTheme(next) }
+  const component = params.get('page') === 'skills' ? <SkillSettings /> : params.get('page') === 'mcp' ? <McpSettings resources={resourcesFor('')} /> : params.get('page') === 'search' ? <SearchSettings /> : params.get('page') === 'provider'
   ? <ProviderSettings provider="openai" resources={resourcesFor('')} />
   : params.get('page') === 'conversation'
-    ? <AgentSettings resources={resourcesFor('fixture')} theme="system" onThemeChange={() => {}} />
-    : <GlobalSettings resources={resourcesFor('')} theme="system" onThemeChange={() => {}} />
-createRoot(document.getElementById('root')).render(<StrictMode>{component}</StrictMode>)
+    ? <AgentSettings resources={resourcesFor('fixture')} theme={theme} onThemeChange={changeTheme} />
+    : <GlobalSettings resources={resourcesFor('')} theme={theme} onThemeChange={changeTheme} />
+  return params.get('page') === 'shell'
+    ? <div className="app-shell"><Sidebar chats={['daily-notes']} settings onSelect={() => {}} onNew={() => {}} /><Settings resources={resourcesFor(params.has('global') ? '' : 'fixture')} theme={theme} onThemeChange={changeTheme} onBack={() => {}} /></div>
+    : <main className="settings-content">{component}</main>
+}
+createRoot(document.getElementById('root')).render(<StrictMode><SettingsFixture /></StrictMode>)

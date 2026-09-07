@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { api } from '../api'
 import { useResource } from '../useResource'
 
 const emptySkill = () => ({ name: '', desc: '', body: '', revision: '' })
 
 export default function SkillSettings() {
+  const instructionsLabel = useId()
   const library = useResource('skills', [], 4000)
   const [skill, setSkill] = useState(emptySkill)
   const [dirty, setDirty] = useState(false)
@@ -54,7 +55,7 @@ export default function SkillSettings() {
       <div className="section-title"><div><h2>{skill.revision ? 'Edit skill' : 'New skill'}</h2><p>Conversations with Skills access can read these instructions when relevant. Saving does not change tool permissions.</p></div></div>
       <label><span>Skill name</span><input required maxLength={128} disabled={busy || !!skill.revision} value={skill.name} onChange={(event) => change('name', event.target.value)} placeholder="e.g. weekly-summary" /></label>
       <label><span>Description</span><input maxLength={1024} disabled={busy} value={skill.desc} onChange={(event) => change('desc', event.target.value)} placeholder="When should Harness use this skill?" /></label>
-      <label><span>Instructions</span><textarea className="skill-instructions" required maxLength={65536} rows={14} disabled={busy} spellCheck={false} value={skill.body} onChange={(event) => change('body', event.target.value)} placeholder="Write or paste the skill instructions here. Plain text or Markdown is welcome." /></label>
+      <label><span id={instructionsLabel}>Instructions</span><textarea aria-labelledby={instructionsLabel} className="skill-instructions" required maxLength={65536} rows={14} disabled={busy} spellCheck={false} value={skill.body} onChange={(event) => change('body', event.target.value)} placeholder="Write or paste the skill instructions here. Plain text or Markdown is welcome." /></label>
       <div className="skill-editor-actions"><span role="status">{saved || (dirty ? 'Unsaved changes' : '')}</span><button className="button primary" disabled={busy || !dirty || !skill.name.trim() || !skill.body.trim()}>{busy ? 'Working…' : 'Save skill'}</button></div>
       {skill.revision && <div className="skill-editor-actions">{confirmDelete ? <><span>Delete this shared skill?</span><button type="button" className="text-button" disabled={busy} onClick={() => setConfirmDelete(false)}>Keep skill</button><button type="button" className="text-button danger-text" disabled={busy} onClick={() => void remove()}>Confirm delete</button></> : <button type="button" className="text-button danger-text" disabled={busy} onClick={() => setConfirmDelete(true)}>Delete skill</button>}</div>}
     </form>

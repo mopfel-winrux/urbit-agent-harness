@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { api } from '../api'
 import { defaultConfig } from '../defaults'
 import { PROVIDERS, providerOf } from '../providers'
@@ -10,6 +10,7 @@ import ProviderRoute from './ProviderRoute'
 import { authMethod, withAuth, chooseProvider as providerConfig, catalogEndpoint } from '../providerConfig'
 
 export default function GlobalSettings({ resources, theme, onThemeChange }) {
+  const instructionsLabel = useId()
   const defaults = useResource(resources.defaults, defaultConfig())
   const tools = useResource(resources.tools, [])
   const mcp = useResource('mcp', [])
@@ -37,6 +38,7 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
   }
   const chooseProvider = (id) => {
     dirty.current = true
+    setSaved(false)
     setProvider(id)
     setForm((current) => providerConfig(current, id, id === 'openai' ? openai.value?.['auth-method'] : 'api-key'))
   }
@@ -50,7 +52,7 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
 
   async function save(event) {
     event.preventDefault()
-    setBusy(true); setError('')
+    setBusy(true); setError(''); setSaved(false)
     try {
       const clean = withAuth({
         ...form,
@@ -64,7 +66,7 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
   }
 
   return <form className="settings-grid" onSubmit={save}>
-    {(error || defaults.error || tools.error) && <div className="inline-error">{error || defaults.error || tools.error}</div>}
+    {(error || defaults.error || tools.error) && <div className="inline-error" role="alert">{error || defaults.error || tools.error}</div>}
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>New conversation defaults</h2><p>Every new thread takes a snapshot of this policy, then may diverge independently.</p></div></div>
       <div className="two-fields">
@@ -79,7 +81,7 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
     </section>
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Instructions</h2><p>Initial operating policy for new threads.</p></div></div>
-      <label><span>System instructions</span><textarea rows="9" value={form.system || ''} onChange={(event) => field('system', event.target.value)} /></label>
+      <label><span id={instructionsLabel}>System instructions</span><textarea aria-labelledby={instructionsLabel} rows="9" value={form.system || ''} onChange={(event) => field('system', event.target.value)} /></label>
     </section>
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Default tools</h2><p>Capability grants inherited by new conversations, including new Tlon conversations with the owner. Existing conversations keep their settings.</p></div></div>
@@ -87,8 +89,9 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
     </section>
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Appearance</h2><p>Local display preference for this client.</p></div></div>
-      <div className="segmented theme-options">{['system', 'light', 'dark'].map((option) => <button type="button" key={option} className={theme === option ? 'active' : ''} onClick={() => onThemeChange(option)}>{option}</button>)}</div>
+      <div className="segmented theme-options" role="group" aria-label="Color theme">{['system', 'light', 'dark'].map((option) => <button type="button" key={option} className={theme === option ? 'active' : ''} aria-pressed={theme === option} onClick={() => onThemeChange(option)}>{option}</button>)}</div>
+      <p className="field-note">Theme changes apply immediately on this device.</p>
     </section>
-    <div className="save-bar"><span>{saved ? 'Saved.' : 'Applies when the next conversation is created.'}</span><button className="button primary" disabled={busy}>{busy ? 'Saving…' : 'Save defaults'}</button></div>
+    <div className="save-bar"><span role="status">{saved ? 'Saved.' : dirty.current ? 'Unsaved changes · New conversations only.' : 'Applies when the next conversation is created.'}</span><button className="button primary" disabled={busy || defaults.loading}>{busy ? 'Saving…' : 'Save defaults'}</button></div>
   </form>
 }

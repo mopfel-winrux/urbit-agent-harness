@@ -23,9 +23,9 @@ export default function TlonCron() {
       <p className="field-note">Next: {job.next} · Execution: {job.execution || 'not admitted'} · Delivery: {job.delivery || 'not published'}</p>
       {job.evidenceAvailable === false && <p className="field-note">The head is unavailable; execution and delivery evidence cannot currently be read.</p>}
       {job.reason && <p className="field-note">{job.reason}</p>}
-      <a href={`#/settings/${encodeURIComponent(job.runSessionId)}`}>Scheduled conversation</a>
+      <div className="settings-actions"><a href={`#/settings/${encodeURIComponent(job.runSessionId)}`}>Scheduled conversation</a>
       {job.clearable ? <button type="button" className="text-button" disabled={busy !== null} onClick={() => update(job.id, true)}>{busy === job.id ? 'Clearing…' : 'Clear finished schedule'}</button>
-        : job.state !== 'cancelled' && <button type="button" className="text-button" disabled={busy !== null} onClick={() => update(job.id)}>{busy === job.id ? 'Cancelling…' : 'Cancel schedule'}</button>}
+        : job.state !== 'cancelled' && <button type="button" className="text-button" disabled={busy !== null} onClick={() => update(job.id)}>{busy === job.id ? 'Cancelling…' : 'Cancel schedule'}</button>}</div>
     </article>)}
     <p className="field-note">Cancellation cannot retract dispatched effects. Clear removes completed or cancelled schedules only after their work is settled; conversation history and delivery receipts remain.</p>
   </section>

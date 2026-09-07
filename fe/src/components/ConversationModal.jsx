@@ -27,7 +27,7 @@ export default function ConversationModal({ mode, initialName, onClose, onSave }
 
   return <dialog ref={dialog} className="conversation-dialog" aria-labelledby="conversation-dialog-title" onCancel={(event) => { event.preventDefault(); if (!busy) onClose() }} onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose() }}>
     <section className="modal-card">
-      <header><div><span className="eyebrow">Conversation</span><h1 id="conversation-dialog-title">{mode === 'fork' ? 'Branch conversation' : rename ? 'Rename conversation' : 'New conversation'}</h1></div><button className="close-button" onClick={onClose} disabled={busy} aria-label="Close">×</button></header>
+      <header><div><h1 id="conversation-dialog-title">{mode === 'fork' ? 'Branch conversation' : rename ? 'Rename conversation' : 'New conversation'}</h1></div><button className="close-button" onClick={onClose} disabled={busy} aria-label="Close">×</button></header>
       <form onSubmit={submit}>
         <label><span>Name</span><input ref={nameInput} disabled={busy} value={name} onChange={(event) => setName(event.target.value)} placeholder="research-notes" /></label>
         {name && normalized !== name && <small className="field-note">Will be saved as <code>{normalized || '…'}</code></small>}

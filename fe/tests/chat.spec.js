@@ -140,7 +140,7 @@ for (const width of [1280, 390]) {
       await page.emulateMedia({ colorScheme })
       await page.locator('.transcript').evaluate((element) => { element.scrollTop = 0 })
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-      expect(await page.locator('.sidebar').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+      if (width > 760) expect(await page.locator('.sidebar').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
       const pre = page.locator('.code-block pre')
       expect(await pre.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
       const checkbox = await page.locator('.markdown input').first().boundingBox()

@@ -20,7 +20,7 @@ test('context is read from the catalog at save time, even when metadata arrives 
 
 for (const surface of ['global', 'conversation']) test(`${surface}: bootstrap tools are narrow and explicit opt-ins survive reload`, async ({ page }) => {
   await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}`)
-  await expect(page.getByRole('checkbox', { name: /^Web search & requests/ })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: /^Web search & GET/ })).toBeChecked()
   await expect(page.getByRole('checkbox', { name: /^Skills Read instructions/ })).toBeChecked()
   const authoring = page.getByRole('checkbox', { name: /^Skill experiments/ })
   await expect(authoring).not.toBeChecked()
