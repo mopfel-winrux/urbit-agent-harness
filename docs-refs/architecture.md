@@ -295,7 +295,9 @@ durable outstanding call.
 The experimental `%code` family is discoverable but excluded from bootstrap
 defaults. Its `run_js` tool uses the original QuickJS/WASM Spider executor.
 It grants broad host APIs rather than inheriting Clay, network or Tlon tool
-scopes, so social conversations, schedules and rehearsals cannot execute it.
+scopes. Tlon conversations may use an explicit grant, subject to the live
+sender-permission ceiling; non-owner senders also need `%code` in their Tlon
+grants. Schedules and rehearsals cannot execute it.
 Owner-session subagents can inherit it only within their parent's live grants.
 The 64 KiB source bound, common-loop rejection and 30-second yielding watchdog
 are resource safeguards, not hard CPU isolation. Cancellation fences results

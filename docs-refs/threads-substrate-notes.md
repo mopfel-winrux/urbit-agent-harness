@@ -14,7 +14,9 @@ module.exports = () => JSON.stringify({ answer: 6 * 7 });
 The host APIs include `fetch_sync`, `console.*` and
 `require('urbit_thread')` for file I/O, sleep and the original ship integrations.
 This is broad authority: other tool grants do not restrict those host APIs.
-Social conversations, scheduled work and rehearsals cannot use `%code`.
+Tlon conversations can use an explicit `%code` grant. The configured owner's
+conversation settings apply directly; other senders also need the grant in
+their Tlon permissions. Scheduled work and rehearsals cannot use `%code`.
 Do not enable it for untrusted work. The existing static loop check and yielding
 watchdog do not make pure computation interruptible.
 

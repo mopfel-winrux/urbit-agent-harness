@@ -87,7 +87,7 @@
 ++  conversation-tools
   |=  tools=(list tool-grant:h)
   ^-  (list tool-grant:h)
-  (skip tools |=(tool=tool-grant:h |(=(%skill-write tool) =(%author tool) =(%code tool))))
+  (skip tools |=(tool=tool-grant:h |(=(%skill-write tool) =(%author tool))))
 ++  scheduled-tools
   |=  tools=(list tool-grant:h)
   ^-  (list tool-grant:h)

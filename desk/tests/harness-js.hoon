@@ -1,5 +1,5 @@
-/-  h=harness
-/+  *test, ht=harness-tools, policy=harness-defaults
+/-  h=harness, t=harness-tlon
+/+  *test, ht=harness-tools, policy=harness-defaults, tlon=harness-tlon-policy
 |%
 ++  test-js-is-discoverable-but-never-a-bootstrap-grant
   ;:  weld
@@ -10,9 +10,21 @@
   ==
 ++  test-js-family-appears-once
   (expect-eq !>(`(list term)`~[%code]) !>((tool-families:ht ~[%code %code])))
-++  test-js-cannot-escape-social-scheduled-or-rehearsal-ceilings
+++  test-js-explicit-conversation-grant-is-preserved
+  (expect !>((tool-granted:ht 'run_js' (conversation-tools:ht ~[%code]))))
+++  test-js-conversation-filter-never-adds-a-grant
+  (expect !>(!(tool-granted:ht 'run_js' (conversation-tools:ht ~[%web %skills]))))
+++  test-js-tlon-owner-grant-does-not-become-another-senders-grant
+  =/  cfg=policy:t  [& `~bud (my ~[[~nec ~[%web]]]) &]
+  =/  owner  (need (grants:tlon cfg ~bud ~[%code]))
+  =/  other  (need (grants:tlon cfg ~nec ~[%code]))
   ;:  weld
-    (expect !>(!(tool-granted:ht 'run_js' (conversation-tools:ht ~[%code]))))
+    (expect !>((tool-granted:ht 'run_js' (conversation-tools:ht owner))))
+    (expect !>(!(tool-granted:ht 'run_js' (conversation-tools:ht other))))
+    (expect-eq !>(`(unit (list tool-grant:h))`~) !>((grants:tlon cfg ~zod ~[%code])))
+  ==
+++  test-js-cannot-escape-scheduled-or-rehearsal-ceilings
+  ;:  weld
     (expect !>(!(tool-granted:ht 'run_js' (scheduled-tools:ht ~[%code]))))
     (expect !>(!(tool-granted:ht 'run_js' (rehearsal-tools:ht ~[%code]))))
   ==
