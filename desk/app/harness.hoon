@@ -1532,16 +1532,14 @@
     ==
   ::
       %run-js
-    ::  Native code execution is an optional hand and is not bundled.
+    ::  Optional QuickJS/WASM executor. Recheck authority at
+    ::  dispatch; the outer effect envelope already fences request generation.
     ?>  =(our.bowl src.bowl)
     ?.  (authorized-call sid.act call-id.act 'run_js')  `state
-    =/  mses  (~(get by sessions) sid.act)
-    ?~  mses  `state
-    =^  cs1  u.mses
-      %^  record-all  sid.act  u.mses
-      ~[[%tool-completed call-id.act 'run_js' 'error: code execution is not installed']]
-    =^  cs2  state  (drive-put sid.act u.mses)
-    [(weld cs1 cs2) state]
+    =/  tid=@ta  (cat 3 'harness_js_' (scot %uv (end [3 16] (shas %js eny.bowl))))
+    =/  deadline=@da  (add now.bowl js-timeout)
+    =.  jobs  (~(put by jobs) tid [sid.act call-id.act deadline])
+    [(js-cards:effects tid code.act deadline) state]
   ==
 ::  +js-timeout: watchdog deadline for a run_js thread
 ::
@@ -1755,6 +1753,8 @@
         =/  code  (tool-str:effects args.c 'code')
         ?~  code
           acc(evs (snoc evs.acc [%tool-completed id.c name.c 'error: need code argument']))
+        ?:  (gth (met 3 u.code) 65.536)
+          acc(evs (snoc evs.acc [%tool-completed id.c name.c 'error: JavaScript source exceeds 64 KiB']))
         =/  reject  (js-loop-guard:ht u.code)
         ?^  reject
           acc(evs (snoc evs.acc [%tool-completed id.c name.c u.reject]))

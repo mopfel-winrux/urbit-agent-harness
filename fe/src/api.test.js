@@ -49,6 +49,8 @@ test('bootstrap grants are fresh per conversation and preserve explicit override
   first.tools[0].clay = '/narrow'
   assert.deepEqual(defaultConfig().tools, [{ clay: '/' }, 'web', 'curl', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'corpus'])
   assert.deepEqual(defaultConfig({ tools: ['clay', 'mcp'] }).tools, ['clay', 'mcp'])
+  assert.ok(!defaultConfig().tools.includes('code'))
+  assert.deepEqual(defaultConfig({ tools: ['code'] }).tools, ['code'])
 })
 
 test('skill settings use acknowledged owner ACP operations with literal names and revisions', async () => {

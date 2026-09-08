@@ -3,7 +3,8 @@
 /-  h=harness
 |%
 ++  acp-id  'harness'
-::  All configurable local families are enabled for new owner sessions.
+::  Local families are enabled for new owner sessions, except experimental
+::  code execution: the owner must explicitly opt in to its broad authority.
 ::  Keep the policy explicit: MCP servers need named grants, and Tlon tools
 ::  still derive from live hands rather than ambient configuration.
 ++  default-tools

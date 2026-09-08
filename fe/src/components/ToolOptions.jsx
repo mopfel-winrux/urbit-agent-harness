@@ -9,6 +9,7 @@ const copy = {
   subagents: ['Subagents', 'Delegate independent work to another session.'],
   peers: ['Peer agents', 'Ask explicitly permitted agents on other ships.'],
   corpus: ['Cross-conversation recall', 'Search retained evidence from all conversations. Owner conversations only; social and delegated inputs stay scoped to their own conversation.'],
+  code: ['Run JavaScript', 'Run code for calculations, data processing, and automation. Grants broad ship file and network access. Experimental and off by default; a stuck script can stall the ship.'],
 }
 
 export const grantKey = (grant) => typeof grant === 'string' ? `family:${grant}` : 'clay' in grant ? `clay:${grant.clay}` : `mcp:${grant.mcp}`

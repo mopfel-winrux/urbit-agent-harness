@@ -281,7 +281,7 @@ the rebuildable index/continuation. Compaction does not bound full-log replay.
 ## Tools and authority
 
 Tool families are granted per conversation. Fresh-install defaults enable all
-configurable local families, including broad Clay reads, general HTTP, shared
+standard local families, including broad Clay reads, general HTTP, shared
 skill writing, authoring, subagents, peers and corpus recall. MCP servers still
 need named grants; Tlon tools derive from live hands. New owner Tlon conversations
 inherit configured defaults too. Saved defaults and existing conversations keep
@@ -291,6 +291,15 @@ sessions receive purpose-built grants. Provider-visible schemas
 are discovery only: execution resolves every function name to a family and
 checks the current grant again; internal self-pokes must also correspond to a
 durable outstanding call.
+
+The experimental `%code` family is discoverable but excluded from bootstrap
+defaults. Its `run_js` tool uses the original QuickJS/WASM Spider executor.
+It grants broad host APIs rather than inheriting Clay, network or Tlon tool
+scopes, so social conversations, schedules and rehearsals cannot execute it.
+Owner-session subagents can inherit it only within their parent's live grants.
+The 64 KiB source bound, common-loop rejection and 30-second yielding watchdog
+are resource safeguards, not hard CPU isolation. Cancellation fences results
+and stops the Spider thread where possible; it cannot undo completed I/O.
 
 MCP is granted per server, not per tool: JSON grants use `{"mcp":"server-id"}`
 alongside ordinary family strings. Discovery filters the enabled registry by

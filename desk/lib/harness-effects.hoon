@@ -3,8 +3,8 @@
 ::  Callers must authorize tools and record intent before emitting these cards;
 ::  result handlers in the agent fence late receipts before appending events.
 ::  Sync reads return a result noun; async helpers describe cards, not a loop.
-/-  h=harness
-/+  ht=harness-tools
+/-  h=harness, spider
+/+  ht=harness-tools, tbjs=thread-builder-js
 |_  [=bowl:gall mcp-servers=(map mcp-server-id:h mcp-server:h)]
 +$  card  card:agent:gall
 ::  +run-js-poke: a run_js tool call becomes a poke to ourselves
@@ -15,6 +15,17 @@
   :*  %pass  `wire`[%runjs `@ta`sid `@ta`call-id ~]
       %agent  [our.bowl dap.bowl]  %poke
       %harness-effect  !>(`effect:h`[generation [%run-js sid call-id code]])
+  ==
+::  QuickJS/WASM executor. The head owns the job record
+::  and authorizes admission; this binding only builds the Spider effects.
+++  js-cards
+  |=  [tid=@ta code=@t deadline=@da]
+  ^-  (list card)
+  =/  =shed:khan  (tbjs code)
+  =/  args=inline-args:spider  [~ `tid [our.bowl q.byk.bowl da+now.bowl] shed]
+  :~  [%pass `wire`[%jswatch tid ~] %agent [our.bowl %spider] %watch /thread-result/[tid]]
+      [%pass `wire`[%jspoke tid ~] %agent [our.bowl %spider] %poke %spider-inline !>(args)]
+      [%pass `wire`[%jsdog tid ~] %arvo %b %wait deadline]
   ==
 ::  +rehearse-poke: a rehearse_skill tool call becomes a poke to ourselves
 ::

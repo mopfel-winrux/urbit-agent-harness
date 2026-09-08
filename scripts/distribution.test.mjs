@@ -1,10 +1,16 @@
 // Test the assembled artifact, not the development mount: leftover files can
 // hide missing dependencies. Run `zig build` before this suite.
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import test from 'node:test'
 import { access, readFile, readdir } from 'node:fs/promises'
 
 const desk = new URL('../zig-out/', import.meta.url)
+test('the optional JS executor bundles the expected QuickJS binary', async () => {
+  const wasm = await readFile(new URL('quick-js-emcc.wasm', desk))
+  assert.equal(createHash('sha256').update(wasm).digest('hex'), 'aa83708e03d77e610a576da47eb77ea4b3e0483c88bf9367ed66dc66810f8423')
+  for (const name of ['lib/thread-builder-js.hoon', 'lib/wasm/lia.hoon', 'lib/wasm/parser.hoon', 'lib/wasm/runner/engine.hoon', 'sur/wasm/lia.hoon', 'sur/spider.hoon', 'mar/wasm.hoon']) await access(new URL(name, desk))
+})
 test('the distribution has no Steward export integration', async () => {
   await assert.rejects(access(new URL('sur/tlon-steward-lens.hoon', desk)))
   await assert.rejects(access(new URL('lib/harness-tlon-lens.hoon', desk)))

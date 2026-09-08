@@ -56,7 +56,8 @@ copy of user meaning.
 ## Authority
 
 Owner-created conversations inherit configured defaults, not an automatically
-expanding catalog. Fresh-install defaults enable all configurable local families;
+expanding catalog. Fresh-install defaults enable standard local families;
+experimental JavaScript/WASM execution remains opt-in.
 MCP servers still need named grants and Tlon tools derive from live hands. Scheduled, delegated,
 and remote work receive purpose-built grants; absence of a grant denies
 execution. Grubbery roads and weirs are the intended substrate for

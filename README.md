@@ -82,9 +82,14 @@ failed work. See [Tlon integration](docs-refs/tlon.md).
   using its existing custom S3 or hosted presigned-URL storage; no extra service.
 - Per-conversation tools for path-scoped Clay reads, HTTP, skills, subagents, explicitly granted
   peers, and experimental skill authoring. Fresh-install defaults enable all
-  configurable local families, including broad Clay reads and general HTTP.
+  standard local families, including broad Clay reads and general HTTP.
   MCP servers still need named grants. Saved defaults and existing conversation
   grants are preserved; remote and delegated authority remains scoped.
+- Optional **Run JavaScript** runs `run_js` through the original
+  QuickJS/WASM and Spider executor. Enable it in a conversation's tool settings;
+  it is off by default. It has broad host APIs, including file writes and network
+  access, and is not sandboxed by other tool grants. The watchdog stops yielding
+  waits, not pure computation. See [execution limits](docs-refs/threads-substrate-notes.md).
 
 Native inference and a required Groups installation are outside this desk.
 Either can be added behind a typed capability without changing session

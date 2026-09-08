@@ -1,5 +1,30 @@
 # WASM threads as an execution substrate for agent-authored code
 
+## Enabled implementation
+
+The `run_js` executor is bundled and available under the
+opt-in `%code` grant. In a conversation's Settings → Conversation → Tools,
+enable **Run JavaScript** and save. Bootstrap and existing
+defaults are not changed. The agent then receives the `run_js` schema; for example:
+
+```js
+module.exports = () => JSON.stringify({ answer: 6 * 7 });
+```
+
+The host APIs include `fetch_sync`, `console.*` and
+`require('urbit_thread')` for file I/O, sleep and the original ship integrations.
+This is broad authority: other tool grants do not restrict those host APIs.
+Social conversations, scheduled work and rehearsals cannot use `%code`.
+Do not enable it for untrusted work. The existing static loop check and yielding
+watchdog do not make pure computation interruptible.
+
+`desk/lib/thread-builder-js.hoon` runs the bundled QuickJS binary.
+Grubbery supplies the WASM/strand libraries; no
+external executor or Orchestra application is required. The distribution test
+checks the binary and dependency presence. `scripts/js-conformance.mjs` exercises
+the real head, Spider and runtime with a deterministic local model and temporary
+sessions, including rejection, results, errors, cancellation and the watchdog.
+
 ## Responsibilities
 
 JavaScript execution is an optional Harness tool executor, not a second agent

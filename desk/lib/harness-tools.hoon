@@ -64,7 +64,7 @@
 ++  all-tools
   ^-  (list term)
   :~  %clay  %web  %curl  %skills  %skill-write
-      %author  %subagents  %peers  %mcp  %corpus  %tlon-read  %tlon-write  %cron
+      %author  %subagents  %peers  %mcp  %corpus  %code  %tlon-read  %tlon-write  %cron
   ==
 ::  Tlon families are implementation vocabulary, not configurable grants.
 ::  A live Tlon hand supplies them from its actor/conversation authority.
@@ -87,11 +87,11 @@
 ++  conversation-tools
   |=  tools=(list tool-grant:h)
   ^-  (list tool-grant:h)
-  (skip tools |=(tool=tool-grant:h |(=(%skill-write tool) =(%author tool))))
+  (skip tools |=(tool=tool-grant:h |(=(%skill-write tool) =(%author tool) =(%code tool))))
 ++  scheduled-tools
   |=  tools=(list tool-grant:h)
   ^-  (list tool-grant:h)
-  (skip tools |=(tool=tool-grant:h |(=(%cron tool) =(%subagents tool))))
+  (skip tools |=(tool=tool-grant:h |(=(%cron tool) =(%subagents tool) =(%code tool))))
 ++  rehearsal-tools
   |=  tools=(list tool-grant:h)
   ^-  (list tool-grant:h)
@@ -158,7 +158,7 @@
     ?:  ?=(^ tool)  (~(put in out) -.tool)
     ?:  |(=(%mcp tool) =(%clay tool))  out
     (~(put in out) tool)
-  (skim (snoc all-tools %code) |=(family=term (~(has in granted) family)))
+  (skim all-tools |=(family=term (~(has in granted) family)))
 ::  Resolve provider-returned function names to the capability family that
 ::  authorizes execution. This mapping is also checked at dispatch time;
 ::  provider schemas are discovery, never authority.
@@ -367,12 +367,15 @@
       %-  crip
       %-  zing
       ^-  (list tape)
-      :~  "Run a JavaScript snippet on the ship and get its result. "
+      :~  "Experimental opt-in: run JavaScript through QuickJS/WASM on the ship. "
           "The code MUST assign a function to module.exports; its return "
           "value (JSON.stringify objects) is the result. Available: "
           "console.*, fetch_sync(url), require('urbit_thread') for file "
-          "i/o. No unbounded loops (while(true), for(;;)): the runtime "
-          "cannot be preempted, so use a bounded loop or you are rejected."
+          "i/o, including writes. These host APIs have broad ship authority; "
+          "other tool grants do not sandbox them. No Node.js or npm. "
+          "Use only short, bounded work. The loop guard rejects common "
+          "unbounded loops, but is not a sandbox. A 30-second watchdog "
+          "bounds yielding waits; it cannot interrupt pure computation."
       ==
     :~  ['code' 'the javascript source; must set module.exports to a function']
     ==
