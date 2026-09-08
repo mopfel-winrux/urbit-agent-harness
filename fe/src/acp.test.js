@@ -28,7 +28,7 @@ test('queue recovery never repeats a possibly admitted mutation', async () => {
   const sent = []
   let rejected = false
   client.poke = async (value) => sent.push(value)
-  client.pending.set(1, { timer: null, frame: { method: 'session/prompt' }, reject: () => { rejected = true } })
+  client.pending.set(1, { frame: { method: 'session/prompt' }, reject: () => { rejected = true } })
   await client.recover()
   assert.ok(rejected)
   assert.equal(client.pending.size, 0)
@@ -80,4 +80,87 @@ test('identity lookup can recover after failure without inventing a destination'
   available = true
   assert.equal(await client.identify(), 'nec')
   assert.equal(client.ship(), 'nec')
+})
+
+test('slow RPC replies have no elapsed-time deadline, including prompts', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const client = new AcpClient()
+  const sent = []
+  client.poke = async (value) => sent.push(value)
+  const methods = ['initialize', 'session/list', 'session/prompt']
+  const replies = methods.map((method) => client.call(method))
+  await Promise.resolve()
+  t.mock.timers.tick(31 * 60_000)
+  assert.equal(client.pending.size, 3)
+  assert.equal(sent.length, 3, 'a slow request is never resent')
+  for (const [index, method] of methods.entries()) client.receive({ id: index + 1, result: method })
+  assert.deepEqual(await Promise.all(replies), methods)
+  assert.equal(client.pending.size, 0)
+})
+
+test('identity and HTTP pokes wait past the old 15 second timeout', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const waiting = []
+  t.mock.method(globalThis, 'fetch', (path, options) => new Promise((resolve, reject) => {
+    waiting.push({ path, options, resolve })
+    options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true })
+  }))
+  const client = new AcpClient()
+  const pending = client.poke({ open: { connection: client.connection } })
+  assert.equal(waiting.length, 2)
+  t.mock.timers.tick(45_000)
+  for (const request of waiting) {
+    assert.equal(request.options.signal.aborted, false)
+    request.resolve(new Response('~nec'))
+  }
+  await client.identity
+  // Allow the poke continuation after the shared identity promise to run.
+  for (let i = 0; i < 5 && waiting.length < 3; i++) await Promise.resolve()
+  assert.equal(waiting.length, 3)
+  t.mock.timers.tick(45_000)
+  assert.equal(waiting[2].options.signal.aborted, false)
+  waiting[2].resolve(new Response(''))
+  await pending
+})
+
+test('closing aborts a slow queue read without reporting a transport error', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let signal
+  t.mock.method(globalThis, 'fetch', (path, options) => {
+    if (path.startsWith('/~/channel/')) return Promise.resolve(new Response(''))
+    signal = options.signal
+    return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }))
+  })
+  const client = new AcpClient()
+  client.host = 'nec'
+  client.running = true
+  const polling = client.poll()
+  t.mock.timers.tick(45_000)
+  assert.equal(signal.aborted, false)
+  client.close()
+  await polling
+  assert.equal(signal.aborted, true)
+  assert.equal(client.lastError, null)
+})
+
+test('closing settles pending calls even before startup completes', async () => {
+  const client = new AcpClient()
+  client.poke = async () => {}
+  const pending = client.call('session/prompt')
+  const rejected = assert.rejects(pending, /Connection closed/)
+  client.close()
+  await rejected
+  assert.equal(client.pending.size, 0)
+  client.receive({ id: 1, result: 'late reply' })
+  await assert.rejects(client.call('session/list'), /Connection closed/)
+  await assert.rejects(client.identify(), /Connection closed/)
+})
+
+test('transport failures still reject immediately without resending', async () => {
+  const client = new AcpClient()
+  let sends = 0
+  client.poke = async () => { sends++; throw new Error('offline') }
+  await assert.rejects(client.call('session/list'), /offline/)
+  assert.equal(sends, 1)
+  assert.equal(client.pending.size, 0)
 })

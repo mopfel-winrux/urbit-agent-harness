@@ -22,6 +22,8 @@ export class AcpClient extends EventTarget {
     this.receivedThrough = 0
     this.host = null
     this.identity = null
+    // A slow ship is not a failed request. Abort only when this client closes.
+    this.transport = new AbortController()
   }
 
   ship() {
@@ -30,12 +32,13 @@ export class AcpClient extends EventTarget {
   }
 
   async identify() {
+    this.assertOpen()
     if (this.identity) return this.identity
     this.identity = (async () => {
       // Cookies are shared across ports. Eyre knows both this server's ship
       // and the authenticated identity; browser globals/cookie order do not.
       const read = async (path) => {
-        const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(15_000) })
+        const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', signal: this.transport.signal })
         if (!response.ok) throw new Error(`Could not identify this ship (HTTP ${response.status}).`)
         const ship = canonicalShip(await response.text())
         if (!ship) throw new Error('The server did not return a valid ship identity.')
@@ -53,7 +56,7 @@ export class AcpClient extends EventTarget {
     const ship = await this.identify()
     const response = await fetch(`/~/channel/${this.channel}`, {
       method: 'PUT', credentials: 'same-origin',
-      signal: AbortSignal.timeout(15_000),
+      signal: this.transport.signal,
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify([{
         id: ++this.eventId, action: 'poke', ship, app: 'acp',
@@ -67,9 +70,10 @@ export class AcpClient extends EventTarget {
     if (this.ready) return this.ready
     this.ready = (async () => {
       await this.poke({ open: { connection: this.connection } })
+      this.assertOpen()
       this.running = true
       void this.poll()
-      return this.call('initialize', { protocolVersion: 1, clientInfo: { name: 'harness-web', version: '0.2.0' } }, 15_000)
+      return this.call('initialize', { protocolVersion: 1, clientInfo: { name: 'harness-web', version: '0.2.0' } })
     })()
     this.ready.catch(() => {
       this.ready = null
@@ -78,24 +82,25 @@ export class AcpClient extends EventTarget {
     return this.ready
   }
 
-  async call(method, params = {}, timeoutMs = method === 'session/prompt' ? 30 * 60_000 : 15_000) {
+  assertOpen() {
+    if (this.transport.signal.aborted) throw new Error('Connection closed. Reload Harness to reconnect.')
+  }
+
+  async call(method, params = {}) {
+    this.assertOpen()
     const id = ++this.nextId
     const frame = { jsonrpc: '2.0', id, method, params }
     const result = new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id)
-        reject(new Error(`${method} timed out; the ship did not answer.`))
-      }, timeoutMs)
-      this.pending.set(id, { resolve, reject, timer, frame })
+      this.pending.set(id, { resolve, reject, frame })
     })
-    // A reply or timeout can arrive before the HTTP poke finishes.
+    // A reply or connection closure can arrive before the HTTP poke finishes.
     result.catch(() => {})
     try {
       await this.poke({ send: { connection: this.connection, target: 'agent', payload: JSON.stringify(frame) } })
     } catch (error) {
       const pending = this.pending.get(id)
-      if (pending) clearTimeout(pending.timer)
       this.pending.delete(id)
+      pending?.reject(error)
       throw error
     }
     return result
@@ -113,7 +118,6 @@ export class AcpClient extends EventTarget {
       this.receivedThrough = 0
       // A missing queue is not proof that a mutation was never admitted.
       for (const [id, pending] of this.pending) {
-        clearTimeout(pending.timer)
         pending.reject(new Error('Connection restored. Check the conversation before repeating your action.'))
         this.pending.delete(id)
       }
@@ -127,8 +131,9 @@ export class AcpClient extends EventTarget {
         const response = await fetch(`/~/scry/acp/v1/${this.connection}/client.json?_=${Date.now()}`, {
           credentials: 'same-origin',
           cache: 'no-store',
-          signal: AbortSignal.timeout(15_000),
+          signal: this.transport.signal,
         })
+        if (!this.running) return
         if (response.status === 404) {
           await this.recover()
           await sleep(100)
@@ -146,18 +151,27 @@ export class AcpClient extends EventTarget {
           this.dispatchEvent(new Event('transport-ready'))
         }
       } catch (error) {
+        if (!this.running) return
         if (error.message !== this.lastError) {
           this.lastError = error.message
           this.dispatchEvent(new CustomEvent('transport-error', { detail: error }))
         }
       }
-      await sleep(document.hidden ? 1500 : 180)
+      if (this.running) await sleep(document.hidden ? 1500 : 180)
     }
   }
 
   close() {
-    if (!this.running) return
+    if (this.transport.signal.aborted) return
+    const wasRunning = this.running
     this.running = false
+    this.ready = null
+    this.transport.abort()
+    for (const pending of this.pending.values()) {
+      pending.reject(new Error('Connection closed. Check the conversation before repeating your action.'))
+    }
+    this.pending.clear()
+    if (!wasRunning || !this.host) return
     void fetch(`/~/channel/${this.channel}`, {
       method: 'PUT', credentials: 'same-origin', keepalive: true,
       headers: { 'content-type': 'application/json' },
@@ -165,7 +179,7 @@ export class AcpClient extends EventTarget {
         id: ++this.eventId, action: 'poke', ship: this.ship(), app: 'acp',
         mark: 'acp-action-1', json: { close: { connection: this.connection, reason: 'browser closed' } },
       }]),
-    })
+    }).catch(() => {})
   }
 
   receiveBatch(messages) {
@@ -183,7 +197,6 @@ export class AcpClient extends EventTarget {
       const pending = this.pending.get(Number(frame.id))
       if (!pending) return
       this.pending.delete(Number(frame.id))
-      clearTimeout(pending.timer)
       if (frame.error) pending.reject(new Error(frame.error.message || 'ACP request failed'))
       else pending.resolve(frame.result)
       return
