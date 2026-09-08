@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { acp } from './acp'
 import { admitted, applySnapshot, applyHistory } from './session'
+import { clientId } from './clientId.js'
 
 export function useSession(chat) {
   const [snapshot, setSnapshot] = useState(null)
@@ -59,17 +60,18 @@ export function useSession(chat) {
   }, [chat, refresh])
 
   async function send(text) {
-    const id = crypto.randomUUID()
-    latestSend.current = id
-    setPending({ id, text }); setSending(true); setActionError('')
+    const attempt = {}
+    latestSend.current = attempt
     try {
+      const id = clientId()
+      setPending({ id, text }); setSending(true); setActionError('')
       await acp.call('session/prompt', { sessionId: chat, clientMessageId: id, prompt: [{ type: 'text', text }] })
       if (live.current) await refresh()
-    } catch (cause) { if (live.current && latestSend.current === id) setActionError(cause.message) }
+    } catch (cause) { if (live.current && latestSend.current === attempt) setActionError(cause.message) }
     finally {
       // A /stop prompt may supersede an in-flight prompt. Its predecessor's
       // completion must not clear the new command's ghost or sending state.
-      if (live.current && latestSend.current === id) { setPending(null); setSending(false); void refresh() }
+      if (live.current && latestSend.current === attempt) { setPending(null); setSending(false); void refresh() }
     }
   }
 

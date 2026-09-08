@@ -103,11 +103,11 @@ only its result namespaces—not call a provider or mutate the head.
 ```mermaid
 flowchart LR
   Head["Authoritative session"] -->|"snapshot + expected digest"| Source["Source grub"]
-  Source --> Verifier["Sandboxed verifier"]
+  Source   --> Verifier["Sandboxed verifier"]
   Verifier --> Mirror["Session mirror"]
   Verifier --> Check["Replay / decision check"]
   Verifier -->|failure| Crash["Local crash checkpoint"]
-  Crash -->|"explicit retry"| Verifier
+  Crash    -->|"explicit retry"| Verifier
 ```
 
 Native apps and ACP clients can inspect the check or request a recheck. A
@@ -180,62 +180,6 @@ The browser is one ACP client. Each client has an independent ordered queue
 while all of them address the same on-ship session records. See
 [`acp/README.md`](acp/README.md).
 
-## Repository map
-
-```text
-build.zig                  reproducible desk assembly
-desk/app/harness.hoon      authoritative lifecycle and ingress routing
-desk/app/acp.hoon          durable duplex transport
-desk/lib/harness.hoon      semantic core: replay, transcript, decide
-desk/lib/harness-session.hoon pure session services and budget composition
-desk/lib/harness-provider.hoon provider wire formats and model catalogs
-desk/lib/harness-json.hoon client projections and command decoding
-desk/lib/harness-tools.hoon capability catalog and executor safeguards
-desk/lib/harness-effects.hoon concrete effect bindings; no session store
-desk/lib/harness-acp.hoon   ACP frames/cards; no session ownership
-desk/lib/harness-defaults.hoon bootstrap policy
-desk/{sur,lib}/harness-store.hoon persistence envelope and version loading
-desk/lib/harness-hand.hoon bindings, admission queue, and delivery receipts
-desk/lib/harness-session-nexus.hoon supervised replay verifier
-desk/lib/root.hoon         minimal Grubbery service tree
-desk/tests/harness.hoon    pure head and response-parser checks
-desk/tests/harness-boundaries.hoon storage, codec and authority contracts
-scripts/modules.test.mjs   dependency direction and cycle checks
-scripts/conformance.mjs    live independent-client/session checks
-scripts/hand-conformance.mjs live native/ACP hand and publication checks
-scripts/hand-operations-conformance.mjs recovery, archive and verification checks
-scripts/shadow-conformance.mjs isolated verifier fault/reload checks
-scripts/archive-hand.mjs   durable export before binding retirement
-fe/                        componentized React ACP client
-acp/harness-acp.mjs        ACP stdio-to-Eyre adapter
-acp/hand-client.mjs        transport-independent ACP hand helper
-docs-refs/                 design, protocol, and roadmap
-```
-
-- [`architecture.md`](docs-refs/architecture.md) explains ownership and
-  boundaries.
-- [`lightspeed-design.md`](docs-refs/lightspeed-design.md) records the design
-  invariants.
-- [`a2a-design.md`](docs-refs/a2a-design.md) develops identity and peer work.
-- [`acp.md`](docs-refs/acp.md) defines the client boundary.
-- [`hands.md`](docs-refs/hands.md) defines bidirectional conversation adapters.
-- [`context-and-memory.md`](docs-refs/context-and-memory.md) describes automatic
-  hierarchical compaction, bounded notes and permission-scoped indexed recall.
-- [`integrations.md`](docs-refs/integrations.md) shows how editors, services,
-  on-ship apps, webhooks, peers, timers, and MCP servers connect.
-- [`roadmap.md`](docs-refs/roadmap.md) tracks completed and planned work.
-
-The central design claim is that an Urbit event log makes a good long-lived
-agent head: deterministic, inspectable, restartable, and independent of any
-particular model or client.
-
-Start with `sur/harness.hoon` and `lib/harness.hoon`, then follow
-`lib/harness-session.hoon` into the Gall lifecycle. Providers and client
-formats are edges, not prerequisites for understanding the reducer. See the
-[code boundaries and extension guide](docs-refs/architecture.md#code-boundaries).
-Keep modules skimmable—roughly under 2,000 lines is a useful signal, not a
-reason to separate code that must uphold one invariant together.
-
 ## Verification
 
 ```sh
@@ -247,61 +191,3 @@ node --test scripts/distribution.test.mjs
 SHIP_URL=http://localhost:8081 SHIP_COOKIE=/path/to/auth-cookie.txt \
   node scripts/conformance.mjs
 ```
-
-The live checks use the ship's configured provider and incur inference usage.
-The distribution checks inspect `zig-out`, including every agent's explicit
-Ford file imports, so development-mount leftovers cannot hide missing files.
-They create uniquely named test sessions and remove those sessions afterward.
-`scripts/rehearsal-conformance.mjs` uses a local provider fixture to verify
-read-only rehearsal grants and rejected web/MCP/skill-write attempts, including
-an attempted mid-run grant expansion. It needs `SHIP_URL` and `SHIP_COOKIE`,
-uses no paid provider, removes its uniquely named proposals/sessions, and leaves
-credentials, defaults and the MCP registry unchanged.
-`scripts/mcp-scopes-conformance.mjs` verifies per-server discovery/dispatch,
-future-server denial, delayed-response revocation and child inheritance using
-local fixtures. It temporarily adds uniquely named MCP registrations and restores
-the original registry. `scripts/searxng-conformance.mjs` verifies form encoding,
-JSON-disabled feedback and provider changes during a pending search; it restores
-the original search configuration without changing credentials. Both use
-`SHIP_URL`/`SHIP_COOKIE`, incur no paid usage, and should run after desk compilation
-has finished. Run the pure migration/parser suite with `-test /=harness=/tests`.
-`scripts/settlement-conformance.mjs` uses local provider fixtures to verify that
-cancelling a child settles its parent's tool, completes the parent ACP prompt,
-and fences late child replies. It needs `SHIP_URL` and `SHIP_COOKIE`, uses no
-provider credentials, and removes its test sessions.
-
-`scripts/cancellation-conformance.mjs` uses the same authentication with local
-provider/tool fixtures (no inference charges). Run it on the ship's host to
-check interruption during tool work, immediate continuation, provider transcript
-validity, terminal ACP updates, and duplicate/late-result rejection.
-Run `-test /=harness=/tests/harness` in Dojo for pure replay, transcript,
-branch-boundary, and provider-parser checks (requires `/lib/test` on the desk).
-Run `-test /=harness=/tests/harness-boundaries` for persistence preservation,
-shared redacted projections, capability grants, and provider metadata.
-Run `-test /=harness=/tests/harness-hand` for binding, deduplication, queue,
-and receipt checks. `scripts/hand-conformance.mjs` uses the same ship environment
-for real model turns through two hands; publication callbacks are local test
-fixtures, never posts to a real channel. Failed runs retain unresolved test
-bindings rather than silently discarding their pending publications.
-Run `-test /=harness=/tests/harness-shadow` for replay and failure-checkpoint
-tests. `scripts/hand-operations-conformance.mjs` uses the same environment for
-live owner recovery and archive checks. Test archives remain in printed private
-temporary directories; they are not a production archive location.
-
-Run `-test /=harness=/tests/harness-tlon` for social authority, thread identity,
-Story conversion, and computing leases. The [two-ship Tlon tests](docs-refs/tlon.md#testing) exercise
-actual Messenger delivery, ACP activity, and permission revocation without
-changing Groups code, plus provider-failure recovery and remote thinking/tool
-indicators against Groups revision `938f0c4`.
-
-`scripts/shadow-conformance.mjs` additionally requires the same ship cookie
-environment and `SHIP_DOJO_PANE` set to an idle Dojo tmux pane. It corrupts only a
-uniquely named test verifier, reloads the runtime, and verifies explicit ACP
-recovery without changing the authoritative conversation.
-
-`npm run test:ui --prefix fe` runs isolated browser checks for Markdown safety,
-copying, scrolling, the composer, dialog focus, and mobile/light/dark layouts.
-Install the test browser once with `cd fe && npx playwright install chromium`,
-or set `PLAYWRIGHT_CHANNEL=chrome` to use an installed Chrome. These tests use
-deterministic ACP fixtures, need no ship credentials, and make no model calls.
-Fixtures are not included in the production build.

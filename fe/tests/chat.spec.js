@@ -65,6 +65,32 @@ test('composer grows, keeps shift-enter, and renders streaming markdown', async 
   await expect.poll(() => page.evaluate(() => window.harnessFixture.sent.length)).toBe(2)
 })
 
+test('sending works on LAN HTTP without crypto.randomUUID', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true }))
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'A small head, capable hands' })).toBeAttached()
+  await page.evaluate(() => { window.harnessFixture.holdPrompts = true })
+  const input = page.getByRole('textbox', { name: 'Message', exact: true })
+  await input.fill('Hello from plain HTTP')
+  await input.press('Enter')
+  await expect.poll(() => page.evaluate(() => window.harnessFixture.sent)).toEqual(['Hello from plain HTTP'])
+  await expect(input).toHaveValue('')
+  await expect(page.locator('.message.pending')).toContainText('Hello from plain HTTP')
+  await expect(page.locator('.thinking-message strong')).toHaveText('streamed')
+  await expect(page.getByRole('alert')).toHaveCount(0)
+})
+
+test('message ID failures surface as errors instead of vanishing silently', async ({ page }) => {
+  await page.evaluate(() => Object.defineProperty(crypto, 'randomUUID', {
+    value: () => { throw new Error('Message ID generation failed') }, configurable: true,
+  }))
+  const input = page.getByRole('textbox', { name: 'Message', exact: true })
+  await input.fill('Show me a failure')
+  await input.press('Enter')
+  await expect(page.getByRole('alert')).toContainText('Message ID generation failed')
+  expect(await page.evaluate(() => window.harnessFixture.sent.length)).toBe(0)
+})
+
 test('inference errors point to configuration, not a page refresh', async ({ page }) => {
   await page.evaluate(() => window.harnessFixture.update({ error: 'http error 401: User not found.' }))
   await expect(page.getByRole('alert')).toContainText('User not found.')

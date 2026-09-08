@@ -1,11 +1,10 @@
 import { canonicalShip } from './people.js'
+import { clientId } from './clientId.js'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export function webConnection() {
-  const random = globalThis.crypto?.randomUUID?.().replaceAll('-', '').slice(0, 20)
-    || `${Date.now()}${Math.floor(Math.random() * 1e9)}`
-  return `harness-web-${random}`
+  return `harness-web-${clientId()}`
 }
 
 export class AcpClient extends EventTarget {
