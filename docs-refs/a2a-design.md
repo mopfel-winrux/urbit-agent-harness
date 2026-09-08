@@ -17,6 +17,26 @@ published beneath an addressed request grub. Retries are idempotent by
 
 ## Serving side
 
+Configure incoming access in **Settings → Peers**. Add an explicit peer, edit
+its resource grants, optional model and shared skills, or revoke it. This is
+permission to ask **your** agent; the other ship must grant you access separately
+for calls in the opposite direction.
+
+The Tlon owner and **Tlon → Trusted ships** automatically have incoming peer
+access with **0 = unlimited** tokens by default. Each expanded trusted-ship row
+has a **Peer token limit** field. The limit is checked against lifetime prompt
+and response usage before admitting another request; it is not a model context
+window or a hard cutoff within a running response. Editing only this limit
+keeps access inherited: resource permissions still follow Tlon trust, and
+removing trust removes inherited access. A separately created explicit peer
+grant remains until revoked in Peers. Existing explicit limits are preserved.
+
+Peer requests use the current global provider/model defaults unless a
+**Serving model** override is saved in Peers. Existing `%peer-config` values
+remain overrides. Provider credentials are managed in Settings → Providers;
+peer grants do not include keys. Older releases require `%peer-config`
+explicitly and report `peer serving not configured` when it is absent.
+
 Each allowed peer lands in a private child-agent subtree. Peer text is
 untrusted model input and never enters an owner's interactive chat. A grant
 selects the child's model, token budget, visible context, and tools:

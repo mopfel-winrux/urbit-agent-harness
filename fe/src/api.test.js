@@ -89,3 +89,15 @@ test('corpus and optional summary settings share the owner ACP facade', async ()
     ])
   } finally { acp.start = start; acp.call = call }
 })
+
+test('peer settings use the acknowledged owner ACP facade with revision fencing', async () => {
+  const start = acp.start, call = acp.call, seen = []
+  acp.start = async () => {}
+  acp.call = async (...args) => { seen.push(args); return { revision: 'new', grants: [], trusted: [], config: null } }
+  try {
+    const policy = { revision: 'old', grants: [], config: null }
+    await api.read('peers')
+    assert.equal((await api.action({ peers: policy })).revision, 'new')
+    assert.deepEqual(seen, [['harness/peers'], ['harness/peers/configure', policy]])
+  } finally { acp.start = start; acp.call = call }
+})

@@ -51,6 +51,19 @@
   ?.  enabled.policy  ~
   ?:  =(`actor owner.policy)  `owner-tools
   (~(get by trusted.policy) actor)
+++  peer-grants
+  |=  policy=policy:t
+  ^-  (map @p peer-grant:h)
+  ::  Disabling Tlon replies does not remove trust. No token cap or shared
+  ::  skills are inherited; resource grants remain sender-specific.
+  =/  peers=(map @p peer-grant:h)
+    %-  malt
+    %+  turn  ~(tap by trusted.policy)
+    |=  [ship=@p tools=(list tool-grant:h)]
+    [ship tools ~ 0 ~]
+  ?~  owner.policy  peers
+  ::  Ownership authorizes asks, not ambient owner tools in remote work.
+  (~(put by peers) u.owner.policy [~ ~ 0 ~])
 ++  address
   |=  to=destination:t
   ^-  @t

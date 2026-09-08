@@ -265,6 +265,7 @@
       search-config=search-config:h
       search-requests=search-requests:h
   ==
++$  state-15  [%15 peer-limits=(map @p @ud) state-14]
 +$  state-14
   $:  %14
       summary-models=summary-models:h

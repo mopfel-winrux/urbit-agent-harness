@@ -8,6 +8,9 @@ import ProviderSettings from '../src/components/ProviderSettings'
 import SearchSettings from '../src/components/SearchSettings'
 import McpSettings from '../src/components/McpSettings'
 import SkillSettings from '../src/components/SkillSettings'
+import PeerSettings from '../src/components/PeerSettings'
+import TlonSettings from '../src/components/TlonSettings'
+import { emptyPeers, newPeerGrant } from '../src/peers'
 import Settings from '../src/components/Settings'
 import Sidebar from '../src/components/Sidebar'
 import App from '../src/App'
@@ -22,6 +25,9 @@ let apiKey = false
 let braveKey = sessionStorage.getItem('settings-fixture-brave') === 'true'
 let search = JSON.parse(sessionStorage.getItem('settings-fixture-search') || 'null') || { provider: 'brave', 'instance-url': '' }
 let skills = JSON.parse(sessionStorage.getItem('settings-fixture-skills') || '[]')
+let peerSettings = JSON.parse(sessionStorage.getItem('settings-fixture-peers') || 'null') || { ...emptyPeers(), ship: '~zod', revision: '1' }
+let tlonPolicy = JSON.parse(sessionStorage.getItem('settings-fixture-tlon') || 'null') || { enabled: false, owner: '~bud', mentions: true, trusted: [{ ship: '~nec', tools: ['web'] }] }
+const peerSnapshot = () => ({ ...peerSettings, trusted: [newPeerGrant('~bud'), ...tlonPolicy.trusted.map((entry) => newPeerGrant(entry.ship, entry.tools))] })
 window.settingsFixture = { requests: [], reads: [], saves: [], credentials: [], resolve: (id, value) => pending.get(id)(value) }
 acp.start = async () => {}
 acp.call = async (method) => {
@@ -31,6 +37,13 @@ acp.call = async (method) => {
 }
 api.read = async (path) => {
   window.settingsFixture.reads.push(path)
+  if (path === 'peers') {
+    if (window.settingsFixture.failPeerRead) throw new Error('Peer settings unavailable in fixture')
+    return peerSnapshot()
+  }
+  if (path === 'tlon') return { policy: tlonPolicy, sessions: [] }
+  if (path === 'tlon/profile') return { nickname: '', avatar: '' }
+  if (path === 'tlon/work') return { items: [], events: [], next: '' }
   if (path === 'skills') return skills.map(({ name, desc }) => ({ name, desc }))
   if (path.startsWith('skill/')) return skills.find((skill) => skill.name === path.slice(6))
   if (path === 'defaults' || path.startsWith('session/')) return config
@@ -64,6 +77,21 @@ api.action = async (action) => {
     return { 'has-key': true }
   }
   if (window.settingsFixture.failSave) throw new Error('Configuration save failed in fixture')
+  if (action.tlon) {
+    tlonPolicy = action.tlon
+    peerSettings.revision = String(Number(peerSettings.revision) + 1)
+    sessionStorage.setItem('settings-fixture-tlon', JSON.stringify(tlonPolicy))
+    window.settingsFixture.saves.push(action)
+    return { policy: tlonPolicy, sessions: [] }
+  }
+  if (action.peers) {
+    if (window.settingsFixture.failPeerSave) throw new Error('Peer save failed in fixture')
+    if (action.peers.revision !== peerSettings.revision) throw new Error('Peer settings or trust changed; reload before saving')
+    peerSettings = { ...peerSettings, ...action.peers, revision: String(Number(peerSettings.revision) + 1) }
+    sessionStorage.setItem('settings-fixture-peers', JSON.stringify(peerSettings))
+    window.settingsFixture.saves.push(action)
+    return peerSnapshot()
+  }
   if (action.saveSkill || action.deleteSkill) {
     const input = action.saveSkill || action.deleteSkill
     const old = skills.find((skill) => skill.name === input.name)
@@ -93,7 +121,7 @@ api.action = async (action) => {
 function SettingsFixture() {
   const [theme, setTheme] = useState('system')
   const changeTheme = (next) => { document.documentElement.dataset.theme = next; setTheme(next) }
-  const component = params.get('page') === 'skills' ? <SkillSettings /> : params.get('page') === 'mcp' ? <McpSettings resources={resourcesFor('')} /> : params.get('page') === 'search' ? <SearchSettings /> : params.get('page') === 'provider'
+  const component = params.get('page') === 'peers' ? <PeerSettings /> : params.get('page') === 'tlon' ? <TlonSettings onBack={() => {}} /> : params.get('page') === 'skills' ? <SkillSettings /> : params.get('page') === 'mcp' ? <McpSettings resources={resourcesFor('')} /> : params.get('page') === 'search' ? <SearchSettings /> : params.get('page') === 'provider'
   ? <ProviderSettings provider="openai" resources={resourcesFor('')} />
   : params.get('page') === 'conversation'
     ? <AgentSettings resources={resourcesFor('fixture')} theme={theme} onThemeChange={changeTheme} />

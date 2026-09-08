@@ -651,3 +651,6 @@ input:focus, select:focus, .settings-panel textarea:focus, .modal-card textarea:
 .trusted-ship summary { cursor: pointer; overflow-wrap: anywhere; }
 .trusted-ship summary small { margin-left: 8px; }
 .trusted-ship .tool-options { margin: 18px 0; }
+.peer-grant-fields { display: grid; gap: 16px; margin-top: 16px; }
+.peer-skills { border: 0; padding: 0; margin: 0; min-width: 0; }
+.peer-skills legend { margin-bottom: 8px; font-weight: 600; }

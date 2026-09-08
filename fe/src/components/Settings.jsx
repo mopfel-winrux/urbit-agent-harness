@@ -7,11 +7,13 @@ import SearchSettings from './SearchSettings'
 import ProviderSettings from './ProviderSettings'
 import SkillSettings from './SkillSettings'
 import MemorySettings from './MemorySettings'
+import PeerSettings from './PeerSettings'
 
 const baseTabs = [
   ['defaults', 'Defaults'],
   ['memory', 'Memory'],
   ['skills', 'Skills'],
+  ['peers', 'Peers'],
   ['mcp', 'MCP'],
   ['search', 'Search'],
 ]
@@ -34,6 +36,7 @@ export default function Settings({ resources, theme, onThemeChange, onBack }) {
       {tab === 'defaults' && <GlobalSettings resources={resources} theme={theme} onThemeChange={onThemeChange} />}
       {tab === 'memory' && <MemorySettings />}
       {tab === 'skills' && <SkillSettings />}
+      {tab === 'peers' && <PeerSettings />}
       {tab === 'mcp' && <McpSettings resources={resources} />}
       {tab === 'search' && <SearchSettings />}
       {tab === 'providers' && <>

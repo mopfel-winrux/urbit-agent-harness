@@ -6,12 +6,12 @@
 ::  live in named modules so this file can concentrate on lifecycle ownership.
 ::
 /-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, *harness-store
-/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, lcm-context=harness-lcm-context, corpus-lib=harness-corpus, corpus-json=harness-corpus-json, failure=harness-failure, policy=harness-defaults, storage=harness-store, index=harness-session-index, transport=harness-acp, bindings=harness-effects, default-agent, dbug
+/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, lcm-context=harness-lcm-context, corpus-lib=harness-corpus, corpus-json=harness-corpus-json, peer-policy=harness-peer-policy, peer-trust=harness-peer-trust, failure=harness-failure, policy=harness-defaults, storage=harness-store, index=harness-session-index, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 |%
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-14
+=|  state-15
 =*  state  -
 ^-  agent:gall
 =<
@@ -27,7 +27,7 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =/  loaded  !<(state-14 on-save:next)
+      =/  loaded  !<(state-15 on-save:next)
       =/  before-sessions  sessions
       =/  before-hands  hands
       =.  state  loaded
@@ -61,7 +61,7 @@
 ::
 ++  on-load
   |=  old-vase=vase
-  =/  new=state-14  (load:storage old-vase)
+  =/  new=state-15  (load:storage old-vase)
   =.  state  new(corpus-wake ~)
   %-  flush-auth
   ^-  (quip card _this)
@@ -787,6 +787,32 @@
       %'harness/defaults'
     ?~  id  `state
     [~[(acp-result-card:wire-codec connection u.id (config-json:hj defaults))] state]
+  ::
+      %'harness/peers'
+    ?~  id  `state
+    =/  trusted  grants:~(. peer-trust bowl)
+    [~[(acp-result-card:wire-codec connection u.id (settings-json:peer-policy our.bowl peers trusted peer-base peer-limits))] state]
+  ::
+      %'harness/peers/configure'
+    ?~  id  `state
+    =/  trusted  grants:~(. peer-trust bowl)
+    =/  expected  (acp-param-string:wire-codec params 'revision')
+    ?.  ?&(?=(^ expected) =(u.expected (revision:peer-policy peers trusted peer-base peer-limits)))
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Peer settings or trust changed; reload before saving')] state]
+    =/  raw-grants  (acp-param-json:wire-codec params 'grants')
+    =/  raw-config  (acp-param-json:wire-codec params 'config')
+    =/  raw-limits  (acp-param-json:wire-codec params 'limits')
+    ?.  &(?=(^ raw-grants) ?=(^ raw-config))
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Expected peer grants and serving configuration')] state]
+    =/  decoded
+      %-  mule  |.
+      [(json-grants:peer-policy u.raw-grants) (json-config:peer-policy u.raw-config) ?~(raw-limits peer-limits (json-limits:peer-policy u.raw-limits))]
+    ?:  ?=(%| -.decoded)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Use unique valid ships, whole nonnegative token limits, known tools, and a valid serving model')] state]
+    =.  peers  -.p.decoded
+    =.  peer-base  +<.p.decoded
+    =.  peer-limits  +>.p.decoded
+    [~[(acp-result-card:wire-codec connection u.id (settings-json:peer-policy our.bowl peers trusted peer-base peer-limits))] state]
   ::
       %'harness/summary-models'
     ?~  id  `state
@@ -2415,13 +2441,10 @@
       %ask
     ::  identity is the permission: no grant, no service
     ::
-    =/  g  (~(get by peers) src)
+    =/  g  (~(get by effective-peers) src)
     ?~  g
       [~[(answer-card:effects src id.msg [%| 'no grant for your ship'])] state]
-    =/  mbase  peer-base
-    ?~  mbase
-      [~[(answer-card:effects src id.msg [%| 'peer serving not configured'])] state]
-    =/  base  u.mbase
+    =/  base  (fall peer-base defaults)
     =/  sid=session-id:h  (cat 3 'peer--' (scot %p src))
     ?:  (lien ~(val by bindings.hands) |=(b=binding:hh =(sid.b sid)))
       [~[(answer-card:effects src id.msg [%| 'Session reserved for hand bindings'])] state]
@@ -2493,12 +2516,15 @@
   ?.  =('peer--' (end [3 6] sid))  sk
   =/  pship  (slaw %p (rsh [3 6] sid))
   ?~  pship  ~
-  =/  g  (~(get by peers) u.pship)
+  =/  g  (~(get by effective-peers) u.pship)
   ?~  g  ~
   %-  malt
   %+  skim  ~(tap by sk)
   |=  [n=@t s=skill:h]
   (~(has in inflows.u.g) n)
+++  effective-peers
+  ^-  (map @p peer-grant:h)
+  (effective:peer-policy peers grants:~(. peer-trust bowl) peer-limits)
 ::  eyre: webhooks admit input from the outside world
 ::
 ++  serve
