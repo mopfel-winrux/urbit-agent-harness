@@ -3,7 +3,7 @@ import TlonIcon from './TlonIcon'
 import { useEffect, useRef, useState } from 'react'
 import { CONVERSATION_PAGE_SIZE, conversationPage } from '../conversations'
 
-export default function Sidebar({ chats, current, onSelect, onNew, onRename, onDelete, settings, onSettings, tlon, onTlon, corpus, onCorpus }) {
+export default function Sidebar({ chats, current, onSelect, onNew, onRename, onDelete, settings, onSettings, onSessionSettings, tlon, onTlon, corpus, onCorpus }) {
   const [search, setSearch] = useState('')
   const [limit, setLimit] = useState(CONVERSATION_PAGE_SIZE)
   const [mobile, setMobile] = useState(() => matchMedia('(max-width: 760px)').matches)
@@ -29,6 +29,7 @@ export default function Sidebar({ chats, current, onSelect, onNew, onRename, onD
               <span className="truncate">{chat}</span>
             </button>
             <div className="chat-actions">
+              <button onClick={() => act(onSessionSettings, chat)} title={`Settings for ${chat}`} aria-label={`Settings for ${chat}`}><SettingsIcon /></button>
               <button onClick={() => act(onRename, chat)} title={`Rename ${chat}`} aria-label={`Rename ${chat}`}><RenameIcon /></button>
               <button onClick={() => act(onDelete, chat)} title={`Delete ${chat}`} aria-label={`Delete ${chat}`}><TrashIcon /></button>
             </div>

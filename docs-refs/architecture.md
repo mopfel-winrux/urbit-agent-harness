@@ -280,11 +280,13 @@ the rebuildable index/continuation. Compaction does not bound full-log replay.
 
 ## Tools and authority
 
-Tool families are granted per conversation. Fresh-install defaults grant web
-access and skill reading, not the complete catalog. New owner Tlon conversations
+Tool families are granted per conversation. Fresh-install defaults enable all
+configurable local families, including broad Clay reads, general HTTP, shared
+skill writing, authoring, subagents, peers and corpus recall. MCP servers still
+need named grants; Tlon tools derive from live hands. New owner Tlon conversations
 inherit configured defaults too. Saved defaults and existing conversations keep
 their explicit grants; changing bootstrap policy never rewrites their history.
-Additional capabilities are opt-in. Remote, scheduled, delegated, and rehearsal
+Remote, scheduled, delegated, and rehearsal
 sessions receive purpose-built grants. Provider-visible schemas
 are discovery only: execution resolves every function name to a family and
 checks the current grant again; internal self-pokes must also correspond to a
@@ -336,7 +338,7 @@ without changing the head's persistence layout. See [Tlon scheduling](tlon.md#co
 for the initial limits and owner controls.
 
 Experimental skill authoring can stage, rehearse, publish or discard instructions.
-It is not enabled by bootstrap defaults. Rehearsals only retain inherited Clay
+It is enabled by bootstrap defaults. Rehearsals only retain inherited Clay
 and skill reads; dispatch enforces that ceiling even for older or edited configs.
 They consume inference and create session evidence, but cannot use web, MCP,
 code execution, peers, child agents or skill mutations. Publication is a separate
@@ -383,7 +385,7 @@ contract to implement across all hands, not an executor boundary already in use.
   redirects or transport retries. It is not a private-network isolation boundary:
   Iris does not expose DNS-answer validation with pinned public-IP connections.
   Arbitrary POST requests are not part of the web grant.
-- `curl` has its own explicit `%curl` grant, absent from bootstrap defaults.
+- `curl` has its own explicit `%curl` grant, included in bootstrap defaults.
   It uses native Iris, not a shell or external worker, and supports the runtime's
   nine HTTP methods, explicit string-valued headers and an optional UTF-8 body.
   There is no destination allowlist or private-address restriction. Request

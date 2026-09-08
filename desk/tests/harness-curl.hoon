@@ -4,8 +4,8 @@
 ++  request
   |=  args=@t
   (request-card:curl 's' 7 ['call' 'curl' args])
-++  test-curl-explicit-grant-not-web-or-default
-  (expect !>(&((tool-granted:ht 'curl' ~[%curl]) !(tool-granted:ht 'curl' ~[%web]) !(tool-granted:ht 'http_fetch' ~[%curl]) !(tool-granted:ht 'curl' default-tools:defaults) !(tool-granted:ht 'curl' (rehearsal-tools:ht ~[%curl])))))
+++  test-curl-default-grant-still-distinct-from-web-and-rehearsal
+  (expect !>(&((tool-granted:ht 'curl' ~[%curl]) !(tool-granted:ht 'curl' ~[%web]) !(tool-granted:ht 'http_fetch' ~[%curl]) (tool-granted:ht 'curl' default-tools:defaults) !(tool-granted:ht 'curl' (rehearsal-tools:ht ~[%curl])))))
 ++  test-curl-default-get-no-ambient-authority
   =/  expected=(unit card:agent:gall)
     `[%pass /tool-2/s/7/call %arvo %i %request [%'GET' 'http://127.0.0.1/private' ~ ~] [0 0]]

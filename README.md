@@ -81,9 +81,10 @@ failed work. See [Tlon integration](docs-refs/tlon.md).
   [Image uploads](docs-refs/tlon.md#images-and-storage) run natively on the ship,
   using its existing custom S3 or hosted presigned-URL storage; no extra service.
 - Per-conversation tools for path-scoped Clay reads, HTTP, skills, subagents, explicitly granted
-  peers, and experimental skill authoring. Fresh-install defaults grant web
-  access and skill reading only. Saved defaults and existing conversation grants
-  are preserved; additional capabilities require an explicit grant.
+  peers, and experimental skill authoring. Fresh-install defaults enable all
+  configurable local families, including broad Clay reads and general HTTP.
+  MCP servers still need named grants. Saved defaults and existing conversation
+  grants are preserved; remote and delegated authority remains scoped.
 
 Native inference and a required Groups installation are outside this desk.
 Either can be added behind a typed capability without changing session

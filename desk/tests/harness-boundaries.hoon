@@ -3,9 +3,11 @@
 /-  h=harness, *harness-store
 /+  *test, storage=harness-store, policy=harness-defaults, hj=harness-json, hp=harness-provider, ht=harness-tools, hl=harness
 |%
-++  test-bootstrap-grants-are-not-the-catalog
+++  test-bootstrap-enables-configurable-local-families
   =/  cfg  builtin-config:policy
-  (expect-eq !>(`(list term)`~[%web %skills]) !>(tools.cfg))
+  =/  expected=(list tool-grant:h)
+    ~[[%clay ~] %web %curl %skills %skill-write %author %subagents %peers %corpus]
+  (expect-eq !>(expected) !>(tools.cfg))
 ++  test-rehearsal-keeps-only-inherited-reads
   =/  out  (rehearsal-tools:ht ~[[%clay /harness/lib] %web %skills %skill-write %author %subagents %peers %mcp %code %future-tool])
   (expect-eq !>(`(list tool-grant:h)`~[[%clay /harness/lib] %skills]) !>(out))

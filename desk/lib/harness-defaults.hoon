@@ -3,9 +3,12 @@
 /-  h=harness
 |%
 ++  acp-id  'harness'
-::  Bootstrap grants are policy, not the catalog. New tool families never
-::  become ambient authority just because they were added to the product.
-++  default-tools  `(list term)`~[%web %skills]
+::  All configurable local families are enabled for new owner sessions.
+::  Keep the policy explicit: MCP servers need named grants, and Tlon tools
+::  still derive from live hands rather than ambient configuration.
+++  default-tools
+  ^-  (list tool-grant:h)
+  ~[[%clay ~] %web %curl %skills %skill-write %author %subagents %peers %corpus]
 ::  +default-system: useful identity and operating posture for a new
 ::  session.  This describes the harness from the agent's point of view;
 ::  capability schemas below remain the authority on what it can do.

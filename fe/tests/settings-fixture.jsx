@@ -10,6 +10,8 @@ import McpSettings from '../src/components/McpSettings'
 import SkillSettings from '../src/components/SkillSettings'
 import Settings from '../src/components/Settings'
 import Sidebar from '../src/components/Sidebar'
+import App from '../src/App'
+import { acp } from '../src/acp'
 import '../src/style.css'
 
 const pending = new Map()
@@ -20,8 +22,15 @@ let apiKey = false
 let braveKey = sessionStorage.getItem('settings-fixture-brave') === 'true'
 let search = JSON.parse(sessionStorage.getItem('settings-fixture-search') || 'null') || { provider: 'brave', 'instance-url': '' }
 let skills = JSON.parse(sessionStorage.getItem('settings-fixture-skills') || '[]')
-window.settingsFixture = { requests: [], saves: [], credentials: [], resolve: (id, value) => pending.get(id)(value) }
+window.settingsFixture = { requests: [], reads: [], saves: [], credentials: [], resolve: (id, value) => pending.get(id)(value) }
+acp.start = async () => {}
+acp.call = async (method) => {
+  if (method === 'session/list') return { sessions: ['daily-notes', 'reading-list'].map((sessionId) => ({ sessionId })) }
+  if (method === 'harness/session/snapshot') return { revision: 1, phase: 'idle', entries: [], model: config.model }
+  throw new Error(`Unexpected fixture method: ${method}`)
+}
 api.read = async (path) => {
+  window.settingsFixture.reads.push(path)
   if (path === 'skills') return skills.map(({ name, desc }) => ({ name, desc }))
   if (path.startsWith('skill/')) return skills.find((skill) => skill.name === path.slice(6))
   if (path === 'defaults' || path.startsWith('session/')) return config
@@ -89,7 +98,7 @@ function SettingsFixture() {
   : params.get('page') === 'conversation'
     ? <AgentSettings resources={resourcesFor('fixture')} theme={theme} onThemeChange={changeTheme} />
     : <GlobalSettings resources={resourcesFor('')} theme={theme} onThemeChange={changeTheme} />
-  return params.get('page') === 'shell'
+  return params.get('page') === 'app' ? <App /> : params.get('page') === 'shell'
     ? <div className="app-shell"><Sidebar chats={['daily-notes']} settings onSelect={() => {}} onNew={() => {}} /><Settings resources={resourcesFor(params.has('global') ? '' : 'fixture')} theme={theme} onThemeChange={changeTheme} onBack={() => {}} /></div>
     : <main className="settings-content">{component}</main>
 }

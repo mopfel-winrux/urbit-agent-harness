@@ -45,7 +45,7 @@ export default function ToolOptions({ available = [], selected = [], servers = [
   })}
     {selected.filter((grant) => typeof grant !== 'string' && 'clay' in grant).map((grant) => <label className="tool-option" key={grantKey(grant)}>
       <input type="checkbox" checked onChange={() => onChange(grant)} />
-      <span><strong>{grant.clay === '/' ? 'All Clay files (broad access)' : `Clay: ${grant.clay}`}</strong><small>{grant.clay === '/' ? 'Preserved legacy grant. This can read every desk, including future files. Remove it and grant narrower paths.' : 'Read and list this path and its descendants, including future files under it.'}</small></span>
+      <span><strong>{grant.clay === '/' ? 'All Clay files (broad access)' : `Clay: ${grant.clay}`}</strong><small>{grant.clay === '/' ? 'Read every desk, including future files. Remove this grant to allow only narrower paths.' : 'Read and list this path and its descendants, including future files under it.'}</small></span>
     </label>)}
     {available.includes('clay') && <div className="tool-path-grant">
       <label><span>Clay read path</span><input value={clayPath} onChange={(event) => { setClayPath(event.target.value); setPathError('') }} placeholder="/harness/lib" /></label>

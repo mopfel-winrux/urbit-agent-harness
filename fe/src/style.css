@@ -188,7 +188,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
   width: 100%;
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 52px;
+  grid-template-columns: minmax(0, 1fr) 76px;
   align-items: center;
 }
 
@@ -210,7 +210,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 0 58px 0 10px;
+  padding: 0 82px 0 10px;
 }
 
 .chat-link:hover,
@@ -594,10 +594,10 @@ input:focus, select:focus, .settings-panel textarea:focus, .modal-card textarea:
   .settings-workspace { min-height: calc(100dvh - 48px); }
   .sidebar { position: static; border: 0; }
   .sidebar .chat-link, .sidebar-action { min-height: 44px; }
-  .chat-row { grid-template-columns: minmax(0, 1fr) 72px; }
-  .chat-link { padding-right: 78px; }
+  .chat-row { grid-template-columns: minmax(0, 1fr) 132px; }
+  .chat-link { padding-right: 138px; }
   .chat-actions { opacity: 1; }
-  .chat-actions button { width: 36px; height: 44px; }
+  .chat-actions button { width: 44px; height: 44px; }
   .icon-button, .close-button { min-width: 44px; min-height: 44px; }
   input, select, .settings-panel textarea, .composer textarea { font-size: 16px; }
   .conversation-search { font-size: 16px; }

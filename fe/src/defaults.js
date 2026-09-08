@@ -21,6 +21,6 @@ export const defaultConfig = (overrides = {}) => ({
   headers: [],
   system: DEFAULT_SYSTEM_PROMPT,
   'max-context': 1_310_720,
-  tools: ['web', 'skills'],
+  tools: [{ clay: '/' }, 'web', 'curl', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'corpus'],
   ...overrides,
 })

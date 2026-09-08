@@ -56,13 +56,13 @@ copy of user meaning.
 ## Authority
 
 Owner-created conversations inherit configured defaults, not an automatically
-expanding catalog. Fresh-install defaults grant web access and skill reading;
-other capabilities are opt-in. Scheduled, delegated,
+expanding catalog. Fresh-install defaults enable all configurable local families;
+MCP servers still need named grants and Tlon tools derive from live hands. Scheduled, delegated,
 and remote work receive purpose-built grants; absence of a grant denies
 execution. Grubbery roads and weirs are the intended substrate for
 making future hands independently supervised and narrowly authorized.
 
-Experimental skill authoring is opt-in. Rehearsals are limited to inherited Clay
+Experimental skill authoring is enabled in fresh-install defaults. Rehearsals are limited to inherited Clay
 and skill reads; their answers do not authorize or certify publication. Remote asks carry a
 ship identity and land under an owner-selected grant. ACP clients receive chat
 control but no implied shell or host-filesystem authority.
