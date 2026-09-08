@@ -187,13 +187,6 @@
     $(rest t.rest)
   $(chars t.chars, buf [i.chars buf])
 ::
-::  +text-to-inlines: wrapper for parse-inlines
-::
-++  text-to-inlines
-  |=  text=@t
-  ^-  (list inline:d)
-  (parse-inlines text)
-::
 ::  +flush-buf: flush text buffer into inline list
 ::
 ++  flush-buf
@@ -310,11 +303,4 @@
     $(chars +.u.result, buf ~, out [`inline:d`[%italics `(list inline:d)`~[`inline:d`inner]] flushed])
   ::  default: accumulate
   $(chars t.chars, buf [i.chars buf])
-::
-++  trim-ws
-  |=  t=tape
-  ^-  tape
-  ?~  t  ~
-  ?:  |(=(i.t ' ') =(i.t 10) =(i.t 13))  $(t t.t)
-  t
 --

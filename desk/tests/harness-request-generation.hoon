@@ -20,4 +20,10 @@
 ++  test-marker-must-match-session-generation
   =/  ses=session:h  [~[[%tool-requested-2 7 'same' 'http_fetch']] 8]
   (expect !>(!(request-current:hl ses `7 'same')))
+++  test-cancelled-request-has-no-authority
+  =/  ses=session:h  [~[[%cancelled ~ ~ 'stopped'] [%tool-requested-2 7 'same' 'http_fetch']] 7]
+  (expect !>(!(request-current:hl ses `7 'same')))
+++  test-forked-away-request-has-no-authority
+  =/  ses=session:h  [~[[%forked 'parent' 1 ~ ~] [%tool-requested-2 7 'same' 'http_fetch']] 7]
+  (expect !>(!(request-current:hl ses `7 'same')))
 --

@@ -36,31 +36,6 @@
       model=@t
       command=(unit input-id)
   ==
-::  Payloads may remain inline today, but every boundary can name durable
-::  content without depending on a transport or storage implementation.
-::
-+$  payload-ref  [hash=@ux bytes=@ud media=@t]
-+$  effect-id
-  $%  [%inference req=@ud]
-      [%tool call-id=@t]
-      [%peer ask=@uv]
-  ==
-+$  effect-target
-  $%  [%provider name=@t model=@t]
-      [%capability family=term name=@t]
-      [%ship =ship]
-  ==
-+$  effect-intent
-  $:  id=effect-id
-      target=effect-target
-      payload=(unit payload-ref)
-  ==
-+$  effect-result
-  $%  [%ok payload=(unit payload-ref)]
-      [%error message=@t retryable=?]
-      [%abandoned reason=@t]
-  ==
-+$  effect-receipt  [id=effect-id result=effect-result]
 ::  conversation items, independent of any provider's JSON representation
 ::
 +$  item

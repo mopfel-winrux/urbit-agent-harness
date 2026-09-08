@@ -2151,9 +2151,6 @@
   =/  ses  u.mses
   ?.  (request-current:hl ses generation call-id)  `state
   =/  v  (play:hl log.ses)
-  ::  ignore stale results (cancelled or forked-away requests)
-  ::
-  ?.  (~(has in wait.v) call-id)  `state
   =/  body=@t
     ?:  ?=(%cancel -.res)  'error: request cancelled by runtime'
     =/  status  status-code.response-header.res

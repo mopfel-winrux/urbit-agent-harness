@@ -1,6 +1,14 @@
 /-  h=harness, t=harness-tlon, *harness-store
 /+  *test, ht=harness-tools, hj=harness-json, hl=harness, storage=harness-store, policy=harness-defaults, tp=harness-tlon-policy, effects=harness-effects
 |%
+++  test-tool-path-parses-string-arguments
+  =/  run  ~(. effects [*bowl:gall *(map mcp-server-id:h mcp-server:h)])
+  (expect-eq !>(`(unit path)`[~ /harness/lib/harness/hoon]) !>((tool-path:run '{"path":"/harness/lib/harness/hoon"}')))
+++  test-tool-path-rejects-malformed-arguments
+  =/  run  ~(. effects [*bowl:gall *(map mcp-server-id:h mcp-server:h)])
+  %-  expect
+  !>  %+  levy  `(list @t)`~['not json' '[]' '{}' '{"path":7}' '{"path":null}' '{"path":"not a path"}']
+      |=(args=@t =(~ (tool-path:run args)))
 ++  test-raw-source-does-not-require-desk-converters
   (expect-eq !>(':: fixture\0a|=  a=@ud\0a+(a)') !>((clay-text:ht %hoon ':: fixture\0a|=  a=@ud\0a+(a)')))
 ++  test-raw-json-is-rendered-locally

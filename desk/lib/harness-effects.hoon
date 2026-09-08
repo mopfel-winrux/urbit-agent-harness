@@ -101,12 +101,9 @@
 ++  tool-path
   |=  args=@t
   ^-  (unit path)
-  =/  jon  (de:json:html args)
-  ?~  jon  ~
-  ?.  ?=([%o *] u.jon)  ~
-  =/  p  (~(get by p.u.jon) 'path')
-  ?.  ?=([~ %s *] p)  ~
-  (rush p.u.p stap)
+  =/  p  (tool-str args 'path')
+  ?~  p  ~
+  (rush u.p stap)
 ::
 ++  read-desk-file
   |=  args=@t
