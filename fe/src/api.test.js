@@ -64,3 +64,25 @@ test('skill settings use acknowledged owner ACP operations with literal names an
       ['harness/skill/save', skill], ['harness/skill/delete', { name: skill.name, revision: skill.revision }]])
   } finally { acp.start = start; acp.call = call }
 })
+
+test('corpus and optional summary settings share the owner ACP facade', async () => {
+  const start = acp.start, call = acp.call, seen = []
+  acp.start = async () => {}
+  acp.call = async (...args) => { seen.push(args); return { acknowledged: true } }
+  try {
+    const models = { compaction: null, lcm: null }
+    await api.read('summary-models')
+    await api.action({ summaryModels: models })
+    await api.read('corpus/status')
+    await api.corpus('search', { query: '雪 evidence', limit: 20, cursor: 'opaque' })
+    await api.corpus('read', { scope: '0v1', eventCount: 17, offset: 12000 })
+    await api.corpus('expand', { scope: '0v1', eventCount: 19 })
+    await assert.rejects(api.corpus('delete'), /Unsupported/)
+    assert.deepEqual(seen, [
+      ['harness/summary-models'], ['harness/summary-models/configure', { models }], ['harness/corpus/status'],
+      ['harness/corpus/search', { query: '雪 evidence', limit: 20, cursor: 'opaque' }],
+      ['harness/corpus/read', { scope: '0v1', eventCount: 17, offset: 12000 }],
+      ['harness/corpus/expand', { scope: '0v1', eventCount: 19 }],
+    ])
+  } finally { acp.start = start; acp.call = call }
+})

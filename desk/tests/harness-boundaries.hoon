@@ -12,15 +12,28 @@
 ++  test-rehearsal-does-not-add-read-authority
   (expect-eq !>(`(list term)`~) !>((rehearsal-tools:ht ~[%web %mcp])))
 ++  test-current-store-load-is-an-identity
-  =/  saved=state-13  *state-13
+  =/  saved=state-14  *state-14
   =.  defaults.saved  builtin-config:policy
   =.  provider-keys.saved  (my ~[['fixture' 'test-secret']])
   =.  search-config.saved  [%searxng 'https://search.example']
   =.  search-requests.saved  (my ~[[['fixture' 'pending-call'] %searxng]])
   =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced defaults.saved]] 37]]])
   (expect-eq !>(saved) !>((load:storage !>(saved))))
-++  test-saved-tool-policy-is-not-replaced-by-bootstrap-defaults
+++  test-thirteen-migration-keeps-policy-and-starts-disposable-corpus
   =/  saved=state-13  *state-13
+  =.  defaults.saved  builtin-config:policy
+  =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced defaults.saved]] 37]]])
+  =.  modified.saved  (my ~[['fixture' ~2024.1.1]])
+  =/  loaded  (load:storage !>(saved))
+  ;:  weld
+    (expect-eq !>(sessions.saved) !>(sessions.loaded))
+    (expect-eq !>(modified.saved) !>(modified.loaded))
+    (expect-eq !>(defaults.saved) !>(defaults.loaded))
+    (expect-eq !>(`summary-models:h`*summary-models:h) !>(summary-models.loaded))
+    (expect-eq !>(0) !>(count.corpus.loaded))
+  ==
+++  test-saved-tool-policy-is-not-replaced-by-bootstrap-defaults
+  =/  saved=state-14  *state-14
   =/  cfg  builtin-config:policy
   =.  defaults.saved  cfg(tools ~[%author %skill-write [%mcp 'calendar']])
   =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced defaults.saved]] 0]]])

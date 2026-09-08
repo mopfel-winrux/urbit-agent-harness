@@ -74,6 +74,9 @@ The contingent pieces have narrow jobs:
 | `harness-curl` | General HTTP schema, validated request cards and bounded response rendering | Grants, credentials, retry ownership or session state |
 | `harness-acp` | ACP frames, terminal updates and transport cards | Prompt ownership or admission |
 | `harness-defaults` | Bootstrap instructions and policy | Existing conversation configuration |
+| `harness-lcm` / `harness-lcm-context` | Immutable summary forest, addressed planning and validation | Provider dispatch or credentials |
+| `harness-corpus` / `harness-corpus-index` | Disposable incremental source projection and segmented lexical index | New input, external-app reads or inference |
+| `harness-corpus-json` | Authorized search/read/expansion projections | Authority decisions or scheduling |
 | `sur/lib/harness-store` | Exact saved envelopes and version conversion | The running decision loop |
 
 Gall keeps admission, authorization, request identities, event appends and
@@ -267,11 +270,13 @@ connection. When a provider publishes context-window metadata, selecting that
 model updates the session budget automatically. Catalog failure or absent
 metadata never prevents a manually entered model name.
 
-The [context and memory proposal](context-and-memory.md) separates authoritative
-history from model context and derived recall indexes. Bounded compaction uses
-frozen source plans, separate summary usage and shared `/context` and `/compact`
-commands. Stable session identity, paged history and memory/index services remain
-planned work; compaction does not bound full-log replay cost.
+The [context and memory implementation](context-and-memory.md) separates
+authoritative history from model context and the derived lexical corpus index.
+Hierarchical compaction uses frozen source plans, separately selected summary
+models, accounted usage and shared `/context` and `/compact` commands. Corpus
+scope identities survive renaming, and bounded source reads expand summaries
+back to evidence. State version 14 wraps version 13 with summary overrides and
+the rebuildable index/continuation. Compaction does not bound full-log replay.
 
 ## Tools and authority
 

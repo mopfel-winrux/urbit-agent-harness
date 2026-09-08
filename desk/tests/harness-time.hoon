@@ -14,7 +14,7 @@
 ++  test-clock-is-always-discoverable-without-a-grant
   =/  defs  (tool-defs:ht ~)
   ?>  ?=(%a -.defs)
-  (expect !>(&(=(1 (lent p.defs)) (find-sub:ht 'current_time' (en:json:html defs)) =(~ (tool-family:ht 'current_time')))))
+  (expect !>(&(=(4 (lent p.defs)) (find-sub:ht 'current_time' (en:json:html defs)) =(~ (tool-family:ht 'current_time')))))
 ++  test-clock-is-authorized-without-grants-and-in-rehearsals
   (expect !>(&((call-granted:ht ['clock' 'current_time' '{}'] ~) (tool-granted:ht 'current_time' (rehearsal-tools:ht ~)) !(tool-granted:ht 'http_fetch' ~))))
 ++  test-clock-execution-uses-the-event-clock-not-model-arguments

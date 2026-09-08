@@ -6,9 +6,11 @@ import McpSettings from './McpSettings'
 import SearchSettings from './SearchSettings'
 import ProviderSettings from './ProviderSettings'
 import SkillSettings from './SkillSettings'
+import MemorySettings from './MemorySettings'
 
 const baseTabs = [
   ['defaults', 'Defaults'],
+  ['memory', 'Memory'],
   ['skills', 'Skills'],
   ['mcp', 'MCP'],
   ['search', 'Search'],
@@ -30,6 +32,7 @@ export default function Settings({ resources, theme, onThemeChange, onBack }) {
       </nav>
       {tab === 'conversation' && <AgentSettings resources={resources} theme={theme} onThemeChange={onThemeChange} />}
       {tab === 'defaults' && <GlobalSettings resources={resources} theme={theme} onThemeChange={onThemeChange} />}
+      {tab === 'memory' && <MemorySettings />}
       {tab === 'skills' && <SkillSettings />}
       {tab === 'mcp' && <McpSettings resources={resources} />}
       {tab === 'search' && <SearchSettings />}

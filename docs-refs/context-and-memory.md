@@ -1,17 +1,83 @@
 # Sessions, context and memory
 
-Automatic compaction and bounded, explicit conversation notes are implemented
-below. Stable session identity, paging and permission-scoped recall remain
-proposed work. There is no memory daemon, extraction loop or search index.
+Harness implements source-linked hierarchical compaction, bounded explicit
+notes, and a hand-independent lexical corpus index. One event log remains the
+authority; summaries and the searchable projection are derived from it. No
+memory daemon, embedding service, or fact-extraction loop is required.
+
+## Hierarchy and model settings
+
+`harness-lcm` stores immutable nodes with either original event addresses or
+ordered child-node addresses. Active roots form a chronological forest. Leaf
+compaction summarizes complete older exchanges without re-summarizing prior
+roots. Four contiguous roots of equal depth become one parent before eligible
+inference; an oversized group may shrink to two. Edges must point backward and
+replace exactly the selected contiguous roots. Descendant lists are never
+copied into every ancestor. Old checkpoint events keep their replay behavior;
+opaque legacy summaries can have no recoverable edges.
+
+Settings → Memory has independent optional **Compaction model** (leaves) and
+**LCM model** (parents) routes. Unset overrides follow the current global
+default, not a conversation's old snapshot. Provider credentials resolve through
+the existing credential boundary. Each request freezes its selected endpoint,
+model, source coverage and budget before dispatch; editing settings does not
+change an outstanding request's decoder. Neither setting changes the answer
+model, instructions or grants of a conversation.
+
+## Indexed corpus and explicit recall
+
+Search content in the sidebar searches retained input, context, assistant text,
+tool arguments/results, notes and summaries from every encountered hand. It
+does not fetch unencountered Tlon history or another app's database. Provider
+errors, configuration and credential state are excluded. Retrieved tool content
+can itself contain sensitive data; it inherits its conversation's authority.
+
+`harness-corpus-index` adapts Tlon global-search commit
+`95dee1d917f0049208a136b6706c9ed712637d20`. It preserves standard Hoon maps/sets,
+4,096-document segments, the term-to-segment directory, ordered `mop` postings,
+and native `in`/`on` operations. The document predicate uses AND, not the source
+implementation's accidental OR. Exact terms do not expand; missing terms may
+use bounded two-byte prefix buckets and edit-distance-one candidates. Query
+merging retains only one page, and fuzzy lookup does not materialize its entire
+vocabulary bucket.
+
+The head captures append deltas at its existing commit boundary. Backfill and
+rebuild advance on paced Behn wakes, at most 32 events and a 65,536-byte target
+per batch. A single oversized event is indexed alone rather than silently
+truncated; this is not a hard maximum event latency. Queries never replay source
+logs. Source records use immutable corpus scope IDs and one-based event
+addresses, independent of mutable session names. Rename preserves coordinates;
+deletion drops canonical records/authority immediately and recreation gets a
+new scope. Inaccessible derived terms/snippets remain until an explicit rebuild
+reclaims them. Rebuild exposes lag
+and partial coverage while it runs, rather than pretending results are complete.
+
+The GUI has owner-wide search and source inspection. The model tools
+`lcm_search`, `lcm_read` and `lcm_expand` default to the current conversation.
+The explicit `corpus` grant enables cross-conversation recall only for owner
+conversations; social and delegated provenance keeps recall local even if that
+grant is present. Forks index their retained prefix under their own scope.
+Authorization filters matches before pagination and is rechecked for reads.
+Cursors bind query, permitted scopes and index epoch; IDs/cursors grant no
+authority. Read chunks preserve UTF-8 boundaries at 12,000 bytes; expansion
+returns at most 16 immediate edges, not an unbounded recursive traversal.
+
+Limits are explicit: query text ≤512 bytes, pages 1–64 results, bounded fuzzy
+candidate work. Common queries can still visit every candidate segment, and
+global status/synchronization visit the scope/session directory. These are not
+constant-time whole-corpus guarantees. No claim is made about physical erasure
+from backups, bounded primary-log growth, or constant-cost full replay.
 
 ## Implemented compaction boundary
 
-`lib/harness-context.hoon` owns pure budgeting, source selection and validation.
+`lib/harness-context.hoon` owns pure budgeting, source selection and validation;
+`harness-lcm-context` composes it with the hierarchy and source addresses.
 Provider codecs supply estimates of the encoding actually dispatched; the head
-records a `compaction-planned` event before emitting the request. The plan names
+records an `lcm-planned` event before emitting the request. The plan names
 the source log boundary, active-prefix count/digest, original context length,
 model/endpoint, estimated input, output reserve and optional command identity.
-Replay of that log boundary recovers the exact source prefix and base summary.
+Replay recovers the exact source prefix or selected child summaries. Legacy
+`compaction-planned` records remain supported.
 
 The current policy reserves `min(4096, window / 4)` output tokens plus a 10%
 estimation margin. These are explicit conservative policy constants, not
@@ -97,14 +163,44 @@ edit alongside the identified command input and acknowledgement.
 
 There are no model-side note-writing tools or automatic fact extraction in this
 slice. This avoids making guessed facts durable or writing private facts into
-the shared skill library. Notes complement lossy rolling summaries, rather than
-pretending to replace source history or provide cross-session recall.
+the shared skill library. Notes complement lossy hierarchical summaries rather
+than replacing source history.
 
 Compaction bounds neither the primary transcript nor replay time. Every note
-edit is another audit event, but no index, embedding store, per-turn extraction
-request or periodic maintenance task is added. The next storage work is paged
-history and replay-verified projections, followed by an explicit retention and
-archive policy—not another automatically growing copy of the conversation.
+edit is another audit event and searchable evidence. There is no embedding
+store or per-turn extraction request. Retention/archive policy and large-artifact
+projections remain separate work.
+
+## Verification of the implementation
+
+Native tests exercise production hierarchy, index, corpus, JSON and migration
+helpers. `scripts/lcm-conformance.mjs` uses a local model server through real
+ACP/Iris to create leaves and parents, expand evidence, paginate search, check
+model recall grants, and test rename/delete/recreation. The existing
+`scripts/compaction-conformance.mjs` covers frozen spans, cancellation, failures,
+model-window changes, concurrent input and independent Grubbery replay.
+Both temporarily select local summary overrides and restore the saved values;
+run them alone on a development ship, never concurrently with each other.
+Neither requires a paid provider request.
+
+`desk/tests/harness-corpus-benchmark.hoon` builds 32,768 fixture documents and
+times production rare-AND, common, scoped and prefix queries independently of
+construction using native `%bout` hints. Its synthetic results are not a
+production latency guarantee.
+
+One development run on a Core i7-12700K with Urbit 4.6 measured: construction
+3.95 s; rare two-term AND 2.68 ms; common two-term first page 51.55 ms; scoped
+first page 4.97 ms; missing-term prefix query 0.09 ms. Eight 4,096-document
+segments used short repeated fixture texts, alternating scopes, and one rare
+term. Timings include production query allocation with native jets enabled;
+they do not measure rich-message ingestion, large vocabularies, network latency,
+or an unindexed baseline. Re-run on representative content before extrapolating.
+
+## Historical design review
+
+The remaining sections preserve the earlier design investigation and its
+reference comparisons. Proposals below describe the baseline, not the current
+implementation. The implementation and limits above supersede them.
 
 ## Decision
 

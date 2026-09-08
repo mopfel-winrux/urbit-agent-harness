@@ -4,6 +4,7 @@
 ::  +decide returns an intention; it never performs the intended operation.
 ::
 /-  h=harness
+/+  lcm=harness-lcm
 |%
 ::  Shared libraries are not private conversation memory. Durable source
 ::  provenance also protects an operator-created fork of a social transcript.
@@ -60,94 +61,123 @@
   |=  log=(list event:h)
   ^-  view:h
   ::  Accumulate newest first, reversing once instead of copying every prefix.
-  =/  reversed
-    %+  roll  (flop log)
-    |=  [e=event:h v=view:h]
-    ^-  view:h
-    ?-  -.e
-      ::  Editing policy is not permission to restart a failed request.
-      %config-replaced       v(config config.e)
-      %input-admitted        v(items [item.e items.v], err ~, cancelled ~, compact-attempts 0)
-      %input-received        v(items [item.input.e items.v], err ~, cancelled ~, compact-attempts 0)
-      %context-received      v(items [[%user body.e] items.v])
-      %command-completed    v(items [[%assistant body.e ~] items.v])
-      %memory-set           v(memory ?~(body.e (~(del by memory.v) name.e) (~(put by memory.v) name.e u.body.e)))
-      ::  A recorded request is an admitted continuation. Clearing the error
-      ::  here also keeps already-recorded config/retry exchanges replayable.
-      %llm-requested         v(pending `[req.e kind.e], err ~)
-      %llm-failed            v(pending ~, compaction ~, err `err.e)
-      %tool-requested        v(wait (~(put in wait.v) call-id.e))
-      %tool-requested-2      v(wait (~(put in wait.v) call-id.e))
-      %retried               v(err ~, cancelled ~)
-      %halted                v(pending ~, err `reason.e)
-      %forked                v(pending ~, compaction ~, wait ~, cancelled ~, origin `[from.e at.e])
-      %compaction-planned    v(pending `[req.e %compaction], compaction `plan.e, err ~, compact-attempts +(compact-attempts.v))
-    ::  Results cannot revive a cancelled or superseded checkpoint, even when
-    ::  replayed independently of Gall. The plan fixes the cut before dispatch.
-        %checkpoint-completed
-      ?.  =(pending.v `[req.e %compaction])  v
-      ?~  compaction.v  v
-      =/  p  u.compaction.v
-      ?.  =(source.p (sham [summary.v (scag count.p (flop items.v))]))  v
-      =/  tail=(list item:h)  (slag count.p (flop items.v))
-      ::  A manual command's reply belongs at its admitted boundary. Native
-      ::  input arriving during summary execution stays after it and still
-      ::  needs inference; the acknowledgement must not swallow that input.
-      =?  tail  ?=(^ reply.e)
-        =/  at  (sub length.p count.p)
-        (weld (scag at tail) [`item:h`[%assistant body.u.reply.e ~] (slag at tail)])
-      %=  v
-        pending  ~
-        summary  `summary.e
-        items  (flop tail)
-        compaction  ~
-        compact-usage  [(add prompt.compact-usage.v prompt.usage.e) (add completion.compact-usage.v completion.usage.e)]
-        total  [(add prompt.total.v prompt.usage.e) (add completion.total.v completion.usage.e)]
-      ==
-        %compaction-failed
-      ?.  =(pending.v `[req.e %compaction])  v
-      %=  v
-        pending  ~
-        compaction  ~
-        err  `err.e
-        compact-usage  [(add prompt.compact-usage.v prompt.usage.e) (add completion.compact-usage.v completion.usage.e)]
-        total  [(add prompt.total.v prompt.usage.e) (add completion.total.v completion.usage.e)]
-      ==
-    ::  Cancellation closes the provider exchange as well as the wait set.
-    ::  These are cancellation receipts, never claims of external rollback.
-    ::  Interpreting the event keeps existing logs intact and replayable.
-    ::
-        %cancelled
-      %=  v
-        pending    ~
-        compaction  ~
-        wait       ~
-        cancelled  `reason.e
-        items      (weld (flop (cancel-results (flop items.v) reason.e)) items.v)
-      ==
-    ::
-        %tool-completed
-      %=  v
-        wait   (~(del in wait.v) call-id.e)
-        items  [[%tool call-id.e name.e body.e] items.v]
-      ==
-    ::
-        %llm-completed
-      %=  v
-        pending  ~
-        items    [item.e items.v]
-        total    :-  (add prompt.total.v prompt.usage.e)
-                 (add completion.total.v completion.usage.e)
-      ==
-    ::
-        %compaction-completed
-      %=  v
-        pending  ~
-        summary  `summary.e
-        items    (flop (retained (flop items.v)))
-      ==
+  =/  reversed  (roll (flop log) fold)
+  reversed(items (flop items.reversed), positions (flop positions.reversed))
+::  Incremental replay for rebuildable projections. The accumulator keeps
+::  items and positions newest-first; +play exposes them chronologically.
+++  fold
+  |=  [e=event:h v=view:h]
+  ^-  view:h
+  =.  revision.v  +(revision.v)
+  ?-  -.e
+    ::  Editing policy is not permission to restart a failed request.
+    %config-replaced       v(config config.e)
+    %input-admitted        v(items [item.e items.v], positions [revision.v positions.v], err ~, cancelled ~, compact-attempts 0)
+    %input-received        v(items [item.input.e items.v], positions [revision.v positions.v], err ~, cancelled ~, compact-attempts 0)
+    %context-received      v(items [[%user body.e] items.v], positions [revision.v positions.v])
+    %command-completed    v(items [[%assistant body.e ~] items.v], positions [revision.v positions.v])
+    %memory-set           v(memory ?~(body.e (~(del by memory.v) name.e) (~(put by memory.v) name.e u.body.e)))
+    ::  A recorded request is an admitted continuation. Clearing the error
+    ::  here also keeps already-recorded config/retry exchanges replayable.
+    %llm-requested         v(pending `[req.e kind.e], err ~)
+    %llm-failed            v(pending ~, compaction ~, lcm-plan ~, err `err.e)
+    %tool-requested        v(wait (~(put in wait.v) call-id.e))
+    %tool-requested-2      v(wait (~(put in wait.v) call-id.e))
+    %retried               v(err ~, cancelled ~)
+    %halted                v(pending ~, err `reason.e)
+    %forked                v(pending ~, compaction ~, lcm-plan ~, wait ~, cancelled ~, origin `[from.e at.e])
+    %compaction-planned    v(pending `[req.e %compaction], compaction `plan.e, lcm-plan ~, err ~, compact-attempts +(compact-attempts.v))
+    %lcm-planned           v(pending `[req.e %compaction], compaction `checkpoint.plan.e, lcm-plan `plan.e, err ~, compact-attempts +(compact-attempts.v))
+  ::  Results cannot revive a cancelled or superseded checkpoint, even when
+  ::  replayed independently of Gall. The plan fixes the cut before dispatch.
+      %checkpoint-completed
+    ?.  =(pending.v `[req.e %compaction])  v
+    ?~  compaction.v  v
+    =/  p  u.compaction.v
+    ?.  =(source.p (sham [summary.v (scag count.p (flop items.v))]))  v
+    ?:  ?&(?=(^ lcm-plan.v) !=(sources.u.lcm-plan.v (scag count.p (flop positions.v))))  v
+    =/  tail=(list item:h)  (slag count.p (flop items.v))
+    =/  positions=(list @ud)  (slag count.p (flop positions.v))
+    =/  forest
+      ?~  lcm-plan.v
+        (legacy:lcm lcm.v revision.v summary.e (scag count.p (flop positions.v)))
+      =/  plan  u.lcm-plan.v
+      (fall (append:lcm lcm.v revision.v summary.e sources.plan children.plan) lcm.v)
+    ::  An invalid tree transition cannot accept a provider checkpoint.
+    ?:  &(?=(^ lcm-plan.v) =(forest lcm.v))  v
+    ::  A manual command's reply belongs at its admitted boundary. Native
+    ::  input arriving during summary execution stays after it and still
+    ::  needs inference; the acknowledgement must not swallow that input.
+    =?  tail  ?=(^ reply.e)
+      =/  at  (sub length.p count.p)
+      (weld (scag at tail) [`item:h`[%assistant body.u.reply.e ~] (slag at tail)])
+    =?  positions  ?=(^ reply.e)
+      =/  at  (sub length.p count.p)
+      (weld (scag at positions) [revision.v (slag at positions)])
+    %=  v
+      pending  ~
+      summary  ?~(lcm-plan.v `summary.e (render:lcm forest))
+      items  (flop tail)
+      positions  (flop positions)
+      lcm  forest
+      lcm-plan  ~
+      compaction  ~
+      compact-usage  [(add prompt.compact-usage.v prompt.usage.e) (add completion.compact-usage.v completion.usage.e)]
+      total  [(add prompt.total.v prompt.usage.e) (add completion.total.v completion.usage.e)]
     ==
-  reversed(items (flop items.reversed))
+      %compaction-failed
+    ?.  =(pending.v `[req.e %compaction])  v
+    %=  v
+      pending  ~
+      compaction  ~
+      lcm-plan  ~
+      err  `err.e
+      compact-usage  [(add prompt.compact-usage.v prompt.usage.e) (add completion.compact-usage.v completion.usage.e)]
+      total  [(add prompt.total.v prompt.usage.e) (add completion.total.v completion.usage.e)]
+    ==
+  ::  Cancellation closes the provider exchange as well as the wait set.
+  ::  These are cancellation receipts, never claims of external rollback.
+  ::  Interpreting the event keeps existing logs intact and replayable.
+  ::
+      %cancelled
+    =/  closed  (cancel-results (flop items.v) reason.e)
+    %=  v
+      pending    ~
+      compaction  ~
+      lcm-plan  ~
+      wait       ~
+      cancelled  `reason.e
+      items      (weld (flop closed) items.v)
+      positions  (weld (reap (lent closed) revision.v) positions.v)
+    ==
+  ::
+      %tool-completed
+    %=  v
+      wait   (~(del in wait.v) call-id.e)
+      items  [[%tool call-id.e name.e body.e] items.v]
+      positions  [revision.v positions.v]
+    ==
+  ::
+      %llm-completed
+    %=  v
+      pending  ~
+      items    [item.e items.v]
+      positions  [revision.v positions.v]
+      total    :-  (add prompt.total.v prompt.usage.e)
+               (add completion.total.v completion.usage.e)
+    ==
+  ::
+      %compaction-completed
+    =/  kept  (retained (flop items.v))
+    =/  count  (sub (lent items.v) (lent kept))
+    %=  v
+      pending  ~
+      summary  `summary.e
+      items    (flop kept)
+      positions  (scag (lent kept) positions.v)
+      lcm  (legacy:lcm lcm.v revision.v summary.e (scag count (flop positions.v)))
+    ==
+  ==
 ::  Classify a turn at the settlement boundary. Outstanding effects are not
 ::  terminal; an idle view without a final answer is not a successful reply.
 ::  Cancellation is replayed state, not the position of an event in the log:

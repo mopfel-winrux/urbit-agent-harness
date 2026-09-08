@@ -5,6 +5,7 @@ import Settings from './components/Settings'
 import Sidebar from './components/Sidebar'
 import Welcome from './components/Welcome'
 import TlonSettings from './components/TlonSettings'
+import CorpusSearch from './components/CorpusSearch'
 import { useConversations } from './useConversations'
 import { acp } from './acp'
 
@@ -12,6 +13,7 @@ function route() {
   const value = location.hash.replace(/^#\/?/, '')
   try {
     if (value === 'tlon') return { page: 'tlon', chat: '' }
+    if (value === 'search') return { page: 'corpus', chat: '' }
     if (value === 'settings') return { page: 'settings', chat: '' }
     if (value.startsWith('settings/')) return { page: 'settings', chat: decodeURIComponent(value.slice(9)) }
     return { page: 'chat', chat: value ? decodeURIComponent(value) : '' }
@@ -60,6 +62,11 @@ export default function App() {
     history.pushState({}, '', '#/tlon')
   }
 
+  function openCorpus() {
+    setView({ page: 'corpus', chat: current }); setError('')
+    history.pushState({}, '', '#/search')
+  }
+
   async function createChat(name) {
     await conversations.create(name)
   }
@@ -85,8 +92,8 @@ export default function App() {
   const toggleTheme = () => setTheme((value) => ({ system: 'light', light: 'dark', dark: 'system' })[value] || 'system')
 
   return <div className="app-shell">
-    <Sidebar chats={chats} current={page === 'chat' ? current : ''} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings} onSettings={openSettings} tlon={page === 'tlon'} onTlon={openTlon} />
-    {page === 'tlon' ? <TlonSettings onBack={() => choose(current)} /> : settings
+    <Sidebar chats={chats} current={page === 'chat' ? current : ''} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings} onSettings={openSettings} tlon={page === 'tlon'} onTlon={openTlon} corpus={page === 'corpus'} onCorpus={openCorpus} />
+    {page === 'corpus' ? <CorpusSearch onBack={() => choose(current)} onOpen={choose} /> : page === 'tlon' ? <TlonSettings onBack={() => choose(current)} /> : settings
       ? <Settings resources={resources} theme={theme} onThemeChange={setTheme} onBack={() => choose(current)} />
       : current ? <Chat key={current} chat={current} theme={theme} onToggleTheme={toggleTheme} onSettings={openSettings} onSelect={choose} onFork={(eventCount) => setDialog({ mode: 'fork', chat: current, eventCount })} /> : <Welcome loading={loading} onNew={() => setDialog({ mode: 'create' })} />}
     {(error || conversations.error) && <div className="global-error" onClick={() => setError('')}>{error || conversations.error}</div>}

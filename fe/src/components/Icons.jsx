@@ -13,3 +13,4 @@ export const StopIcon = () => <Icon><rect x="7" y="7" width="10" height="10" rx=
 export const RenameIcon = () => <Icon size={15}><path d="m4 20 4.2-1 10.4-10.4a2.1 2.1 0 0 0-3-3L5.2 16Z" /><path d="m14.5 6.5 3 3" /></Icon>
 export const TrashIcon = () => <Icon size={15}><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13" /></Icon>
 export const BackIcon = () => <Icon><path d="m15 18-6-6 6-6" /></Icon>
+export const SearchIcon = () => <Icon><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></Icon>

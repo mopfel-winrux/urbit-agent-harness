@@ -1,5 +1,6 @@
 // Real ACP/head/Iris and generic hand delivery; deterministic local provider.
-// Owns only named fixture sessions/bindings, never changes defaults or keys.
+// Owns named fixtures. Temporarily selects a local summary route and restores
+// the prior summary overrides; never changes defaults or credential keys.
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
@@ -11,7 +12,7 @@ const client = new Client(), observer = new Client()
 const tag = `compact-${randomUUID().slice(0, 8)}`
 const hand = new HandClient(observer, { hand: tag, worker: 'fixture' })
 const sessions = [], bindings = [], requests = []
-let mode = 'ok', url
+let mode = 'ok', url, savedModels
 const held = []
 const summary = 'Checkpoint: preserve the project constraints and source history.'
 function respond(res, content, finish = 'stop') {
@@ -48,6 +49,7 @@ async function until(label, check, timeoutMs = 15000) {
   throw Error(`Timed out: ${label}`)
 }
 async function make(name) {
+  console.log(`Checking ${name}`)
   const { sessionId } = await client.call('session/new', { name: `${tag}-${name}` })
   sessions.push(sessionId)
   await client.call('harness/session/configure', { sessionId, config: {
@@ -65,6 +67,9 @@ try {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   url = `http://127.0.0.1:${server.address().port}/completions`
   await Promise.all([client.start(), observer.start()])
+  savedModels = await client.call('harness/summary-models')
+  const summaryConfig = { url, model: 'summary-fixture', key: '', headers: [], 'max-context': 100000, system: '', tools: [] }
+  await client.call('harness/summary-models/configure', { models: { compaction: summaryConfig, lcm: summaryConfig } })
 
   const sid = await make('manual')
   await prompt(sid, '/compact')
@@ -164,7 +169,7 @@ try {
   const autoSid = await make('automatic')
   await seed(autoSid)
   const autoConfig = await client.call('harness/session/config', { sessionId: autoSid })
-  await client.call('harness/session/configure', { sessionId: autoSid, config: { ...autoConfig, key: '', 'max-context': 1500 } })
+  await client.call('harness/session/configure', { sessionId: autoSid, config: { ...autoConfig, key: '', 'max-context': 2200 } })
   const autoStart = requests.length
   await prompt(autoSid, 'Continue within the smaller window')
   assert.deepEqual(requests.slice(autoStart).map((r) => r.compact), [true, false])
@@ -271,6 +276,7 @@ try {
   ] }, null, 2))
 } finally {
   for (const res of held) res.destroy()
+  if (savedModels) await client.call('harness/summary-models/configure', { models: savedModels })
   for (const id of bindings) await hand.enable(id, false).catch(() => {})
   // Hand-bound sessions retain their audit records; unbound fixtures are removed.
   for (const sessionId of sessions.filter((id) => !bindings.includes(id))) {

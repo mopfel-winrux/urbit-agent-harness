@@ -73,7 +73,7 @@ unknown commands reply with help guidance. Paths such as `/tmp/file` and `//`
 escapes remain ordinary text. Each accepted command records its input and a
 `command-completed` audit event linked by input ID. Successful `/compact` instead
 records its acknowledgement in `checkpoint-completed`, following the frozen
-`compaction-planned` event. Replies appear in the shared transcript and ordinary
+`lcm-planned` event (legacy `compaction-planned` remains replayable). Replies appear in the shared transcript and ordinary
 ACP/hand output. Summary usage is included in cumulative usage and separately
 reported as `compactionUsage`; failed summaries retain the prior context and do
 not automatically retry. See the [ACP slash-command protocol](https://agentclientprotocol.com/protocol/v1/slash-commands).
@@ -99,7 +99,8 @@ not modify this timestamp. Creation, accepted input, results, configuration and
 rename do; deletion removes the index entry. Migration uses the newest retained
 input timestamp where available, otherwise null rather than a fabricated time.
 The GUI searches conversation names across the list and shows 20 matches at a
-time, with explicit loading of additional matches. Search does not read bodies.
+time, with explicit loading of additional matches. That name filter does not
+read bodies; **Search content** uses the separate indexed corpus methods below.
 
 - `harness/status`
 - `harness/tools`
@@ -115,6 +116,19 @@ time, with explicit loading of additional matches. Search does not read bodies.
   conversation-scoped private notes remain a separate resource.
 - `harness/defaults`
 - `harness/defaults/configure`
+- `harness/summary-models` — `{compaction: config|null, lcm: config|null}`.
+- `harness/summary-models/configure` — accepts `{models: {compaction, lcm}}`;
+  null follows the current global default. Credentials use the existing store.
+- `harness/corpus/status` — indexed record/conversation counts, indexing lag and epoch.
+- `harness/corpus/search` — `{query, cursor?, limit?}`; ≤512 query bytes and
+  1–64 results (default 16). Returns `{hits, cursor, complete, status}`.
+- `harness/corpus/read` — `{scope, eventCount, offset?}`; returns a UTF-8-safe
+  ≤12,000-byte body chunk, record metadata and nullable `nextOffset`.
+- `harness/corpus/expand` — same address fields; returns summary `depth`, up to
+  16 immediate `sources` and nullable `nextOffset`. Follow child summaries
+  explicitly to reach original records.
+- `harness/corpus/rebuild` — explicitly resets the disposable index and queues
+  bounded backfill; source scope IDs survive, old cursors do not.
 - `harness/session/use-default-model` — adopt model defaults for an existing
   session without changing its instructions or grants; does not retry work.
 - `harness/mcp/servers`

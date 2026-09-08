@@ -13,8 +13,8 @@ const dependencies = (name) => [...code(name).matchAll(/^\/\+\s+(.+)$/gm)]
   .flatMap((match) => match[1].split(',').map((entry) => entry.trim().split('=').at(-1).replace(/^\*/, '')))
 
 test('semantic head depends on nouns, not providers or transports', () => {
-  for (const name of ['harness', 'harness-context', 'harness-memory']) {
-    assert.deepEqual(dependencies(name), [])
+  for (const name of ['harness', 'harness-context', 'harness-memory', 'harness-lcm']) {
+    assert.deepEqual(dependencies(name), name === 'harness' ? ['harness-lcm'] : [])
     assert.doesNotMatch(code(name), /\bjson\b|\.\^\(|%pass|bowl:gall/)
   }
 })

@@ -8,6 +8,7 @@ const copy = {
   author: ['Skill experiments', 'Stage instructions, try read-only rehearsals, and publish to the shared library. Publishing is not protected by a review gate.'],
   subagents: ['Subagents', 'Delegate independent work to another session.'],
   peers: ['Peer agents', 'Ask explicitly permitted agents on other ships.'],
+  corpus: ['Cross-conversation recall', 'Search retained evidence from all conversations. Owner conversations only; social and delegated inputs stay scoped to their own conversation.'],
 }
 
 export const grantKey = (grant) => typeof grant === 'string' ? `family:${grant}` : 'clay' in grant ? `clay:${grant.clay}` : `mcp:${grant.mcp}`

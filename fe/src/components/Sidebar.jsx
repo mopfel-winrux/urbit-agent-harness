@@ -1,9 +1,9 @@
-import { MenuIcon, PlusIcon, RenameIcon, SettingsIcon, TrashIcon } from './Icons'
+import { MenuIcon, PlusIcon, RenameIcon, SearchIcon, SettingsIcon, TrashIcon } from './Icons'
 import TlonIcon from './TlonIcon'
 import { useEffect, useRef, useState } from 'react'
 import { CONVERSATION_PAGE_SIZE, conversationPage } from '../conversations'
 
-export default function Sidebar({ chats, current, onSelect, onNew, onRename, onDelete, settings, onSettings, tlon, onTlon }) {
+export default function Sidebar({ chats, current, onSelect, onNew, onRename, onDelete, settings, onSettings, tlon, onTlon, corpus, onCorpus }) {
   const [search, setSearch] = useState('')
   const [limit, setLimit] = useState(CONVERSATION_PAGE_SIZE)
   const [mobile, setMobile] = useState(() => matchMedia('(max-width: 760px)').matches)
@@ -38,6 +38,7 @@ export default function Sidebar({ chats, current, onSelect, onNew, onRename, onD
         {remaining > 0 && <button className="conversation-load-more text-button" onClick={() => setLimit((value) => value + CONVERSATION_PAGE_SIZE)} aria-label={`Load more conversations (${remaining} remaining)`}>Load more</button>}
       </nav>
       <div className="sidebar-spacer" />
+      <button className={corpus ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onCorpus)} aria-current={corpus ? 'page' : undefined}><SearchIcon /><span>Search content</span></button>
       <button className={tlon ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onTlon)} title="Tlon" aria-label="Tlon" aria-current={tlon ? 'page' : undefined}><TlonIcon /><span>Tlon</span></button>
       <button className={settings ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onSettings)} title="Settings" aria-label="Settings" aria-current={settings ? 'page' : undefined}><SettingsIcon /><span>Settings</span></button>
     </aside>

@@ -66,6 +66,16 @@
           command=(unit input-id:h)
           estimate=$-(view:h @ud)
       ==
+  (plan-for v through command max-context.config.v estimate)
+::  The conversation determines the fresh-tail target; the summary model
+::  determines how much source can be sent in one request. They may differ.
+++  plan-for
+  |=  $:  v=view:h
+          through=@ud
+          command=(unit input-id:h)
+          conversation-window=@ud
+          estimate=$-(view:h @ud)
+      ==
   ^-  (each compaction-plan:h @t)
   ?:  |(?=(^ pending.v) !=(~ wait.v))
     [%| 'Compaction waits for inference and tools to settle.']
@@ -76,7 +86,7 @@
     [%| 'No completed historical exchange can be compacted while preserving the recent turn.']
   =.  cuts  (scag (dec (lent cuts)) cuts)
   =/  limit  (input-budget max-context.config.v)
-  =/  goal  (preferred items.v cuts (tail-budget max-context.config.v))
+  =/  goal  (preferred items.v cuts (tail-budget conversation-window))
   =.  cuts  (skim cuts |=(cut=@ud (lte cut goal)))
   ::  If the desired source prefix cannot fit, halve the number of complete
   ::  exchanges until it can. This is local planning, not provider retries.
@@ -101,11 +111,9 @@
     `'Compaction returned an empty summary; the previous context was retained.'
   ::  Reject expansion before the next decision, rather than looping on a
   ::  verbose summary. Request-level fit is checked again with the real codec.
-  =/  before=@ud  ?~(summary.v 0 (met 3 u.summary.v))
-  =.  before
-    %+  roll  (scag count.p items.v)
-    |=  [it=item:h bytes=@ud]
-    (add bytes (item-bytes it))
+  =/  before=@ud
+    %+  add  ?~(summary.v 0 (met 3 u.summary.v))
+    (roll (turn (scag count.p items.v) item-bytes) add)
   ?:  (gte (met 3 body.it) before)
     `'Compaction did not reduce the context; the previous context was retained.'
   ~

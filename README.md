@@ -123,8 +123,12 @@ Context compacts automatically when the estimated request exceeds the active
 model's input budget: its context window minus output headroom and an estimation
 margin. There is no fixed working-context cap; changing models changes the
 budget. Explicit conversation notes survive compaction verbatim, bounded to
-16 notes and 8 KiB including names. There is no background memory extraction or
-search index. Full transcript storage is separate and continues to grow; see
+16 notes and 8 KiB including names. Summaries form a source-linked hierarchy;
+**Search content** searches the retained corpus across conversations and hands.
+Settings → **Memory** optionally selects separate compaction and LCM models;
+unset overrides follow the current global default. Model recall is local unless
+an owner conversation explicitly grants cross-conversation access. There is no
+background fact extraction. Full transcript storage continues to grow; see
 [context and memory](docs-refs/context-and-memory.md).
 
 For a first installation, create and mount the desk in Dojo:
@@ -210,7 +214,7 @@ docs-refs/                 design, protocol, and roadmap
 - [`acp.md`](docs-refs/acp.md) defines the client boundary.
 - [`hands.md`](docs-refs/hands.md) defines bidirectional conversation adapters.
 - [`context-and-memory.md`](docs-refs/context-and-memory.md) describes automatic
-  compaction and bounded notes, and proposes permission-scoped recall.
+  hierarchical compaction, bounded notes and permission-scoped indexed recall.
 - [`integrations.md`](docs-refs/integrations.md) shows how editors, services,
   on-ship apps, webhooks, peers, timers, and MCP servers connect.
 - [`roadmap.md`](docs-refs/roadmap.md) tracks completed and planned work.

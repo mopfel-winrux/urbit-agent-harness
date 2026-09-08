@@ -203,6 +203,8 @@
     :~  ['type' %s 'compaction']
         ['summary' %s summary.e]
     ==
+      %lcm-planned
+    (event-json [%compaction-planned req.e checkpoint.plan.e])
       %compaction-planned
     %-  pairs:enjs:format
     :~  ['type' %s 'compaction-planned']

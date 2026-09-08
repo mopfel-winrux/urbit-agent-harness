@@ -2,7 +2,7 @@
 ::  JSON snapshot projection. Gall and the Grubbery verifier share these gates,
 ::  with no I/O authority or second scheduler.
 /-  h=harness
-/+  hl=harness, hp=harness-provider, hj=harness-json, failure=harness-failure, context=harness-context
+/+  hl=harness, hp=harness-provider, hj=harness-json, failure=harness-failure, context=harness-context, lcm=harness-lcm
 |%
 ::  Keep provider byte accounting out of the semantic reducer. This gate is
 ::  evaluated only if replay says inference can run, preserving cheap polls.
@@ -11,7 +11,13 @@
   ^-  (unit step:h)
   ::  The current model's window determines the trigger, including after a
   ::  model switch. Idle polls and tool waits never evaluate the lazy estimate.
-  (decide:hl v(max-context.config (input-budget:context max-context.config.v)) |=(~ (est-tokens:hp v skills)))
+  =/  next
+    (decide:hl v(max-context.config (input-budget:context max-context.config.v)) |=(~ (est-tokens:hp v skills)))
+  ?.  ?=([~ %turn *] next)  next
+  ::  Finish a ready hierarchy group before the next real model turn, never
+  ::  on idle polling. The per-input attempt budget also bounds this work.
+  ?:  &((lth compact-attempts.v 4) !=(~ (group:lcm lcm.v)))  `[%compact ~]
+  next
 ++  inspect
   |=  [ses=session:h skills=(map @t skill:h)]
   ^-  [revision=@ud view=view:h next=(unit step:h)]

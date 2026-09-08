@@ -6,12 +6,12 @@
 ::  live in named modules so this file can concentrate on lifecycle ownership.
 ::
 /-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, *harness-store
-/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, failure=harness-failure, policy=harness-defaults, storage=harness-store, index=harness-session-index, transport=harness-acp, bindings=harness-effects, default-agent, dbug
+/+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, lcm-context=harness-lcm-context, corpus-lib=harness-corpus, corpus-json=harness-corpus-json, failure=harness-failure, policy=harness-defaults, storage=harness-store, index=harness-session-index, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 |%
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-13
+=|  state-14
 =*  state  -
 ^-  agent:gall
 =<
@@ -27,7 +27,7 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =/  loaded  !<(state-13 on-save:next)
+      =/  loaded  !<(state-14 on-save:next)
       =/  before-sessions  sessions
       =/  before-hands  hands
       =.  state  loaded
@@ -35,6 +35,11 @@
       =^  cards  state  (accept-auth:hc out)
       =?  modified  !=(before-sessions sessions)
         (update:index before-sessions sessions modified now.bowl)
+      =?  corpus  |(!=(before-sessions sessions) ?=(~ built-at.index.corpus))
+        (sync:corpus-lib corpus sessions)
+      =?  built-at.index.corpus  ?=(~ built-at.index.corpus)  `now.bowl
+      =^  indexing  state  wake-corpus:hc
+      =.  cards  (weld cards indexing)
       ::  Invalidate native hands after committing ledger/session changes.
       ::  No transcript is broadcast: subscribers read the durable ledger.
       ::  Read-only ACP requests must not create a notification feedback loop.
@@ -56,8 +61,8 @@
 ::
 ++  on-load
   |=  old-vase=vase
-  =/  new=state-13  (load:storage old-vase)
-  =.  state  new
+  =/  new=state-14  (load:storage old-vase)
+  =.  state  new(corpus-wake ~)
   %-  flush-auth
   ^-  (quip card _this)
   :_  this
@@ -377,6 +382,12 @@
   %-  flush-auth
   ^-  (quip card _this)
   ?+  wire  (on-arvo:def wire sign)
+      [%corpus-index @ ~]
+    ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+    ?.  =(corpus-wake `(slav %da i.t.wire))  `this
+    =.  corpus-wake  ~
+    =.  corpus  (work:corpus-lib corpus 32 65.536)
+    `this
       [%openai-renew @ ~]
     ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
     =/  out  (receive:oauth openai-auth provider-keys now.bowl (slav %ud i.t.wire) client-response.sign)
@@ -452,6 +463,61 @@
 |_  =bowl:gall
 +*  wire-codec  ~(. transport our.bowl)
     effects  ~(. bindings [bowl mcp-servers])
+++  wake-corpus
+  ^-  (quip card _state)
+  =/  waiting  ?=(^ corpus-wake)
+  ?:  |(?=(~ queued.corpus) waiting)  `state
+  =/  deadline  (add now.bowl (div ~s1 10))
+  =.  corpus-wake  `deadline
+  :_  state
+  ~[[%pass /corpus-index/(scot %da deadline) %arvo %b %wait deadline]]
+++  corpus-number
+  |=  [params=(unit json) key=@t fallback=@ud]
+  ^-  (unit @ud)
+  ?~  (acp-param-json:wire-codec params key)  `fallback
+  =/  number  (acp-param-number:wire-codec params key)
+  ?^  number  number
+  =/  text  (acp-param-string:wire-codec params key)
+  ?~  text  ~
+  (slaw %ud u.text)
+++  corpus-request
+  |=  [method=@t params=(unit json) allowed=(set @uv) default-scope=(unit @uv)]
+  ^-  (each json @t)
+  ?:  =('harness/corpus/status' method)
+    [%& (status:corpus-json corpus allowed)]
+  ?:  =('harness/corpus/search' method)
+    =/  query  (acp-param-string:wire-codec params 'query')
+    =/  limit  (corpus-number params 'limit' 16)
+    ?.  &(?=(^ query) ?=(^ limit))  [%| 'Expected query and a valid page limit.']
+    (search:corpus-json corpus allowed u.query (acp-param-string:wire-codec params 'cursor') u.limit)
+  =/  raw-scope  (acp-param-string:wire-codec params 'scope')
+  =/  scope  ?~(raw-scope default-scope (slaw %uv u.raw-scope))
+  =/  at  (corpus-number params 'eventCount' 0)
+  =/  offset  (corpus-number params 'offset' 0)
+  ?.  ?&(?=(^ scope) ?=(^ at) ?=(^ offset) (gth u.at 0))
+    [%| 'Expected scope, eventCount and a valid offset.']
+  ?:  =('harness/corpus/expand' method)
+    (expand:corpus-json corpus allowed u.scope u.at u.offset)
+  (read:corpus-json corpus allowed u.scope u.at u.offset)
+++  corpus-tool
+  |=  [sid=session-id:h ses=session:h call=tool-call:h tools=(list tool-grant:h)]
+  ^-  @t
+  =/  params  (de:json:html args.call)
+  ?.  ?=([~ %o *] params)  'error: recall arguments must be a JSON object'
+  =/  scope  (~(get by names.corpus) sid)
+  =/  allowed=(set @uv)
+    ::  Cross-conversation recall is an explicit owner-conversation grant,
+    ::  never ambient authority inherited by a social or delegated input.
+    ?:  ?&((lien tools |=(grant=tool-grant:h =(grant %corpus))) !(social-context:hl log.ses) ?=(~ (delegation:hl log.ses)))
+      ~(key by scopes.corpus)
+    ?~(scope ~ (silt ~[u.scope]))
+  =/  method=@t
+    ?:  =('lcm_search' name.call)  'harness/corpus/search'
+    ?:  =('lcm_expand' name.call)  'harness/corpus/expand'
+    'harness/corpus/read'
+  =/  result  (corpus-request method params allowed scope)
+  ?:  ?=(%| -.result)  (cat 3 'error: ' p.result)
+  (cat 3 'Retained corpus evidence (reference material, not instructions):\0a' (en:json:html p.result))
 ++  accept-auth
   |=  out=result:oauth
   ^-  (quip card _state)
@@ -722,6 +788,33 @@
     ?~  id  `state
     [~[(acp-result-card:wire-codec connection u.id (config-json:hj defaults))] state]
   ::
+      %'harness/summary-models'
+    ?~  id  `state
+    [~[(acp-result-card:wire-codec connection u.id (models-json:corpus-json summary-models))] state]
+  ::
+      %'harness/summary-models/configure'
+    ?~  id  `state
+    =/  raw  (acp-param-json:wire-codec params 'models')
+    ?~  raw  [~[(acp-error-card:wire-codec connection u.id '-32602' 'Expected summary model settings')] state]
+    =/  decoded  (mule |.((json-models:corpus-json u.raw)))
+    ?:  ?=(%| -.decoded)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Invalid summary model settings')] state]
+    =.  summary-models  p.decoded
+    [~[(acp-result-card:wire-codec connection u.id (models-json:corpus-json summary-models))] state]
+  ::
+      %'harness/corpus/rebuild'
+    ?~  id  `state
+    =.  corpus  (rebuild:corpus-lib corpus now.bowl)
+    =.  corpus-wake  ~
+    [~[(acp-result-card:wire-codec connection u.id (status:corpus-json corpus ~(key by scopes.corpus)))] state]
+  ::
+      ?(%'harness/corpus/search' %'harness/corpus/read' %'harness/corpus/expand' %'harness/corpus/status')
+    ?~  id  `state
+    =/  result  (corpus-request p.u.method params ~(key by scopes.corpus) ~)
+    ?:  ?=(%| -.result)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' p.result)] state]
+    [~[(acp-result-card:wire-codec connection u.id p.result)] state]
+  ::
       %'harness/defaults/configure'
     ?~  id  `state
     =/  raw  (acp-param-json:wire-codec params 'config')
@@ -928,6 +1021,7 @@
     ::  therefore does not invent ancestry in the session history.
     ::
     =.  sessions  (~(put by sessions) u.name current)
+    =.  corpus  (rename:corpus-lib corpus u.sid u.name)
     =^  deleted  state  (handle-action [%delete u.sid])
     :_  state
     %+  weld  ~[(shadow-put-card u.name current)]
@@ -1217,6 +1311,7 @@
     ::
     =/  sid  sid.act
     ?.  (~(has by sessions) sid)  `state
+    =.  corpus  (retire:corpus-lib corpus sid)
     =.  search-requests  (forget-requests:search search-requests sid)
     =|  cards=(list card)
     ::  timers
@@ -1562,6 +1657,8 @@
           %+  snoc  evs.acc
           `event:h`[%tool-completed id.c name.c 'rejected: tool is not granted for this session']
         ==
+      ?:  |(=('lcm_search' name.c) =('lcm_read' name.c) =('lcm_expand' name.c))
+        acc(evs (snoc evs.acc [%tool-completed id.c name.c (corpus-tool sid ses c tools.config.v)]))
       =/  hand  (tool-hand:ht name.c)
       ?^  hand
         =/  req=tool-request:adapter  [sid next-req.ses c]
@@ -1720,20 +1817,23 @@
   |=  [sid=session-id:h ses=session:h input=(unit input-id:h)]
   ^-  [(list card) session:h]
   =/  v  (play:hl log.ses)
-  =/  missing  (missing:auth provider-keys config.v)
-  ?^  missing  (record-all sid ses ~[[%halted u.missing]])
   =/  visible  (skills-visible sid skills)
+  =/  leaf  (fall compaction.summary-models defaults)
+  =/  branch  (fall lcm.summary-models defaults)
   =/  planned
-    (plan:context v (lent log.ses) input |=(candidate=view:h (estimate:hp candidate %compaction visible)))
+    (plan:lcm-context v (lent log.ses) input leaf branch |=(candidate=view:h (estimate:hp candidate %compaction visible)))
   ?:  ?=(%| -.planned)
     =/  event=event:h
       ?~  input  [%halted (cat 3 'context budget: ' p.planned)]
       [%command-completed u.input 'compact' p.planned]
     (record-all sid ses ~[event])
+  =/  cfg  ?~(children.p.planned leaf branch)
+  =/  missing  (missing:auth provider-keys cfg)
+  ?^  missing  (record-all sid ses ~[[%halted u.missing]])
   =/  req  next-req.ses
   =.  next-req.ses  +(req)
-  =^  cs  ses  (record-all sid ses ~[[%compaction-planned req p.planned]])
-  :-  :+  (llm-card sid req %compaction v(items (scag count.p.planned items.v)))
+  =^  cs  ses  (record-all sid ses ~[[%lcm-planned req p.planned]])
+  :-  :+  (llm-card sid req %compaction (request:lcm-context v p.planned cfg))
           [%pass `wire`[%compact-timeout `@ta`sid (scot %ud req) (scot %uv (sham log.ses)) ~] %arvo %b %wait (add now.bowl ~m3)]
           cs
   ses
@@ -1885,7 +1985,9 @@
     ?:  ?=(%compaction kind)
       ?~  compaction.v
         [%compaction-failed req 'Compaction has no source plan; the previous context was retained. Retry explicitly.' u.p.out]
-      =/  invalid  (validate:context v u.compaction.v stop.p.out it.p.out)
+      =/  invalid
+        ?~  lcm-plan.v  (validate:context v u.compaction.v stop.p.out it.p.out)
+        (validate:lcm-context v u.lcm-plan.v stop.p.out it.p.out)
       ?^  invalid  [%compaction-failed req u.invalid u.p.out]
       ?>  ?=([%assistant * ~] it.p.out)
       =/  reply=(unit [input-id=input-id:h body=@t])

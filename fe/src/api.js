@@ -12,6 +12,7 @@ async function action(value) {
   if (value.retryAdmission) return acp.call('harness/tlon/admission/retry', { id: value.retryAdmission })
   if (value.config) return acp.call('harness/session/configure', { sessionId: value.config.sid, config: value.config.config })
   if (value.defaults) return acp.call('harness/defaults/configure', { config: value.defaults })
+  if (value.summaryModels) return acp.call('harness/summary-models/configure', { models: value.summaryModels })
   if (value.mcp) return acp.call('harness/mcp/configure', { servers: value.mcp })
   if (value.search) return acp.call('harness/search/configure', { config: value.search })
   if (value.saveSkill) return acp.call('harness/skill/save', value.saveSkill)
@@ -33,6 +34,8 @@ async function read(path) {
   if (path.startsWith('status/')) return acp.call('harness/status', { provider: path.slice('status/'.length) })
   if (path === 'tools') return acp.call('harness/tools')
   if (path === 'defaults') return acp.call('harness/defaults')
+  if (path === 'summary-models') return acp.call('harness/summary-models')
+  if (path === 'corpus/status') return acp.call('harness/corpus/status')
   if (path === 'mcp') return acp.call('harness/mcp/servers')
   if (path === 'search') return acp.call('harness/search')
   if (path === 'skills') return acp.call('harness/skills')
@@ -47,7 +50,13 @@ const models = async (provider, url) => {
   return acp.call('harness/provider/models', { provider, url }, 60_000)
 }
 
-export const api = { read, action, models }
+const corpus = async (operation, params = {}) => {
+  if (!['search', 'read', 'expand', 'rebuild'].includes(operation)) throw new Error('Unsupported corpus operation')
+  await acp.start()
+  return acp.call(`harness/corpus/${operation}`, params)
+}
+
+export const api = { read, action, models, corpus }
 
 export function resourcesFor(chat) {
   return {

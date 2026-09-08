@@ -4,6 +4,7 @@
 ::    replayed into a view, from which a decider plans the next step.
 ::    provider codecs translate their wire formats into these nouns.
 ::
+/-  l=harness-lcm
 |%
 +$  session-id  @t
 +$  request-kind  ?(%turn %compaction)
@@ -36,6 +37,12 @@
       model=@t
       command=(unit input-id)
   ==
++$  lcm-plan
+  $:  checkpoint=compaction-plan
+      sources=(list @ud)
+      children=(list @ud)
+  ==
++$  summary-models  [compaction=(unit config) lcm=(unit config)]
 ::  conversation items, independent of any provider's JSON representation
 ::
 +$  item
@@ -139,6 +146,7 @@
       [%tool-completed call-id=@t name=@t body=@t]
       [%compaction-completed req=@ud summary=@t]
       [%compaction-planned req=@ud plan=compaction-plan]
+      [%lcm-planned req=@ud plan=lcm-plan]
       [%checkpoint-completed req=@ud summary=@t =usage reply=(unit [input-id=input-id body=@t])]
       [%compaction-failed req=@ud err=@t =usage]
       [%cancelled req=(unit @ud) calls=(set @t) reason=@t]
@@ -165,6 +173,10 @@
       compact-usage=usage
       compact-attempts=@ud
       memory=(map @t @t)              ::  bounded, conversation-scoped notes
+      revision=@ud
+      positions=(list @ud)            ::  event address parallel to each item
+      lcm=forest:l
+      lcm-plan=(unit lcm-plan)
   ==
 ::  the decider's output
 ::

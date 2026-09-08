@@ -79,7 +79,8 @@
   (expect !>(&(=(4 (lent items.v)) =(6 (lent (transcript:hl log))) =([12 3] compact-usage.v) =([12 3] total.v) =(`item:h`[%user 'new input'] (rear items.v)))))
 ++  test-cancelled-checkpoint-cannot-revive
   =/  cancelled  [[%cancelled `0 ~ 'stop'] history]
-  (expect-eq !>((play:hl cancelled)) !>((play:hl [[%checkpoint-completed 0 'late' [12 3] ~] cancelled])))
+  =/  before  (play:hl cancelled)
+  (expect-eq !>(before(revision +(revision.before))) !>((play:hl [[%checkpoint-completed 0 'late' [12 3] ~] cancelled])))
 ++  test-manual-acknowledgement-does-not-swallow-new-input
   =/  log=(list event:h)
     [[%checkpoint-completed 0 'Small' [12 3] `[0v1 'Compacted.']] [%input-admitted [%user 'new input']] history]
@@ -88,11 +89,18 @@
 ++  test-replay-rejects-changed-source-coverage
   =/  p  planned
   =/  changed  [[%compaction-planned 0 p(source 0v0)] (slag 1 history)]
-  (expect-eq !>((play:hl changed)) !>((play:hl [[%checkpoint-completed 0 'Small' [12 3] ~] changed])))
+  =/  before  (play:hl changed)
+  (expect-eq !>(before(revision +(revision.before))) !>((play:hl [[%checkpoint-completed 0 'Small' [12 3] ~] changed])))
 ++  test-failed-checkpoint-keeps-context-and-accounts-usage
   =/  before  fixture
   =/  v  (play:hl [[%compaction-failed 0 'failed' [12 3]] history])
   (expect !>(&(=(items.before items.v) =(~ summary.v) =([12 3] compact-usage.v) =(`'failed' err.v) =(~ pending.v) =(~ (next:hs v ~)))))
+++  test-legacy-reduction-counts-the-selected-prior-summary
+  =/  v  fixture
+  =.  v  v(summary `(rap 3 (reap 1.000 'x')), items ~[[%user 'small'] [%assistant 'pair' ~]])
+  =/  p  planned
+  =.  p  p(count 2, source (source-hash:ctx v 2))
+  (expect-eq !>(~) !>((validate:ctx v p %stop [%assistant 'A reduced checkpoint with the prior decisions.' ~])))
 ++  test-oversized-prefix-backs-off-at-exchange-boundaries
   =/  v  fixture
   =/  body  (rap 3 (reap 2.000 'x'))

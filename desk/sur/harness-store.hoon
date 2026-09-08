@@ -1,7 +1,7 @@
 ::  Gall persistence envelope. Keep its noun layout stable: on-save writes this
 ::  directly, and harness-store loads each supported version without dropping
 ::  sessions or credentials. Runtime bookkeeping is not session semantics.
-/-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth
+/-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, corpus=harness-corpus
 |%
 +$  stream-progress  [body=@t sent=@ud]
 +$  state-0
@@ -264,6 +264,13 @@
       openai-auth=state:oauth
       search-config=search-config:h
       search-requests=search-requests:h
+  ==
++$  state-14
+  $:  %14
+      summary-models=summary-models:h
+      corpus=state:corpus
+      corpus-wake=(unit @da)
+      state-13
   ==
 +$  state-13  [%13 modified=(map session-id:h @da) state-12]
 +$  state-12
