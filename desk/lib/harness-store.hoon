@@ -6,6 +6,30 @@
 |%
 ++  load
   |=  old-vase=vase
+  ^-  state-19
+  =/  current  (mule |.(!<(state-19 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  [%19 0 ~ ~ ~ (load-18 old-vase)]
+++  load-18
+  |=  old-vase=vase
+  ^-  state-18
+  =/  current  (mule |.(!<(state-18 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  [%18 ~ ~ (load-17 old-vase)]
+++  load-17
+  |=  old-vase=vase
+  ^-  state-17
+  =/  current  (mule |.(!<(state-17 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  [%17 0 (load-16 old-vase)]
+++  load-16
+  |=  old-vase=vase
+  ^-  state-16
+  =/  current  (mule |.(!<(state-16 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  [%16 ~ (load-15 old-vase)]
+++  load-15
+  |=  old-vase=vase
   ^-  state-15
   =/  current  (mule |.(!<(state-15 old-vase)))
   ?:  ?=(%& -.current)  p.current

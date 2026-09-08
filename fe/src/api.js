@@ -4,7 +4,8 @@ import { acp } from './acp.js'
 
 async function action(value) {
   await acp.start()
-  if (value.tlon) return acp.call('harness/tlon/configure', value.tlon)
+  if (value.owner) return acp.call('harness/tlon/owner/set', value.owner)
+  if (value.tlon) return acp.call('harness/tlon/configure', { ...value.tlon, expectedOwner: value.tlon.owner })
   if (value.tlonProfile) return acp.call('harness/tlon/profile/set', value.tlonProfile)
   if (value.cancelCron) return acp.call('harness/tlon/cron/cancel', { id: value.cancelCron })
   if (value.clearCron) return acp.call('harness/tlon/cron/clear', { id: value.clearCron })
@@ -14,6 +15,8 @@ async function action(value) {
   if (value.defaults) return acp.call('harness/defaults/configure', { config: value.defaults })
   if (value.summaryModels) return acp.call('harness/summary-models/configure', { models: value.summaryModels })
   if (value.peers) return acp.call('harness/peers/configure', value.peers)
+  if (value.peerReset) return acp.call('harness/peers/reset', value.peerReset)
+  if (value.peerCheck) return acp.call('harness/peers/check', { ship: value.peerCheck })
   if (value.mcp) return acp.call('harness/mcp/configure', { servers: value.mcp })
   if (value.search) return acp.call('harness/search/configure', { config: value.search })
   if (value.saveSkill) return acp.call('harness/skill/save', value.saveSkill)
@@ -37,6 +40,7 @@ async function read(path) {
   if (path === 'defaults') return acp.call('harness/defaults')
   if (path === 'summary-models') return acp.call('harness/summary-models')
   if (path === 'peers') return acp.call('harness/peers')
+  if (path === 'peers/remote') return acp.call('harness/peers/remote')
   if (path === 'corpus/status') return acp.call('harness/corpus/status')
   if (path === 'mcp') return acp.call('harness/mcp/servers')
   if (path === 'search') return acp.call('harness/search')

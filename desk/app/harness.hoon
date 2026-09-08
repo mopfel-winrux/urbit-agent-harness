@@ -7,11 +7,12 @@
 ::
 /-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, *harness-store
 /+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, lcm-context=harness-lcm-context, corpus-lib=harness-corpus, corpus-json=harness-corpus-json, peer-policy=harness-peer-policy, peer-trust=harness-peer-trust, failure=harness-failure, policy=harness-defaults, storage=harness-store, index=harness-session-index, transport=harness-acp, bindings=harness-effects, default-agent, dbug
+/+  onboarding=harness-onboarding, peer-access=harness-peer-access, admin=harness-admin, ownership=harness-ownership, local-mcp-lib=harness-local-mcp, peer-rpc=harness-peer-rpc
 |%
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-15
+=|  state-19
 =*  state  -
 ^-  agent:gall
 =<
@@ -27,10 +28,14 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =/  loaded  !<(state-15 on-save:next)
+      =/  loaded  !<(state-19 on-save:next)
       =/  before-sessions  sessions
       =/  before-hands  hands
       =.  state  loaded
+      =/  local-server  .^(? %gu /(scot %p our.bowl)/mcp-server/(scot %da now.bowl)/$)
+      =/  discovery  (ensure:local-mcp-lib mcp-servers local-mcp-seen our.bowl local-server)
+      =.  local-mcp-seen  seen.discovery
+      =.  mcp-servers  registry.discovery
       =/  out  (filter:oauth -.result openai-auth provider-keys now.bowl)
       =^  cards  state  (accept-auth:hc out)
       =?  modified  !=(before-sessions sessions)
@@ -40,6 +45,8 @@
       =?  built-at.index.corpus  ?=(~ built-at.index.corpus)  `now.bowl
       =^  indexing  state  wake-corpus:hc
       =.  cards  (weld cards indexing)
+      =^  announcements  state  sync-peer-access:hc
+      =.  cards  (weld cards announcements)
       ::  Invalidate native hands after committing ledger/session changes.
       ::  No transcript is broadcast: subscribers read the durable ledger.
       ::  Read-only ACP requests must not create a notification feedback loop.
@@ -61,7 +68,7 @@
 ::
 ++  on-load
   |=  old-vase=vase
-  =/  new=state-15  (load:storage old-vase)
+  =/  new=state-19  (load:storage old-vase)
   =.  state  new(corpus-wake ~)
   %-  flush-auth
   ^-  (quip card _this)
@@ -105,6 +112,12 @@
     =^  cards  state  (handle-action:hc act.eff)
     [cards this]
   ::
+      %harness-admin-result
+    ?>  =(src.bowl our.bowl)
+    =/  result  !<([connection=@t payload=@t] vase)
+    =^  cards  state  (admin-result:hc connection.result payload.result)
+    [cards this]
+  ::
       %harness-hand
     ?>  =(src.bowl our.bowl)
     =/  req  !<(request:hh vase)
@@ -121,6 +134,14 @@
   ::
       %harness-a2a-0
     =^  cards  state  (handle-a2a:hc src.bowl !<(a2a:h vase))
+    [cards this]
+  ::
+      %harness-access-0
+    =^  cards  state  (handle-peer-access:hc src.bowl !<(peer-access-message:h vase))
+    [cards this]
+  ::
+      %harness-rpc-0
+    =^  cards  state  (handle-peer-rpc:hc src.bowl !<(peer-rpc:h vase))
     [cards this]
   ==
 ::
@@ -204,6 +225,9 @@
   ::
       [%x %defaults ~]
     ``json+!>((config-json:hj defaults))
+  ::
+      [%x %admin-call @ @ @ ~]
+    ``noun+!>((admin-current:hc [i.t.t.path (slav %ud i.t.t.t.path) i.t.t.t.t.path]))
   ::
       [%x %search ~]
     ``json+!>((config-json:search search-config))
@@ -335,6 +359,50 @@
       [%a2a %answer @ ~]
     `this
   ::
+      [%peer-access %query @ ~]
+    ?.  ?&(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
+    =^  cards  state
+      (fail-ask:hc (slav %uv i.t.t.wire) 'permission discovery unavailable; access is unknown, not denied')
+    [cards this]
+  ::
+      [%peer-access %status ~]
+    `this
+  ::
+      [%peer-rpc %request @ ~]
+    ?.  ?&(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
+    =^  cards  state
+      (fail-ask:hc (slav %uv i.t.t.wire) 'direct tool RPC unavailable; no automatic retry')
+    [cards this]
+  ::
+      [%peer-rpc %result ~]
+    `this
+  ::
+      [%peer-rpc-request @ @ @ ~]
+    ?.  ?&(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
+    =^  cards  state
+      (finish-peer-client:hc i.t.wire (slav %ud i.t.t.wire) i.t.t.t.wire 'error: peer tool dispatch failed; no automatic retry')
+    [cards this]
+  ::
+      [%admin %result ~]
+    `this
+  ::
+      [%admin-request @ @ @ ~]
+    ?.  ?&(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
+    =^  cards  state
+      (finish-admin:hc [i.t.wire (slav %ud i.t.t.wire) i.t.t.t.wire] 'error: administrative dispatch failed; inspect current settings before retrying')
+    [cards this]
+  ::
+      [%local-mcp-request @ @ @ ~]
+    ?.  ?&(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
+    =^  cards  state
+      (finish-local-mcp:hc i.t.wire (slav %ud i.t.t.wire) i.t.t.t.wire 'error: local MCP dispatch failed; no automatic retry')
+    [cards this]
+  ::
+      [%local-mcp @ @ @ ~]
+    =^  cards  state
+      (local-mcp-sign:hc i.t.wire (slav %ud i.t.t.wire) i.t.t.t.wire sign)
+    [cards this]
+  ::
       [%jspoke @ ~]
     ?.  ?=(%poke-ack -.sign)  (on-agent:def wire sign)
     ?~  p.sign  `this
@@ -447,6 +515,26 @@
     ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
     =^  cards  state
       (fail-ask:hc (slav %uv i.t.wire) 'peer timed out')
+    [cards this]
+  ::
+      [%admin-timeout @ @ @ ~]
+    ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+    =^  cards  state
+      (finish-admin:hc [i.t.wire (slav %ud i.t.t.wire) i.t.t.t.wire] 'Administrative result timed out. The change may have applied; inspect current settings and do not retry automatically.')
+    [cards this]
+  ::
+      [%local-mcp-timeout @ @ @ ~]
+    ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+    =^  cards  state
+      (finish-local-mcp:hc i.t.wire (slav %ud i.t.t.wire) i.t.t.t.wire 'error: local MCP result timed out; the tool may have run, so do not retry automatically')
+    [cards this]
+  ::
+      [%peer-tool-timeout @ @ ~]
+    ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+    =/  sid=@t  i.t.wire
+    =/  active  (~(get by peer-active) sid)
+    ?.  ?&(?=(^ active) =((slav %uv i.t.t.wire) id.u.active))  `this
+    =^  cards  state  (handle-action:hc [%fence sid])
     [cards this]
   ::
       [%jsdog @ ~]
@@ -664,6 +752,16 @@
       (acp-error-card:wire-codec connection u.id '-32602' p.result.out)
     [(snoc cards.out response) new.out]
   ::
+      %'harness/onboarding/ensure'
+    ?~  id  `state
+    =^  sid  state  (ensure:onboarding state)
+    =/  cards=(list card)
+      ?~  sid  ~
+      ~[(shadow-put-card u.sid (need-session u.sid))]
+    =/  result=json
+      (pairs:enjs:format ~[['sessionId' ?~(sid ~ [%s u.sid])]])
+    [(snoc cards (acp-result-card:wire-codec connection u.id result)) state]
+  ::
       %'session/new'
     ?~  id  `state
     =/  requested  (acp-param-string:wire-codec params 'name')
@@ -790,14 +888,42 @@
   ::
       %'harness/peers'
     ?~  id  `state
-    =/  trusted  grants:~(. peer-trust bowl)
-    [~[(acp-result-card:wire-codec connection u.id (settings-json:peer-policy our.bowl peers trusted peer-base peer-limits))] state]
+    [~[(acp-result-card:wire-codec connection u.id peer-settings)] state]
+  ::
+      %'harness/peers/remote'
+    ?~  id  `state
+    [~[(acp-result-card:wire-codec connection u.id (list-json:peer-access remote-access))] state]
+  ::
+      %'harness/peers/check'
+    ?~  id  `state
+    =/  ship  (acp-param-string:wire-codec params 'ship')
+    =/  who  ?~(ship ~ (slaw %p u.ship))
+    ?~  who
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Expected a valid ship')] state]
+    =/  query=@uv  (end [3 16] (shas %peer-check eny.bowl))
+    :_  state
+    :~  (peer-access-card u.who [%query query])
+        (acp-result-card:wire-codec connection u.id (pairs:enjs:format ~[['requested' %b &]]))
+    ==
+  ::
+      %'harness/peers/reset'
+    ?~  id  `state
+    =/  trusted  trusted-peers
+    =/  expected  (acp-param-string:wire-codec params 'revision')
+    ?.  ?&(?=(^ expected) =(u.expected peer-revision))
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Peer settings or trust changed; reload before resetting')] state]
+    =/  raw  (acp-param-string:wire-codec params 'ship')
+    =/  ship  ?~(raw ~ (slaw %p u.raw))
+    ?.  ?&(?=(^ ship) (~(has by effective-peers) u.ship))
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Choose a currently allowed peer ship')] state]
+    =.  peer-budget-resets  (~(put by peer-budget-resets) u.ship (peer-total u.ship))
+    [~[(acp-result-card:wire-codec connection u.id peer-settings)] state]
   ::
       %'harness/peers/configure'
     ?~  id  `state
-    =/  trusted  grants:~(. peer-trust bowl)
+    =/  trusted  trusted-peers
     =/  expected  (acp-param-string:wire-codec params 'revision')
-    ?.  ?&(?=(^ expected) =(u.expected (revision:peer-policy peers trusted peer-base peer-limits)))
+    ?.  ?&(?=(^ expected) =(u.expected peer-revision))
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Peer settings or trust changed; reload before saving')] state]
     =/  raw-grants  (acp-param-json:wire-codec params 'grants')
     =/  raw-config  (acp-param-json:wire-codec params 'config')
@@ -812,7 +938,7 @@
     =.  peers  -.p.decoded
     =.  peer-base  +<.p.decoded
     =.  peer-limits  +>.p.decoded
-    [~[(acp-result-card:wire-codec connection u.id (settings-json:peer-policy our.bowl peers trusted peer-base peer-limits))] state]
+    [~[(acp-result-card:wire-codec connection u.id peer-settings)] state]
   ::
       %'harness/summary-models'
     ?~  id  `state
@@ -1337,9 +1463,21 @@
     ::
     =/  sid  sid.act
     ?.  (~(has by sessions) sid)  `state
+    ::  Complete the durable direct-tool receipt before removing its log.
+    =^  stopped  state
+      ?.  (~(has by peer-active) sid)  `state
+      (handle-action [%cancel sid])
+    ::  A fresh peer session must not inherit a deleted session's baseline.
+    =.  peer-budget-resets
+      ?.  =('peer--' (end [3 6] sid))  peer-budget-resets
+      =/  ship  (slaw %p (rsh [3 6] sid))
+      ?~  ship  peer-budget-resets
+      (~(del by peer-budget-resets) u.ship)
     =.  corpus  (retire:corpus-lib corpus sid)
     =.  search-requests  (forget-requests:search search-requests sid)
-    =|  cards=(list card)
+    =/  cards=(list card)  stopped
+    =^  extra  state  (withdraw-auxiliary sid)
+    =.  cards  (weld cards extra)
     ::  timers
     =/  tkeys  (skim ~(tap in ~(key by timers)) |=([s=session-id:h *] =(s sid)))
     =.  cards
@@ -1557,6 +1695,46 @@
         ==
     ==
   ::
+      %peer-refresh
+    `state
+  ::
+      %admin-call
+    =/  ses  (need-session sid.act)
+    =/  ticket=ticket:admin  [sid.act next-req.ses call-id.act]
+    ?.  (admin-current ticket)
+      (finish-admin ticket 'rejected: administrative authority is no longer current')
+    =/  payload
+      %-  en:json:html
+      (pairs:enjs:format ~[['jsonrpc' %s '2.0'] ['id' %s 'admin-result'] ['method' %s method.act] ['params' params.act]])
+    =^  cards  state  (handle-acp-message (connection:admin ticket) [0 now.bowl payload])
+    :_  state
+    %+  snoc  cards
+    [%pass /admin-timeout/[sid.act]/(scot %ud generation.ticket)/[call-id.act] %arvo %b %wait (add now.bowl ~m1)]
+  ::
+      %local-mcp
+    (start-local-mcp sid.act call-id.act)
+  ::
+      %peer-rpc
+    =/  tool  ?~(name.act 'list_peer_tools' 'call_peer_tool')
+    ?.  (authorized-call sid.act call-id.act tool)  `state
+    =/  id=ask-id:h  `@uv`(end [3 16] (shas %peer-rpc eny.bowl))
+    =.  asks  (~(put by asks) id [sid.act call-id.act ship.act])
+    =/  msg=peer-rpc:h
+      ?~(name.act [%tools id] [%invoke id now.bowl u.name.act args.act])
+    :_  state
+    :~  (peer-rpc-card ship.act msg)
+        [%pass /a2a-timeout/(scot %uv id) %arvo %b %wait (add now.bowl ~m2)]
+    ==
+  ::
+      %check-peer
+    ?.  (authorized-call sid.act call-id.act 'check_peer')  `state
+    =/  id=ask-id:h  `@uv`(end [3 16] (shas %peer-check eny.bowl))
+    =.  asks  (~(put by asks) id [sid.act call-id.act ship.act])
+    :_  state
+    :~  (peer-access-card ship.act [%query id])
+        [%pass /a2a-timeout/(scot %uv id) %arvo %b %wait (add now.bowl ~s30)]
+    ==
+  ::
       %run-js
     ::  Optional QuickJS/WASM executor. Recheck authority at
     ::  dispatch; the outer effect envelope already fences request generation.
@@ -1660,9 +1838,12 @@
   ^-  [cards=(list card) ses=session:h sk=(map @t skill:h) stg=(map @t skill:h) sr=search-requests:h]
   =|  cards=(list card)
   |-  ^-  [cards=(list card) ses=session:h sk=(map @t skill:h) stg=(map @t skill:h) sr=search-requests:h]
+  ::  Authority follows this admitted input, not the previous turn's actor.
+  =.  sessions  (~(put by sessions) sid ses)
   =/  v=view:h  (play:hl log.ses)
   =.  tools.config.v  (execution-tools sid tools.config.v)
-  =/  stp  (next:hs v (skills-visible sid skills))
+  =/  stp
+    ?:((~(has by peer-active) sid) (step:peer-rpc v) (next:hs v (skills-visible sid skills)))
   ?~  stp  [cards ses skills staged search-requests]
   ?-  -.u.stp
       %tools
@@ -1683,6 +1864,10 @@
         ==
       ?:  |(=('lcm_search' name.c) =('lcm_read' name.c) =('lcm_expand' name.c))
         acc(evs (snoc evs.acc [%tool-completed id.c name.c (corpus-tool sid ses c tools.config.v)]))
+      ?:  =('list_peer_access' name.c)
+        acc(evs (snoc evs.acc [%tool-completed id.c name.c (en:json:html (list-json:peer-access remote-access))]))
+      ?:  ?&(=('harness_admin' name.c) =(`'help' (tool-str:effects args.c 'method')))
+        acc(evs (snoc evs.acc [%tool-completed id.c name.c help:admin]))
       =/  hand  (tool-hand:ht name.c)
       ?^  hand
         =/  req=tool-request:adapter  [sid next-req.ses c]
@@ -1804,6 +1989,10 @@
           `(mcp-card:effects sid next-req.ses c tools.config.v)
         ?:  =(name.c 'run_subagent')   `(spawn-card:effects sid next-req.ses c)
         ?:  =(name.c 'ask_peer')       `(ask-peer-card:effects sid next-req.ses c)
+        ?:  =(name.c 'check_peer')     `(check-peer-card:effects sid next-req.ses c)
+        ?:  =(name.c 'harness_admin')  `(admin-card:effects sid next-req.ses c)
+        ?:  |(=(name.c 'list_peer_tools') =(name.c 'call_peer_tool'))
+          `(peer-rpc-card:effects sid next-req.ses c)
         ~
       ?~  async
         acc(evs (snoc evs.acc (run-tool:effects c (skills-visible sid sk.acc) tools.config.v)))
@@ -2107,6 +2296,15 @@
   =.  asks
     %-  ~(gas by *(map ask-id:h [session-id:h @t ship]))
     (skip ~(tap by asks) |=([id=ask-id:h s=session-id:h *] =(s sid)))
+  =/  native  (skim ~(tap by local-mcp) |=([[s=@t c=@t] p=local-mcp-progress:h] =(s sid)))
+  =.  cards
+    %+  weld  cards
+    %+  turn  native
+    |=  [[s=@t c=@t] p=local-mcp-progress:h]
+    ^-  card
+    [%pass /local-mcp/[s]/(scot %ud generation.p)/[c] %agent [our.bowl %mcp-server] %leave ~]
+  =.  local-mcp
+    (malt (skip ~(tap by local-mcp) |=([[s=@t c=@t] p=local-mcp-progress:h] =(s sid))))
   [cards state]
 ++  fence-session
   |=  [sid=session-id:h restrict=?]
@@ -2162,6 +2360,10 @@
     ?+  -.act  ~
       %spawn     `[parent.act call-id.act]
       %ask-peer  `[sid.act call-id.act]
+      %check-peer  `[sid.act call-id.act]
+      %admin-call  `[sid.act call-id.act]
+      %local-mcp  `[sid.act call-id.act]
+      %peer-rpc  `[sid.act call-id.act]
       %run-js    `[sid.act call-id.act]
       %rehearse  `[sid.act call-id.act]
     ==
@@ -2177,8 +2379,15 @@
   =/  depth=@ud  0
   |-  ^-  (list tool-grant:h)
   ?:  =(depth 8)  ~
+  =/  administrator  (session-admin sid)
+  =.  granted  (skip granted |=(g=tool-grant:h =(%admin g)))
   =/  ses  (~(get by sessions) sid)
-  =?  granted  ?&(?=(^ ses) (social-context:hl log.u.ses))
+  =/  peer  ?~(ses ~ (peer-source:admin log.u.ses))
+  =?  granted  ?&(?=(^ peer) !(is-owner u.peer))
+    =/  live  (peer-grant-for u.peer)
+    ?~  live  ~
+    (skim granted |=(g=tool-grant:h (lien tools.u.live |=(cap=tool-grant:h =(cap g)))))
+  =?  granted  ?&(!administrator ?=(^ ses) (social-context:hl log.u.ses))
     (conversation-tools:ht granted)
   =/  parent  ?~(ses ~ (delegation:hl log.u.ses))
   =?  granted  ?=(^ parent)
@@ -2210,8 +2419,53 @@
   ?.  live.authority  ~
   =?  granted  ?=(^ ceiling.authority)
     (skim granted |=(grant=tool-grant:h (lien u.ceiling.authority |=(cap=tool-grant:h =(grant cap)))))
+  =?  granted  administrator  (snoc granted %admin)
   ?.  (~(has by rehearsals) sid)  granted
   (rehearsal-tools:ht granted)
+++  session-admin
+  |=  sid=session-id:h
+  ^-  ?
+  =/  ses  (~(get by sessions) sid)
+  ?~  ses  |
+  ?:  |((~(has by rehearsals) sid) ?=(^ (delegation:hl log.u.ses)))  |
+  =/  actor  (source-actor:admin log.u.ses)
+  =/  owner  ?~(actor ~ ?:((is-owner u.actor) actor ~))
+  =/  origin  (origin:admin log.u.ses our.bowl owner)
+  ?~  origin  |
+  ?.  =(%tlon u.origin)  &
+  ?.  .^(? %gu /(scot %p our.bowl)/harness-tlon/(scot %da now.bowl)/$)  |
+  .^(? %gx /(scot %p our.bowl)/harness-tlon/(scot %da now.bowl)/admin/[sid]/noun)
+++  admin-current
+  |=  ticket=ticket:admin
+  ^-  ?
+  =/  ses  (~(get by sessions) sid.ticket)
+  ?~  ses  |
+  ?&  (session-admin sid.ticket)
+      (request-current:hl u.ses `generation.ticket call-id.ticket)
+      (authorized-call sid.ticket call-id.ticket 'harness_admin')
+  ==
+++  admin-result
+  |=  [connection=@t payload=@t]
+  ^-  (quip card _state)
+  =/  ticket  (decode:admin connection)
+  ?~  ticket  `state
+  =/  parsed  (de:json:html payload)
+  ?.  ?&(?=(^ parsed) ?=(%o -.u.parsed))  `state
+  ?.  =(`[%s 'admin-result'] (~(get by p.u.parsed) 'id'))  `state
+  (finish-admin u.ticket payload)
+++  finish-admin
+  |=  [ticket=ticket:admin body=@t]
+  ^-  (quip card _state)
+  =/  current  (~(get by sessions) sid.ticket)
+  ?~  current  `state
+  ?.  (request-current:hl u.current `generation.ticket call-id.ticket)  `state
+  ?.  =(`'harness_admin' (requested-tool u.current call-id.ticket))  `state
+  =?  body  !(admin-current ticket)
+    'Administrative authority changed. The action may already have applied; inspect settings locally. No further administrative work is authorized here.'
+  =^  recorded  u.current
+    (record-all sid.ticket u.current ~[[%tool-completed call-id.ticket 'harness_admin' (clip:ht body 48.000)]])
+  =^  driven  state  (drive-put sid.ticket u.current)
+  [(weld recorded driven) state]
 ::  Self-pokes are not ambient authority: both a grant and an outstanding
 ::  request must still exist when the asynchronous operation starts/finishes.
 ++  authorized-call
@@ -2232,6 +2486,10 @@
   =/  events  log.ses
   |-  ^-  (unit tool-call:h)
   ?~  events  ~
+  ?:  &(?=(%input-received -.i.events) ?=(%assistant -.item.input.i.events))
+    =/  found  (murn calls.item.input.i.events |=(c=tool-call:h ?:(=(call-id id.c) `c ~)))
+    ?^  found  `i.found
+    $(events t.events)
   ?:  &(?=(%llm-completed -.i.events) ?=(%assistant -.item.i.events))
     =/  found  (murn calls.item.i.events |=(c=tool-call:h ?:(=(call-id id.c) `c ~)))
     ?^  found  `i.found
@@ -2270,6 +2528,90 @@
   =^  cs1  ses  (record-all sid ses ~[[%tool-completed call-id name.u.call (clip:ht body 24.000)]])
   =^  cs2  state  (drive-put sid ses)
   [(weld cs1 cs2) state]
+++  start-local-mcp
+  |=  [sid=@t call-id=@t]
+  ^-  (quip card _state)
+  =/  ses  (need-session sid)
+  =/  generation  next-req.ses
+  =/  call  (requested-call ses call-id)
+  ?~  call  `state
+  =/  cfg  config:(play:hl log.ses)
+  ?.  (call-granted:ht u.call (execution-tools sid tools.cfg))
+    (finish-local-mcp sid generation call-id 'rejected: local MCP request is no longer authorized')
+  =/  server  (tool-str:effects args.u.call 'server')
+  =/  configured  ?~(server ~ (~(get by mcp-servers) u.server))
+  ?.  ?&(?=(^ server) ?=(^ configured) enabled.u.configured =((url:local-mcp-lib our.bowl) url.u.configured))
+    (finish-local-mcp sid generation call-id 'error: local MCP server is unavailable')
+  ?.  .^(? %gu /(scot %p our.bowl)/mcp-server/(scot %da now.bowl)/$)
+    (finish-local-mcp sid generation call-id 'error: the local MCP desk is not running')
+  ?:  (gte ~(wyt by local-mcp) 32)
+    (finish-local-mcp sid generation call-id 'error: local MCP request capacity reached')
+  =/  payload  (mcp-payload:effects u.call)
+  ?~  payload  (finish-local-mcp sid generation call-id 'error: invalid MCP arguments')
+  =.  local-mcp
+    (~(put by local-mcp) [sid call-id] [generation u.server (sham u.configured) 0 ''])
+  =/  wire=wire  /local-mcp/[sid]/(scot %ud generation)/[call-id]
+  =/  request-id=@ta  (cat 3 'harness-' (scot %uv (sham [sid generation call-id])))
+  =/  request=request:http
+    :*  %'POST'  '/mcp'
+        ~[['host' 'localhost'] ['content-type' 'application/json'] ['accept' 'application/json, text/event-stream']]
+        `(as-octs:mimes:html (en:json:html u.payload))
+    ==
+  =/  inbound=inbound-request:eyre  [& | [%ipv4 .127.0.0.1] request]
+  :_  state
+  :~  [%pass wire %agent [our.bowl %mcp-server] %watch /http-response/[request-id]]
+      [%pass wire %agent [our.bowl %mcp-server] %poke %handle-http-request !>([request-id inbound])]
+      [%pass /local-mcp-timeout/[sid]/(scot %ud generation)/[call-id] %arvo %b %wait (add now.bowl ~m1)]
+  ==
+++  local-mcp-sign
+  |=  [sid=@t generation=@ud call-id=@t sign=sign:agent:gall]
+  ^-  (quip card _state)
+  =/  pending  (~(get by local-mcp) [sid call-id])
+  ?~  pending  `state
+  ?.  =(generation generation.u.pending)  `state
+  ?:  ?=(%kick -.sign)
+    (finish-local-mcp sid generation call-id (rap 3 'HTTP ' (scot %ud status.u.pending) '\0a\0a' body.u.pending ~))
+  ?:  |(?&(?=(%poke-ack -.sign) ?=(^ p.sign)) ?&(?=(%watch-ack -.sign) ?=(^ p.sign)))
+    (finish-local-mcp sid generation call-id 'error: local MCP server rejected the request; no automatic retry')
+  ?.  ?=(%fact -.sign)  `state
+  ?:  =(%http-response-header p.cage.sign)
+    =/  header  !<(response-header:http q.cage.sign)
+    `state(local-mcp (~(put by local-mcp) [sid call-id] u.pending(status status-code.header)))
+  ?.  =(%http-response-data p.cage.sign)  `state
+  =/  data  !<((unit octs) q.cage.sign)
+  ?~  data  `state
+  ?:  (gth (add (met 3 body.u.pending) p.u.data) 262.144)
+    (finish-local-mcp sid generation call-id 'error: local MCP response exceeds 256 KiB')
+  `state(local-mcp (~(put by local-mcp) [sid call-id] u.pending(body (cat 3 body.u.pending q.u.data))))
+++  finish-local-mcp
+  |=  [sid=@t generation=@ud call-id=@t body=@t]
+  ^-  (quip card _state)
+  =/  pending  (~(get by local-mcp) [sid call-id])
+  ?:  ?&(?=(^ pending) !=(generation generation.u.pending))  `state
+  =/  cleanup=(list card)
+    ?~  pending  ~
+    ~[[%pass /local-mcp/[sid]/(scot %ud generation)/[call-id] %agent [our.bowl %mcp-server] %leave ~]]
+  =?  local-mcp  ?&(?=(^ pending) =(generation generation.u.pending))
+    (~(del by local-mcp) [sid call-id])
+  =/  maybe  (~(get by sessions) sid)
+  ?~  maybe  [cleanup state]
+  ?.  (request-current:hl u.maybe `generation call-id)  [cleanup state]
+  =/  call  (requested-call u.maybe call-id)
+  ?~  call  [cleanup state]
+  ?.  |(=('list_mcp_tools' name.u.call) =('call_mcp_tool' name.u.call))  [cleanup state]
+  =/  cfg  config:(play:hl log.u.maybe)
+  =/  current  ?~(pending ~ (~(get by mcp-servers) server.u.pending))
+  =?  body
+    ?|  !(call-granted:ht u.call (execution-tools sid tools.cfg))
+        ?&  ?=(^ pending)
+            !?&(?=(^ current) enabled.u.current =(fingerprint.u.pending (sham u.current)))
+        ==
+    ==
+    'rejected: local MCP access or server configuration changed'
+  =^  recorded  u.maybe
+    (record-all sid u.maybe ~[[%tool-completed call-id name.u.call (clip:ht body 48.000)]])
+  =^  driven  state  (drive-put sid u.maybe)
+  [:(weld cleanup recorded driven) state]
 ++  handle-tool-response
   |=  [sid=session-id:h generation=(unit @ud) call-id=@t res=client-response:iris]
   ^-  (quip card _state)
@@ -2330,7 +2672,8 @@
   =^  cs2  state  (settle-asks sid)
   =^  cs3  state  (settle-acp sid)
   =^  cs4  state  (settle-hands sid)
-  [:(weld cs1 cs2 cs3 cs4) state]
+  =^  cs5  state  (settle-peer-tool sid)
+  [:(weld cs1 cs2 cs3 cs4 cs5) state]
 ::
 ++  settle-acp
   |=  sid=session-id:h
@@ -2415,6 +2758,142 @@
   %+  turn  u.q
   |=  [=ship id=ask-id:h]
   (answer-card:effects ship id result)
+++  peer-rpc-card
+  |=  [who=@p msg=peer-rpc:h]
+  ^-  card
+  =/  wire=wire
+    ?:(?=(%result -.msg) /peer-rpc/result /peer-rpc/request/(scot %uv (id:peer-rpc msg)))
+  [%pass wire %agent [who dap.bowl] %poke %harness-rpc-0 !>(msg)]
+++  rpc-tools
+  |=  [who=@p tools=(list tool-grant:h)]
+  ^+  tools
+  =.  tools  (skip (without-tlon:ht tools) |=(g=tool-grant:h =(%admin g)))
+  ?:  (is-owner who)  (snoc tools %admin)
+  (conversation-tools:ht tools)
+++  handle-peer-rpc
+  |=  [src=@p msg=peer-rpc:h]
+  ^-  (quip card _state)
+  ?:  ?=(%result -.msg)
+    =/  pending  (~(get by asks) id.msg)
+    ?.  ?&(?=(^ pending) =(src ship.u.pending))  `state
+    =/  current  (~(get by sessions) sid.u.pending)
+    ?~  current  `state
+    =/  name  (requested-tool u.current call-id.u.pending)
+    ?.  |(=(`'list_peer_tools' name) =(`'call_peer_tool' name))  `state
+    =.  asks  (~(del by asks) id.msg)
+    =/  body  ?:(?=(%& -.result.msg) p.result.msg (cat 3 'peer error: ' p.result.msg))
+    (finish-peer-client sid.u.pending next-req.u.current call-id.u.pending body)
+  =/  grant  (peer-grant-for src)
+  ?~  grant
+    [~[(peer-rpc-card src [%result (id:peer-rpc msg) [%| 'no grant for your ship']])] state]
+  =/  tools  (rpc-tools src tools.u.grant)
+  ?:  ?=(%tools -.msg)
+    =/  catalog=json
+      (pairs:enjs:format ~[['ship' %s (scot %p our.bowl)] ['tools' (tool-defs:ht tools)] ['administrative' %b (is-owner src)]])
+    [~[(peer-rpc-card src [%result id.msg [%& (en:json:html catalog)]])] state]
+  ?.  (fresh:peer-rpc issued.msg now.bowl)
+    [~[(peer-rpc-card src [%result id.msg [%| 'request expired or clock is too far ahead; no tool was started']])] state]
+  ?:  |((gth (met 3 name.msg) 128) (gth (met 3 args.msg) 65.536))
+    [~[(peer-rpc-card src [%result id.msg [%| 'tool request exceeds size limit']])] state]
+  =/  args  (de:json:html args.msg)
+  ?.  ?&(?=(^ args) ?=(%o -.u.args))
+    [~[(peer-rpc-card src [%result id.msg [%| 'tool arguments must be a JSON object']])] state]
+  =/  call=tool-call:h  [(call-id:peer-rpc id.msg issued.msg) name.msg args.msg]
+  ?.  (call-granted:ht call tools)
+    [~[(peer-rpc-card src [%result id.msg [%| 'tool or resource is not granted to your ship']])] state]
+  =/  prior  (~(get by peer-receipts) [src id.msg])
+  ?^  prior
+    ?.  (same:peer-rpc u.prior issued.msg name.msg args.msg)
+      [~[(peer-rpc-card src [%result id.msg [%| 'request id already names a different tool invocation']])] state]
+    ?~  result.u.prior  `state
+    [~[(peer-rpc-card src [%result id.msg u.result.u.prior])] state]
+  ?:  &(!=(0 budget.u.grant) (gte (peer-used src) budget.u.grant))
+    [~[(peer-rpc-card src [%result id.msg [%| 'peer token budget exhausted']])] state]
+  =.  peer-receipts  (prune:peer-rpc peer-receipts now.bowl)
+  ?:  (gte ~(wyt by peer-receipts) 256)
+    [~[(peer-rpc-card src [%result id.msg [%| 'direct tool receipt capacity reached; no tool was started']])] state]
+  =/  sid=session-id:h  (cat 3 'peer-tool--' (scot %p src))
+  ?:  |((~(has by peer-active) sid) (lien ~(val by bindings.hands) |=(b=binding:hh =(sid sid.b))))
+    [~[(peer-rpc-card src [%result id.msg [%| 'another direct tool call is running for your ship']])] state]
+  =/  cfg  defaults(key '', tools tools)
+  =/  ses  (fall (~(get by sessions) sid) `session:h`[~ 0])
+  =/  view  (play:hl log.ses)
+  ?:  |(?=(^ pending.view) !=(~ wait.view))
+    [~[(peer-rpc-card src [%result id.msg [%| 'direct tool conversation is busy']])] state]
+  =.  next-req.ses  +(next-req.ses)
+  =/  event
+    (input-event [%peer src id.msg] `src ~ [%assistant '' ~[call]])
+  =.  peer-receipts  (~(put by peer-receipts) [src id.msg] [issued.msg name.msg args.msg sid ~])
+  =.  peer-active  (~(put by peer-active) sid [src id.msg])
+  =^  recorded  ses  (record-all sid ses ~[[%config-replaced cfg] event])
+  =^  driven  state  (drive-put sid ses)
+  :_  state
+  (snoc (weld recorded driven) `card`[%pass /peer-tool-timeout/[sid]/(scot %uv id.msg) %arvo %b %wait (add now.bowl ~m2)])
+++  settle-peer-tool
+  |=  sid=session-id:h
+  ^-  (quip card _state)
+  =/  active  (~(get by peer-active) sid)
+  ?~  active  `state
+  =/  receipt  (~(get by peer-receipts) [ship.u.active id.u.active])
+  ?~  receipt  `state
+  =/  current  (~(get by sessions) sid)
+  ?~  current  `state
+  =/  result  (result:peer-rpc log.u.current id.u.active issued.u.receipt)
+  ?~  result  `state
+  =.  peer-active  (~(del by peer-active) sid)
+  =.  peer-receipts  (~(put by peer-receipts) [ship.u.active id.u.active] u.receipt(result result))
+  [~[(peer-rpc-card ship.u.active [%result id.u.active u.result])] state]
+++  finish-peer-client
+  |=  [sid=@t generation=@ud call-id=@t body=@t]
+  ^-  (quip card _state)
+  =/  current  (~(get by sessions) sid)
+  ?~  current  `state
+  ?.  (request-current:hl u.current `generation call-id)  `state
+  =/  name  (requested-tool u.current call-id)
+  ?.  |(=(`'list_peer_tools' name) =(`'call_peer_tool' name))  `state
+  ?>  ?=(^ name)
+  =?  body  !(authorized-call sid call-id u.name)
+    'rejected: peer tool access is no longer authorized'
+  =^  recorded  u.current
+    (record-all sid u.current ~[[%tool-completed call-id u.name (clip:ht body 48.000)]])
+  =^  driven  state  (drive-put sid u.current)
+  [(weld recorded driven) state]
+++  peer-access-card
+  |=  [who=@p msg=peer-access-message:h]
+  ^-  card
+  =/  wire=wire
+    ?:(?=(%query -.msg) /peer-access/query/(scot %uv id.msg) /peer-access/status)
+  [%pass wire %agent [who dap.bowl] %poke %harness-access-0 !>(msg)]
+++  sync-peer-access
+  ^-  (quip card _state)
+  =/  current  effective-peers
+  =/  changes  (changes:peer-access announced-access current)
+  :_  state(announced-access current)
+  %+  murn  changes
+  |=  [who=@p grant=(unit peer-grant:h)]
+  ?:  =(who our.bowl)  ~
+  `(peer-access-card who [%status ~ grant])
+++  handle-peer-access
+  |=  [src=@p msg=peer-access-message:h]
+  ^-  (quip card _state)
+  ?-  -.msg
+      %query
+    [~[(peer-access-card src [%status `id.msg (peer-grant-for src)])] state]
+      %status
+    ?.  (valid:peer-access grant.msg)  `state
+    =.  remote-access  (remember:peer-access remote-access src grant.msg now.bowl)
+    ?~  id.msg  `state
+    =/  pending  (~(get by asks) u.id.msg)
+    ?.  ?&(?=(^ pending) =(src ship.u.pending))  `state
+    ?.  (authorized-call sid.u.pending call-id.u.pending 'check_peer')  `state
+    =.  asks  (~(del by asks) u.id.msg)
+    =/  ses  (need-session sid.u.pending)
+    =/  body  (en:json:html (row-json:peer-access src [grant.msg now.bowl]))
+    =^  recorded  ses
+      (record-all sid.u.pending ses ~[[%tool-completed call-id.u.pending 'check_peer' body]])
+    =^  driven  state  (drive-put sid.u.pending ses)
+    [(weld recorded driven) state]
+  ==
 ::  +handle-a2a: the wire protocol, both directions
 ::
 ++  handle-a2a
@@ -2441,7 +2920,7 @@
       %ask
     ::  identity is the permission: no grant, no service
     ::
-    =/  g  (~(get by effective-peers) src)
+    =/  g  (peer-grant-for src)
     ?~  g
       [~[(answer-card:effects src id.msg [%| 'no grant for your ship'])] state]
     =/  base  (fall peer-base defaults)
@@ -2449,11 +2928,7 @@
     ?:  (lien ~(val by bindings.hands) |=(b=binding:hh =(sid.b sid)))
       [~[(answer-card:effects src id.msg [%| 'Session reserved for hand bindings'])] state]
     =/  mses  (~(get by sessions) sid)
-    ?:  ?&  !=(0 budget.u.g)
-            ?=(^ mses)
-            =/  v  (play:hl log.u.mses)
-            (gte (add prompt.total.v completion.total.v) budget.u.g)
-        ==
+    ?:  &(!=(0 budget.u.g) (gte (peer-used src) budget.u.g))
       [~[(answer-card:effects src id.msg [%| 'budget exhausted'])] state]
     ::  the durable per-peer session runs under the grant, refreshed
     ::  each ask so grant changes take effect
@@ -2494,10 +2969,12 @@
   =.  asks  (~(del by asks) id)
   =/  mses  (~(get by sessions) sid.u.ma)
   ?~  mses  `state
-  ?.  (authorized-call sid.u.ma call-id.u.ma 'ask_peer')  `state
+  =/  name  (fall (requested-tool u.mses call-id.u.ma) 'ask_peer')
+  ?.  |(=('ask_peer' name) =('check_peer' name) =('list_peer_tools' name) =('call_peer_tool' name))  `state
+  ?.  (authorized-call sid.u.ma call-id.u.ma name)  `state
   =^  cs1  u.mses
     %^  record-all  sid.u.ma  u.mses
-    ~[[%tool-completed call-id.u.ma 'ask_peer' (cat 3 'error: ' why)]]
+    ~[[%tool-completed call-id.u.ma name (cat 3 'error: ' why)]]
   =^  cs2  state  (drive-put sid.u.ma u.mses)
   [(weld cs1 cs2) state]
 ::  +skills-visible: what skills a session may see.
@@ -2513,18 +2990,95 @@
     =/  staged-one  (~(get by staged) u.reh)
     ?~  staged-one  sk
     (~(put by sk) u.reh u.staged-one)
-  ?.  =('peer--' (end [3 6] sid))  sk
-  =/  pship  (slaw %p (rsh [3 6] sid))
-  ?~  pship  ~
-  =/  g  (~(get by effective-peers) u.pship)
+  =/  depth=@ud  0
+  |-  ^-  (map @t skill:h)
+  ?:  =(depth 8)  ~
+  =/  ses  (~(get by sessions) sid)
+  =/  parent  ?~(ses ~ (delegation:hl log.u.ses))
+  ?^  parent  $(sid parent.u.parent, depth +(depth))
+  =/  pship  ?~(ses ~ (peer-source:admin log.u.ses))
+  =?  pship  &(?=(~ pship) =('peer--' (end [3 6] sid)))
+    (slaw %p (rsh [3 6] sid))
+  ?~  pship  sk
+  ?:  (is-owner u.pship)  sk
+  =/  g  (peer-grant-for u.pship)
   ?~  g  ~
   %-  malt
   %+  skim  ~(tap by sk)
   |=  [n=@t s=skill:h]
   (~(has in inflows.u.g) n)
+++  is-owner
+  |=  who=@p
+  ^-  ?
+  (owner:~(. ownership bowl) owner:~(. peer-trust bowl) siblings:~(. peer-trust bowl) who)
+++  owner-grant
+  ^-  peer-grant:h
+  =/  tools
+    %+  skim  tools.defaults
+    |=  grant=tool-grant:h
+    ?:(?=(^ grant) & (lien configurable-tools:ht |=(known=term =(known grant))))
+  [tools ~ 0 ~(key by skills)]
+++  trusted-peers
+  ^-  (map @p peer-grant:h)
+  =/  inherited  grants:~(. peer-trust bowl)
+  =/  owner  owner:~(. peer-trust bowl)
+  ?~  owner  inherited
+  (~(put by inherited) u.owner owner-grant)
+++  peer-grant-for
+  |=  who=@p
+  ^-  (unit peer-grant:h)
+  ?:  (is-owner who)  `owner-grant
+  (~(get by (effective:peer-policy peers trusted-peers peer-limits)) who)
 ++  effective-peers
   ^-  (map @p peer-grant:h)
-  (effective:peer-policy peers grants:~(. peer-trust bowl) peer-limits)
+  =/  grants  (effective:peer-policy peers trusted-peers peer-limits)
+  =/  known=(set @p)
+    (~(uni in ~(key by grants)) (~(uni in ~(key by remote-access)) ~(key by announced-access)))
+  %+  roll  ~(tap in known)
+  |=  [who=@p out=_grants]
+  ?:((is-owner who) (~(put by out) who owner-grant) out)
+++  peer-total
+  |=  ship=@p
+  ^-  @ud
+  =/  sid=session-id:h  (cat 3 'peer--' (scot %p ship))
+  =/  ses  (~(get by sessions) sid)
+  ?~  ses  0
+  =/  v  (play:hl log.u.ses)
+  (add prompt.total.v completion.total.v)
+++  peer-used
+  |=  ship=@p
+  ^-  @ud
+  (used:peer-policy (peer-total ship) (fall (~(get by peer-budget-resets) ship) 0))
+++  peer-settings
+  ^-  json
+  =/  settings  (settings-json:peer-policy our.bowl peers trusted-peers peer-base peer-limits)
+  ?>  ?=(%o -.settings)
+  =.  settings  [%o (~(put by p.settings) 'revision' [%s peer-revision])]
+  ?>  ?=(%o -.settings)
+  =/  owners=(list json)
+    %+  murn  ~(tap by effective-peers)
+    |=  [who=@p grant=peer-grant:h]
+    ?:(!(is-owner who) ~ `(grant-json:peer-policy who grant))
+  =.  settings  [%o (~(put by p.settings) 'owners' [%a owners])]
+  ?>  ?=(%o -.settings)
+  =/  usage=(list json)
+    %+  turn  ~(tap by effective-peers)
+    |=  [ship=@p grant=peer-grant:h]
+    =/  total  (peer-total ship)
+    =/  used  (used:peer-policy total (fall (~(get by peer-budget-resets) ship) 0))
+    %-  pairs:enjs:format
+    :~  ['ship' %s (scot %p ship)]
+        ['used' (numb:enjs:format used)]
+        ['total' (numb:enjs:format total)]
+    ==
+  [%o (~(put by p.settings) 'usage' [%a usage])]
+++  peer-revision
+  ^-  @t
+  =/  revision  (revision:peer-policy peers trusted-peers peer-base peer-limits)
+  =/  owner  owner:~(. peer-trust bowl)
+  =/  siblings  siblings:~(. peer-trust bowl)
+  ?:  &(?=(~ owner) !siblings)  revision
+  (scot %uv (sham [revision owner siblings effective-peers]))
 ::  eyre: webhooks admit input from the outside world
 ::
 ++  serve

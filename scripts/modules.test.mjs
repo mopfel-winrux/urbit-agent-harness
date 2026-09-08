@@ -12,6 +12,17 @@ const code = (name) => sources.get(name).split('\n').filter((line) => !line.trim
 const dependencies = (name) => [...code(name).matchAll(/^\/\+\s+(.+)$/gm)]
   .flatMap((match) => match[1].split(',').map((entry) => entry.trim().split('=').at(-1).replace(/^\*/, '')))
 
+test('default native tests do not construct full Gall agents', async () => {
+  const tests = new URL('../desk/tests/', import.meta.url)
+  for (const name of await readdir(tests)) {
+    if (!name.endsWith('.hoon')) continue
+    assert.doesNotMatch(name, /benchmark/, 'large corpus benchmarks must be opt-in')
+    const source = await readFile(new URL(name, tests), 'utf8')
+    assert.doesNotMatch(source, /^\/=\s+.*\/app\//m,
+      `${name}: full-agent fixtures belong in tests-integration, outside the default 2 GB loom suite`)
+  }
+})
+
 test('semantic head depends on nouns, not providers or transports', () => {
   for (const name of ['harness', 'harness-context', 'harness-memory', 'harness-lcm']) {
     assert.deepEqual(dependencies(name), name === 'harness' ? ['harness-lcm'] : [])

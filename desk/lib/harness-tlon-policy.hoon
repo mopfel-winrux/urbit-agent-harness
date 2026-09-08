@@ -6,7 +6,7 @@
 |%
 ++  local-only
   |=  old=state-13:t
-  ^-  state:t
+  ^-  state-14:t
   ::  Remove the derived export queue only. Accepted work and delivery evidence
   ::  remain in the head ledger; no cleanup poke is sent to any other agent.
   :*  %14  activity-through.old  catching-up.old  identities.old  routes.old
@@ -51,6 +51,12 @@
   ?.  enabled.policy  ~
   ?:  =(`actor owner.policy)  `owner-tools
   (~(get by trusted.policy) actor)
+++  grants-owned
+  |=  [policy=policy:t actor=@p owner-tools=(list tool-grant:h) owner=?]
+  ^-  (unit (list tool-grant:h))
+  ?.  enabled.policy  ~
+  ?:  owner  `owner-tools
+  (~(get by trusted.policy) actor)
 ++  peer-grants
   |=  policy=policy:t
   ^-  (map @p peer-grant:h)
@@ -62,7 +68,8 @@
     |=  [ship=@p tools=(list tool-grant:h)]
     [ship tools ~ 0 ~]
   ?~  owner.policy  peers
-  ::  Ownership authorizes asks, not ambient owner tools in remote work.
+  ::  The peer binding replaces this membership placeholder with the owner's
+  ::  default resources; administrative authority is checked from live origin.
   (~(put by peers) u.owner.policy [~ ~ 0 ~])
 ++  address
   |=  to=destination:t
@@ -87,6 +94,10 @@
 ++  normalize
   |=  [our=@p policy=policy:t event=incoming-event:v8:a]
   ^-  (unit input:t)
+  (normalize-owned our policy event |=(actor=@p =(`actor owner.policy)))
+++  normalize-owned
+  |=  [our=@p policy=policy:t event=incoming-event:v8:a owner-test=$-(@p ?)]
+  ^-  (unit input:t)
   =/  item=(unit [actor=@p key=message-key:a to=destination:t text=@t addressed=?])
     ?+  -.event  ~
         %dm-post
@@ -102,7 +113,7 @@
     ==
   ?~  item  ~
   ?:  =(actor.u.item our)  ~
-  ?~  (grants policy actor.u.item ~)  ~
+  ?~  (grants-owned policy actor.u.item ~ (owner-test actor.u.item))  ~
   ?:  &(?=(%channel -.to.u.item) mentions.policy !addressed.u.item)  ~
   ::  A DM's partner must be its source author, not an asserted third party.
   ?:  &(?=(%dm -.to.u.item) !=(who.to.u.item actor.u.item))  ~
@@ -129,7 +140,6 @@
   =/  val=[enabled=? owner=(unit @p) mentions=? trusted=(list [p=@p q=(list tool-grant:h)])]
     ((ot ~[enabled+bo owner+(mu (se %p)) mentions+bo trusted+(ar (ot ~[ship+(se %p) tools+(ar json-grant:hj)]))]) jon)
   =/  policy=policy:t  [enabled.val owner.val (my trusted.val) mentions.val]
-  ?>  |(!enabled.policy ?=(^ owner.policy))
   ?>  (lte ~(wyt by trusted.policy) 64)
   ?>  =(~(wyt by trusted.policy) (lent trusted.val))
   ?>  (levy ~(val by trusted.policy) |=(ts=(list tool-grant:h) (levy ts |=(grant=tool-grant:h ?:(?=(^ grant) & (lien all-tools:ht |=(known=term =(grant known))))))))

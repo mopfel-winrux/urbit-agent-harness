@@ -2,7 +2,7 @@
 ::  no session maps, prompt ownership, credentials or scheduling live here.
 ::  The agent admits commands and settles prompts; this door only speaks ACP.
 /-  h=harness, ac=acp
-/+  hl=harness, policy=harness-defaults
+/+  hl=harness, policy=harness-defaults, admin=harness-admin
 |_  our=@p
 +$  card  card:agent:gall
 ++  acp-open-card
@@ -21,6 +21,10 @@
 ++  acp-send-card
   |=  [connection=connection-id:v1:ac payload=@t]
   ^-  card
+  ::  Local administrative tool requests reuse ACP method semantics, not a
+  ::  browser connection. Both the head and adapters return through this path.
+  ?^  (decode:admin connection)
+    [%pass /admin/result %agent [our %harness] %poke %harness-admin-result !>([connection payload])]
   (acp-action-card /acp/send [%send connection %client payload])
 ++  acp-ack-card
   |=  [connection=connection-id:v1:ac through=@ud]

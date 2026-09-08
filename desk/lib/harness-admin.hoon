@@ -1,0 +1,88 @@
+::  Administrative provenance is identity, not a configurable tool grant.
+::  Tickets are local correlation only; the head rechecks live authority.
+/-  h=harness
+|%
++$  ticket  [sid=session-id:h generation=@ud call-id=@t]
+++  connection
+  |=  request=ticket
+  ^-  @t
+  (cat 3 'admin--' (scot %uv (jam request)))
+++  decode
+  |=  name=@t
+  ^-  (unit ticket)
+  ?.  &((lte (met 3 name) 4.096) =('admin--' (end [3 7] name)))  ~
+  =/  raw  (slaw %uv (rsh [3 7] name))
+  ?~  raw  ~
+  =/  parsed  (mule |.(;;(ticket (cue u.raw))))
+  ?:(?=(%& -.parsed) `p.parsed ~)
+++  origin
+  |=  [log=(list event:h) our=@p owner=(unit @p)]
+  ^-  (unit term)
+  ?~  log  ~
+  ?:  ?=(%input-admitted -.i.log)  ~
+  ?.  ?=(%input-received -.i.log)  $(log t.log)
+  =/  input  input.i.log
+  =/  source  source.input
+  ?+  -.source  ~
+    %acp  ?:(=(`our actor.input) `%local ~)
+    %poke  ?:(&(=(ship.source our) =(`our actor.input)) `%local ~)
+    %peer  ?:(&(=(`ship.source owner) =(`ship.source actor.input)) `%peer ~)
+    %hand
+      =/  who  (slaw %p actor.source)
+      ?.  ?&(?=(^ who) =('tlon' hand.source) =(`u.who owner))  ~
+      ::  Public channels and schedules never inherit administrative access.
+      =/  dm  (cat 3 'dm/' (scot %p u.who))
+      ?.  |(=(dm address.source) =((cat 3 dm '/') (end [3 (add 1 (met 3 dm))] address.source)))  ~
+      `%tlon
+  ==
+++  peer-source
+  |=  log=(list event:h)
+  ^-  (unit @p)
+  ?~  log  ~
+  ?:  ?=(%input-admitted -.i.log)  ~
+  ?.  ?=(%input-received -.i.log)  $(log t.log)
+  =/  source  source.input.i.log
+  ?:(?=(%peer -.source) `ship.source ~)
+++  source-actor
+  |=  log=(list event:h)
+  ^-  (unit @p)
+  ?~  log  ~
+  ?:  ?=(%input-admitted -.i.log)  ~
+  ?.  ?=(%input-received -.i.log)  $(log t.log)
+  =/  source  source.input.i.log
+  ?+  -.source  ~
+    %peer  `ship.source
+    %hand  (slaw %p actor.source)
+  ==
+++  help
+  ^-  @t
+  %+  rap  3
+  :~  'Full Harness administration. Read current settings before changing them; '
+      'only perform changes requested by the owner. Never reveal credentials '
+      'or private transcripts in public conversations. Parameters are JSON objects '
+      'encoded as a string. Empty reads use {}.\0a\0a'
+      'Read methods: harness/defaults, harness/tools, harness/status (provider), '
+      'harness/peers, harness/peers/remote, harness/mcp/servers, harness/search, '
+      'harness/summary-models, harness/skills, harness/skill (name), harness/tlon, '
+      'harness/tlon/profile, harness/tlon/contacts, harness/tlon/cron, '
+      'harness/tlon/work, session/list, harness/session/config (sessionId), '
+      'harness/session/snapshot (sessionId), harness/session/history (sessionId, before).\0a\0a'
+      'Configuration methods: harness/defaults/configure {config}; '
+      'harness/session/configure {sessionId,config}; '
+      'harness/session/use-default-model {sessionId}; '
+      'harness/credential/set {provider,key}; harness/mcp/configure {servers}; '
+      'harness/search/configure {config}; harness/summary-models/configure {models}; '
+      'harness/peers/configure {revision,grants,limits,config}; '
+      'harness/peers/reset {ship,revision}; harness/peers/check {ship}; '
+      'harness/tlon/configure {enabled,owner,mentions,trusted}; '
+      'harness/tlon/owner/set {owner,expectedOwner,siblingMoonOwners,expectedSiblingMoonOwners}; '
+      'harness/tlon/profile/set (read the profile first); '
+      'harness/tlon/cron/cancel {id}; harness/tlon/cron/clear {id}.\0a\0a'
+      'Skills: harness/skill/save {name,desc,body}; harness/skill/delete {name}. '
+      'Sessions: session/new {name,cwd:"/",mcpServers:[]}; session/delete {sessionId}; '
+      'session/cancel {sessionId}; harness/session/rename {sessionId,name}; '
+      'harness/session/fork {sessionId,name,eventCount}. '
+      'Use help again whenever needed. Changing owner may end your own administrative access. '
+      'This manages Harness, not the host operating system.'
+  ==
+--

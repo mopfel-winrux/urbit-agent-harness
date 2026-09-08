@@ -45,6 +45,7 @@ export default function McpSettings({ resources }) {
     {(error || stored.error) && <div className="inline-error">{error || stored.error}</div>}
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>MCP servers</h2><p>Register remote stateless Streamable HTTP endpoints here, then grant each server in conversation or default tool settings. Registration does not grant access. Grants follow server IDs: do not reuse an ID for an unrelated server.</p></div><button type="button" className="text-button" onClick={add}>Add server</button></div>
+      <p className="field-note">A running local MCP desk is registered once as <code>&lt;@p&gt;-mcp</code>, using its native Gall connection. Disabling or removing it is respected. Grant the server in Defaults or a conversation to use its tools.</p>
       {!servers.length && <div className="empty-setting"><strong>No MCP servers configured</strong><span>Add an endpoint to make its tools discoverable from any permitted conversation.</span></div>}
       <div className="mcp-servers">{servers.map((server, index) => <section className="mcp-server" key={index}>
         <div className="mcp-server-title">
@@ -55,8 +56,8 @@ export default function McpSettings({ resources }) {
           <label><span>Server id</span><input required value={server.id} onChange={(event) => update(index, { id: event.target.value })} placeholder="search" /></label>
           <label><span>Display name</span><input value={server.name} onChange={(event) => update(index, { name: event.target.value })} placeholder="Search tools" /></label>
         </div>
-        <label><span>Streamable HTTP URL</span><input type="url" required value={server.url} onChange={(event) => update(index, { url: event.target.value })} placeholder="https://mcp.example.com/mcp" /></label>
-        <HeaderEditor value={server.headers || []} onChange={(headers) => update(index, { headers })} note="Add bearer tokens or server-specific authorization. Headers are only sent to this endpoint." />
+        <label><span>Server URL</span><input type="url" required value={server.url} onChange={(event) => update(index, { url: event.target.value })} placeholder="https://mcp.example.com/mcp" /></label>
+        {server.url.startsWith('urbit://') ? <p className="field-note">Local Gall transport. No HTTP credentials are needed; this address must name this ship’s mcp-server agent.</p> : <HeaderEditor value={server.headers || []} onChange={(headers) => update(index, { headers })} note="Add bearer tokens or server-specific authorization. Headers are only sent to this endpoint." />}
       </section>)}</div>
     </section>
     <div className="save-bar"><span>{saved ? 'Saved.' : 'MCP configuration is shared across conversations; each conversation still controls its MCP grant.'}</span><button className="button primary" disabled={busy}>{busy ? 'Saving…' : 'Save MCP servers'}</button></div>

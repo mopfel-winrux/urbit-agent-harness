@@ -182,6 +182,14 @@ while all of them address the same on-ship session records. See
 
 ## Verification
 
+On a development desk, run `-test /=harness=/tests` for the unit suite.
+Full-agent reload, endpoint fixtures, and the 32K-document benchmark live in
+`tests-integration`; run those
+one file at a time, for example
+`-test /=harness=/tests-integration/harness-reload`. They use virtualized agent
+evaluation and can be slow and memory-intensive on the default 2 GB loom.
+Pure policy, migration, and media checks remain in the default suite.
+
 ```sh
 npm test --prefix fe
 node --test acp/hand-client.test.mjs

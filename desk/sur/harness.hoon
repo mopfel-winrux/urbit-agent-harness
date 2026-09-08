@@ -96,6 +96,22 @@
   $%  [%ask id=ask-id kind=%text prompt=@t]
       [%answer id=ask-id result=(each @t @t)]
   ==
+::  Separate, versioned discovery mark; older ask/answer peers stay compatible.
++$  peer-access-message
+  $%  [%query id=ask-id]
+      [%status id=(unit ask-id) grant=(unit peer-grant)]
+  ==
++$  peer-access  [grant=(unit peer-grant) checked=@da]
++$  admin-result  [connection=@t payload=@t]
++$  peer-rpc
+  $%  [%tools id=ask-id]
+      [%invoke id=ask-id issued=@da name=@t args=@t]
+      [%result id=ask-id result=(each @t @t)]
+  ==
++$  peer-receipt
+  [issued=@da name=@t args=@t sid=session-id result=(unit (each @t @t))]
++$  local-mcp-progress
+  [generation=@ud server=mcp-server-id fingerprint=@uv status=@ud body=@t]
 ::  Every admitted input says where it came from and where a response belongs.
 ::  %input-admitted remains readable so existing session logs still replay.
 ::
@@ -219,6 +235,11 @@
       ::  internal: an ask_peer tool call, sent by the agent to itself
       ::
       [%ask-peer sid=session-id call-id=@t =ship prompt=@t]
+      [%check-peer sid=session-id call-id=@t =ship]
+      [%peer-refresh ~]
+      [%admin-call sid=session-id call-id=@t method=@t params=json]
+      [%local-mcp sid=session-id call-id=@t]
+      [%peer-rpc sid=session-id call-id=@t =ship name=(unit @t) args=@t]
       ::  internal: a run_js tool call, sent by the agent to itself
       ::
       [%run-js sid=session-id call-id=@t code=@t]

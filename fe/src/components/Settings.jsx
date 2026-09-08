@@ -19,8 +19,8 @@ const baseTabs = [
 ]
 const providerTabs = [['openrouter', 'OpenRouter'], ['openai', 'OpenAI'], ['anthropic', 'Anthropic'], ['custom', 'Custom']]
 
-export default function Settings({ resources, theme, onThemeChange, onBack }) {
-  const [tab, setTab] = useState(resources.chat ? 'conversation' : 'defaults')
+export default function Settings({ resources, theme, onThemeChange, onBack, initialTab }) {
+  const [tab, setTab] = useState(() => [...baseTabs, ['providers']].some(([id]) => id === initialTab) ? initialTab : resources.chat ? 'conversation' : 'defaults')
   const [provider, setProvider] = useState('openrouter')
   const tabs = resources.chat ? [['conversation', 'Conversation'], ...baseTabs] : [...baseTabs]
   tabs.splice(1, 0, ['providers', 'Providers'])

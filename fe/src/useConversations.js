@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { acp } from './acp'
 import { resourcesFor } from './api'
 import { sortConversations } from './conversations'
@@ -7,11 +7,16 @@ export function useConversations(current, onSelect) {
   const [chats, setChats] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const welcomed = useRef(false)
   const resources = resourcesFor(current)
 
   const refresh = useCallback(async () => {
     try {
       await acp.start()
+      if (!welcomed.current) {
+        await acp.call('harness/onboarding/ensure')
+        welcomed.current = true
+      }
       const result = await acp.call('session/list')
       setChats(sortConversations(result?.sessions || []))
       setError('')

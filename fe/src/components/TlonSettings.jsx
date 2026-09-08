@@ -66,17 +66,17 @@ export default function TlonSettings({ onBack }) {
           <label className="tool-option"><input type="checkbox" checked={policy.mentions} onChange={(e) => change({ mentions: e.target.checked })} /><span><strong>Require channel mentions</strong><small>DMs and replies to the bot’s posts do not need a mention.</small></span></label>
         </section>
         <section className="panel settings-panel">
-          <div className="section-title"><div><h2>Owner</h2><p>Group invitations from this ship are accepted automatically. Tlon actions are available within the conversation without extra grants. Other resources follow Settings → Defaults.</p></div></div>
-          <ShipPicker label="Owner ship" value={policy.owner || ''} contacts={contacts.value || []} onChange={(owner) => change({ owner, trusted: policy.trusted.filter((entry) => entry.ship !== owner) })} />
-          {contacts.error && <p className="field-note">Contacts unavailable; you can still select a valid @p.</p>}
+          <div className="section-title"><div><h2>Owner</h2><p>{policy.owner || 'No explicit owner selected.'}{state.value?.siblingMoonOwners ? ' Sibling moons are also full admins.' : ''} Owners can administer Harness through direct requests and owner DMs. Group invitations from owners are accepted automatically.</p></div></div>
+          <a href="#/settings?tab=peers">Manage full-admin ownership in Settings → Peers</a>
         </section>
         <section className="panel settings-panel">
           <div className="section-title"><div><h2>Trusted ships</h2><p>Can chat, start DMs, use Tlon actions, and call this ship’s agent with ask_peer. Peer requests have no token cap by default. Resource grants below also apply to inherited peer access. Channel replies are visible to other members.</p></div></div>
           <ShipPicker label="Add a trusted ship" contacts={contacts.value || []} exclude={[policy.owner, ...policy.trusted.map((entry) => entry.ship)]} onChange={(ship) => change({ trusted: [...policy.trusted, { ship, tools: [] }] })} />
           {policy.trusted.map((entry) => <details className="trusted-ship" key={entry.ship}>
-            <summary>{contacts.value?.find((p) => p.ship === entry.ship)?.nickname || entry.ship} <small>{entry.ship} · {entry.tools.filter((tool) => !['tlon-read', 'tlon-write', 'cron'].includes(tool)).length} resource grants</small></summary>
+            <summary>{contacts.value?.find((p) => p.ship === entry.ship)?.nickname || entry.ship} <small>{entry.ship} · {peerGrants.get(entry.ship)?.owner ? 'Owner · full admin' : `${entry.tools.filter((tool) => !['tlon-read', 'tlon-write', 'cron'].includes(tool)).length} resource grants`}</small></summary>
+            {peerGrants.get(entry.ship)?.owner ? <p className="field-note">Owners have no peer token cap, use default resources, and can administer Harness through direct requests or owner DMs. These ordinary trusted grants do not restrict ownership. <a href="#/settings?tab=peers">Manage ownership in Peers</a>.</p> : <>
             <div className="peer-grant-fields">
-              <PeerTokenLimit ship={entry.ship} value={peerEdits[entry.ship]?.budget ?? peerGrants.get(entry.ship)?.budget ?? 0} disabled={busy || peers.loading || !!peers.error}
+              <PeerTokenLimit ship={entry.ship} value={peerEdits[entry.ship]?.budget ?? peerGrants.get(entry.ship)?.budget ?? 0} resource={peers} disabled={busy || unavailable || peers.loading || !!peers.error}
                 onChange={(budget) => {
                   setSaved(false)
                   setPeerEdits((old) => ({ ...old, [entry.ship]: { budget,
@@ -87,6 +87,7 @@ export default function TlonSettings({ onBack }) {
               {peerGrants.get(entry.ship)?.overridden && <p className="field-note">This ship also has an explicit peer grant in Settings → Peers. Removing Tlon trust does not revoke that separate grant.</p>}
             </div>
             <ToolOptions servers={mcp.value || []} available={(tools.value || []).filter((name) => !['author', 'skill-write'].includes(name))} selected={entry.tools} onChange={(name) => toggleTool(entry.ship, name)} />
+            </>}
             <button type="button" className="text-button" onClick={() => change({ trusted: policy.trusted.filter((p) => p.ship !== entry.ship) })}>Remove {entry.ship}</button>
           </details>)}
           {peers.loading && <p role="status">Loading peer token limits…</p>}
@@ -95,7 +96,7 @@ export default function TlonSettings({ onBack }) {
         </section>
         </fieldset>
         <p className="field-note">These permissions belong to Harness. Conversation tools cannot publish private material into the shared skill library.</p>
-        <div className="save-bar"><span role="status">{saved ? 'Saved.' : Object.keys(peerEdits).length ? 'Unsaved peer token limits. Applies to the next peer request.' : 'Changed permissions stop affected Tlon work. Conversations and notes remain; unrelated chats continue.'}</span><button className="button primary" disabled={busy || unavailable || (policy.enabled && !policy.owner) || (Object.keys(peerEdits).length > 0 && (peers.loading || !!peers.error))}>{busy ? 'Saving…' : 'Save Tlon settings'}</button></div>
+        <div className="save-bar"><span role="status">{saved ? 'Saved.' : Object.keys(peerEdits).length ? 'Unsaved peer token limits. Applies to the next peer request.' : 'Changed permissions stop affected Tlon work. Conversations and notes remain; unrelated chats continue.'}</span><button className="button primary" disabled={busy || unavailable || (policy.enabled && !policy.owner && !state.value?.siblingMoonOwners) || (Object.keys(peerEdits).length > 0 && (peers.loading || !!peers.error))}>{busy ? 'Saving…' : 'Save Tlon settings'}</button></div>
       </form>
       <div className="settings-group"><TlonProfile /><TlonModels sessions={state.value?.sessions} /><TlonCron /><TlonWork /></div>
     </div>

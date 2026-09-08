@@ -4,7 +4,7 @@
 ::  result handlers in the agent fence late receipts before appending events.
 ::  Sync reads return a result noun; async helpers describe cards, not a loop.
 /-  h=harness, spider
-/+  ht=harness-tools, tbjs=thread-builder-js
+/+  ht=harness-tools, tbjs=thread-builder-js, local-mcp=harness-local-mcp
 |_  [=bowl:gall mcp-servers=(map mcp-server-id:h mcp-server:h)]
 +$  card  card:agent:gall
 ::  +run-js-poke: a run_js tool call becomes a poke to ourselves
@@ -153,15 +153,9 @@
 ::  This hand targets stateless Streamable HTTP servers: identity and
 ::  credentials remain agent configuration, while results enter the log.
 ::
-++  mcp-card
-  |=  [sid=session-id:h generation=@ud c=tool-call:h tools=(list tool-grant:h)]
-  ^-  (unit card)
-  ?.  (call-granted:ht c tools)  ~
-  =/  server-id  (tool-str args.c 'server')
-  ?~  server-id  ~
-  =/  configured  (~(get by mcp-servers) u.server-id)
-  ?~  configured  ~
-  ?.  enabled.u.configured  ~
+++  mcp-payload
+  |=  c=tool-call:h
+  ^-  (unit json)
   =/  method=@t
     ?:(=('list_mcp_tools' name.c) 'tools/list' 'tools/call')
   =/  params=json
@@ -177,12 +171,30 @@
     :~  ['name' %s u.tool-name]
         ['arguments' u.parsed]
     ==
-  =/  payload=json
+  :-  ~
+  ^-  json
     %-  pairs:enjs:format
     :~  ['jsonrpc' %s '2.0']
         ['id' (numb:enjs:format 1)]
         ['method' %s method]
         ['params' params]
+    ==
+++  mcp-card
+  |=  [sid=session-id:h generation=@ud c=tool-call:h tools=(list tool-grant:h)]
+  ^-  (unit card)
+  ?.  (call-granted:ht c tools)  ~
+  =/  server-id  (tool-str args.c 'server')
+  ?~  server-id  ~
+  =/  configured  (~(get by mcp-servers) u.server-id)
+  ?~  configured  ~
+  ?.  enabled.u.configured  ~
+  =/  payload  (mcp-payload c)
+  ?~  payload  ~
+  ?:  =((url:local-mcp our.bowl) url.u.configured)
+    :-  ~
+    :*  %pass  /local-mcp-request/[sid]/(scot %ud generation)/[id.c]
+        %agent  [our.bowl dap.bowl]  %poke  %harness-effect
+        !>(`effect:h`[generation [%local-mcp sid id.c]])
     ==
   =/  hed=header-list:http
     :~  ['content-type' 'application/json']
@@ -190,7 +202,7 @@
     ==
   =.  hed  (weld headers.u.configured hed)
   =/  =request:http
-    [%'POST' url.u.configured hed `(as-octs:mimes:html (en:json:html payload))]
+    [%'POST' url.u.configured hed `(as-octs:mimes:html (en:json:html u.payload))]
   :-  ~
   :*  %pass  `wire`[%tool-2 `@ta`sid (scot %ud generation) `@ta`id.c ~]
       %arvo  %i  %request  request  *outbound-config:iris
@@ -242,6 +254,47 @@
   :*  %pass  `wire`[%aski `@ta`sid `@ta`id.c ~]
       %agent  [our.bowl dap.bowl]  %poke
       %harness-effect  !>(`effect:h`[generation [%ask-peer sid id.c u.who u.prm]])
+  ==
+++  check-peer-card
+  |=  [sid=session-id:h generation=@ud c=tool-call:h]
+  ^-  (unit card)
+  =/  shp  (tool-str args.c 'ship')
+  ?~  shp  ~
+  =/  who  (slaw %p u.shp)
+  ?~  who  ~
+  :-  ~
+  :*  %pass  /peer-check/[sid]/[id.c]
+      %agent  [our.bowl dap.bowl]  %poke  %harness-effect
+      !>(`effect:h`[generation [%check-peer sid id.c u.who]])
+  ==
+++  peer-rpc-card
+  |=  [sid=session-id:h generation=@ud c=tool-call:h]
+  ^-  (unit card)
+  =/  ship  (tool-str args.c 'ship')
+  ?~  ship  ~
+  =/  who  (slaw %p u.ship)
+  ?~  who  ~
+  =/  name  (tool-str args.c 'name')
+  ?:  &(=('call_peer_tool' name.c) ?=(~ name))  ~
+  =/  args  (fall (tool-str args.c 'arguments') '{}')
+  :-  ~
+  :*  %pass  /peer-rpc-request/[sid]/(scot %ud generation)/[id.c]
+      %agent  [our.bowl dap.bowl]  %poke  %harness-effect
+      !>(`effect:h`[generation [%peer-rpc sid id.c u.who ?:(=('list_peer_tools' name.c) ~ name) args]])
+  ==
+++  admin-card
+  |=  [sid=session-id:h generation=@ud c=tool-call:h]
+  ^-  (unit card)
+  =/  method  (tool-str args.c 'method')
+  ?~  method  ~
+  =/  raw  (fall (tool-str args.c 'params') '{}')
+  ?:  (gth (met 3 raw) 65.536)  ~
+  =/  params  (de:json:html raw)
+  ?.  ?&(?=(^ params) ?=(%o -.u.params))  ~
+  :-  ~
+  :*  %pass  /admin-request/[sid]/(scot %ud generation)/[id.c]
+      %agent  [our.bowl dap.bowl]  %poke  %harness-effect
+      !>(`effect:h`[generation [%admin-call sid id.c u.method u.params]])
   ==
 ::  +spawn-card: a run_subagent tool call becomes a poke to ourselves
 ::

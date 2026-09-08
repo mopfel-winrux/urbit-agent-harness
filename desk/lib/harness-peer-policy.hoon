@@ -3,6 +3,10 @@
 /-  h=harness
 /+  hj=harness-json, ht=harness-tools
 |%
+++  used
+  |=  [total=@ud baseline=@ud]
+  ^-  @ud
+  (sub total (min total baseline))
 ++  effective
   |=  [explicit=(map @p peer-grant:h) trusted=(map @p peer-grant:h) limits=(map @p @ud)]
   ^-  (map @p peer-grant:h)

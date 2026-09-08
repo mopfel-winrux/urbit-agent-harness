@@ -64,7 +64,7 @@
 ++  all-tools
   ^-  (list term)
   :~  %clay  %web  %curl  %skills  %skill-write
-      %author  %subagents  %peers  %mcp  %corpus  %code  %tlon-read  %tlon-write  %cron
+      %author  %subagents  %peers  %mcp  %corpus  %code  %tlon-read  %tlon-write  %cron  %admin
   ==
 ::  Tlon families are implementation vocabulary, not configurable grants.
 ::  A live Tlon hand supplies them from its actor/conversation authority.
@@ -81,17 +81,17 @@
   (weld (without-tlon tools) tlon-tools)
 ++  configurable-tools
   ^-  (list term)
-  (skip all-tools |=(family=term ?=(?(%tlon-read %tlon-write %cron) family)))
+  (skip all-tools |=(family=term ?=(?(%tlon-read %tlon-write %cron %admin) family)))
 ::  Rehearsals may inspect inherited source material, never dispatch effects
 ::  or publish instructions. An allowlist keeps future families out by default.
 ++  conversation-tools
   |=  tools=(list tool-grant:h)
   ^-  (list tool-grant:h)
-  (skip tools |=(tool=tool-grant:h |(=(%skill-write tool) =(%author tool))))
+  (skip tools |=(tool=tool-grant:h |(=(%skill-write tool) =(%author tool) =(%admin tool))))
 ++  scheduled-tools
   |=  tools=(list tool-grant:h)
   ^-  (list tool-grant:h)
-  (skip tools |=(tool=tool-grant:h |(=(%cron tool) =(%subagents tool) =(%code tool))))
+  (skip tools |=(tool=tool-grant:h |(=(%cron tool) =(%subagents tool) =(%code tool) =(%admin tool))))
 ++  rehearsal-tools
   |=  tools=(list tool-grant:h)
   ^-  (list tool-grant:h)
@@ -183,6 +183,11 @@
     %'run_js'           `%code
     %'run_subagent'     `%subagents
     %'ask_peer'         `%peers
+    %'list_peer_access'  `%peers
+    %'check_peer'        `%peers
+    %'list_peer_tools'   `%peers
+    %'call_peer_tool'    `%peers
+    %'harness_admin'     `%admin
     %'list_mcp_tools'   `%mcp
     %'list_mcp_servers'  `%mcp
     %'call_mcp_tool'    `%mcp
@@ -381,6 +386,10 @@
     ==
   ::
       %peers
+    :-  (fun-json 'list_peer_access' 'List known remote ships that have reported granting this ship access. Not incoming grants or a complete network directory. Reports can be stale; check_peer refreshes a specific ship without inference.' ~)
+    :-  (fun-json 'check_peer' 'Ask a specific remote ship for its current permission grant to this ship, without invoking its model. Older agents may not support discovery; timeout does not prove denial.' ~[['ship' 'full @p of the remote ship, including ~']])
+    :-  (fun-json 'list_peer_tools' 'Discover the tools another ship currently permits this ship to call directly. No model turn runs on the serving ship. Use this before call_peer_tool; permissions and schemas can change.' ~[['ship' 'full @p of the remote ship']])
+    :-  (fun-json 'call_peer_tool' 'Call one permitted tool directly on a remote ship, using a name and schema from list_peer_tools. The remote ship enforces its live grant. A timeout may mean the tool already ran; never retry a mutation automatically.' ~[['ship' 'full @p of the remote ship'] ['name' 'remote tool name'] ['arguments' 'JSON object encoded as a string']])
     :_  ~
     %^    fun-json
         'ask_peer'
@@ -391,6 +400,13 @@
     :~  ['ship' 'the ship to ask, e.g. ~sampel-palnet']
         ['prompt' 'the question or task']
     ==
+  ::
+      %admin
+    :_  ~
+    %^  fun-json
+      'harness_admin'
+      'Administer Harness on behalf of its authenticated owner. Call method help with params {} first for methods and shapes. Read before changing; only perform owner-requested changes. Authority is checked live and is not transferable to peers or subagents. params is a JSON object encoded as a string.'
+      ~[['method' 'help, or an ACP method from the administrative help'] ['params' 'JSON object encoded as a string, e.g. {}']]
   ::
       %subagents
     :_  ~

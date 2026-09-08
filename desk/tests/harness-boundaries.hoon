@@ -14,7 +14,8 @@
 ++  test-rehearsal-does-not-add-read-authority
   (expect-eq !>(`(list term)`~) !>((rehearsal-tools:ht ~[%web %mcp])))
 ++  test-current-store-load-is-an-identity
-  =/  saved=state-15  *state-15
+  =/  saved=state-19  *state-19
+  =.  peer-budget-resets.saved  (my ~[[~nec 1.234]])
   =.  defaults.saved  builtin-config:policy
   =.  provider-keys.saved  (my ~[['fixture' 'test-secret']])
   =.  search-config.saved  [%searxng 'https://search.example']
@@ -46,8 +47,20 @@
     (expect-eq !>(defaults.saved) !>(defaults.loaded))
     (expect-eq !>(`(map @p @ud)`~) !>(peer-limits.loaded))
   ==
-++  test-saved-tool-policy-is-not-replaced-by-bootstrap-defaults
+++  test-fifteen-migration-keeps-limits-and-history-with-no-reset
   =/  saved=state-15  *state-15
+  =.  peers.saved  (my ~[[~nec [~[%web] ~ 12.345 ~]]])
+  =.  peer-limits.saved  (my ~[[~bud 500]])
+  =.  sessions.saved  (my ~[['peer--~nec' [~[[%config-replaced builtin-config:policy]] 37]]])
+  =/  loaded  (load:storage !>(saved))
+  ;:  weld
+    (expect-eq !>(peers.saved) !>(peers.loaded))
+    (expect-eq !>(peer-limits.saved) !>(peer-limits.loaded))
+    (expect-eq !>(sessions.saved) !>(sessions.loaded))
+    (expect-eq !>(`(map @p @ud)`~) !>(peer-budget-resets.loaded))
+  ==
+++  test-saved-tool-policy-is-not-replaced-by-bootstrap-defaults
+  =/  saved=state-19  *state-19
   =/  cfg  builtin-config:policy
   =.  defaults.saved  cfg(tools ~[%author %skill-write [%mcp 'calendar']])
   =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced defaults.saved]] 0]]])

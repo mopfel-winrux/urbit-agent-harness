@@ -652,5 +652,7 @@ input:focus, select:focus, .settings-panel textarea:focus, .modal-card textarea:
 .trusted-ship summary small { margin-left: 8px; }
 .trusted-ship .tool-options { margin: 18px 0; }
 .peer-grant-fields { display: grid; gap: 16px; margin-top: 16px; }
+.peer-token-limit { min-width: 0; display: grid; gap: 8px; align-content: start; }
+.peer-token-count { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; font-variant-numeric: tabular-nums; }
 .peer-skills { border: 0; padding: 0; margin: 0; min-width: 0; }
 .peer-skills legend { margin-bottom: 8px; font-weight: 600; }

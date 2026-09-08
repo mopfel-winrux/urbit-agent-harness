@@ -95,6 +95,10 @@
       data
   ==
 +$  state
+  [%16 owner-initialized=@ud state-15]
++$  state-15
+  [%15 sibling-moon-owners=$~(| ?) sibling-owner-after=@da state-14]
++$  state-14
   $:  %14
       activity-through=@da
       catching-up=$~(| ?)

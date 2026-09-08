@@ -1,4 +1,5 @@
 ::  Native benchmark and correctness check over eight populated segments.
+::  Opt-in: -test /=harness=/tests-integration/harness-corpus-benchmark
 ::  %bout measures the actual production operations, with ordinary jets on.
 /-  c=harness-corpus
 /+  *test, idx=harness-corpus-index

@@ -25,12 +25,16 @@ let apiKey = false
 let braveKey = sessionStorage.getItem('settings-fixture-brave') === 'true'
 let search = JSON.parse(sessionStorage.getItem('settings-fixture-search') || 'null') || { provider: 'brave', 'instance-url': '' }
 let skills = JSON.parse(sessionStorage.getItem('settings-fixture-skills') || '[]')
-let peerSettings = JSON.parse(sessionStorage.getItem('settings-fixture-peers') || 'null') || { ...emptyPeers(), ship: '~zod', revision: '1' }
+let peerSettings = JSON.parse(sessionStorage.getItem('settings-fixture-peers') || 'null') || { ...emptyPeers(), ship: '~zod', revision: '1', usage: [{ ship: '~nec', used: 1234, total: 1234 }] }
 let tlonPolicy = JSON.parse(sessionStorage.getItem('settings-fixture-tlon') || 'null') || { enabled: false, owner: '~bud', mentions: true, trusted: [{ ship: '~nec', tools: ['web'] }] }
-const peerSnapshot = () => ({ ...peerSettings, trusted: [newPeerGrant('~bud'), ...tlonPolicy.trusted.map((entry) => newPeerGrant(entry.ship, entry.tools))] })
+let siblingMoonOwners = sessionStorage.getItem('settings-fixture-siblings') === 'true'
+let remoteShips = []
+const tlonSnapshot = () => ({ policy: tlonPolicy, sessions: [], ship: '~zod', isMoon: params.has('moon'), sponsor: params.has('moon') ? '~bud' : null, siblingMoonOwners })
+const peerSnapshot = () => ({ ...peerSettings, owners: [...(tlonPolicy.owner ? [newPeerGrant(tlonPolicy.owner, config.tools)] : []), ...(params.has('trusted-owner') ? [newPeerGrant('~nec', config.tools)] : [])], trusted: [...(tlonPolicy.owner ? [newPeerGrant(tlonPolicy.owner)] : []), ...tlonPolicy.trusted.map((entry) => newPeerGrant(entry.ship, entry.tools))] })
 window.settingsFixture = { requests: [], reads: [], saves: [], credentials: [], resolve: (id, value) => pending.get(id)(value) }
 acp.start = async () => {}
 acp.call = async (method) => {
+  if (method === 'harness/onboarding/ensure') return { sessionId: null }
   if (method === 'session/list') return { sessions: ['daily-notes', 'reading-list'].map((sessionId) => ({ sessionId })) }
   if (method === 'harness/session/snapshot') return { revision: 1, phase: 'idle', entries: [], model: config.model }
   throw new Error(`Unexpected fixture method: ${method}`)
@@ -41,7 +45,8 @@ api.read = async (path) => {
     if (window.settingsFixture.failPeerRead) throw new Error('Peer settings unavailable in fixture')
     return peerSnapshot()
   }
-  if (path === 'tlon') return { policy: tlonPolicy, sessions: [] }
+  if (path === 'tlon') return tlonSnapshot()
+  if (path === 'peers/remote') return { ships: remoteShips }
   if (path === 'tlon/profile') return { nickname: '', avatar: '' }
   if (path === 'tlon/work') return { items: [], events: [], next: '' }
   if (path === 'skills') return skills.map(({ name, desc }) => ({ name, desc }))
@@ -77,12 +82,35 @@ api.action = async (action) => {
     return { 'has-key': true }
   }
   if (window.settingsFixture.failSave) throw new Error('Configuration save failed in fixture')
+  if (action.owner) {
+    if (action.owner.expectedOwner !== tlonPolicy.owner || action.owner.expectedSiblingMoonOwners !== siblingMoonOwners) throw new Error('Owner changed; reload before saving')
+    siblingMoonOwners = action.owner.siblingMoonOwners
+    tlonPolicy = { ...tlonPolicy, owner: action.owner.owner, enabled: action.owner.owner || siblingMoonOwners ? tlonPolicy.enabled : false }
+    peerSettings.revision = String(Number(peerSettings.revision) + 1)
+    sessionStorage.setItem('settings-fixture-tlon', JSON.stringify(tlonPolicy))
+    sessionStorage.setItem('settings-fixture-siblings', String(siblingMoonOwners))
+    window.settingsFixture.saves.push(action)
+    return tlonSnapshot()
+  }
+  if (action.peerCheck) {
+    remoteShips = [{ ship: action.peerCheck, allowed: true, checkedAt: '~2026.9.8', grant: newPeerGrant(action.peerCheck, ['web']) }]
+    window.settingsFixture.saves.push(action)
+    return { requested: true }
+  }
   if (action.tlon) {
     tlonPolicy = action.tlon
     peerSettings.revision = String(Number(peerSettings.revision) + 1)
     sessionStorage.setItem('settings-fixture-tlon', JSON.stringify(tlonPolicy))
     window.settingsFixture.saves.push(action)
-    return { policy: tlonPolicy, sessions: [] }
+    return tlonSnapshot()
+  }
+  if (action.peerReset) {
+    if (window.settingsFixture.failPeerReset) throw new Error('Reset failed in fixture')
+    if (action.peerReset.revision !== peerSettings.revision) throw new Error('Peer settings or trust changed; reload before resetting')
+    peerSettings = { ...peerSettings, usage: peerSettings.usage.map((entry) => entry.ship === action.peerReset.ship ? { ...entry, used: 0 } : entry) }
+    sessionStorage.setItem('settings-fixture-peers', JSON.stringify(peerSettings))
+    window.settingsFixture.saves.push(action)
+    return peerSnapshot()
   }
   if (action.peers) {
     if (window.settingsFixture.failPeerSave) throw new Error('Peer save failed in fixture')

@@ -5,6 +5,18 @@ import { emptyPeers, newPeerGrant, effectivePeers, editPeer, peerPayload, applyP
 test('new peer grants default to zero/unlimited without resource access', () => {
   assert.deepEqual(newPeerGrant('~nec'), { ship: '~nec', tools: [], budget: 0, model: null, inflows: [] })
 })
+test('owners take precedence over explicit and inherited resource limits', () => {
+  const stored = { ...emptyPeers(), grants: [{ ...newPeerGrant('~nec'), budget: 10 }],
+    limits: [{ ship: '~nec', budget: 5 }], trusted: [newPeerGrant('~nec')], owners: [newPeerGrant('~nec', ['web'])] }
+  const owner = effectivePeers(stored)[0]
+  assert.equal(owner.owner, true)
+  assert.equal(owner.budget, 0)
+  assert.deepEqual(owner.tools, ['web'])
+  assert.throws(() => editPeer(stored, '~nec', { budget: 1 }), /full administrative/)
+  assert.throws(() => applyPeerLimits(stored, { '~nec': { budget: 1 } }), /now an owner/)
+  assert.equal(effectivePeers({ ...stored, owners: [] })[0].budget, 10)
+  assert.equal(peerPayload(stored).grants[0].budget, 10)
+})
 test('trusted ships inherit grants without duplicating them into explicit policy', () => {
   const stored = { ...emptyPeers(), trusted: [newPeerGrant('~nec', ['web'])] }
   assert.equal(effectivePeers(stored)[0].inherited, true)

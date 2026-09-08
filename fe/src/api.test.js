@@ -98,6 +98,23 @@ test('peer settings use the acknowledged owner ACP facade with revision fencing'
     const policy = { revision: 'old', grants: [], config: null }
     await api.read('peers')
     assert.equal((await api.action({ peers: policy })).revision, 'new')
-    assert.deepEqual(seen, [['harness/peers'], ['harness/peers/configure', policy]])
+    const reset = { ship: '~nec', revision: 'new' }
+    assert.equal((await api.action({ peerReset: reset })).revision, 'new')
+    assert.deepEqual(seen, [['harness/peers'], ['harness/peers/configure', policy], ['harness/peers/reset', reset]])
+  } finally { acp.start = start; acp.call = call }
+})
+test('owner updates fence both administrator settings and remote access stays separate', async () => {
+  const start = acp.start, call = acp.call, seen = []
+  acp.start = async () => {}
+  acp.call = async (...args) => { seen.push(args); return {} }
+  try {
+    const owner = { owner: '~nec', expectedOwner: '~bud', siblingMoonOwners: true, expectedSiblingMoonOwners: false }
+    await api.action({ owner })
+    await api.read('peers/remote')
+    await api.action({ peerCheck: '~nec' })
+    assert.deepEqual(seen, [['harness/tlon/owner/set', owner], ['harness/peers/remote'], ['harness/peers/check', { ship: '~nec' }]])
+    const tlon = { owner: '~nec', enabled: true, mentions: true, trusted: [] }
+    await api.action({ tlon })
+    assert.deepEqual(seen.at(-1), ['harness/tlon/configure', { ...tlon, expectedOwner: '~nec' }])
   } finally { acp.start = start; acp.call = call }
 })

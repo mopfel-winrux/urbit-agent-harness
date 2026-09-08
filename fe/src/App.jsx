@@ -10,11 +10,11 @@ import { useConversations } from './useConversations'
 import { acp } from './acp'
 
 function route() {
-  const value = location.hash.replace(/^#\/?/, '')
+  const [value, query = ''] = location.hash.replace(/^#\/?/, '').split('?')
   try {
     if (value === 'tlon') return { page: 'tlon', chat: '' }
     if (value === 'search') return { page: 'corpus', chat: '' }
-    if (value === 'settings') return { page: 'settings', chat: '' }
+    if (value === 'settings') return { page: 'settings', chat: '', tab: new URLSearchParams(query).get('tab') }
     if (value.startsWith('settings/')) return { page: 'settings', chat: decodeURIComponent(value.slice(9)) }
     return { page: 'chat', chat: value ? decodeURIComponent(value) : '' }
   } catch { return { page: 'chat', chat: '' } }
@@ -96,7 +96,7 @@ export default function App() {
   return <div className="app-shell">
     <Sidebar chats={chats} current={page === 'chat' ? current : ''} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings && !current} onSettings={() => openSettings()} onSessionSettings={openSettings} tlon={page === 'tlon'} onTlon={openTlon} corpus={page === 'corpus'} onCorpus={openCorpus} />
     {page === 'corpus' ? <CorpusSearch onBack={() => choose(current)} onOpen={choose} /> : page === 'tlon' ? <TlonSettings onBack={() => choose(current)} /> : settings
-      ? <Settings key={`${current}:${settingsEntry}`} resources={resources} theme={theme} onThemeChange={setTheme} onBack={() => choose(current)} />
+      ? <Settings key={`${current}:${settingsEntry}:${view.tab || ''}`} initialTab={view.tab} resources={resources} theme={theme} onThemeChange={setTheme} onBack={() => choose(current)} />
       : current ? <Chat key={current} chat={current} theme={theme} onToggleTheme={toggleTheme} onSettings={() => openSettings(current)} onSelect={choose} onFork={(eventCount) => setDialog({ mode: 'fork', chat: current, eventCount })} /> : <Welcome loading={loading} onNew={() => setDialog({ mode: 'create' })} />}
     {(error || conversations.error) && <div className="global-error" onClick={() => setError('')}>{error || conversations.error}</div>}
     {dialog && <ConversationModal mode={dialog.mode} initialName={dialog.mode === 'fork' ? `${dialog.chat.slice(0, 50)}-branch` : dialog.chat || ''} onClose={() => setDialog(null)} onSave={dialog.mode === 'fork' ? forkChat : dialog.mode === 'rename' ? renameChat : createChat} />}

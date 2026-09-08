@@ -31,6 +31,7 @@ function CodeBlock({ children }) {
 
 function Link({ href, children, title, ...props }) {
   if (!href) return <span>{children}</span>
+  if (href.startsWith('#/')) return <a href={href} title={title}>{children}</a>
   // Footnotes scroll within the transcript without changing the app's hash route.
   if (href.startsWith('#')) return <a id={props.id} href={href} title={title} aria-label={props['aria-label']} onClick={(event) => {
     event.preventDefault()

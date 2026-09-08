@@ -1,6 +1,13 @@
 /-  h=harness, t=harness-tlon
 /+  *test, peers=harness-peer-policy, tlon=harness-tlon-policy, defaults=harness-defaults, hj=harness-json
 |%
+++  test-token-count-starts-at-lifetime-and-reset-only-changes-baseline
+  ;:  weld
+    (expect-eq !>(1.234) !>((used:peers 1.234 0)))
+    (expect-eq !>(0) !>((used:peers 1.234 1.234)))
+    (expect-eq !>(66) !>((used:peers 1.300 1.234)))
+    (expect-eq !>(0) !>((used:peers 0 1.234)))
+  ==
 ++  test-trusted-peers-are-unlimited-and-sender-scoped
   =/  policy=policy:t  [| `~bud (my ~[[~nec ~[%web]] [~zod ~]]) &]
   =/  grants  (peer-grants:tlon policy)

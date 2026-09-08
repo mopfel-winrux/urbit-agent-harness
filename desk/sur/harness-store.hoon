@@ -265,6 +265,18 @@
       search-config=search-config:h
       search-requests=search-requests:h
   ==
++$  state-18
+  [%18 remote-access=(map @p peer-access:h) announced-access=(map @p peer-grant:h) state-17]
++$  state-19
+  $:  %19
+      local-mcp-seen=@ud
+      local-mcp=(map [session-id:h @t] local-mcp-progress:h)
+      peer-receipts=(map [@p ask-id:h] peer-receipt:h)
+      peer-active=(map session-id:h [ship=@p id=ask-id:h])
+      state-18
+  ==
++$  state-17  [%17 welcome-seen=@ud state-16]
++$  state-16  [%16 peer-budget-resets=(map @p @ud) state-15]
 +$  state-15  [%15 peer-limits=(map @p @ud) state-14]
 +$  state-14
   $:  %14
