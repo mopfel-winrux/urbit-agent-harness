@@ -80,6 +80,9 @@ failed work. See [Tlon integration](docs-refs/tlon.md).
   cleanup and separate execution/delivery status.
   [Image uploads](docs-refs/tlon.md#images-and-storage) run natively on the ship,
   using its existing custom S3 or hosted presigned-URL storage; no extra service.
+- A default-enabled `tlon` tool for sending to other DMs/channels, browsing contacts
+  and groups, creating groups/channels, invitations and joining/leaving groups.
+  Unpermissioned senders get a fixed, rate-limited notice without inference.
 - Per-conversation tools for path-scoped Clay reads, HTTP, skills, subagents, explicitly granted
   peers, and experimental skill authoring. Fresh-install defaults enable all
   standard local families, including broad Clay reads and general HTTP.

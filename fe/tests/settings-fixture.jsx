@@ -56,7 +56,7 @@ api.read = async (path) => {
   if (path === 'status/openai') return { 'has-key': device || apiKey, 'has-api-key': apiKey, 'has-device-login': device, 'auth-method': device ? 'device' : 'api-key' }
   if (path === 'status/brave') return { 'has-key': braveKey }
   if (path === 'search') return search
-  if (path === 'tools') return ['clay', 'web', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'mcp']
+  if (path === 'tools') return ['clay', 'web', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'mcp', 'tlon']
   if (path === 'mcp' && params.get('page') !== 'mcp') return [
     { id: 'calendar', name: 'Calendar', enabled: true },
     { id: 'notes', name: 'Notes', enabled: true },

@@ -6,7 +6,7 @@
 ++  test-bootstrap-enables-configurable-local-families
   =/  cfg  builtin-config:policy
   =/  expected=(list tool-grant:h)
-    ~[[%clay ~] %web %curl %skills %skill-write %author %subagents %peers %corpus]
+    ~[[%clay ~] %web %curl %skills %skill-write %author %subagents %peers %corpus %tlon]
   (expect-eq !>(expected) !>(tools.cfg))
 ++  test-rehearsal-keeps-only-inherited-reads
   =/  out  (rehearsal-tools:ht ~[[%clay /harness/lib] %web %skills %skill-write %author %subagents %peers %mcp %code %future-tool])

@@ -19,6 +19,44 @@ the edit. Empty fields clear the corresponding attributes; other profile fields
 are untouched. Identity edits are independent of social policy and do not revoke
 grants or restart conversations.
 
+## Ship-wide Tlon tool
+
+The default-enabled **Tlon** grant exposes one model function, `tlon`, with an
+`action` argument. It works from Harness conversations even while the Tlon
+reply hand is disabled. It can send DMs and channel posts, list contacts and
+groups, inspect a group's channels, create groups/channels, invite a ship,
+and join or leave a group. `{"action":"help"}` describes the arguments.
+These are native Tlon operations as this ship, subject to Tlon's own permissions.
+
+Normal final replies are delivered to the DM/channel/thread that prompted the
+agent automatically. `send_dm` and `send_channel` are for separate top-level
+messages to other DMs or parallel channels, not for answering the current prompt.
+This rule is included in both the tool description and its sending-field help.
+
+New groups default to secret (unlisted and invite-only), with no channels.
+Create channels afterward; they are readable and writable by all group members.
+Mutation receipts confirm local acceptance only, not remote delivery or completed
+joining. Pending calls become uncertain after one minute and are never retried
+automatically, including after reload. Lists return at most 100 entries.
+
+This is a broad, separately removable grant: it extends beyond the current
+conversation. Existing saved defaults and conversation grants are preserved.
+Trusted ships receive only the tools explicitly granted to them; their implicit
+current-conversation history, reaction, upload and scheduling tools do not grant
+ship-wide `tlon` access.
+
+While the reply hand is enabled, an unpermissioned sender receives a fixed DM
+explaining that the owner must add them to **Trusted ships**. This covers incoming
+DM invitations, existing DMs, native channel mentions and replies to the bot.
+Unaddressed channel chatter gets no notice. Notices do not run inference or grant
+Harness access. Sending the notice can accept the native Tlon DM invitation;
+that is separate from permission to use Harness. Notices are deduplicated and
+limited to one per sender per five minutes and eight total per minute.
+
+Native verification: `scripts/tlon-actions-conformance.mjs` exercises the broad
+tool with automatic replies disabled; `scripts/tlon-denial-conformance.mjs`
+checks real two-ship denial delivery, rate limiting and zero model calls.
+
 ## Models and failures
 
 Tlon uses the same providers and credentials as every other Harness client.

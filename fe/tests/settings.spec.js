@@ -7,6 +7,18 @@ test.beforeEach(async ({ page }) => {
   await expect.poll(() => page.evaluate(() => window.settingsFixture?.requests.length || 0)).toBeGreaterThan(0)
 })
 
+for (const surface of ['global', 'conversation']) test(`${surface}: Tlon is a default, independently removable cross-conversation grant`, async ({ page }) => {
+  await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}`)
+  const tool = page.getByRole('checkbox', { name: /^Tlon Send to other DMs/ })
+  await expect(tool).toBeChecked()
+  await expect(page.getByText(/Access extends beyond the current conversation/)).toBeVisible()
+  await tool.uncheck()
+  await page.getByRole('button', { name: surface === 'global' ? 'Save defaults' : 'Save conversation' }).click()
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)?.tools)).toEqual(defaultConfig().tools.filter((grant) => grant !== 'tlon'))
+  await page.reload()
+  await expect(tool).not.toBeChecked()
+})
+
 test('context is read from the catalog at save time, even when metadata arrives after selection', async ({ page }) => {
   await expect(page.getByRole('spinbutton')).toHaveCount(0)
   await page.getByRole('combobox', { name: 'Model', exact: true }).fill('test-model')

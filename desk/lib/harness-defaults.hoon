@@ -5,11 +5,11 @@
 ++  acp-id  'harness'
 ::  Local families are enabled for new owner sessions, except experimental
 ::  code execution: the owner must explicitly opt in to its broad authority.
-::  Keep the policy explicit: MCP servers need named grants, and Tlon tools
-::  still derive from live hands rather than ambient configuration.
+::  MCP servers need named grants. Ship-wide Tlon is explicit; current-chat
+::  tools still derive from live hands rather than ambient configuration.
 ++  default-tools
   ^-  (list tool-grant:h)
-  ~[[%clay ~] %web %curl %skills %skill-write %author %subagents %peers %corpus]
+  ~[[%clay ~] %web %curl %skills %skill-write %author %subagents %peers %corpus %tlon]
 ::  +default-system: useful identity and operating posture for a new
 ::  session.  This describes the harness from the agent's point of view;
 ::  capability schemas below remain the authority on what it can do.

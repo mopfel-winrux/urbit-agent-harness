@@ -8,6 +8,7 @@ const copy = {
   author: ['Skill experiments', 'Stage instructions, try read-only rehearsals, and publish to the shared library. Publishing is not protected by a review gate.'],
   subagents: ['Subagents', 'Delegate independent work to another session.'],
   peers: ['Peer agents', 'Ask explicitly permitted agents on other ships.'],
+  tlon: ['Tlon', 'Send to other DMs and channels, browse contacts and groups, and create, join or leave groups as this ship. Access extends beyond the current conversation.'],
   corpus: ['Cross-conversation recall', 'Search retained evidence from all conversations. Owner conversations only; social and delegated inputs stay scoped to their own conversation.'],
   code: ['Run JavaScript', 'Run code for calculations, data processing, and automation. Grants broad ship file and network access. Experimental and off by default; a stuck script can stall the ship.'],
 }

@@ -5,6 +5,7 @@
 /-  t=harness-tlon, h=harness, hh=harness-hand, ad=harness-adapter, a=tlon-activity-ver, dv=tlon-channels-ver, ac=acp, cr=harness-cron
 /+  default-agent, dbug, p=harness-tlon-policy, continuity=harness-tlon-continuity, io=harness-tlon-io, publication=harness-tlon-publication, profile=harness-tlon-profile, presence=harness-tlon-presence, clock=harness-tlon-clock, hj=harness-json, wire-codec=harness-acp, ht=harness-tools, cron-lib=harness-cron, reminder=harness-reminder, hd=harness-hand, media-lib=harness-tlon-media, s3=harness-s3, history-page=harness-tlon-history-page, history-read=harness-tlon-history-read, public-context=harness-tlon-context, work=harness-tlon-work, activity-read=harness-tlon-activity, admin=harness-admin
 /+  ownership=harness-ownership
+/+  operations=harness-tlon-operations, denial=harness-tlon-denial
 |%
 +$  card  card:agent:gall
 +$  storage-source  $%([%credentials creds=credentials:s3] [%hosted token=@t config=json])
@@ -409,8 +410,20 @@
     (emit [%give %fact ~[/tools/(scot %uv id)] %noun !>('error: hand tool receipt capacity reached')])
   =.  tool-receipts  (~(put by tool-receipts) id [req %sending '' now.bowl])
   =/  authority  (tool-authority req)
+  ?.  ?&(?=(^ authority) =(call.req call.u.authority))
+    (finish-tool id 'rejected: no authorized outstanding tool call')
+  ?:  =('tlon' name.call.req)
+    =.  last-sent  (next-message-stamp:p now.bowl last-sent)
+    =/  built
+      %-  mole  |.
+      (run:~(. operations bowl) (need (de:json:html args.call.req)) /tlon-tool/(scot %uv id) last-sent)
+    ?~  built  (finish-tool id 'error: invalid Tlon action, arguments or unavailable native state; use action help for supported arguments and list_groups/list_channels for exact IDs')
+    ?~  effect.u.built  (finish-tool id (clip:ht body.u.built 24.000))
+    =/  receipt  (~(got by tool-receipts) id)
+    =.  tool-receipts  (~(put by tool-receipts) id receipt(body body.u.built))
+    (emit u.effect.u.built)
   =/  lane  (~(get by lanes) sid.req)
-  ?.  ?&(?=(^ authority) =(call.req call.u.authority) ?=(^ lane) (route-ready sid.req) ?=(^ (actor-grants actor.u.lane ~)))
+  ?.  ?&(?=(^ lane) (route-ready sid.req) ?=(^ (actor-grants actor.u.lane ~)))
     (finish-tool id 'rejected: no authorized outstanding call in a current Tlon conversation')
   =/  parsed  (de:json:html args.call.req)
   ?.  ?=([~ %o *] parsed)  (finish-tool id 'error: expected tool arguments object')
@@ -940,6 +953,13 @@
     ?~  receipt  cor
     ?.  =(%sending stage.u.receipt)  cor
     (finish-tool id ?~(p.sign 'accepted: local Messenger acknowledged the reaction; remote delivery is not confirmed' 'failed: local Messenger rejected the reaction'))
+      [%tlon-tool @ ~]
+    ?.  ?=(%poke-ack -.sign)  cor
+    =/  id=@uv  (slav %uv i.t.wire)
+    =/  receipt  (~(get by tool-receipts) id)
+    ?~  receipt  cor
+    ?.  =(%sending stage.u.receipt)  cor
+    (finish-tool id ?~(p.sign body.u.receipt 'failed: native Tlon rejected the action; check the target and this ship permissions'))
       [%cron-create @ ~]
     ?.  ?=(%poke-ack -.sign)  cor
     =/  id=@uv  (slav %uv i.t.wire)
@@ -1107,6 +1127,7 @@
 ++  activity
   |=  event=incoming-event:v8:a
   ^+  cor
+  =.  cor  (deny-unpermissioned event)
   =/  group-notice=(unit [actor=@p host=@p name=@ta])
     ?+  -.event  ~
       %group-join  `[ship.event p.group.event q.group.event]
@@ -1156,6 +1177,26 @@
   =.  lanes  (~(put by lanes) sid [actor.u.input to.u.input generation ~])
   =.  routes  (~(put by routes) sid [(binding:continuity sid generation) %fence])
   (start-route sid)
+++  deny-unpermissioned
+  |=  event=incoming-event:v8:a
+  ^+  cor
+  ?.  enabled.policy  cor
+  =/  sender  (sender:denial our.bowl event)
+  ?~  sender  cor
+  ?:  |((actor-owner u.sender) (~(has by trusted.policy) u.sender))  cor
+  ::  Catch-up must not answer historical posts after a grant is revoked.
+  =/  cutoff  (max after (fall (~(get by cuts) u.sender) `@da`0))
+  ?.  ?=(%dm-invite -.event)
+    ?:  (lte (posted-at:continuity event) cutoff)  cor
+    (send-denial u.sender (scot %uv (sham event)))
+  (send-denial u.sender (scot %uv (sham event)))
+++  send-denial
+  |=  [who=@p event=@t]
+  ^+  cor
+  ?.  (allowed:denial now.bowl who event notices)  cor
+  =.  cor  (note 'permission-denied' who (scot %p who) event)
+  =.  last-sent  (next-message-stamp:p now.bowl last-sent)
+  (emit (publish:messenger /permission-notice [%dm who ~] message:denial last-sent))
 ++  saved-config
   |=  sid=@t
   ^-  (unit config:h)
@@ -1268,11 +1309,11 @@
   (show-presence active)
 ++  maintain
   ^+  cor
-  ?.  enabled.policy  cor
+  =.  cor  poll-tools
+  ?.  enabled.policy  schedule
   ?.  head-live  schedule
   ?.  watching  boot
   =.  cor  poll-cron
-  =.  cor  poll-tools
   =?  cor  catching-up  catch-up
   =.  cor  (sync-presence ledger)
   schedule

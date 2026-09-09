@@ -2,7 +2,7 @@
 ::  Schemas advertise tools; +tool-granted remains the dispatch authority.
 ::  The JavaScript guard is an executor limitation, not head logic.
 /-  h=harness
-/+  curl=harness-curl
+/+  curl=harness-curl, tlon=harness-tlon-tool
 |%
 ::  +js-loop-guard: reject the canonical unbounded-loop spellings.
 ::  the wasm runtime has no preemption, so a tight infinite loop wedges
@@ -64,7 +64,7 @@
 ++  all-tools
   ^-  (list term)
   :~  %clay  %web  %curl  %skills  %skill-write
-      %author  %subagents  %peers  %mcp  %corpus  %code  %tlon-read  %tlon-write  %cron  %admin
+      %author  %subagents  %peers  %mcp  %corpus  %code  %tlon  %tlon-read  %tlon-write  %cron  %admin
   ==
 ::  Tlon families are implementation vocabulary, not configurable grants.
 ::  A live Tlon hand supplies them from its actor/conversation authority.
@@ -172,6 +172,7 @@
     %'list_desk_scopes'  `%clay
     %'http_fetch'       `%web
     %'curl'             `%curl
+    %'tlon'             `%tlon
     %'web_search'       `%web
     %'read_skill'       `%skills
     %'write_skill'      `%skill-write
@@ -207,7 +208,7 @@
   ^-  (unit term)
   =/  family  (tool-family name)
   ?~  family  ~
-  ?:(?=(?(%tlon-read %tlon-write %cron) u.family) `%harness-tlon ~)
+  ?:(?=(?(%tlon %tlon-read %tlon-write %cron) u.family) `%harness-tlon ~)
 ++  tool-granted
   |=  [name=@t tools=(list tool-grant:h)]
   ^-  ?
@@ -281,6 +282,8 @@
         (fun-json 'tlon_history_page' 'Read older messages in this exact conversation. Returns up to 20 messages, a separate thread parent, has_more and next_cursor. Start with an empty cursor; continue with next_cursor. Deleted entries count toward the page limit. Cursors cannot select other conversations. Older reads do not expand the recent-message reaction window.' ~[['cursor' 'Empty string for newest page, otherwise the exact next_cursor from this tool in this conversation']])
         (fun-json 'tlon_search_history' 'Search a bounded window in this exact conversation. Literal ASCII-case-insensitive substring matching within the first 800 rendered text bytes per message; not a whole-history index. Inspects at most 64 entries and returns at most 20 matches, plus next_cursor. An empty result with has_more is not an exhaustive no-match. Thread parent is separate with parent_matches. Older reads do not expand reaction authority.' ~[['query' 'Nonblank literal text, at most 128 bytes'] ['cursor' 'Optional next_cursor from the same search query in this conversation; empty starts newest']])
     ==
+      %tlon
+    ~[schema:tlon]
       %tlon-write
     :~  (fun-json 'tlon_react' 'React in this Tlon DM or channel using a message ID returned by history. Reports local Messenger acceptance, not remote delivery.' ~[['message_id' 'Exact ID returned by tlon_read_history'] ['emoji' 'Unicode emoji, at most 32 bytes']])
         (fun-json 'tlon_unreact' 'Remove your own reaction in this Tlon DM or channel.' ~[['message_id' 'Exact ID returned by tlon_read_history']])
