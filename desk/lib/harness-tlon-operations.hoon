@@ -1,7 +1,7 @@
 ::  Ship-wide Tlon operations. The adapter owns live grants and receipts;
 ::  this core reads public native state and builds one effect per invocation.
 /-  t=harness-tlon, g=tlon-groups-ver, d=tlon-channels-ver, ct=tlon-contacts, meta=tlon-meta
-/+  spec=harness-tlon-tool, io=harness-tlon-io, conversation=harness-tlon-conversation-tool, contact=harness-tlon-contact-tool
+/+  spec=harness-tlon-tool, io=harness-tlon-io, conversation=harness-tlon-conversation-tool, contact=harness-tlon-contact-tool, group-tool=harness-tlon-group-tool
 |_  bowl=bowl:gall
 ++  groups
   ^-  groups:v9:g
@@ -25,6 +25,8 @@
   ^-  [body=@t effect=(unit card:agent:gall)]
   =/  action  (required:spec args 'action' 32)
   ?:  =('help' action)  [help:spec ~]
+  ?:  (handles:~(. group-tool bowl) action)
+    (run:~(. group-tool bowl) args wire)
   ?:  =('list_dms' action)  [(en:json:html dms:~(. conversation bowl)) ~]
   ?:  |(=('history' action) =('search_history' action))
     [(en:json:html (history:~(. conversation bowl) args =('search_history' action))) ~]
@@ -93,15 +95,6 @@
       =/  to  (destination:spec args)
       ?>  =(=('send_dm' action) ?=(%dm -.to))
       (publish:~(. io bowl) wire to (required:spec args 'text' 16.384) sent)
-    ?:  =('create_group' action)
-      =/  privacy  (string:spec args 'privacy' 'secret' 16)
-      ?>  ?=(?(%secret %private %public) privacy)
-      =/  create=create-group:v8:g
-        :*  (slug:spec (required:spec args 'name' 64))
-            [(required:spec args 'title' 128) (string:spec args 'description' '' 1.024) '' '']
-            privacy  [~ ~]  ~
-        ==
-      [%pass wire %agent [our.bowl %groups] %poke %group-command !>(`c-groups:v8:g`[%create create])]
     =/  flag  (flag:spec (required:spec args 'group' 256))
     ?:  |(=('update_group' action) =('update_channel' action))
       =/  group  (~(got by groups) flag)

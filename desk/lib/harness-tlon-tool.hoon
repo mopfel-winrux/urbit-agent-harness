@@ -7,7 +7,7 @@
   %+  rap  3
   :~  sending-guidance  '\0a'
       'Actions: help; list_contacts; list_groups; get_group(group); list_channels(group); '
-      'send_dm(ship,text); send_channel(channel,text); create_group(name,title,description?,privacy?); '
+      'send_dm(ship,text); send_channel(channel,text); create_group(name,title,description?,privacy?,owner?); '
       'invite_to_group(group,ship); join_group(group); leave_group(group); create_channel(group,name,title,description?,kind?). '
       'Conversation actions: list_dms; history(ship OR channel,parent?,cursor?); search_history(ship OR channel,query,parent?,cursor?); '
       'react(ship OR channel,message_id,emoji,parent?); unreact(ship OR channel,message_id,parent?). '
@@ -19,9 +19,18 @@
       'Profile updates affect this ship only; empty fields clear them, omitted fields are preserved. Image fields must be http(s) URLs. '
       'Groups: list_members(group); update_group(group,title?,description?); update_channel(group,channel,title?,description?). '
       'Metadata updates preserve omitted fields and existing channel permissions; at least one edited field is required. '
+      'Roles: list_roles(group); create_role(group,role,title,description?); update_role(group,role,title?,description?); '
+      'assign_role(group,role,ship); remove_role(group,role,ship); promote_member(group,ship,role?); demote_member(group,ship). '
+      'A role name does not imply admin privileges. New roles are not admins. promote_member assigns an existing admin-marked role; it never turns an ordinary role into an admin role. '
+      'demote_member removes ALL admin-marked roles from that member, preserving ordinary roles; the host cannot be demoted. '
+      'Membership: list_group_requests(group); approve_join_request(group,ship); reject_join_request(group,ship); revoke_group_invite(group,ship); set_group_privacy(group,privacy). '
+      'Invitations to this ship: list_group_invites; request_group_invite(group); accept_group_invite(group); decline_group_invite(group); cancel_group_join(group). '
+      'Only make privilege, membership or privacy changes requested by the user. These change native Tlon groups, never Harness ownership or trusted-ship grants. '
       'Group IDs are ~ship/name; channel IDs are chat/~ship/name (or diary/ or heap/). '
       'Names are lowercase terms, up to 64 bytes. Text is 1..16384 bytes. '
       'create_group defaults to secret (invite-only, unlisted), creates no channels; use create_channel afterward. '
+      'When creating a group for another person, supply their explicit ship as owner: they get an admin seat and invitation in the same operation. '
+      'This ship remains the group host; the recipient must accept/join on their own ship. Never claim they have joined merely because a seat exists. Existing group names are rejected, not overwritten. '
       'privacy may be secret, private (listed invite-only), or public. create_channel defaults to chat; kind may be chat, diary, heap. '
       'New channels allow all group members to read/write. All actions run as this ship, subject to native Tlon permissions. '
       'Mutation success means local acceptance, not remote delivery or completed joining. Never automatically retry an uncertain mutation. '
@@ -52,6 +61,8 @@
                   ['description' (field 'Optional description, at most 1024 bytes')]
                   ['privacy' (field 'Group privacy: secret (default), private, public')]
                   ['kind' (field 'Channel kind: chat (default), diary, heap')]
+                  ['owner' (field 'create_group only: explicit requester ship to invite and make a Tlon group admin; does not transfer hosting or Harness ownership')]
+                  ['role' (field 'Exact role ID from list_roles, or a new lowercase slug for create_role; promote_member accepts only admin-marked roles')]
                   ['parent' (field 'Exact root message_id from history, to read/react in a thread or send to a thread in another conversation')]
                   ['message_id' (field 'Exact message_id from history; DMs include ~author/ prefix')]
                   ['emoji' (field 'Reaction text, 1..64 bytes')]

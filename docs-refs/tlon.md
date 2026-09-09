@@ -39,6 +39,11 @@ This rule is included in both the tool description and its sending-field help.
 
 New groups default to secret (unlisted and invite-only), with no channels.
 Create channels afterward; they are readable and writable by all group members.
+For a group requested by another person, pass their explicit ship as `owner` to
+`create_group`. One native command creates their admin seat and sends their
+invitation. Harness's ship remains the host; the recipient must still join from
+their own ship. A pre-created seat is not proof of a completed join. Existing
+group names are rejected rather than replacing the group.
 Mutation receipts confirm local acceptance only, not remote delivery or completed
 joining. Pending calls become uncertain after one minute and are never retried
 automatically, including after reload. Lists return at most 100 entries.
@@ -59,6 +64,28 @@ preserve omitted metadata, images, and channel permissions. These actions do not
 change Harness ownership or grants. Adding a Tlon contact does not authorize it
 to use the bot.
 
+Group role and membership workflows use the same broad `tlon` grant:
+
+- `list_roles`, `create_role`, `update_role`, `assign_role`, and `remove_role`
+  manage ordinary roles and member assignments. New roles have no admin powers.
+- `promote_member` assigns an existing admin-marked role (optionally selected
+  with `role`). It never elevates a role merely because its name is `admin`.
+  `demote_member` removes every admin-marked role in one command, preserving
+  ordinary roles. The host cannot be demoted.
+- `list_group_requests` shows pending/invited ships and join requests without
+  exposing tokens or request bodies. `approve_join_request`,
+  `reject_join_request`, `revoke_group_invite`, and `set_group_privacy` cover
+  admission decisions.
+- `list_group_invites` shows this ship's invitations and join progress.
+  `request_group_invite`, `accept_group_invite`, `decline_group_invite`, and
+  `cancel_group_join` operate on that foreign-group state.
+
+Administration requires the acting ship to be the host or a member with actual
+admin privileges in the current native group snapshot. A stale snapshot may
+reject a newly granted privilege; reread state before trying a fresh request.
+Native acknowledgements still mean local acceptance, not remote completion.
+These operations never modify Harness ownership or trusted-ship permissions.
+
 This is a broad, separately removable grant: it extends beyond the current
 conversation. Existing saved defaults and conversation grants are preserved.
 Trusted ships receive only the tools explicitly granted to them; their implicit
@@ -76,6 +103,10 @@ limited to one per sender per five minutes and eight total per minute.
 Native verification: `scripts/tlon-actions-conformance.mjs` exercises the broad
 tool with automatic replies disabled; `scripts/tlon-denial-conformance.mjs`
 checks real two-ship denial delivery, rate limiting and zero model calls.
+`scripts/tlon-groups-conformance.mjs` checks requester-admin creation, role
+semantics, real two-ship invitation/join flows, and denied/authorized remote
+administration. Set `SHIP_COOKIE`, `SHIP_URL`, `PEER_COOKIE`, and `PEER_URL` to
+local fake test ships. It removes its unique groups and restores Tlon policy.
 
 ## Models and failures
 
