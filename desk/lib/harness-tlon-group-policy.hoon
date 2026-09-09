@@ -41,7 +41,7 @@
     ?>  =(role (required:spec args 'confirm' 256))
     [%role (silt ~[role]) %del ~]
   ?:  |(=('delete_channel' action) =('add_channel_readers' action) =('remove_channel_readers' action))
-    =/  nest  (nest:spec (required:spec args 'channel' 256))
+    =/  nest  (group-nest:spec (required:spec args 'channel' 256))
     ?>  (~(has by channels.group) nest)
     ?:  =('delete_channel' action)
       ?>  =((required:spec args 'confirm' 256) (required:spec args 'channel' 256))

@@ -5,6 +5,7 @@
 /+  spec=harness-tlon-tool, io=harness-tlon-io, conversation=harness-tlon-conversation-tool, contact=harness-tlon-contact-tool, group-tool=harness-tlon-group-tool, policy=harness-tlon-group-policy, message=harness-tlon-message-tool
 /+  notes=harness-tlon-notes-tool, inbox=harness-tlon-inbox-tool, club=harness-tlon-club-tool
 /+  hooks=harness-tlon-hook-tool, publishing=harness-tlon-publish-tool
+/+  migration=harness-tlon-notes-migration
 |_  bowl=bowl:gall
 ++  groups
   ^-  groups:v9:g
@@ -28,6 +29,21 @@
   ^-  [body=@t effect=(unit card:agent:gall)]
   =/  action  (required:spec args 'action' 32)
   ?:  =('help' action)  [help:spec ~]
+  ?:  (handles:~(. migration bowl) action)  (run:~(. migration bowl) args wire)
+  ?:  &(=('delete_channel' action) =('notes/' (end [3 6] (string:spec args 'channel' '' 256))))
+    =/  nest  (group-nest:spec (required:spec args 'channel' 256))
+    =/  gf  (flag:spec (required:spec args 'group' 256))
+    =/  group  (~(got by groups) gf)
+    ?>  &((admin:policy our.bowl -.gf group) (~(has by channels.group) nest))
+    ?>  =((required:spec args 'channel' 256) (required:spec args 'confirm' 256))
+    =/  notebook  (group-id +.nest)
+    (run:~(. notes bowl) (pairs:enjs:format ~[['action' %s 'delete_notebook'] ['notebook' %s notebook] ['confirm' %s notebook]]) wire)
+  ?:  &(=('create_channel' action) =('notes' (string:spec args 'kind' '' 16)))
+    ?:  |((has:spec args 'name') !=('' (string:spec args 'description' '' 1.024)))
+      ['error: native Notes assigns its own notebook/channel name; omit name and description, then use update_channel for description' ~]
+    ?>  (has:spec args 'group')
+    ?>  ?=(%o -.args)
+    (run:~(. notes bowl) [%o (~(put by p.args) 'action' [%s 'create_notebook'])] wire)
   ?:  (handles:~(. hooks bowl) action)
     ?>  ?=([@ @ ~] wire)
     (run:~(. hooks bowl) args /tlon-hooks/[i.t.wire])
@@ -62,8 +78,10 @@
   ?:  =('get_channel_permissions' action)
     =/  flag  (flag:spec (required:spec args 'group' 256))
     =/  group  (~(got by groups) flag)
-    =/  nest  (nest:spec (required:spec args 'channel' 256))
+    =/  nest  (group-nest:spec (required:spec args 'channel' 256))
     =/  channel  (~(got by channels.group) nest)
+    ?:  =(%notes kind.nest)
+      [(en:json:html (pairs:enjs:format ~[['readers' %a (turn ~(tap in readers.channel) |=(role=@tas [%s role]))] ['writers' ~] ['note' %s 'Notes does not have channel writer roles. Native owner/editor membership plus current group read access gates editing; use list_notebook_members.']])) ~]
     =/  perm=perm:v9:d
       .^(perm:v9:d %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/[kind.nest]/(scot %p ship.nest)/[name.nest]/perm/channel-perm)
     =/  roles  |=(values=(set @tas) [%a (turn ~(tap in values) |=(role=@tas [%s role]))])
@@ -162,7 +180,7 @@
       =/  group  (~(got by groups) flag)
       =/  act=a-group:v8:g
         ?:  =('update_group' action)  [%meta (metadata args meta.group)]
-        =/  nest  (nest:spec (required:spec args 'channel' 256))
+        =/  nest  (group-nest:spec (required:spec args 'channel' 256))
         =/  channel  (~(got by channels.group) nest)
         [%channel nest %edit channel(meta (metadata args meta.channel))]
       [%pass wire %agent [our.bowl %groups] %poke %group-action-4 !>(`a-groups:v8:g`[%group flag act])]

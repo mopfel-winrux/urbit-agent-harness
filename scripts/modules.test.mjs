@@ -112,6 +112,16 @@ test('native hook mutation subscribes before dispatch and waits beyond transport
   assert.match(ack, /\?~  p.sign  cor/)
 })
 
+test('Notes migration verifies native affiliation and fresh authority before dispatch', async () => {
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const migration = await readFile(new URL('../desk/lib/harness-tlon-notes-migration.hoon', import.meta.url), 'utf8')
+  assert.match(migration, /group\.notebook-state\.snapshot/)
+  assert.match(migration, /%watch \/v0\/notes/)
+  assert.match(adapter, /\[%tlon-notes-migration @ ~\][\s\S]*tool-authority request\.u\.receipt[\s\S]*command:~\(\. notes-migration bowl\)[\s\S]*%poke %notes-action-1/)
+  assert.match(adapter, /another native Notes change is pending/)
+  assert.doesNotMatch(migration, /%delete|%rename/)
+})
+
 test('history pagination is bounded, read-only and follows current lane authority', async () => {
   const reader = code('harness-tlon-history-read')
   assert.doesNotMatch(reader, /%poke|%pass|%watch|harness-store/)

@@ -10,6 +10,7 @@
 /+  operations=harness-tlon-operations, denial=harness-tlon-denial
 /+  tlon-spec=harness-tlon-tool, notes-tool=harness-tlon-notes-tool
 /+  hook-tool=harness-tlon-hook-tool
+/+  notes-migration=harness-tlon-notes-migration
 |%
 +$  card  card:agent:gall
 +$  storage-source  $%([%credentials creds=credentials:s3] [%hosted token=@t config=json])
@@ -401,9 +402,13 @@
   =/  body
     ?:  (hook-pending body.receipt)
       'uncertain: native hook result was not observed; inspect the hook before retrying and do not automatically repeat this action'
+    ?:  (notes-pending body.receipt)
+      'uncertain: native Notes result was not observed; inspect/re-plan before retrying and do not automatically repeat this action'
     'uncertain: Messenger acknowledgement was not observed; do not automatically repeat this action'
   =?  c  =('pending: awaiting native Notes result' body.receipt)
     (emit:c [%pass /tlon-notes/(scot %uv id) %agent [our.bowl %notes] %leave ~])
+  =?  c  =('pending: verifying native Notes affiliation' body.receipt)
+    (emit:c [%pass /tlon-notes-migration/(scot %uv id) %agent [our.bowl %notes] %leave ~])
   =?  c  (hook-pending:c body.receipt)
     (emit:c [%pass /tlon-hooks/(scot %uv id) %agent [our.bowl %channels-server] %leave ~])
   =.  tool-receipts.c  (~(put by tool-receipts.c) id receipt(stage %uncertain, body body))
@@ -411,6 +416,9 @@
 ++  hook-pending
   |=  body=@t
   |(=('pending: subscribing for native hook result' body) =('pending: awaiting native hook result' body))
+++  notes-pending
+  |=  body=@t
+  |(=('pending: awaiting native Notes result' body) =('pending: verifying native Notes affiliation' body))
 ++  tool
   |=  req=tool-request:ad
   ^+  cor
@@ -430,6 +438,11 @@
     =/  parsed  (de:json:html args.call.req)
     ?.  ?=([~ %o *] parsed)  (finish-tool id 'error: expected Tlon arguments object')
     =/  action  (~(get by p.u.parsed) 'action')
+    ?:  ?&  ?=([~ %s *] action)
+            |((mutates:~(. notes-tool bowl) p.u.action) =('migrate_notes' p.u.action) =('create_channel' p.u.action) =('delete_channel' p.u.action))
+            (lien ~(val by tool-receipts) |=(receipt=tool-receipt:t &(=(%sending stage.receipt) (notes-pending body.receipt))))
+        ==
+      (finish-tool id 'error: another native Notes change is pending; inspect it before starting another Notes change')
     ?:  ?&  ?=([~ %s *] action)
             (mutates:~(. hook-tool bowl) p.u.action)
             (lien ~(val by tool-receipts) |=(receipt=tool-receipt:t &(=(%sending stage.receipt) (hook-pending body.receipt))))
@@ -1077,6 +1090,30 @@
     ?.  =(%sending stage.u.receipt)  cor
     =.  cor  (emit [%pass /tlon-hooks/(scot %uv id) %agent [our.bowl %channels-server] %leave ~])
     (finish-tool id 'failed: native Tlon rejected the hook change; inspect get_hook before retrying')
+      [%tlon-notes-migration @ ~]
+    =/  id=@uv  (slav %uv i.t.wire)
+    =/  receipt  (~(get by tool-receipts) id)
+    ?~  receipt  cor
+    ?.  &(=(%sending stage.u.receipt) =('pending: verifying native Notes affiliation' body.u.receipt))  cor
+    ?:  ?=(%kick -.sign)
+      (finish-tool id 'failed: native Notes affiliation could not be verified; no migration was sent')
+    ?:  ?=(%watch-ack -.sign)
+      ?~  p.sign  cor
+      (finish-tool id 'failed: native Notes affiliation could not be watched; no migration was sent')
+    ?.  ?=(%fact -.sign)  cor
+    =.  cor  (emit [%pass wire %agent [our.bowl %notes] %leave ~])
+    =/  authority  (tool-authority request.u.receipt)
+    ?.  ?&(?=(^ authority) =(call.request.u.receipt call.u.authority))
+      (finish-tool id 'rejected: migration authority was revoked before dispatch; no mutation was sent')
+    =/  args  (need (de:json:html args.call.request.u.receipt))
+    =/  command
+      %-  mole  |.
+      ?>  =(%notes-response p.cage.sign)
+      (command:~(. notes-migration bowl) args !<(response:notes q.cage.sign))
+    ?~  command
+      (finish-tool id 'failed: native Notes affiliation, source, permissions or destination no longer match the migration plan; no mutation was sent')
+    =.  tool-receipts  (~(put by tool-receipts) id u.receipt(body 'pending: awaiting native Notes result'))
+    (emit [%pass /tlon-tool/(scot %uv id) %agent [our.bowl %notes] %poke %notes-action-1 !>(`action:v1:notes`[id u.command])])
       [%tlon-notes @ ~]
     =/  id=@uv  (slav %uv i.t.wire)
     =/  receipt  (~(get by tool-receipts) id)
@@ -1111,7 +1148,10 @@
           'uncertain: native Notes publication state could not be verified; inspect get_note_publication before retrying'
         %notebook
           =/  summary  summary.body.response
-          (en:json:html (pairs:enjs:format ~[['status' %s 'saved'] ['notebook' %s (rap 3 (scot %p ship.flag.summary) '/' name.flag.summary ~)] ['root_folder_id' %s (scot %ud +(id.notebook.summary))]]))
+          =/  args  (need (de:json:html args.call.request.u.receipt))
+          =/  checked  (mole |.((created:~(. notes-tool bowl) args summary)))
+          ?^  checked  (en:json:html u.checked)
+          (en:json:html (pairs:enjs:format ~[['status' %s 'uncertain'] ['notebook' %s (rap 3 (scot %p ship.flag.summary) '/' name.flag.summary ~)] ['root_folder_id' %s (scot %ud +(id.notebook.summary))] ['note' %s 'Notebook created, but group listing verification failed; inspect get_notebook before use. Do not repeat creation.']]))
       ==
     (finish-tool id result)
       [%cron-create @ ~]

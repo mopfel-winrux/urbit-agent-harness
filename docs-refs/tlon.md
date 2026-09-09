@@ -129,6 +129,91 @@ The same grant also covers:
   URL sources retain HTTPS/no-redirect restrictions; all uploads are capped at
   8 MiB and may be public under the configured storage policy.
 
+### Group Notes, bulk imports and diary migration
+
+`create_notebook(title, group?, readers?)` creates either a private standalone
+notebook or a native group-linked Notes channel. Group creation requires live
+group-admin authority. `readers` is a JSON-array string of existing group role
+IDs; `[]` means all group members. Native Notes assigns the notebook flag and
+registers the channel; Harness does not manufacture a second listing.
+`create_channel(group, title, kind="notes", readers?)` is an alias; omit `name`
+and `description`, then use `update_channel` for listing metadata. Check the
+returned `group_listing_verified`; if false, creation did happen, but inspect
+`get_notebook` before writing instead of creating another notebook.
+
+`get_notebook` includes the observed group listings and their readers.
+`list_notebook_members` paginates native owner/editor/viewer records. These are
+not an effective-access list: native Notes also rechecks group read access, and
+revoked group members can remain in its membership map. Group reader edits use
+the existing `add_channel_readers` / `remove_channel_readers` commands. Notes has
+no independent channel writer-role set. `delete_channel` for a Notes channel
+deletes the underlying notebook; native Notes removes its group listing too.
+Standalone `set_notebook_visibility` requires exact notebook confirmation;
+`public` lets others join as editors, so explicit sharing authorization is
+required. Group-mode visibility changes are rejected; use group readers.
+
+`plan_notes_import(notebook, folder_id, tree)` previews a flat or nested import.
+`tree` is a JSON-array string, for example:
+
+```json
+[
+  {"type":"note","title":"Overview","text":"# Markdown body"},
+  {"type":"folder","title":"Reference","children":[
+    {"type":"note","title":"Details","text":"More Markdown"}
+  ]}
+]
+```
+
+Then `import_notes` takes the same arguments plus the returned `revision` and
+`confirm`. A plan is bound to the exact tree, folder, and current destination
+notes/folders. Any destination change invalidates it, including a successful
+previous import. Imports add new items; they never overwrite existing items.
+The entire payload is validated before the native action: at most 65,536 JSON
+bytes, 100 total nodes, eight folder levels, 128-byte titles and 16,384-byte
+Markdown bodies. The destination folder must exist. This is a native tree
+import, not permission to read desktop files or arbitrary Clay paths.
+
+Diary migration is an explicit copy workflow:
+
+1. Call `plan_notes_migration(channel)` to inspect the source and permissions.
+2. Create a group notebook using the plan's group, suggested title and exact
+   reader-role set.
+3. Re-plan with `notebook` (and optionally `folder_id`; default is its root).
+4. Call `migrate_notes` with the returned `revision` and `confirm`. When the
+   plan warns `write_widening=true`, obtain explicit consent before adding
+   `allow_write_widening="true"`.
+5. Re-plan after each batch until `complete=true`.
+
+The diary, group and target notebook must be locally hosted; the target must
+be listed in the same group with identical reader roles. Before dispatch,
+Harness additionally watches the native Notes snapshot to verify the notebook's
+actual group affiliation, then rechecks the live tool grant and plan. A manually
+added group listing alone cannot pass this check. Plans bind source
+content, group/permission state and destination contents, so changes require a
+new preview. Reader restrictions cannot be widened by migration. Notes lets
+joined readers edit, so restricted diary writers or an open public group can
+require the separate write-widening approval.
+
+Each call copies at most 64 notes / 128 KiB. Complete source inspection is
+bounded to 5,000 rows / 8 MiB of converted content, with explicit refusal for
+oversized or unknown custom payloads rather than clipping or partial reads.
+Destination inspection is capped at 10,000 notes; oversized permission/listing
+responses fail explicitly rather than returning truncated JSON.
+Deleted/stub rows are counted and skipped. Markdown preserves styled text,
+lists, code, images and links; native dynamic references become readable
+references. Original authors/timestamps and source citations are embedded in
+the Markdown, since native Notes assigns new creation metadata. Comments,
+reactions and original revision history stay in the original diary.
+
+Migration never deletes or automatically renames the source. Exact prior
+imports are skipped; changed source posts or edited/moved copies retaining
+their provenance marker are conflicts, not silently overwritten. Removing
+that marker makes the copy unrecognizable, so inspect before retrying after
+manual edits. A native correlated result is required for writes; transport
+acknowledgement is not completion. Never automatically repeat an uncertain
+import: inspect the notebook and obtain a fresh plan first.
+Harness serializes its native Notes mutations while a result is pending.
+
 ### Persistent channel hooks
 
 `hook_template`, `list_hooks`, `get_hook`, and `get_hook_order` inspect native
