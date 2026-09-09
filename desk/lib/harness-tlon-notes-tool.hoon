@@ -1,11 +1,11 @@
-::  Native Notes only: no publishing, hooks, API keys or arbitrary commands.
+::  Native Notes, including explicitly confirmed inert public snapshots.
 /-  n=tlon-notes
-/+  spec=harness-tlon-tool, hp=harness-tlon-history-page
+/+  spec=harness-tlon-tool, hp=harness-tlon-history-page, publish-html=harness-tlon-publish-html
 |_  bowl=bowl:gall
 ++  handles
   |=  action=@t
   =/  actions=(list @t)
-    ~['list_notebooks' 'list_notebook_invites' 'get_notebook' 'list_folders' 'list_notes' 'get_note' 'note_revisions' 'create_notebook' 'rename_notebook' 'delete_notebook' 'invite_to_notebook' 'join_notebook' 'leave_notebook' 'accept_notebook_invite' 'decline_notebook_invite' 'create_folder' 'rename_folder' 'move_folder' 'delete_folder' 'create_note' 'edit_note' 'rename_note' 'move_note' 'delete_note' 'restore_note']
+    ~['list_notebooks' 'list_notebook_invites' 'get_notebook' 'list_folders' 'list_notes' 'get_note' 'note_revisions' 'create_notebook' 'rename_notebook' 'delete_notebook' 'invite_to_notebook' 'join_notebook' 'leave_notebook' 'accept_notebook_invite' 'decline_notebook_invite' 'create_folder' 'rename_folder' 'move_folder' 'delete_folder' 'create_note' 'edit_note' 'rename_note' 'move_note' 'delete_note' 'restore_note' 'list_published_notes' 'get_note_publication' 'publish_note' 'unpublish_note']
   (lien actions |=(value=@t =(value action)))
 ++  id
   |=  flag=flag:n
@@ -18,6 +18,17 @@
   =/  rows=(list notebook-summary:n)
     .^((list notebook-summary:n) %gx /(scot %p our.bowl)/notes/(scot %da now.bowl)/v0/notebooks/noun)
   !(lien rows |=(item=notebook-summary:n =(flag flag.item)))
+++  publication-confirmed
+  |=  args=json
+  ^-  ?
+  =/  action  (required:spec args 'action' 32)
+  ?>  |(=('publish_note' action) =('unpublish_note' action))
+  =/  flag  (flag:spec (required:spec args 'notebook' 256))
+  =/  nid  (number:spec args 'note_id' 0)
+  =/  rows=(list published-record:n)
+    .^((list published-record:n) %gx /(scot %p our.bowl)/notes/(scot %da now.bowl)/v0/published/notes-published)
+  =/  visible  (lien rows |=(item=published-record:n &(=(flag flag.item) =(nid note-id.item))))
+  =(visible =('publish_note' action))
 ++  notebook-json
   |=  item=notebook-summary:n
   (pairs:enjs:format ~[['notebook' %s (id flag.item)] ['title' %s title.notebook.item] ['root_folder_id' %s (scot %ud +(id.notebook.item))] ['visibility' %s visibility.item]])
@@ -36,6 +47,14 @@
   ^-  [body=@t effect=(unit card:agent:gall)]
   ?>  .^(? %gu /(scot %p our.bowl)/notes/(scot %da now.bowl)/$)
   =/  action  (required:spec args 'action' 32)
+  ?:  =('list_published_notes' action)
+    =/  rows=(list published-record:n)
+      .^((list published-record:n) %gx /(scot %p our.bowl)/notes/(scot %da now.bowl)/v0/published/notes-published)
+    =/  items
+      %+  turn  rows
+      |=  item=published-record:n
+      (pairs:enjs:format ~[['notebook' %s (id flag.item)] ['note_id' %s (scot %ud note-id.item)] ['public_path' %s (rap 3 '/notes/pub/' (id flag.item) '/' (scot %ud note-id.item) ~)]])
+    [(en:json:html (directory:spec args items)) ~]
   ?:  =('list_notebooks' action)
     =/  rows=(list notebook-summary:n)
       .^((list notebook-summary:n) %gx /(scot %p our.bowl)/notes/(scot %da now.bowl)/v0/notebooks/noun)
@@ -50,6 +69,13 @@
     (flag:spec (required:spec args 'notebook' 256))
   =/  prefix=path  /(scot %p our.bowl)/notes/(scot %da now.bowl)/v0
   =/  suffix=path  /(scot %p ship.flag)/[name.flag]
+  ?:  =('get_note_publication' action)
+    =/  nid  (number:spec args 'note_id' 0)
+    ?>  (gth nid 0)
+    =/  rows=(list published-record:n)
+      .^((list published-record:n) %gx /(scot %p our.bowl)/notes/(scot %da now.bowl)/v0/published/notes-published)
+    =/  visible  (lien rows |=(item=published-record:n &(=(flag flag.item) =(nid note-id.item))))
+    [(en:json:html (pairs:enjs:format ~[['published' %b visible] ['public_path' ?:(visible [%s (rap 3 '/notes/pub/' (id flag) '/' (scot %ud nid) ~)] ~)] ['note' %s 'Public HTML is a snapshot, not live Markdown. Unpublishing cannot erase copies or caches held by other people.']])) ~]
   ?:  =('get_notebook' action)
     =/  item=notebook-detail:n
       .^(notebook-detail:n %gx (weld prefix (weld /notebook (weld suffix /noun))))
@@ -116,6 +142,16 @@
     =/  nid  (number:spec args 'note_id' 0)
     ?>  (gth nid 0)
     :-  %note  :-  nid
+    ?:  |(=('publish_note' action) =('unpublish_note' action))
+      =/  target  (rap 3 (id flag) '/note/' (scot %ud nid) ~)
+      ?>  =(target (required:spec args 'confirm' 384))
+      ?:  =('unpublish_note' action)  [%unpublish ~]
+      =/  note=note:n
+        .^(note:n %gx (weld prefix (weld /note (weld suffix /(scot %ud nid)/noun))))
+      ?>  (has:spec args 'revision')
+      ?>  =((number:spec args 'revision' 0) revision.note)
+      =/  html=(unit @t)  ?:((has:spec args 'html') `(required:spec args 'html' 16.384) ~)
+      [%publish (page:publish-html title.note body-md.note html)]
     ?:  =('rename_note' action)  [%rename (required:spec args 'title' 128)]
     ?:  =('move_note' action)  [%move (number:spec args 'folder_id' 0)]
     ?:  =('delete_note' action)

@@ -22,8 +22,11 @@ async function stage(kind, name) {
   visited.add(key)
   const source = git('show', `${revision}:desk/${key}.hoon`)
   const lines = []
-  for (const line of source.split('\n')) {
+  const sourceLines = source.split('\n')
+  for (let i = 0; i < sourceLines.length; i++) {
+    let line = sourceLines[i]
     if (!/^\/[+-]  /.test(line)) { lines.push(line); continue }
+    while (/^    \S/.test(sourceLines[i + 1] || '')) line += ` ${sourceLines[++i].trim()}`
     const depKind = line.startsWith('/-') ? 'sur' : 'lib'
     const imports = []
     for (const token of line.slice(4).split(/[, ]+/).filter(Boolean)) {
@@ -38,5 +41,5 @@ async function stage(kind, name) {
   await mkdir(path.dirname(target), { recursive: true })
   await writeFile(target, lines.join('\n'))
 }
-for (const name of ['activity-ver', 'chat-ver', 'channels', 'contacts', 'story', 'groups', 'presence', 'notes']) await stage('sur', name)
+for (const name of ['activity-ver', 'chat-ver', 'channels', 'contacts', 'story', 'groups', 'presence', 'notes', 'hooks']) await stage('sur', name)
 console.log(`Tlon: ${visited.size} namespaced protocol dependencies at ${revision.slice(0, 12)}`)

@@ -129,7 +129,62 @@ The same grant also covers:
   URL sources retain HTTPS/no-redirect restrictions; all uploads are capped at
   8 MiB and may be public under the configured storage policy.
 
-Hooks and public-web publishing are deliberately not exposed.
+### Persistent channel hooks
+
+`hook_template`, `list_hooks`, `get_hook`, and `get_hook_order` inspect native
+`%channels-server` hooks. These are Hoon programs, not HTTP webhooks.
+`add_hook`/`edit_hook` compile source; `set_hook_order` attaches an ordered list
+to a locally hosted channel; `configure_hook` replaces its configuration.
+`schedule_hook` starts a channel-specific or global repeating job, from one
+minute through 365 days, with its first run after that interval. `stop_hook`
+stops the specified job; `delete_hook` removes the hook and its native jobs.
+An empty order detaches all hooks from that channel.
+
+Every hook mutation requires explicit user authorization and an exact `confirm`
+value: the title for creation, channel for ordering, or hook ID otherwise.
+Edits also require the current revision. Source is limited to 16 KiB; configuration
+is an 8 KiB JSON-object string with at most 64 string-valued entries. Hook lists
+are paged; source reads are UTF-8-safe chunks. Oversized native configuration
+reads fail explicitly instead of returning truncated JSON.
+
+The adapter subscribes before dispatch, rechecks authority, and waits for the
+matching native result. Only one Harness hook mutation is in flight at a time.
+A successful transport acknowledgement is not proof of compilation. Failed
+edits can store new source while leaving the old compiled program running;
+inspect the hook before retrying. Missing results remain uncertain and are never
+retried automatically. Hooks run natively and can continue messaging or changing
+Tlon state after the conversation ends or its Harness grant is revoked. Remove
+hooks/stop jobs explicitly. Native Hoon programs can also stall the ship;
+the limited effect vocabulary is not a CPU sandbox.
+
+### Public web publishing
+
+`publish_post`/`unpublish_post` use native `%expose` for an exact, existing channel
+post citation; `get_publication`/`list_publications` inspect exposure. Only root
+chat, diary and heap posts are supported, not DMs, replies, arbitrary desks or
+groups. Publishing also advertises the citation through native Contacts/profile
+integration. It can make private group content public, so obtain explicit approval
+for the exact content and repeat its full citation in `confirm`.
+`get_publication` also accepts `channel` plus a history `message_id` to derive
+that citation without publishing. Native citations contain ungrouped decimal
+post IDs, unlike dotted IDs in native scry paths.
+Native `%expose` can refresh the public page when the post changes; later edits
+to an exposed post can therefore become public too.
+
+`publish_note`/`unpublish_note` manage native Notes public HTML snapshots, with
+`get_note_publication` and `list_published_notes` for inspection. Confirmation is
+`<notebook>/note/<note_id>`; publication also requires the current note revision.
+The default page displays escaped Markdown source. Optional `html` supplies a
+well-formed inert fragment, at most 16 KiB, for formatted output. The adapter
+parses and reserializes it, rejecting scripts, CSS, event handlers, forms,
+embedded frames, SVG and non-HTTP(S) links/images. Pages include a restrictive
+CSP because native Notes serves them on the ship's own origin.
+
+Returned paths are relative to the ship's HTTP origin; the tool does not invent
+a public domain or configure hosting. Public reachability depends on existing
+hosting. Notes publications are snapshots, not live Markdown; republish after
+editing. Unpublishing removes local serving but cannot erase third-party copies
+or caches. Neither form grants access to other unpublished ship content.
 
 This is a broad, separately removable grant: it extends beyond the current
 conversation. Existing saved defaults and conversation grants are preserved.
@@ -137,20 +192,22 @@ Trusted ships receive only the tools explicitly granted to them; their implicit
 current-conversation history, reaction, upload and scheduling tools do not grant
 ship-wide `tlon` access.
 
-While the reply hand is enabled, an unpermissioned sender receives a fixed DM
-explaining that the owner must add them to **Trusted ships**. This covers incoming
-DM invitations, existing DMs, native channel mentions and replies to the bot.
-Unaddressed channel chatter gets no notice. Notices do not run inference or grant
-Harness access. Sending the notice can accept the native Tlon DM invitation;
-that is separate from permission to use Harness. Notices are deduplicated and
-limited to one per sender per five minutes and eight total per minute.
+Unpermissioned senders are silently ignored: no reply, no permission-denied DM,
+no model call and no automatic trust grant. This covers DM invitations, existing
+DMs, channel mentions and replies to the bot. A local, rate-limited audit entry
+records addressed attempts without accepting the DM invitation or messaging its
+sender. Whitelist checks remain unchanged.
 
 Native verification: `scripts/tlon-actions-conformance.mjs` exercises the broad
 tool with automatic replies disabled; `scripts/tlon-denial-conformance.mjs`
-checks real two-ship denial delivery, rate limiting and zero model calls.
+checks real two-ship silent rejection, local audit rate limiting and zero model calls.
 `scripts/tlon-completion-conformance.mjs` checks permissions, moderation, full
 message reads, activity, clubs, Notes and granted Clay uploads on local fake
 `~lux`, restoring policy and storage settings afterward.
+`scripts/tlon-hooks-publishing-conformance.mjs` checks real hook compilation,
+activation, reactions, schedules, compiler failures, publication without a login,
+and removal. It uses unique fake-ship fixtures and removes their persistent hooks,
+publications, notebook and group afterward.
 The completion fixture deliberately reads deleted messages to check rejection;
 native missing-message scries can print `bail: 4` / `bail: 2`. The pinned Tlon
 chat source also emits `chat-club-action-2` on its old `/v3` club paths while

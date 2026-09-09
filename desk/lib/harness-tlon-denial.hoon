@@ -1,9 +1,7 @@
-::  Fixed, rate-limited responses to unpermissioned addressed activity.
-::  No inference, no Harness grant, no reflection of untrusted message text.
+::  Silent, rate-limited audit of unpermissioned addressed activity.
+::  No outgoing message, inference or Harness grant.
 /-  t=harness-tlon, a=tlon-activity-ver
 |%
-++  message
-  'You do not have permission to use this Harness bot. Ask its owner to add your ship in Harness > Tlon > Trusted ships.'
 ++  sender
   |=  [our=@p event=incoming-event:v8:a]
   ^-  (unit @p)

@@ -1,4 +1,4 @@
-// Real unpermissioned DM delivery. No synthetic Activity facts or paid model.
+// Real unpermissioned DMs are silently ignored. No synthetic Activity facts or paid model.
 // Restores policy/defaults. Leaves the fixture messages and denial audit note.
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
@@ -42,6 +42,7 @@ async function until(label, check) {
   throw new Error(`Timed out: ${label}`)
 }
 const denials = (status) => status.events.filter((notice) => notice.kind === 'permission-denied' && notice.actor === peer)
+const outgoing = (page) => Object.values(page.writs || {}).filter((post) => post.essay?.author === ship).map((post) => post.seal.id)
 try {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   await client.start()
@@ -51,9 +52,9 @@ try {
   await client.call('harness/tlon/configure', { enabled: true, owner: ship, mentions: true, trusted: [] })
   const start = await client.call('harness/tlon')
   const old = new Set(denials(start).map((notice) => notice.sequence))
+  const sentBefore = outgoing(await page(true))
   await send('first')
   await until('permission denial recorded without admitting a conversation', async () => denials(await client.call('harness/tlon')).some((notice) => !old.has(notice.sequence)))
-  await until('fixed lack-of-permission notice delivered to the sender', async () => JSON.stringify(await page(true)).includes('You do not have permission to use this Harness bot.'))
   const first = denials(await client.call('harness/tlon')).length
   await send('second')
   await until('second message arrived locally', async () => JSON.stringify(await page()).includes(`${marker}-second`))
@@ -63,7 +64,8 @@ try {
   assert.equal(end.lanes, start.lanes, 'no new Harness conversation')
   assert.deepEqual(end.policy.trusted, [], 'no automatic Harness grant')
   assert.equal(requests, 0, 'no inference for an unpermissioned sender')
-  console.log('PASS rate limiting, zero inference, no automatic permissions')
+  assert.deepEqual(outgoing(await page(true)).filter((id) => !sentBefore.includes(id)), [], 'no reply or permission-denied message was sent')
+  console.log('PASS silent rejection, rate-limited local audit, zero inference, no automatic permissions')
 } finally {
   try {
     if (defaults) await client.call('harness/defaults/configure', { config: { ...defaults, key: '' } })

@@ -4,10 +4,12 @@
 ::  are accepted only on our subscription to the local activity agent.
 /-  t=harness-tlon, h=harness, hh=harness-hand, ad=harness-adapter, a=tlon-activity-ver, dv=tlon-channels-ver, ac=acp, cr=harness-cron
 /-  notes=tlon-notes
+/-  hooks=tlon-hooks
 /+  default-agent, dbug, p=harness-tlon-policy, continuity=harness-tlon-continuity, io=harness-tlon-io, publication=harness-tlon-publication, profile=harness-tlon-profile, presence=harness-tlon-presence, clock=harness-tlon-clock, hj=harness-json, wire-codec=harness-acp, ht=harness-tools, cron-lib=harness-cron, reminder=harness-reminder, hd=harness-hand, media-lib=harness-tlon-media, s3=harness-s3, history-page=harness-tlon-history-page, history-read=harness-tlon-history-read, public-context=harness-tlon-context, work=harness-tlon-work, activity-read=harness-tlon-activity, admin=harness-admin
 /+  ownership=harness-ownership
 /+  operations=harness-tlon-operations, denial=harness-tlon-denial
 /+  tlon-spec=harness-tlon-tool, notes-tool=harness-tlon-notes-tool
+/+  hook-tool=harness-tlon-hook-tool
 |%
 +$  card  card:agent:gall
 +$  storage-source  $%([%credentials creds=credentials:s3] [%hosted token=@t config=json])
@@ -396,11 +398,19 @@
   ?:  &(!=(%sending stage.receipt) =(~ (tool-authority:c request.receipt)))
     c(tool-receipts (~(del by tool-receipts.c) id))
   ?.  &(=(%sending stage.receipt) (gte now.bowl (add at.receipt ~m1)))  c
-  =/  body  'uncertain: Messenger acknowledgement was not observed; do not automatically repeat this action'
+  =/  body
+    ?:  (hook-pending body.receipt)
+      'uncertain: native hook result was not observed; inspect the hook before retrying and do not automatically repeat this action'
+    'uncertain: Messenger acknowledgement was not observed; do not automatically repeat this action'
   =?  c  =('pending: awaiting native Notes result' body.receipt)
     (emit:c [%pass /tlon-notes/(scot %uv id) %agent [our.bowl %notes] %leave ~])
+  =?  c  (hook-pending:c body.receipt)
+    (emit:c [%pass /tlon-hooks/(scot %uv id) %agent [our.bowl %channels-server] %leave ~])
   =.  tool-receipts.c  (~(put by tool-receipts.c) id receipt(stage %uncertain, body body))
   (emit:c [%give %fact ~[/tools/(scot %uv id)] %noun !>(body)])
+++  hook-pending
+  |=  body=@t
+  |(=('pending: subscribing for native hook result' body) =('pending: awaiting native hook result' body))
 ++  tool
   |=  req=tool-request:ad
   ^+  cor
@@ -420,6 +430,11 @@
     =/  parsed  (de:json:html args.call.req)
     ?.  ?=([~ %o *] parsed)  (finish-tool id 'error: expected Tlon arguments object')
     =/  action  (~(get by p.u.parsed) 'action')
+    ?:  ?&  ?=([~ %s *] action)
+            (mutates:~(. hook-tool bowl) p.u.action)
+            (lien ~(val by tool-receipts) |=(receipt=tool-receipt:t &(=(%sending stage.receipt) (hook-pending body.receipt))))
+        ==
+      (finish-tool id 'error: another native hook change is pending; inspect it before changing hooks again')
     ?:  |(=(`[%s 'upload_image'] action) =(`[%s 'upload_file'] action))
       ?:  (~(has by p.u.parsed) 'path')  (start-file-upload id u.parsed)
       (start-upload id u.parsed)
@@ -1024,7 +1039,44 @@
     ?.  =(%sending stage.u.receipt)  cor
     ?:  &(=(~ p.sign) =('pending: awaiting native Notes result' body.u.receipt))
       (emit [%pass /tlon-notes/(scot %uv id) %agent [our.bowl %notes] %watch /v1/request/(scot %uv id)])
-    (finish-tool id ?~(p.sign body.u.receipt 'failed: native Tlon rejected the action; check the target and this ship permissions'))
+    (finish-tool id ?~(p.sign body.u.receipt (cat 3 'failed: native Tlon rejected the action; ' (error-text:~(. hook-tool bowl) u.p.sign))))
+      [%tlon-hooks @ ~]
+    =/  id=@uv  (slav %uv i.t.wire)
+    =/  receipt  (~(get by tool-receipts) id)
+    ?~  receipt  cor
+    ?.  =(%sending stage.u.receipt)  cor
+    ?:  ?=(%kick -.sign)
+      (finish-tool id 'uncertain: native hook subscription closed; inspect hooks before retrying')
+    =/  args  (need (de:json:html args.call.request.u.receipt))
+    ?:  ?=(%watch-ack -.sign)
+      ?.  =('pending: subscribing for native hook result' body.u.receipt)  cor
+      ?^  p.sign  (finish-tool id 'failed: native hooks could not be watched; no mutation was sent')
+      =/  authority  (tool-authority request.u.receipt)
+      ?.  ?&(?=(^ authority) =(call.request.u.receipt call.u.authority))
+        =.  cor  (emit [%pass wire %agent [our.bowl %channels-server] %leave ~])
+        (finish-tool id 'rejected: hook authority was revoked before dispatch; no mutation was sent')
+      =/  command  (mole |.((command:~(. hook-tool bowl) args)))
+      ?~  command
+        =.  cor  (emit [%pass wire %agent [our.bowl %channels-server] %leave ~])
+        (finish-tool id 'failed: native hook state or arguments changed before dispatch; no mutation was sent')
+      =.  tool-receipts  (~(put by tool-receipts) id u.receipt(body 'pending: awaiting native hook result'))
+      (emit [%pass /tlon-hook-poke/(scot %uv id) %agent [our.bowl %channels-server] %poke %hook-action-0 !>(u.command)])
+    ?.  ?=(%fact -.sign)  cor
+    ?.  &(=('pending: awaiting native hook result' body.u.receipt) =(%hook-response-0 p.cage.sign))  cor
+    =/  result  (mole |.((response:~(. hook-tool bowl) args !<(response:hooks q.cage.sign))))
+    ?~  result  cor
+    ?~  u.result  cor
+    =.  cor  (emit [%pass wire %agent [our.bowl %channels-server] %leave ~])
+    (finish-tool id u.u.result)
+      [%tlon-hook-poke @ ~]
+    ?.  ?=(%poke-ack -.sign)  cor
+    ?~  p.sign  cor
+    =/  id=@uv  (slav %uv i.t.wire)
+    =/  receipt  (~(get by tool-receipts) id)
+    ?~  receipt  cor
+    ?.  =(%sending stage.u.receipt)  cor
+    =.  cor  (emit [%pass /tlon-hooks/(scot %uv id) %agent [our.bowl %channels-server] %leave ~])
+    (finish-tool id 'failed: native Tlon rejected the hook change; inspect get_hook before retrying')
       [%tlon-notes @ ~]
     =/  id=@uv  (slav %uv i.t.wire)
     =/  receipt  (~(get by tool-receipts) id)
@@ -1048,7 +1100,15 @@
           =/  confirmed  (mole |.((deletion-confirmed:~(. notes-tool bowl) args)))
           ?:  =(`& confirmed)  'confirmed: notebook is absent from the native Notes directory after deletion'
           'uncertain: native Notes request is still pending; inspect the notebook before retrying'
-        %no-change  'confirmed: native Notes reported no change'
+        %no-change
+          =/  args  (need (de:json:html args.call.request.u.receipt))
+          =/  action  (required:tlon-spec args 'action' 32)
+          ?.  |(=('publish_note' action) =('unpublish_note' action))
+            'confirmed: native Notes reported no change'
+          =/  confirmed  (mole |.((publication-confirmed:~(. notes-tool bowl) args)))
+          ?:  =(`& confirmed)
+            'confirmed: native Notes public snapshot state verified; inspect get_note_publication for its path'
+          'uncertain: native Notes publication state could not be verified; inspect get_note_publication before retrying'
         %notebook
           =/  summary  summary.body.response
           (en:json:html (pairs:enjs:format ~[['status' %s 'saved'] ['notebook' %s (rap 3 (scot %p ship.flag.summary) '/' name.flag.summary ~)] ['root_folder_id' %s (scot %ud +(id.notebook.summary))]]))
@@ -1282,15 +1342,13 @@
   =/  cutoff  (max after (fall (~(get by cuts) u.sender) `@da`0))
   ?.  ?=(%dm-invite -.event)
     ?:  (lte (posted-at:continuity event) cutoff)  cor
-    (send-denial u.sender (scot %uv (sham event)))
-  (send-denial u.sender (scot %uv (sham event)))
-++  send-denial
+    (record-denial u.sender (scot %uv (sham event)))
+  (record-denial u.sender (scot %uv (sham event)))
+++  record-denial
   |=  [who=@p event=@t]
   ^+  cor
   ?.  (allowed:denial now.bowl who event notices)  cor
-  =.  cor  (note 'permission-denied' who (scot %p who) event)
-  =.  last-sent  (next-message-stamp:p now.bowl last-sent)
-  (emit (publish:messenger /permission-notice [%dm who ~] message:denial last-sent))
+  (note 'permission-denied' who (scot %p who) event)
 ++  saved-config
   |=  sid=@t
   ^-  (unit config:h)

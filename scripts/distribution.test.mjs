@@ -38,6 +38,22 @@ test('the distribution includes its own tests, not the runtime development suite
   const own = (await readdir(new URL('../desk/tests/', import.meta.url))).sort()
   assert.deepEqual(shipped, own)
 })
+test('namespaced Tlon imports include every dependency, including multiline hooks imports', async () => {
+  const hooks = await readFile(new URL('sur/tlon-hooks.hoon', desk), 'utf8')
+  for (const dependency of ['activity-ver', 'chat-ver', 'contacts', 'meta']) assert.ok(hooks.includes(`=tlon-${dependency}`))
+  for (const kind of ['sur', 'lib']) {
+    for (const file of (await readdir(new URL(`${kind}/`, desk))).filter((name) => name.startsWith('tlon-') && name.endsWith('.hoon'))) {
+      const source = await readFile(new URL(`${kind}/${file}`, desk), 'utf8')
+      for (const [, rune, imports] of source.matchAll(/^\/([+-])  (.+)$/gm)) {
+        for (const token of imports.split(/[, ]+/).filter(Boolean)) {
+          const name = token.split('=').at(-1).replace(/^\*/, '')
+          assert.ok(name.startsWith('tlon-'), `${file}: unnamespaced import ${name}`)
+          await assert.doesNotReject(access(new URL(`${rune === '-' ? 'sur' : 'lib'}/${name}.hoon`, desk)))
+        }
+      }
+    }
+  }
+})
 test('dynamic marks cover compiler bootstrap and the native noun exchange', async () => {
   assert.deepEqual((await readdir(new URL('gub/mar/', desk))).sort(), ['hoon.hoon', 'kelvin.hoon', 'mime.hoon', 'noun.hoon', 'tang.hoon'])
 })

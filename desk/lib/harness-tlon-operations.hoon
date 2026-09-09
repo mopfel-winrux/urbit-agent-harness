@@ -4,6 +4,7 @@
 /-  cite=tlon-cite
 /+  spec=harness-tlon-tool, io=harness-tlon-io, conversation=harness-tlon-conversation-tool, contact=harness-tlon-contact-tool, group-tool=harness-tlon-group-tool, policy=harness-tlon-group-policy, message=harness-tlon-message-tool
 /+  notes=harness-tlon-notes-tool, inbox=harness-tlon-inbox-tool, club=harness-tlon-club-tool
+/+  hooks=harness-tlon-hook-tool, publishing=harness-tlon-publish-tool
 |_  bowl=bowl:gall
 ++  groups
   ^-  groups:v9:g
@@ -27,6 +28,10 @@
   ^-  [body=@t effect=(unit card:agent:gall)]
   =/  action  (required:spec args 'action' 32)
   ?:  =('help' action)  [help:spec ~]
+  ?:  (handles:~(. hooks bowl) action)
+    ?>  ?=([@ @ ~] wire)
+    (run:~(. hooks bowl) args /tlon-hooks/[i.t.wire])
+  ?:  (handles:~(. publishing bowl) action)  (run:~(. publishing bowl) args wire)
   ?:  &(=('edit_message' action) !(has:spec args 'channel'))
     ['error: native Tlon supports editing channel posts and replies, not DM or group-DM messages' ~]
   ?:  =('get_message' action)  [(en:json:html (read:~(. message bowl) args)) ~]

@@ -91,6 +91,26 @@ test('Tlon is a replaceable hand, not an inference engine', async () => {
   assert.doesNotMatch(adapter, /%connect\b|%request.*%iris|harness-provider|harness-store/)
   assert.match(adapter, /%harness-hand/)
 })
+test('unpermissioned Tlon senders have a local audit, never an outbound denial', async () => {
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const arm = adapter.split('++  record-denial\n')[1].split('\n++  ')[0]
+  assert.match(arm, /allowed:denial/)
+  assert.match(arm, /note 'permission-denied'/)
+  assert.doesNotMatch(arm, /%pass|publish|messenger|last-sent/)
+  assert.doesNotMatch(code('harness-tlon-denial'), /\+\+  message/)
+})
+test('native hook mutation subscribes before dispatch and waits beyond transport acknowledgement', async () => {
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const hookTool = code('harness-tlon-hook-tool')
+  assert.match(hookTool, /\(command args\)[\s\S]*%watch \/v0\/hooks/)
+  assert.doesNotMatch(hookTool, /%poke/)
+  const watch = adapter.split('      [%tlon-hooks @ ~]\n')[1].split('      [%tlon-hook-poke @ ~]\n')[0]
+  assert.ok(watch.indexOf('tool-authority request.u.receipt') < watch.indexOf('%poke %hook-action-0'))
+  assert.ok(watch.indexOf("u.receipt(body 'pending: awaiting native hook result')") < watch.indexOf('%poke %hook-action-0'))
+  assert.match(watch, /%hook-response-0/)
+  const ack = adapter.split('      [%tlon-hook-poke @ ~]\n')[1].split('      [%tlon-notes @ ~]\n')[0]
+  assert.match(ack, /\?~  p.sign  cor/)
+})
 
 test('history pagination is bounded, read-only and follows current lane authority', async () => {
   const reader = code('harness-tlon-history-read')
