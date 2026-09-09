@@ -27,6 +27,11 @@ reruns inference. The transport and destination remain adapter choices.
 
 ## ACP over authenticated Eyre
 
+The ACP API is served by the ship. HTTP-capable clients, including the bundled
+browser, use it directly; neither `acp/harness-acp.mjs` nor `acp/hand-client.mjs`
+is required. `harness/hand` is an ACP method on that API, not an off-ship service
+or a standalone HTTP URL.
+
 Each client opens a unique connection in `%acp`, sends JSON-RPC frames to its
 agent queue, and polls its client queue. Frames have monotonically increasing
 sequence numbers and are acknowledged cumulatively. A client reconnecting to
@@ -44,8 +49,8 @@ Use `Cache-Control: no-cache` or a query nonce for polls. The poke actions are
 `open`, `send`, `ack`, and `close`; see `desk/sur/acp.hoon` for their exact noun
 shape. Initialize the JSON-RPC connection before invoking session methods.
 
-For editors and command-line integrations, the dependency-free adapter exposes
-the same connection as NDJSON:
+For clients that launch a local agent process and speak stdin/stdout, the
+optional dependency-free bridge exposes the same connection as NDJSON:
 
 ```sh
 SHIP_URL=http://localhost:8081 \
@@ -89,8 +94,8 @@ Clients need not own the prompt to inspect the run. For example:
 ```
 
 Use an actual completed assistant entry's `eventCount` as the branch point.
-Snapshots report phase, revision, full transcript entries, model, usage, and
-origin. `entries: null` means the supplied revision is unchanged, not an empty
+Snapshots report phase, revision, recent transcript entries, model, usage,
+origin and a history cursor. Use `harness/session/history` for older pages. `entries: null` means the supplied revision is unchanged, not an empty
 transcript. Keep the prior entries. Event counts survive context compaction.
 
 `session/close` does not cancel work. `session/cancel` explicitly stops the
@@ -110,7 +115,7 @@ development use. A native client can then:
 - scry `/x/sessions` for session ids;
 - scry `/x/session/<session-id>` for a derived view;
 - scry `/x/events/<session-id>` for chronological events;
-- scry `/x/snapshot/<session-id>` for the same full transcript projection as ACP;
+- scry `/x/snapshot/<session-id>` for the recent transcript window and cursor;
 - scry `/x/head/<session-id>` for a typed noun containing revision, derived
   view, and next decision. Reading this does not execute that decision.
 
@@ -160,17 +165,20 @@ observations so an external producer cannot bypass the binding's actor checks.
 
 Settings → MCP stores a global registry of stateless Streamable HTTP servers.
 Each entry has a stable id, display name, URL, enabled flag, and endpoint-bound
-headers. Conversations granted the `mcp` tool family receive two generic
-functions:
+headers. Grant each server explicitly with `{"mcp":"server-id"}` in the
+conversation's tools. A grant permits that server's tools; registration alone
+grants nothing. The model uses:
 
-- `list_mcp_tools(server)` sends JSON-RPC `tools/list`;
-- `call_mcp_tool(server, name, arguments)` sends JSON-RPC `tools/call`.
+- `list_mcp_servers()` to discover granted, enabled server IDs and names;
+- `list_mcp_tools(server)` to request JSON-RPC `tools/list`;
+- `call_mcp_tool(server, name, arguments)` to request JSON-RPC `tools/call`.
 
 The model discovers a server's current schema only when needed, keeping remote
 tool catalogs out of every prompt. Headers are sent only to the configured URL.
 MCP results return through Iris and become ordinary tool-result events. The
-current hand targets stateless endpoints; session negotiation, server-sent
-notifications, and OAuth acquisition are separate optional hands.
+client supports stateless endpoints, not session negotiation, server-sent
+notifications or OAuth acquisition. A local `%mcp-server` also connects through
+a native Gall bridge; see [local discovery](peers.md#local-mcp-discovery).
 
 ## Properties integrations can rely on
 

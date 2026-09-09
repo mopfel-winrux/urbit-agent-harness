@@ -5,9 +5,9 @@ the model loop, transcript, tool policy, or inference credentials. A Tlon chat,
 mailbox, editor, or service can use the same protocol through native Gall nouns
 or the `harness/hand` ACP extension. No social desk is required by Harness.
 
-The first capability is `publish`: admit text, run the head, and deliver its
-terminal answer. Provider and tool execution still use their existing paths;
-this is not yet the dispatch contract for every effect in the system.
+The `publish` capability admits text, runs the head and delivers its terminal
+answer. Provider and tool execution use separate dispatch paths; this protocol
+governs conversation input and publication, not every effect in the system.
 
 ```text
 surface event → binding → durable observation queue → session head
@@ -46,6 +46,10 @@ a publication already claimed. Receipts can still reconcile it.
 
 ## ACP
 
+The hand API runs on the ship. Call `harness/hand` directly through an ACP
+connection; no adapter script is required. The JavaScript helper below only
+packages those calls and delivery-recovery rules for an external connector.
+
 Initialize an ordinary ACP connection. The response advertises
 `_meta["harness/hand"] = {version: 2, capabilities: ["publish"]}`.
 Send actions as the params of `harness/hand`:
@@ -69,7 +73,7 @@ const hand = new HandClient(acp, {
 const { sessionId } = await acp.call('session/new', { name: 'support' })
 const config = await acp.call('harness/session/config', { sessionId })
 await acp.call('harness/session/configure', {
-  sessionId, config: { ...config, key: '', tools: ['clay'] },
+  sessionId, config: { ...config, key: '', tools: [{ clay: '/harness/lib' }] },
 })
 const { binding } = await hand.register({
   address: 'opaque-channel-and-thread', sessionId, actors: ['alice'],
@@ -120,8 +124,9 @@ supplies its hand/worker ids and defaults `external` to the empty string.
 Pages clamp `limit` to 1–4; the helper defaults to one and `outbox()` follows
 pages. Numeric id ordering is for traversal, not chronological delivery. A
 changing outbox is not a frozen snapshot: start another pass to discover new
-effects whose ids sort before a cursor. `receipt` without an attempt remains
-accepted only for the first claim generation; new clients use `receipt-at`.
+effects whose ids sort before a cursor. Use `receipt-at` with the
+attempt returned by the claim. The attempt-free `receipt` action is restricted
+to the first claim generation.
 
 ## Admission and recovery
 
@@ -215,7 +220,7 @@ so retrying an already admitted event still recovers its identity.
 
 The operational ledger admits at most 256 observations per binding and 2,048
 globally, with at most 256 active bindings. These are backpressure limits, not
-silent deletion rules. Data already present during an upgrade is preserved.
+silent deletion rules.
 Text is limited to 65,536 bytes and source ids to 512 bytes; binding metadata,
 receipt fields, retries and recovery histories have bounded admission too.
 The semantic session log is separate and is not pruned by these limits.
@@ -280,7 +285,7 @@ Eyre projects the JSON scries at `/~/scry/harness/hands/<binding>.json` and
 `/~/scry/harness/hand-outbox/<hand>.json`. Both transports call the same pure
 gates in `desk/lib/harness-hand.hoon`.
 
-## Scope and next hands
+## Adapter scope
 
 The [Tlon hand](tlon.md) maps authenticated activity to `observe`, encodes the
 channel/thread as an opaque address, and implements `publish`. Its DM/channel
@@ -288,6 +293,6 @@ protocols and social permissions stay in `%harness-tlon`, outside the head.
 
 Binding/queue/outbox state belongs to `%harness` and survives agent reloads.
 Grubbery can host an adapter as a supervised process; losing that process need
-not lose its inputs or claims. Automatic adapter supervision, road/weir
-manifests, scoped ACP credentials, per-binding budgets, richer payload
-references, and provider/tool effect unification remain roadmap work.
+not lose its inputs or claims. The protocol does not provide automatic adapter supervision,
+per-worker credentials or per-binding model budgets. Its publication payload
+is text; provider and tool execution have separate contracts.

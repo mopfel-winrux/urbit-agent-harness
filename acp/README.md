@@ -1,7 +1,15 @@
-# Harness ACP adapter
+# ACP clients and the optional stdio bridge
 
 `harness-acp.mjs` projects the on-ship `%acp` queues onto newline-delimited
 JSON over stdin/stdout. It contains no agent loop and stores no transcript.
+
+The API runs on the ship, not in this script. The browser and HTTP-capable
+services connect directly through authenticated Eyre; native Urbit apps can
+use pokes, watches and scries. No local Node process is required for those clients.
+
+Use this bridge only when a client expects to launch an executable and exchange
+ACP over stdin/stdout. An HTTP endpoint cannot supply a local process's streams
+without a client-side bridge.
 
 ```text
 ACP client <-- NDJSON --> harness-acp.mjs <-- authenticated Eyre --> %acp
@@ -47,7 +55,10 @@ Harness tools.
 ## Conversation hands
 
 `hand-client.mjs` adapts any initialized `call(method, params)` client to the
-`harness/hand` extension. It manages no transport or model loop. Bind a source
+on-ship `harness/hand` method. It is an optional helper library, not a server or
+required adapter process. Call the method directly when a helper is unnecessary;
+see [HTTP connection details](../docs-refs/integrations.md#acp-over-authenticated-eyre).
+It manages no transport or model loop. Bind a source
 to a configured session, admit observations with stable source ids, and deliver
 the independent publication outbox with claims and receipts. Native adapters
 use the same contract without ACP. See [hands](../docs-refs/hands.md) for the

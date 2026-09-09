@@ -5,6 +5,24 @@ Groups desk's activity feed, authenticates the source actor against its social
 policy, and uses the same conversation-hand ledger available through ACP.
 It does not run an inference loop or hold provider credentials.
 
+There are two independent surfaces:
+
+- The reply hand admits authorized incoming messages and publishes final replies.
+  Bound conversations receive destination-scoped tools.
+- The ship-wide `tlon` tool performs explicitly requested social and content
+  operations, including while automatic replies are disabled.
+
+Use [ship-wide tools](#ship-wide-tlon-tool) for messaging and administration,
+[Notes](#group-notes-bulk-imports-and-diary-migration) for notebooks and imports,
+[hooks](#persistent-channel-hooks) for persistent native programs,
+[publishing](#public-web-publishing) for public content,
+[storage](#images-and-storage) for uploads, and
+[scheduling](#conversation-tools-and-scheduled-work) for cron and reminders.
+[Authority](#authority-and-conversation-scope) and
+[delivery](#delivery-and-operation) apply across these workflows.
+
+## Setup and public identity
+
 Open **Tlon** above Settings in the sidebar. Select an owner, add trusted ships,
 choose their tools, then enable the hand. Nicknames search the Contacts directory;
 every selection shows and saves the actual `@p`. Suggestions search known ships,
@@ -30,6 +48,10 @@ threads, lists DMs and group members, adds/removes reactions, manages contacts,
 reads/updates this ship's profile, and updates group/channel names and descriptions.
 `{"action":"help"}` describes the arguments.
 These are native Tlon operations as this ship, subject to Tlon's own permissions.
+
+This is a broad, separately removable grant extending beyond the current
+conversation. Trusted ships receive only explicitly granted tools. Their
+implicit current-conversation tools do not grant ship-wide access.
 
 Normal final replies are delivered to the DM/channel/thread that prompted the
 agent automatically. `send_dm` and `send_channel` are for separate messages to
@@ -125,7 +147,7 @@ The same grant also covers:
   They add ship-wide access and non-image files. A `path` is a ship-local Clay
   `/desk/path/ext`, requires an additional matching Clay read grant, and never
   invokes a desk-defined converter. It is not a host operating-system path.
-  The existing current-conversation `tlon_upload_image` remains available.
+  The current-conversation `tlon_upload_image` is separately available.
   URL sources retain HTTPS/no-redirect restrictions; all uploads are capped at
   8 MiB and may be public under the configured storage policy.
 
@@ -271,39 +293,6 @@ hosting. Notes publications are snapshots, not live Markdown; republish after
 editing. Unpublishing removes local serving but cannot erase third-party copies
 or caches. Neither form grants access to other unpublished ship content.
 
-This is a broad, separately removable grant: it extends beyond the current
-conversation. Existing saved defaults and conversation grants are preserved.
-Trusted ships receive only the tools explicitly granted to them; their implicit
-current-conversation history, reaction, upload and scheduling tools do not grant
-ship-wide `tlon` access.
-
-Unpermissioned senders are silently ignored: no reply, no permission-denied DM,
-no model call and no automatic trust grant. This covers DM invitations, existing
-DMs, channel mentions and replies to the bot. A local, rate-limited audit entry
-records addressed attempts without accepting the DM invitation or messaging its
-sender. Whitelist checks remain unchanged.
-
-Native verification: `scripts/tlon-actions-conformance.mjs` exercises the broad
-tool with automatic replies disabled; `scripts/tlon-denial-conformance.mjs`
-checks real two-ship silent rejection, local audit rate limiting and zero model calls.
-`scripts/tlon-completion-conformance.mjs` checks permissions, moderation, full
-message reads, activity, clubs, Notes and granted Clay uploads on local fake
-`~lux`, restoring policy and storage settings afterward.
-`scripts/tlon-hooks-publishing-conformance.mjs` checks real hook compilation,
-activation, reactions, schedules, compiler failures, publication without a login,
-and removal. It uses unique fake-ship fixtures and removes their persistent hooks,
-publications, notebook and group afterward.
-The completion fixture deliberately reads deleted messages to check rejection;
-native missing-message scries can print `bail: 4` / `bail: 2`. The pinned Tlon
-chat source also emits `chat-club-action-2` on its old `/v3` club paths while
-declaring `chat-club-action-1`, producing `%bad-fact-mark` diagnostics during
-club changes. Harness uses v4 club reads; the fixture verifies the resulting
-native state rather than treating those diagnostics as proof of failure.
-`scripts/tlon-groups-conformance.mjs` checks requester-admin creation, role
-semantics, real two-ship invitation/join flows, and denied/authorized remote
-administration. Set `SHIP_COOKIE`, `SHIP_URL`, `PEER_COOKIE`, and `PEER_URL` to
-local fake test ships. It removes its unique groups and restores Tlon policy.
-
 ## Models and failures
 
 Tlon uses the same providers and credentials as every other Harness client.
@@ -371,9 +360,8 @@ Preferences are explicit pinned notes in one sender/destination conversation.
 Saving a preference in a DM does not authorize publishing it into a channel.
 Skills are an owner-managed shared instruction library, not personal memory.
 Social conversations and their descendants cannot write, stage or publish into
-that library, even if an old saved configuration contains those grants. An
-operator can deliberately install reusable instructions outside a social
-conversation; existing library contents are not silently removed.
+that library, regardless of saved tool grants. An operator can deliberately install
+reusable instructions outside a social conversation.
 
 For a channel thread, ordinary message admission captures the native parent
 and up to eight recent replies as attributed public reference material. The
@@ -465,6 +453,12 @@ S3 endpoint, and restores the test ship's storage configuration.
 
 ## Authority and conversation scope
 
+Unpermissioned senders are silently ignored: no reply, no permission-denied DM,
+no model call and no automatic trust grant. This covers DM invitations,
+existing DMs, channel mentions and replies to the bot. A local, rate-limited
+audit entry records addressed attempts without accepting the invitation or
+messaging the sender.
+
 - New owner conversations inherit the tools in **Settings → Defaults**, not the
   entire catalog. Existing conversations keep their configured grants. Ownership
   still permits conversation admission and invitation acceptance without tools.
@@ -501,9 +495,8 @@ Publication checks the exact current binding and actor again after claiming,
 before sending. Async callbacks and self-dispatched work carry request generations,
 so reusing a tool-call ID cannot revive an old request. Previously emitted network
 operations cannot be undone; their receipts and uncertainty remain evidence.
-Saving unchanged policy leaves routes and sessions alone. Migration retains each
-currently routed conversation's existing head ID; it does not merge transcripts
-from earlier retired policy epochs or alias scheduled runs as conversations.
+Saving unchanged policy leaves routes and sessions alone. Conversation heads
+remain distinct from authorization bindings and scheduled-run sessions.
 
 `scripts/tlon-continuity-conformance.mjs` exercises native DM/channel threads,
 unrelated and affected permission edits, notes, chosen settings, timers, schedules,
@@ -512,7 +505,7 @@ usual ship/peer/nest variables, and `TEST_PANE` for the test ship's Dojo. It res
 policy, defaults and original native trust; marked test messages and audit records
 remain in the disposable conversations.
 
-The adapter watches `/v4` with the version-8 activity vocabulary. Top-level
+The adapter watches `/v4` using the native Activity vocabulary. Top-level
 messages and replies are normalized once, using the durable source message key.
 Channel replies retain their parent activity time; DM replies retain the author's
 writ id, **not** its local activity timestamp. Styled input retains text, links,
@@ -618,11 +611,11 @@ mentions and grants still apply. The normal source-event identity prevents
 re-admission across restart; quoted messages and new nonconversational Activity
 variants do not acquire command authority.
 
-The cursor recovers events still retained by native Activity. It is not a promise
-to recover deleted or expired native history. Migration starts at its own time
-instead of answering old conversations retroactively; already retained jobs
-remain recoverable. `activityThrough` and `catchingUp` expose the checkpoint and
-whether more work remains.
+The cursor recovers events still retained by native Activity, not deleted or
+expired native history. Initial activation sets an admission cutoff rather
+than answering all historical messages. Retained jobs remain recoverable.
+`activityThrough` and `catchingUp` expose the checkpoint and whether more
+work remains.
 
 ### Retention and capacity
 
@@ -653,8 +646,8 @@ conversation directory retains up to 128 identities, including inactive ones.
 Schedules have their own 64-entry cap, in addition to the head's ledger limits.
 Capacity errors are reported, not solved by deleting history. Binding
 export/retirement and conversation-directory capacity need explicit operational
-care; there is no automatic history
-pruning or offline activity-feed backfill yet.
+care. History pruning is not automatic; activity catch-up is limited to
+events retained by native Activity and eligible under the admission cutoff.
 
 ## Source boundaries
 
@@ -667,13 +660,9 @@ pruning or offline activity-feed backfill yet.
 - `app/harness-tlon`: subscription, admission and delivery lifecycle.
 - React `TlonSettings`, `TlonModels`, `TlonProfile`, `ShipPicker`, `ToolOptions`: replaceable configuration UI.
 
-`zig build` runs `scripts/stage-tlon.mjs`, which pins Tlon protocol dependencies
-at `938f0c44d693f6f7391cca8107c7b3a40b834a01` and stages only their source closure,
-prefixed `tlon-`. It imports no applications, desk bill, frontend, or ACP agent.
-The harness's generic ACP transport is unchanged. The protocol patterns draw on
-the `reid/tlon-acp` work in `tlon-apps`; the Story codec adapts the reusable
-`story-parse` library in `np/claw`, with thread addressing and fenced-code handling
-implemented here.
+`zig build` runs `scripts/stage-tlon.mjs` to stage the pinned Tlon protocol
+source closure with a `tlon-` prefix. It imports no applications, desk bill,
+frontend or ACP agent. The dependency revision is defined in that script.
 
 ## Conversation tools and scheduled work
 
@@ -723,7 +712,7 @@ bound conversation. Creation requires `schedule`, `timezone: "UTC"`, `prompt`, a
 `runs` (a decimal string, 1–100). Five-field expressions support `*`, steps,
 ranges and lists; weekdays are 0=Sunday through 6=Saturday. Restricted
 day-of-month and weekday fields use OR semantics. Local/IANA timezones and DST
-are not supported yet; convert deliberately to UTC, never guess. Invalid or
+are not supported; convert deliberately to UTC, never guess. Invalid or
 impossible schedules fail rather than becoming a more frequent schedule.
 The next occurrence must fall within the bounded four-year search horizon.
 
@@ -756,12 +745,12 @@ Behn drives the existing hand maintenance loop. A due occurrence becomes an
 idempotent hand observation and follows the normal execution/publication ledger.
 Downtime coalesces to one due run, without replaying a missed backlog. Runs do not
 overlap pending execution or an uncertain publication. The schedule advances in
-the same state transition that records its pending admission. The first version
+the same state transition that records its pending admission. The adapter
 retains at most 64 schedule records. Clear completed or cancelled schedules in the
 GUI to free capacity; unused runs do not prevent clearing a cancellation, even
 before its first run. Transcripts and delivery evidence remain. Running, pending or
 uncertain work cannot be cleared. Clearing disables the binding and removes its
-execution authority. Schedule resumption remains future work.
+execution authority. Paused schedules require explicit rescheduling.
 
 Settings → Tlon → Scheduled work shows the schedule, remaining runs, execution,
 delivery and pause reason. Cancellation is immediate for pending work but cannot
@@ -771,6 +760,20 @@ represented as a delivered reminder. ACP exposes `harness/tlon/cron` and
 server's `clearable` field controls the GUI and is rechecked on every clear.
 
 ## Testing
+
+`scripts/tlon-actions-conformance.mjs` exercises the broad
+tool with automatic replies disabled; `scripts/tlon-denial-conformance.mjs`
+checks real two-ship silent rejection, local audit rate limiting and zero model calls.
+`scripts/tlon-completion-conformance.mjs` checks permissions, moderation, full
+message reads, activity, clubs, Notes and granted Clay uploads on disposable test ships, restoring policy and storage settings afterward.
+`scripts/tlon-hooks-publishing-conformance.mjs` checks real hook compilation,
+activation, reactions, schedules, compiler failures, publication without a login,
+and removal. It uses unique fake-ship fixtures and removes their persistent hooks,
+publications, notebook and group afterward.
+`scripts/tlon-groups-conformance.mjs` checks requester-admin creation, role
+semantics, real two-ship invitation/join flows, and denied/authorized remote
+administration. Set `SHIP_COOKIE`, `SHIP_URL`, `PEER_COOKIE`, and `PEER_URL` to
+local fake test ships. It removes its unique groups and restores Tlon policy.
 
 `desk/tests/harness-tlon.hoon` exercises the pure authority, scope and Story rules.
 `scripts/tlon-conformance.mjs` exercises real DMs, channel mentions, threads,

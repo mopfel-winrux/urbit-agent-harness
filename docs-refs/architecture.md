@@ -1,10 +1,32 @@
 # Architecture
 
-Harness is an Urbit-native durable agent head and effect router. The head owns
-durable sessions and decides the next event. Providers, tools, timers, peers,
-channels, sandboxes, and clients are replaceable hands that cross typed
-boundaries and return facts to the log. The React interface is an inspector and
-control panel, not the application boundary.
+Harness has one authoritative conversation service and multiple ways to use it.
+The ship stores accepted inputs, configuration, tool requests, results and
+answers. A model provider produces responses; a client displays and controls
+work; neither owns the conversation.
+
+The **head** is `%harness`: it admits work, replays session history, decides the
+next step and accepts results. **Hands** are adapters at its boundaries.
+A conversation hand connects an external surface to an input queue and
+publication ledger. Provider and tool executors use their own dispatch paths;
+a single generic effect-run protocol is not the execution boundary.
+
+## Mental model
+
+| Concept | Meaning |
+| --- | --- |
+| Session | Durable event log plus request identity; independent conversation state |
+| View | State derived by replaying that log |
+| Model context | Selected instructions, notes, summaries, recent exchanges and tool schemas |
+| Client connection | Transport queue and subscriptions, not the session itself |
+| Binding | Authorized route from a surface and actors to a session |
+| Publication | A terminal answer awaiting external delivery, tracked independently of inference |
+| Grant | Permission to use a tool family or named resource |
+| Receipt | Evidence of a particular result or delivery attempt, not universal proof of remote completion |
+
+One history supports several views: a human transcript, bounded provider input,
+a search index and replay checks. The separation keeps continuity independent
+of browser lifetime and makes execution and delivery failures inspectable.
 
 ## Desk shape
 
@@ -24,8 +46,6 @@ applications, or a competing agent tree.
 Runtime startup retains its code/Clay watch, process clock, HTTP bindings and
 recovery of explicitly opened Gall/Lick resources. It does not initialize terminal,
 keyring, peer-directory or browser-push services, or implicitly mirror `%base`.
-Previously mounted desks and durable service data are preserved; retiring old
-subscriptions is separate from deciding what a fresh boot should initialize.
 
 ## Code boundaries
 
@@ -63,7 +83,7 @@ flowchart TD
   Effects --> Tools
 ```
 
-The contingent pieces have narrow jobs:
+Supporting modules have narrow responsibilities:
 
 | Module | Owns | Does not own |
 |---|---|---|
@@ -77,15 +97,14 @@ The contingent pieces have narrow jobs:
 | `harness-lcm` / `harness-lcm-context` | Immutable summary forest, addressed planning and validation | Provider dispatch or credentials |
 | `harness-corpus` / `harness-corpus-index` | Disposable incremental source projection and segmented lexical index | New input, external-app reads or inference |
 | `harness-corpus-json` | Authorized search/read/expansion projections | Authority decisions or scheduling |
-| `sur/lib/harness-store` | Exact saved envelopes and version conversion | The running decision loop |
+| `sur/harness-store` / `lib/harness-store` | Saved-state envelopes and loading | The running decision loop |
 
 Gall keeps admission, authorization, request identities, event appends and
 settlement together because its state and emitted cards commit in one event.
 The effect door receives only the bowl and MCP registry; the ACP door receives
 only our ship identity. Neither receives the session store. These are trusted
 code boundaries, not substitutes for the Grubbery weirs that sandbox processes.
-The explicit persistence constructors remain verbose on purpose: every field
-retained across a saved-state version must be auditable.
+Persistence loading is separate from the running decision loop.
 
 To extend Harness, choose the boundary before adding a special case:
 
@@ -148,9 +167,10 @@ Native consumers can scry either a derived session view or its chronological
 event projection. Subscriptions deliver typed `%harness-update` facts; clients
 that understand Harness nouns do not have to pass through ACP or React.
 
-The complete semantic transcript remains on ship. Only a bounded request view
-is sent to a provider. Compaction stores a summary while retaining the event
-record from which the current view is derived.
+The semantic transcript remains on ship; model requests use a selected context
+view. Budget checks and compaction reduce request size without deleting source
+events. Estimates are not exact tokenization, and an indivisible oversized
+exchange can fail locally. See [context and memory](context-and-memory.md).
 
 `lib/harness-session.hoon` exposes pure `next`, `inspect`, `snapshot`, and `branch`
 gates. `inspect` returns the revision, replayed view, and next decision; it
@@ -167,9 +187,8 @@ this same gate. The gates are a reusable head boundary, not a second scheduler.
 
 ## Grubbery's role
 
-Grubbery is the modular process substrate, not the product namespace. Its
-nexus, Fiber, Dart, road, and weir vocabulary gives Harness a path toward small
-supervised capabilities with explicit authority:
+Grubbery provides supervised processes and constrained resource access.
+Its vocabulary describes the runtime:
 
 - Fibers describe asynchronous programs.
 - Darts name effects outside deterministic state.
@@ -177,9 +196,9 @@ supervised capabilities with explicit authority:
 - Weirs constrain the roads a capability can reach.
 - Child processes isolate work and make failure inspectable.
 
-Harness can therefore grow tools, channels, storage hands, or local inference
-as optional processes instead of enlarging its central decision loop. The
-minimal root keeps that direction available without shipping unrelated apps.
+Harness uses this runtime for session mirrors and separate replay verification.
+Optional process-based adapters can use its supervision and resource boundaries
+without becoming conversation owners.
 
 Every Gall session has a supervised verifier delegated by the root nexus to
 `lib/harness-session-nexus.hoon`. The head publishes a source noun under
@@ -217,37 +236,9 @@ source without adding a semantic event or running inference.
 This is a separately executed replay/current-decision checkpoint, **not a second
 executor** and not proof that every actual dispatched effect was correct.
 It uses the same reducer, so agreement is not an independent semantic oracle.
-Snapshots often include an already-pending effect, so the next decision can
-be empty. Capturing and comparing the complete intent/receipt sequence at
-dispatch boundaries remains necessary before moving session ownership.
+Snapshots can include an already-pending effect, so the next decision can
+be empty. The check does not compare the full dispatched intent/receipt sequence.
 `%harness` remains authoritative; native apps and ACP clients share its head.
-
-The intended namespace is:
-
-```text
-/agents/<agent>/
-  profile/
-  policies/
-  skills/
-  tools/
-  sessions/<session>/
-    config
-    events
-    view
-    inbox.sig
-    outbox/
-    runs/<run-id>/{intent,progress,receipt}
-    children/
-  channels/
-  executors/
-```
-
-The session grubs can grow into supervised reducers; each open effect can then
-become a child run. Skills, policies, and tool bundles become versioned
-namespace files. Weirs enforce the same capability grants that the reducer
-checks before dispatch. Promotion is staged behind replay-conformance tests so
-`%harness-grub` only becomes authoritative after identical event logs produce
-identical views and effects.
 
 ## Providers
 
@@ -258,11 +249,13 @@ endpoint, model, headers, system instructions,
 context budget, enabled tool families
 ```
 
-Known endpoints select a per-provider credential held outside the session log;
-arbitrary headers support compatible gateways. OpenRouter,
-OpenAI API keys, Anthropic, and custom endpoints use the OpenAI Chat
-Completions shape. OpenAI device login uses the ChatGPT Codex Responses shape
-and its streamed event envelope behind the same session boundary.
+Known endpoints select a provider credential held outside the session log;
+arbitrary headers support compatible gateways. OpenRouter, OpenAI API keys,
+Anthropic and custom endpoints use the OpenAI Chat Completions shape.
+OpenAI device login uses the ChatGPT Codex Responses shape and its streamed
+event envelope behind the same session boundary. API and device credentials
+are separate; device tokens renew on use on the ship. See
+[authentication](acp.md#provider-authentication).
 
 New conversations snapshot the durable agent defaults and may then diverge.
 Model catalogs are fetched by Iris and returned through the requesting ACP
@@ -270,20 +263,20 @@ connection. When a provider publishes context-window metadata, selecting that
 model updates the session budget automatically. Catalog failure or absent
 metadata never prevents a manually entered model name.
 
-The [context and memory implementation](context-and-memory.md) separates
-authoritative history from model context and the derived lexical corpus index.
-Hierarchical compaction uses frozen source plans, separately selected summary
-models, accounted usage and shared `/context` and `/compact` commands. Corpus
-scope identities survive renaming, and bounded source reads expand summaries
-back to evidence. State version 14 wraps version 13 with summary overrides and
-the rebuildable index/continuation. Compaction does not bound full-log replay.
+The [context and memory service](context-and-memory.md) separates authoritative
+history from model context and the derived lexical corpus index. Hierarchical
+compaction uses frozen source plans, separately selected summary models,
+accounted usage and shared `/context` and `/compact` commands. Corpus scope
+identities survive renaming, and bounded reads expand summaries back to evidence.
+Compaction does not bound full-log replay.
 
 ## Tools and authority
 
 Tool families are granted per conversation. Fresh-install defaults enable all
 standard local families, including broad Clay reads, general HTTP, shared
 skill writing, authoring, subagents, peers and corpus recall. MCP servers still
-need named grants; Tlon tools derive from live hands. New owner Tlon conversations
+need named grants. The ship-wide Tlon family is included in bootstrap defaults;
+destination-scoped Tlon tools derive from live hands. New owner Tlon conversations
 inherit configured defaults too. Saved defaults and existing conversations keep
 their explicit grants; changing bootstrap policy never rewrites their history.
 Remote, scheduled, delegated, and rehearsal
@@ -293,8 +286,8 @@ checks the current grant again; internal self-pokes must also correspond to a
 durable outstanding call.
 
 The experimental `%code` family is discoverable but excluded from bootstrap
-defaults. Its `run_js` tool uses the original QuickJS/WASM Spider executor.
-It grants broad host APIs rather than inheriting Clay, network or Tlon tool
+defaults. Its `run_js` tool uses the QuickJS/WASM Spider executor.
+It exposes broad host APIs rather than inheriting Clay, network or Tlon tool
 scopes. Tlon conversations may use an explicit grant, subject to the live
 sender-permission ceiling; non-owner senders also need `%code` in their Tlon
 grants. Schedules and rehearsals cannot execute it.
@@ -311,27 +304,20 @@ cannot undo requests already accepted by an external server. IDs are authority
 identities: replacing an endpoint under the same ID retains its grants, so do not
 reuse an ID for an unrelated server.
 
-The version-10 migration snapshots legacy broad MCP grants to the IDs registered
-at upgrade, including disabled entries. Defaults, peers, trusted Tlon policy and
-current sessions migrate once. Session migration appends a configuration event;
-the old history remains intact. A historical bare `mcp` grant is readable but
-inactive, and new JSON policy must name servers. Later registration grants nothing.
-
 Clay grants name component-wise prefixes, such as `{"clay":"/harness/lib"}`.
 They permit reads and listings at that path and below, not sibling paths or
 ancestor listings. Discovery exposes only granted roots. Reads fetch raw stored
 nouns and render known formats locally; desk-defined converters never execute.
-Version 12 (Tlon version 3) migrates legacy broad Clay authority to an explicit
-`{"clay":"/"}` compatibility grant, preserving history with appended config
-events. The UI labels that grant as broad and supports replacing it with paths.
-Bare `clay` strings are inactive and rejected in new policy writes.
+The `{"clay":"/"}` grant permits reads across all desks. The UI labels it as
+broad and supports replacing it with paths. JSON policy requires an explicit
+path object; a bare `clay` string does not grant access.
 
 Search-provider configuration belongs to the effect owner, not model arguments.
-Version 11 retains Brave as the upgrade default and adds SearXNG's configured
-instance URL. Both use `web_search` and the Web grant. Pending searches retain
-their dispatch provider across configuration changes and reloads. SearXNG uses
-form POST to `<instance-base>/search`, with JSON results normalized to the same
-bounded title/link/excerpt contract; Brave credentials are never sent there.
+Brave and SearXNG both use `web_search` and the Web grant. Pending searches
+retain their dispatch provider across configuration changes and reloads.
+SearXNG uses form POST to `<instance-base>/search`, with JSON results normalized
+to the same bounded title/link/excerpt contract; Brave credentials are never
+sent there.
 
 The Tlon tool bridge illustrates the same boundary for native hands: the head
 records a tool request, the hand validates its exact call and provider generation,
@@ -340,17 +326,18 @@ acknowledgement is distinct from remote delivery. Old invocation IDs cannot sett
 new calls with a reused provider call ID. Optional hand authority is rechecked at
 dispatch and receipt admission, including scheduled sessions' source grants.
 
-`harness-cron` provides pure strict UTC calendar logic and schedule data. Its first
-host is the Tlon hand, not another inference agent. Scheduled sessions inherit no
-parent transcript and cannot recursively schedule or delegate. Due occurrences
+`harness-cron` provides pure strict UTC calendar logic and schedule data.
+The Tlon hand hosts it; there is no separate scheduling inference agent.
+Scheduled sessions inherit no parent transcript and cannot recursively schedule
+or delegate. Due occurrences
 become idempotent hand observations; normal head settlement produces publication
-evidence. The Tlon version-4 envelope retains schedule and tool receipt state
-without changing the head's persistence layout. See [Tlon scheduling](tlon.md#conversation-tools-and-scheduled-work)
-for the initial limits and owner controls.
+evidence. Schedule and tool receipts persist in the Tlon adapter. See
+[Tlon scheduling](tlon.md#conversation-tools-and-scheduled-work) for limits and
+owner controls.
 
 Experimental skill authoring can stage, rehearse, publish or discard instructions.
 It is enabled by bootstrap defaults. Rehearsals only retain inherited Clay
-and skill reads; dispatch enforces that ceiling even for older or edited configs.
+and skill reads; dispatch enforces that ceiling independently of saved config.
 They consume inference and create session evidence, but cannot use web, MCP,
 code execution, peers, child agents or skill mutations. Publication is a separate
 shared-library mutation: the current tool has no owner-approval or successful-test
@@ -378,11 +365,8 @@ started elsewhere. The browser reconciles snapshots rather than treating its
 private notification queue as the authoritative transcript. Admission receipts
 connect a local message id to the ship's durable input id.
 
-Presentation chunks are not semantic session events, but the current transport
-still carries them through Arvo and durable ACP queues. A truly off-ship live
-stream requires an executor-to-client path; it is not provided by labeling
-chunks transient. Similarly, effect intent/receipt nouns currently describe a
-contract to implement across all hands, not an executor boundary already in use.
+Presentation chunks are not semantic session events. They still travel through
+Arvo and durable ACP queues; there is no direct executor-to-client stream.
 
 ## Trust boundaries
 
@@ -413,24 +397,12 @@ contract to implement across all hands, not an executor boundary already in use.
   writes may instead use separately authorized hands or configured MCP servers.
 - External channels and remote peers require narrow typed adapters.
 
-## Build discipline
+## Build and verification
 
-`build.zig` pins Grubbery, assembles its libraries and marks, adapts its Clay
-desk identity, renames the runtime agent, and overlays this desk. A release is
-validated by assembling into a fresh `%harness` desk, committing through Clay,
-compiling all five agents, opening multiple ACP connections, and completing a
-real provider turn. The roadmap records further checks that should become
-automated.
+Zig assembles the minimal Grubbery runtime, its required marks and this desk's
+overlay. The runtime and head are installed together; Tlon remains an optional
+integration with a separately installed Groups desk.
 
-Production assembly removes the runtime's development-test Ford imports along
-with its test suite. The dynamic namespace includes the four compiler bootstrap
-marks plus `%noun`, required for the head/verifier exchange. Without it, a fresh
-runtime stores inputs unvalidated and cannot start their processes. Artifact
-checks in `scripts/distribution.test.mjs` catch these packaging omissions before
-deployment; the live cancellation and verifier tests exercise the boundary.
-
-For incremental development, assemble to `zig-out` and copy the intended
-overlay files to the mounted desk. Full synchronization removes files absent
-from the build output; do not accidentally prune test dependencies or other
-mounted development files. Run `-test /=harness=/tests/harness` for pure head
-checks and `scripts/conformance.mjs` for live two-client checks.
+See [development](development.md) for build safety, native tests, artifact checks
+and live lifecycle fixtures. Verification distinguishes replay agreement,
+actual effect results and external delivery evidence.

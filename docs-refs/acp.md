@@ -7,7 +7,7 @@ it. The browser and stdio adapter are equal clients.
 ```text
 browser ─┐
 editor ──┼─> independent %acp queues ─> %harness sessions
-future ──┘
+service ─┘
 ```
 
 Each connection has two monotonically sequenced queues. A client acknowledges
@@ -17,9 +17,9 @@ stealing another client's updates.
 
 Queue admission is bounded by both count and bytes: 1,024 frames and 4 MiB per
 direction on one connection, with 8,192 frames and 16 MiB across all connections.
-Individual frames remain limited to 1 MiB. Existing queues above a new limit
-survive upgrades unchanged; acknowledgements release space. Exhaustion rejects
-new frames, not old evidence. An explicitly closed transport can be discarded;
+Individual frames are limited to 1 MiB.
+Acknowledgements release space. Exhaustion rejects new frames, not retained
+evidence. An explicitly closed transport can be discarded;
 it is not the primary conversation log or publication ledger. A rejected or
 missing response does not prove the corresponding mutation was never admitted:
 inspect durable state before retrying it.
@@ -42,7 +42,7 @@ hands use the same command interpreter; adapters do not implement command logic.
 | `/model <id>` | Change the model within the current provider. |
 | `/model default` | Copy the current default provider/model settings into this conversation. |
 | `/context` | Inspect the encoded-request estimate, input/output budgets, retained context and compaction usage. |
-| `/compact` | Summarize older complete exchanges with the current provider; retain the recent turn and full transcript. |
+| `/compact` | Summarize older complete exchanges through the configured summary route; retain the recent turn and full transcript. |
 | `/memory` | List the current conversation's pinned notes. |
 | `/remember <name> <text>` | Save or replace a note, retained verbatim across compaction. |
 | `/forget <name>` | Unpin a note; earlier messages and checkpoints are not erased. |
@@ -73,7 +73,7 @@ unknown commands reply with help guidance. Paths such as `/tmp/file` and `//`
 escapes remain ordinary text. Each accepted command records its input and a
 `command-completed` audit event linked by input ID. Successful `/compact` instead
 records its acknowledgement in `checkpoint-completed`, following the frozen
-`lcm-planned` event (legacy `compaction-planned` remains replayable). Replies appear in the shared transcript and ordinary
+`lcm-planned` event. Replies appear in the shared transcript and ordinary
 ACP/hand output. Summary usage is included in cumulative usage and separately
 reported as `compactionUsage`; failed summaries retain the prior context and do
 not automatically retry. See the [ACP slash-command protocol](https://agentclientprotocol.com/protocol/v1/slash-commands).
@@ -96,8 +96,8 @@ Harness extensions use the same JSON-RPC connection:
 `session/list` orders conversations by durable modification time, descending,
 and includes `modifiedAt` as Unix milliseconds. Reads and verifier refreshes do
 not modify this timestamp. Creation, accepted input, results, configuration and
-rename do; deletion removes the index entry. Migration uses the newest retained
-input timestamp where available, otherwise null rather than a fabricated time.
+rename do; deletion removes the index entry. An unavailable modification time
+is null.
 The GUI searches conversation names across the list and shows 20 matches at a
 time, with explicit loading of additional matches. That name filter does not
 read bodies; **Search content** uses the separate indexed corpus methods below.
@@ -158,8 +158,7 @@ check}` for a `sessionId`. Require a matched check at the same revision with
 catches changed skill visibility. `harness/session/recheck` queues an independent
 check from the authoritative source and returns `{queued, revision}` without
 running inference. See [architecture](architecture.md#grubberys-role) for its
-sandbox, crash checkpoint and limits; it does not yet verify all dispatched
-effects.
+sandbox, crash checkpoint and limits; it does not verify all dispatched effects.
 
 `session/load` replays the durable transcript, not the compacted model
 context, before its result when it fits the single-load budget (40 rows and
@@ -238,11 +237,6 @@ requests use the same credential separation as inference. There is no fallback
 between API and device credentials. A missing selected OpenAI credential stops
 inference locally with an authentication error.
 
-For already-stored device tokens in `openai`, a JWT-shaped token is eligible
-only for device requests; it is never sent as an API key. Saving an API key
-preserves that device token in its own slot. Shape recognition is compatibility
-routing, not token validation; the provider still validates the credential.
-
 `harness/status` for `provider: "openai"` returns `has-api-key`,
 `has-device-login`, and a suggested `auth-method` (`api-key` or `device`) in
 addition to `has-key`. The suggestion honors OpenAI defaults when configured,
@@ -252,9 +246,9 @@ different provider, rather than resetting unconditionally to the API route.
 
 Completing device login in the provider settings saves the credential and then
 the selected conversation/default configuration. The login is not shown as
-connected if saving that configuration fails. Existing incorrectly configured
-conversations can select Device login in their model settings and save; no
-transcript rewrite or automatic mass reconfiguration is performed.
+connected if saving that configuration fails. Each conversation can select
+its authentication route in model settings; saving it affects subsequent
+requests without rewriting the transcript.
 
 Subscription and API-key authentication are separate access modes; see
 [OpenAI authentication](https://learn.chatgpt.com/docs/auth). OpenAI device
@@ -278,21 +272,22 @@ strings explicitly clear values from a previous login. Status also exposes
 an empty key removes it. `harness/status` with the same provider reports only
 `has-key`. The React client exposes this under Settings → Search.
 
-The `web_search` tool takes `query` and uses the existing `%web` capability.
-It returns at most five titles, URLs and excerpts; `http_fetch` can read a result.
-The endpoint is fixed, and only the ship supplies the subscription header.
-Queries use the [Brave JSON POST API](https://api-dashboard.search.brave.com/api-reference/web/search/post),
-so spaces, Unicode and query punctuation never pass through URL reconstruction.
-Some Vere builds decode escaped query components before emitting the HTTP
-request line; generic `http_fetch` remains subject to that runtime behavior.
-Search results are untrusted reference material, not executable instructions.
-The same tool is available through every hand; configuring a key grants no
-additional permissions to an existing conversation or trusted Tlon user.
+The `web_search` tool takes `query` under the Web grant and returns at most
+five titles, URLs and excerpts. Select Brave or SearXNG in Settings → Search.
+Brave uses a fixed JSON POST endpoint and a ship-supplied subscription header.
+SearXNG uses form POST to the configured instance's `/search`; the instance
+must enable JSON results. Both return the same bounded result shape.
+The model cannot select the search endpoint or obtain its credential.
 
-With `%mcp`, `list_mcp_servers` discovers enabled IDs and names without exposing
-URLs or headers. The bot then uses `list_mcp_tools` and `call_mcp_tool` with those
-IDs. Discovery reads the current registry on demand, so changing configuration
-does not require rewriting system prompts or opening a new conversation.
+`http_fetch` can read a result with GET. Search results and fetched text are
+untrusted reference material, not instructions. Configuring search does not add
+permissions to existing conversations or trusted Tlon actors.
+
+With a named MCP grant such as `{"mcp":"calendar"}`,
+`list_mcp_servers` discovers granted, enabled IDs and names without exposing
+URLs or headers. The bot uses `list_mcp_tools` and `call_mcp_tool` with those IDs.
+Discovery reads the current registry on demand; registering a server alone
+does not grant access. See [MCP configuration](integrations.md#mcp-client-configuration).
 
 ## Recovery
 
