@@ -11,6 +11,7 @@
 /+  tlon-spec=harness-tlon-tool, notes-tool=harness-tlon-notes-tool
 /+  hook-tool=harness-tlon-hook-tool
 /+  notes-migration=harness-tlon-notes-migration
+/+  membership=harness-tlon-membership
 |%
 +$  card  card:agent:gall
 +$  storage-source  $%([%credentials creds=credentials:s3] [%hosted token=@t config=json])
@@ -1015,6 +1016,10 @@
   |=  [wire=wire sign=sign:agent:gall]
   ^+  cor
   ?+  wire  cor
+      [%channel-join @ @ @ ~]
+    ?.  ?=(%poke-ack -.sign)  cor
+    ?~  p.sign  cor
+    cor(error 'Could not subscribe to an accessible group channel; inspect native Groups state.')
       [%publications ~]
     ?+  -.sign  cor
       %watch-ack
@@ -1321,6 +1326,11 @@
 ++  activity
   |=  event=incoming-event:v8:a
   ^+  cor
+  =/  changed  (target:membership our.bowl enabled.policy event)
+  ?^  changed
+    =/  effects  (mole |.((reconcile:~(. io:membership bowl) u.changed)))
+    ?~  effects  cor(error 'Could not inspect group channels after our role change.')
+    (roll u.effects |=([effect=card c=_cor] (emit:c effect)))
   =.  cor  (deny-unpermissioned event)
   =/  group-notice=(unit [actor=@p host=@p name=@ta])
     ?+  -.event  ~

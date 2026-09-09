@@ -469,6 +469,10 @@ messaging the sender.
 - Other ships and the bot's own messages do not enter inference.
 - Group invitations are accepted only when sent by the owner. DM invitations
   from the owner or a trusted ship are accepted.
+- Joining a group subscribes to its readable channels. When the bot's own group
+  roles change, the hand rechecks native read permissions and joins accessible
+  channels that are not already joined. Role notifications do not grant chat
+  participants any Harness permissions; disabled hands do not reconcile.
 - Channels require a mention by default. Replies to the bot's own posts count
   as addressed; DMs do not require mentions. Turn the requirement off to answer
   every message from allowed actors in channels the ship has joined.
@@ -760,6 +764,13 @@ represented as a delivered reminder. ACP exposes `harness/tlon/cron` and
 server's `clearable` field controls the GUI and is rechecked on every clear.
 
 ## Testing
+
+`scripts/tlon-membership-conformance.mjs` uses two disposable ships to check
+owner invitations and channel joining after a later reader-role grant, including
+restricted channels and disabled-hand behavior. Supply `SHIP_URL`, `SHIP_COOKIE`,
+`PEER_URL` and `PEER_COOKIE`. It makes no model calls, restores Tlon policy and
+removes its fixture group. Pure membership tests live in
+`desk/tests/harness-tlon-membership.hoon`.
 
 `scripts/tlon-actions-conformance.mjs` exercises the broad
 tool with automatic replies disabled; `scripts/tlon-denial-conformance.mjs`

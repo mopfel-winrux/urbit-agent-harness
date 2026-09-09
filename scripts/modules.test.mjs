@@ -91,6 +91,16 @@ test('Tlon is a replaceable hand, not an inference engine', async () => {
   assert.doesNotMatch(adapter, /%connect\b|%request.*%iris|harness-provider|harness-store/)
   assert.match(adapter, /%harness-hand/)
 })
+test('channel reconciliation uses self-role events and native live read authority', async () => {
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const activity = adapter.split('++  activity\n')[1].split('\n++  ')[0]
+  assert.match(activity, /target:membership our\.bowl enabled\.policy event/)
+  assert.match(activity, /reconcile:~\(\. io:membership bowl\)/)
+  const membership = code('harness-tlon-membership')
+  assert.match(membership, /channels\/can-read\/noun/)
+  assert.match(membership, /load\.net\.u\.channel/)
+  assert.doesNotMatch(membership, /%behn|%iris|harness-provider|harness-store|%group-join/)
+})
 test('unpermissioned Tlon senders have a local audit, never an outbound denial', async () => {
   const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
   const arm = adapter.split('++  record-denial\n')[1].split('\n++  ')[0]
