@@ -7,7 +7,6 @@ import ToolOptions, { toggleGrant } from './ToolOptions'
 import TlonIcon from './TlonIcon'
 import TlonProfile from './TlonProfile'
 import TlonModels from './TlonModels'
-import TlonCron from './TlonCron'
 import TlonWork from './TlonWork'
 import PeerTokenLimit from './PeerTokenLimit'
 import { emptyPeers, effectivePeers, applyPeerLimits } from '../peers'
@@ -98,7 +97,8 @@ export default function TlonSettings({ onBack }) {
         <p className="field-note">These permissions belong to Harness. Conversation tools cannot publish private material into the shared skill library.</p>
         <div className="save-bar"><span role="status">{saved ? 'Saved.' : Object.keys(peerEdits).length ? 'Unsaved peer token limits. Applies to the next peer request.' : 'Changed permissions stop affected Tlon work. Conversations and notes remain; unrelated chats continue.'}</span><button className="button primary" disabled={busy || unavailable || (policy.enabled && !policy.owner && !state.value?.siblingMoonOwners) || (Object.keys(peerEdits).length > 0 && (peers.loading || !!peers.error))}>{busy ? 'Saving…' : 'Save Tlon settings'}</button></div>
       </form>
-      <div className="settings-group"><TlonProfile /><TlonModels sessions={state.value?.sessions} /><TlonCron /><TlonWork /></div>
+      <p className="field-note">Manage tasks and reminders from every hand in <a href="#/settings?tab=schedules">Settings → Schedules</a>.</p>
+      <div className="settings-group"><TlonProfile /><TlonModels sessions={state.value?.sessions} /><TlonWork /></div>
     </div>
   </main>
 }

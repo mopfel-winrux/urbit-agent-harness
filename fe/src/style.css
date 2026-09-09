@@ -651,6 +651,8 @@ input:focus, select:focus, .settings-panel textarea:focus, .modal-card textarea:
 .people-suggestions small, .trusted-ship small, .ship-picker > small { color: var(--muted); font-size: 12px; }
 .people-suggestions p { padding: 10px; }
 .trusted-ship { border-top: 1px solid var(--line); padding-top: 14px; min-width: 0; }
+.cron-settings .trusted-ship { margin-top: 20px; overflow-wrap: anywhere; }
+.cron-settings .trusted-ship > p { margin: 8px 0; }
 .trusted-ship summary { cursor: pointer; overflow-wrap: anywhere; }
 .trusted-ship summary small { margin-left: 8px; }
 .trusted-ship .tool-options { margin: 18px 0; }

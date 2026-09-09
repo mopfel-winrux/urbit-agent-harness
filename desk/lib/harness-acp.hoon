@@ -62,7 +62,7 @@
       ['agentCapabilities' capabilities]
       ['authMethods' %a ~]
       ['agentInfo' info]
-      ['_meta' (pairs:enjs:format ~[['harness/hand' (pairs:enjs:format ~[['version' (numb:enjs:format 2)] ['capabilities' %a ~[[%s 'publish']]]])]])]
+      ['_meta' (pairs:enjs:format ~[['harness/hand' (pairs:enjs:format ~[['version' (numb:enjs:format 2)] ['capabilities' %a ~[[%s 'publish']]]])] ['harness/cron' (pairs:enjs:format ~[['version' (numb:enjs:format 1)] ['capabilities' %a ~[[%s 'prompt'] [%s 'reminder']]]])]])]
   ==
 ::
 ++  acp-result-card

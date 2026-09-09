@@ -1,6 +1,6 @@
 ::  Maintenance and bounded Activity catch-up only. Publication retries never
 ::  create timers: native head invalidations and receipts drive delivery.
-/-  t=harness-tlon, cr=harness-cron
+/-  t=harness-tlon
 |%
 ++  deadline
   |=  [now=@da state=state:t]
@@ -8,9 +8,7 @@
   =/  times=(list @da)
     %+  weld
       ?:(enabled.policy.state (turn ~(val by computing.state) |=(lease=presence-lease:t (add at.lease ~s10))) ~)
-    %+  weld
       (murn ~(val by tool-receipts.state) |=(r=tool-receipt:t ?:(=(%sending stage.r) `(add at.r ~m1) ~)))
-    ?:(enabled.policy.state (murn ~(val by cron.state) |=(j=job:cr ?:(=(%active state.j) `next.j ~))) ~)
   =?  times  &(enabled.policy.state !watching.state)  [(add now ~s2) times]
   =?  times  &(enabled.policy.state catching-up.state)  [(add now ~s1) times]
   ?~  times  ~

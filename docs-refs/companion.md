@@ -66,9 +66,10 @@ Use a literal reminder when the desired output is already known. It needs an
 explicit time offset and destination, but no model or provider credits when due.
 A scheduling acknowledgement confirms the saved job, not delivery of its message.
 
-Inspect Scheduled work for execution, delivery and pause state. Permission
+Use any authorized conversation hand; schedules belong to Harness, not Tlon.
+Inspect Settings → Schedules for execution, delivery and pause state. Permission
 changes can pause affected schedules; cancellation cannot retract a send already
-dispatched. See [scheduling](tlon.md#conversation-tools-and-scheduled-work).
+dispatched. See [shared scheduling](scheduling.md).
 
 ## Publish and automate deliberately
 

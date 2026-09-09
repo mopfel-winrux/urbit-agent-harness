@@ -22,6 +22,14 @@ export class HandClient {
   remove(id) { return this.action('remove', { id }) }
   observe(binding, { event, actor, text }) { return this.action('observe', { binding, event, actor, text }) }
   status(binding) { return this.action('status', { binding }) }
+  // Schedules are owned by the head, not this transport. Their results use
+  // the same addressed outbox and exclusive delivery receipts as replies.
+  schedules(binding) { return this.client.call('harness/cron', { binding }) }
+  schedule(binding, { id, actor, kind = 'prompt', ...args }) {
+    return this.client.call('harness/cron/add', { id, binding, actor, kind, args })
+  }
+  cancelSchedule(id) { return this.client.call('harness/cron/cancel', { id }) }
+  clearSchedule(id) { return this.client.call('harness/cron/clear', { id }) }
   publications(after = null, limit = 1) { return this.action('publications', { hand: this.hand, after, limit }) }
   async outbox() {
     const result = []

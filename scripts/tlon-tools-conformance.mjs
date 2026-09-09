@@ -31,7 +31,7 @@ const server = createServer(async (req, res) => {
       for (const result of current) assert.match(result.content, /not granted/)
       return answer(res, 'UNBOUND_DENIED')
     }
-    const scheduled = body.messages.some((m) => m.role === 'system' && m.content.includes('This is a bounded scheduled task'))
+    const scheduled = body.messages.some((m) => m.role === 'system' && /This is (?:a bounded scheduled task|bounded scheduled work)/.test(m.content))
     if (scheduled) {
       scheduledRequests++
       assert.ok(body.tools.some((t) => t.function.name === 'current_time'))

@@ -326,14 +326,17 @@ acknowledgement is distinct from remote delivery. Old invocation IDs cannot sett
 new calls with a reused provider call ID. Optional hand authority is rechecked at
 dispatch and receipt admission, including scheduled sessions' source grants.
 
-`harness-cron` provides pure strict UTC calendar logic and schedule data.
-The Tlon hand hosts it; there is no separate scheduling inference agent.
+`harness-cron` provides pure strict UTC calendar logic and schedule data;
+`harness-schedule` validates jobs and projects their evidence. The head owns
+schedule persistence, the Behn wake and admission for every hand. There is no
+separate scheduling inference agent.
 Scheduled sessions inherit no parent transcript and cannot recursively schedule
 or delegate. Due occurrences
 become idempotent hand observations; normal head settlement produces publication
-evidence. Schedule and tool receipts persist in the Tlon adapter. See
-[Tlon scheduling](tlon.md#conversation-tools-and-scheduled-work) for limits and
-owner controls.
+evidence. Schedules persist in the head store, while concrete tool invocation
+receipts remain with their executor. Tlon transfers legacy records once and
+continues to handle addressed delivery. See [shared scheduling](scheduling.md)
+for limits, native/ACP methods and Settings → Schedules controls.
 
 Experimental skill authoring can stage, rehearse, publish or discard instructions.
 It is enabled by bootstrap defaults. Rehearsals only retain inherited Clay

@@ -2,7 +2,7 @@
 /+  *test, welcome=harness-onboarding, storage=harness-store, hl=harness, defaults=harness-defaults
 |%
 ++  test-first-open-is-a-normal-assistant-message-without-inference
-  =/  saved=state-19  *state-19
+  =/  saved=state-20  *state-20
   =.  defaults.saved  builtin-config:defaults
   =/  out  (ensure:welcome saved)
   =/  ses  (~(got by sessions.+.out) 'welcome')
@@ -15,7 +15,7 @@
     (expect-eq !>(~) !>((decide:hl view |=(~ 0))))
   ==
 ++  test-open-is-idempotent-and-deletion-survives-reload
-  =/  out  (ensure:welcome *state-19)
+  =/  out  (ensure:welcome *state-20)
   =/  saved  +.out
   =/  again  (ensure:welcome saved)
   =/  deleted  saved(sessions ~)

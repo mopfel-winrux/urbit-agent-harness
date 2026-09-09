@@ -110,9 +110,9 @@
 ++  test-hand-tool-generations-have-distinct-receipt-identities
   =/  req=tool-request:ad  ['fixture' 1 ['reused-id' 'tlon_react' '{}']]
   (expect !>(!=((sham req) (sham req(generation 2)))))
-++  test-tlon-participation-implies-all-conversation-tools
+++  test-tlon-participation-implies-only-tlon-tools
   =/  tools  (with-tlon:ht ~)
-  (expect !>(&((tool-granted:ht 'tlon_read_history' tools) (tool-granted:ht 'tlon_react' tools) (tool-granted:ht 'cron_add' tools) !(tool-granted:ht 'http_fetch' tools) !(tool-granted:ht 'call_mcp_tool' tools))))
+  (expect !>(&((tool-granted:ht 'tlon_read_history' tools) (tool-granted:ht 'tlon_react' tools) !(tool-granted:ht 'cron_add' tools) !(tool-granted:ht 'http_fetch' tools) !(tool-granted:ht 'call_mcp_tool' tools))))
 ++  test-legacy-tlon-flags-do-not-authorize-unbound-sessions
   (expect-eq !>(`(list tool-grant:h)`~[%web]) !>((without-tlon:ht ~[%tlon-read %web %tlon-write %cron])))
 ++  test-tlon-is-not-a-configurable-resource-grant

@@ -143,7 +143,8 @@ See the [adapter setup](acp/README.md) and [integration guide](docs-refs/integra
 | [Integrations](docs-refs/integrations.md) | Choosing ACP, native nouns, webhooks, MCP or hands |
 | [ACP reference](docs-refs/acp.md) | Client methods, commands, authentication and recovery |
 | [Conversation hands](docs-refs/hands.md) | Bindings, deduplication, publication receipts and retirement |
-| [Tlon reference](docs-refs/tlon.md) | Social tools, Notes, hooks, publishing, media and scheduling |
+| [Shared scheduling](docs-refs/scheduling.md) | Tasks and reminders from any hand; Settings → Schedules |
+| [Tlon reference](docs-refs/tlon.md) | Social tools, Notes, hooks, publishing and media |
 | [Peers](docs-refs/peers.md) | Ship-to-ship requests, tool RPC and administrative authority |
 | [Context and memory](docs-refs/context-and-memory.md) | Summaries, pinned notes, corpus search and provenance |
 | [JavaScript execution](docs-refs/execution.md) | Opt-in executor, host APIs and resource limits |

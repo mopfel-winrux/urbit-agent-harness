@@ -80,7 +80,7 @@ See [trust boundaries](architecture.md#trust-boundaries),
 [MCP configuration](integrations.md#mcp-client-configuration),
 [peers](peers.md) and [JavaScript execution](execution.md).
 
-## Tlon and scheduled work
+## Tlon
 
 The optional Tlon hand supports owner/trusted-ship DMs, channel mentions and
 threaded replies with separate actor context and live permissions. It shares
@@ -102,14 +102,21 @@ reaction, image-upload and scheduling tools. These do not imply ship-wide access
 Normal final replies are published automatically; explicit sends are for
 separate messages.
 
-UTC cron starts bounded model runs at the original destination. One-shot
-reminders publish literal text without inference. Execution and delivery are
-tracked separately, and uncertain sends require reconciliation.
-
 See the [Tlon reference](tlon.md), particularly its
 [tool catalog](tlon.md#ship-wide-tlon-tool),
-[authority rules](tlon.md#authority-and-conversation-scope) and
-[scheduling contract](tlon.md#conversation-tools-and-scheduled-work).
+[authority rules](tlon.md#authority-and-conversation-scope).
+
+## Shared scheduled work
+
+Every authorized conversation hand can create bounded UTC cron tasks and
+literal one-shot reminders. The Harness head owns the scheduler; each job
+retains its original hand and destination. Tlon is not required. Open
+Settings → Schedules to inspect or cancel jobs from all hands.
+
+Model runs have an isolated conversation and cannot recursively schedule or
+delegate. Reminders publish literal text without inference. Execution and
+delivery are tracked separately, and uncertain sends require reconciliation.
+See the [scheduling contract](scheduling.md).
 
 ## Integration and extension possibilities
 

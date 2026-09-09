@@ -25,10 +25,10 @@ test('work recovery is explicit, attempt-fenced and never silently retries an un
 })
 
 test('literal reminders show their destination and explicit timezone without implying delivery', async ({ page }) => {
-  await page.goto('/apps/harness/tests/tlon-fixture.html')
+  await page.goto('/apps/harness/tests/tlon-fixture.html?schedules')
   await page.evaluate(() => { window.tlonFixture.cron = [{ id: '0v2', kind: 'reminder', prompt: 'Take a break', destination: 'dm/~nec', timezone: 'UTC+05:30', state: 'complete', remaining: 0, execution: 'completed', delivery: 'uncertain' }] })
   await expect(page.getByText(/UTC\+05:30 · literal reminder/)).toBeVisible({ timeout: 8000 })
-  await expect(page.getByText('Destination: dm/~nec', { exact: true })).toBeVisible()
+  await expect(page.getByText(/Destination: dm\/~nec/)).toBeVisible()
   await expect(page.getByText(/Execution: completed · Delivery: uncertain/)).toBeVisible()
 })
 
@@ -48,7 +48,7 @@ test('Tlon settings require no separate image worker configuration', async ({ pa
 })
 
 test('finished schedules clear with acknowledged state; unresolved work stays', async ({ page }) => {
-  await page.goto('/apps/harness/tests/tlon-fixture.html')
+  await page.goto('/apps/harness/tests/tlon-fixture.html?schedules')
   await page.evaluate(() => {
     window.tlonFixture.cron = [
       { id: '0v1', prompt: 'Finished task', remaining: 0, state: 'complete', clearable: true },
@@ -69,11 +69,11 @@ test('finished schedules clear with acknowledged state; unresolved work stays', 
 })
 
 test('scheduled work distinguishes delivery from execution and cancels independently of policy', async ({ page }) => {
-  await page.goto('/apps/harness/tests/tlon-fixture.html')
+  await page.goto('/apps/harness/tests/tlon-fixture.html?schedules')
   await page.evaluate(() => { window.tlonFixture.cron = [{ id: '0v1', runSessionId: 'cron-test', prompt: 'Morning summary', schedule: '0 9 * * *', state: 'active', remaining: 4, next: '~2026.9.6..09.00.00', execution: 'completed', delivery: 'uncertain' }] })
   await expect(page.getByText('Morning summary', { exact: true })).toBeVisible({ timeout: 8000 })
   await expect(page.getByText(/Execution: completed · Delivery: uncertain/)).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Scheduled conversation' })).toHaveAttribute('href', '#/settings/cron-test')
+  await expect(page.getByRole('link', { name: 'Run conversation' })).toHaveAttribute('href', '#/cron-test')
   await page.getByRole('button', { name: 'Cancel schedule', exact: true }).click()
   await expect(page.getByText('Cancelled in owner settings')).toBeVisible()
   expect(await page.evaluate(() => window.tlonFixture.cancelled)).toEqual(['0v1'])

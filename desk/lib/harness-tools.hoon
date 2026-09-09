@@ -70,11 +70,11 @@
 ::  A live Tlon hand supplies them from its actor/conversation authority.
 ++  tlon-tools
   ^-  (list tool-grant:h)
-  ~[%tlon-read %tlon-write %cron]
+  ~[%tlon-read %tlon-write]
 ++  without-tlon
   |=  tools=(list tool-grant:h)
   ^+  tools
-  (skip tools |=(grant=tool-grant:h (lien tlon-tools |=(implicit=tool-grant:h =(grant implicit)))))
+  (skip tools |=(grant=tool-grant:h |(=(%cron grant) (lien tlon-tools |=(implicit=tool-grant:h =(grant implicit))))))
 ++  with-tlon
   |=  tools=(list tool-grant:h)
   ^+  tools
@@ -208,7 +208,8 @@
   ^-  (unit term)
   =/  family  (tool-family name)
   ?~  family  ~
-  ?:(?=(?(%tlon %tlon-read %tlon-write %cron) u.family) `%harness-tlon ~)
+  ?:  =(%cron u.family)  `%harness
+  ?:(?=(?(%tlon %tlon-read %tlon-write) u.family) `%harness-tlon ~)
 ++  tool-granted
   |=  [name=@t tools=(list tool-grant:h)]
   ^-  ?
@@ -290,9 +291,9 @@
         (fun-json 'tlon_upload_image' 'Download a public PNG, JPEG, GIF or WebP up to 8 MiB and upload it using the owner-configured Tlon storage (custom S3 or hosted presigned URLs). Returns a URL; it does not send a message. Use ![description](url) on its own line in your final reply for a native image. Never repeat an uncertain upload automatically.' ~[['url' 'Public HTTPS image URL with a DNS hostname; no credentials or custom ports. Use the final URL: redirects are not followed']])
     ==
       %cron
-    :~  (fun-json 'cron_add' 'Schedule a bounded recurring prompt in this exact Tlon conversation. UTC only; never guess a local timezone. Each run uses the durable input/publication ledger.' ~[['schedule' 'Five-field cron expression in UTC'] ['timezone' 'Must be UTC'] ['prompt' 'Instruction for each run, at most 4096 bytes'] ['runs' 'Maximum number of runs, decimal integer from 1 to 100']])
+    :~  (fun-json 'cron_add' 'Schedule a bounded recurring prompt through this conversation hand, delivered only to this exact destination. The shared Harness scheduler runs an isolated conversation with the current permission ceiling. UTC only; never guess a local timezone. Each run uses the durable input/publication ledger.' ~[['schedule' 'Five-field cron expression in UTC'] ['timezone' 'Must be UTC'] ['prompt' 'Instruction for each run, at most 4096 bytes'] ['runs' 'Maximum number of runs, decimal integer from 1 to 100']])
         (fun-json 'reminder_add' 'Schedule one requested literal reminder in this exact conversation, without inference at delivery time. Require an explicit timezone/UTC offset from the user; ask if it is unknown. Reports scheduling, not delivery. List or cancel with cron_list/cron_remove.' ~[['at' 'Future RFC3339 timestamp within 365 days, e.g. 2026-09-07T09:00:00-05:00; Z means UTC. No inferred timezone'] ['destination' 'Exact destination address from this conversation instructions; no cross-chat delivery'] ['text' 'Literal reminder text, 1..4096 UTF-8 bytes; delivered without running it as a command or instruction']])
-        (fun-json 'cron_list' 'List scheduled work in this exact Tlon conversation, including state and remaining runs.' ~)
+        (fun-json 'cron_list' 'List shared scheduled work originating from this exact hand binding, including state and remaining runs.' ~)
         (fun-json 'cron_remove' 'Cancel a recurring schedule in this conversation. Does not retract already dispatched effects.' ~[['id' 'Schedule ID returned by cron_add or cron_list']])
     ==
       %skills

@@ -91,6 +91,21 @@ test('Tlon is a replaceable hand, not an inference engine', async () => {
   assert.doesNotMatch(adapter, /%connect\b|%request.*%iris|harness-provider|harness-store/)
   assert.match(adapter, /%harness-hand/)
 })
+test('schedules have one shared head owner and no adapter timer', async () => {
+  assert.doesNotMatch(code('harness-schedule'), /harness-tlon|bowl:gall|%pass|\.\^\(/)
+  const head = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  assert.match(head, /poll-schedules:hc/)
+  assert.match(head, /%harness-cron-import/)
+  assert.match(head, /\?:  tlon-cron-imported  `state/)
+  assert.match(head, /harness\/cron/)
+  assert.doesNotMatch(adapter, /\+\+  (?:add-cron|poll-cron|stop-cron)/)
+  assert.doesNotMatch(code('harness-tlon-clock'), /cron|schedule/)
+  const settings = await readFile(new URL('../fe/src/components/Settings.jsx', import.meta.url), 'utf8')
+  const tlon = await readFile(new URL('../fe/src/components/TlonSettings.jsx', import.meta.url), 'utf8')
+  assert.match(settings, /CronSettings/)
+  assert.doesNotMatch(tlon, /<TlonCron|<CronSettings/)
+})
 test('channel reconciliation uses self-role events and native live read authority', async () => {
   const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
   const activity = adapter.split('++  activity\n')[1].split('\n++  ')[0]

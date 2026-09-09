@@ -18,6 +18,10 @@ surface message ← hand ← claim + receipt ← publication outbox
 Acceptance, inference, and publication are separate facts. Losing a connection
 does not cancel the work; failing to publish does not run the model again.
 
+All hands can use [shared scheduled work](scheduling.md). The head owns jobs and
+their timer; the same hand receives each run's addressed publication. Inspect
+tasks and literal reminders from every hand in Settings → Schedules.
+
 ## Binding and authority
 
 A binding has an immutable id, hand id, opaque destination address, session id,

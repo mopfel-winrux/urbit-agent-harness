@@ -76,3 +76,15 @@ test('outbox follows bounded pages without losing the cursor', async () => {
   assert.deepEqual(await hand.outbox(), [{ effectId: '0v1' }, { effectId: '0v2' }])
   assert.deepEqual(calls.map(({ after, limit }) => [after, limit]), [[null, 1], ['0v1', 1]])
 })
+
+test('any hand uses the shared scheduler namespace and retains its source binding', async () => {
+  const calls = []
+  const hand = new HandClient({ call: async (method, params) => { calls.push({ method, params }); return {} } }, { hand: 'mail', worker: 'one' })
+  await hand.schedule('mail-thread', { id: '0v1', actor: 'alice', schedule: '0 9 * * *', timezone: 'UTC', prompt: 'Check mail', runs: '3' })
+  await hand.schedules('mail-thread')
+  await hand.cancelSchedule('0v1')
+  await hand.clearSchedule('0v1')
+  assert.deepEqual(calls.map(({ method }) => method), ['harness/cron/add', 'harness/cron', 'harness/cron/cancel', 'harness/cron/clear'])
+  assert.deepEqual(calls[0].params, { id: '0v1', binding: 'mail-thread', actor: 'alice', kind: 'prompt', args: { schedule: '0 9 * * *', timezone: 'UTC', prompt: 'Check mail', runs: '3' } })
+  assert.deepEqual(calls[1].params, { binding: 'mail-thread' })
+})

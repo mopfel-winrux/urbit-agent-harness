@@ -144,6 +144,13 @@ read bodies; **Search content** uses the separate indexed corpus methods below.
 - `harness/credential/set`
 - `harness/provider/models`
 - `harness/hand`
+- `harness/cron` — optional `{binding}`; shared jobs across hands.
+- `harness/cron/add` — `{id, binding, actor, kind, args}`; idempotent bounded job creation.
+- `harness/cron/cancel` — `{id}`; stops future work, not dispatched effects.
+- `harness/cron/clear` — `{id}`; removes settled schedule records, retaining evidence.
+
+See [shared scheduling](scheduling.md) for the native equivalent, authority,
+limits and legacy Tlon aliases.
 
 `harness/hand` is the bidirectional conversation-adapter extension. It projects
 the same native binding, observation, publication, and receipt contract—not a

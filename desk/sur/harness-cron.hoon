@@ -1,5 +1,5 @@
-::  Reusable schedule data. A hand owns the binding and admission of each run.
-/-  h=harness
+::  Shared scheduler data. The head owns time/admission; hands own delivery.
+/-  h=harness, hh=harness-hand
 |%
 +$  pattern
   $:  minutes=(set @ud)
@@ -24,4 +24,20 @@
       last=(unit @uv)
   ==
 +$  job  [kind=?(%prompt %reminder) timezone=@t destination=@t job-0]
++$  schedule
+  $:  binding=@t
+      actor=@t
+      hand=@t
+      fingerprint=@uvH
+      job
+  ==
++$  action
+  $%  [%add id=@uv binding=@t actor=@t kind=?(%prompt %reminder) args=json]
+      [%list binding=(unit @t)]
+      [%cancel id=@uv]
+      [%clear id=@uv]
+  ==
++$  request  [id=@t act=action]
++$  transfer
+  [jobs=(map @uv job) origins=(map @uv [binding=@t actor=@t])]
 --

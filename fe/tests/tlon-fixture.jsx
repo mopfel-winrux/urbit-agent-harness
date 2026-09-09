@@ -1,10 +1,12 @@
 import { createRoot } from 'react-dom/client'
-import { api } from '../src/api'
+import { api, resourcesFor } from '../src/api'
 import { acp } from '../src/acp'
 import TlonSettings from '../src/components/TlonSettings'
+import Settings from '../src/components/Settings'
 import Sidebar from '../src/components/Sidebar'
 import '../src/style.css'
 
+const schedulesPage = new URLSearchParams(location.search).has('schedules')
 let state = { policy: { enabled: false, owner: '~zod', mentions: true, trusted: [] }, connected: false, sessions: ['nec-dm-test'] }
 window.tlonFixture = { saves: [], modelUpdates: [], cron: [], cancelled: [], work: { records: [], next: null, headConnected: true }, workReads: [], recoveries: [], recoveryError: '', profile: { nickname: 'Existing bot', avatar: 'https://example.com/bot.png' }, profileError: '' }
 acp.call = async (method, params) => {
@@ -19,6 +21,11 @@ api.read = async (path) => path === 'tlon/cron' ? structuredClone(window.tlonFix
 ]
 const read = api.read
 api.read = async (path) => {
+  if (path === 'cron') {
+    if (window.tlonFixture.cronError) throw new Error(window.tlonFixture.cronError)
+    if (window.tlonFixture.holdCron) await new Promise((resolve) => { window.tlonFixture.releaseCron = resolve })
+    return structuredClone(window.tlonFixture.cron)
+  }
   if (path.startsWith('tlon/work')) { window.tlonFixture.workReads.push(path); return structuredClone(window.tlonFixture.work) }
   return read(path)
 }
@@ -51,4 +58,4 @@ api.action = async ({ tlon, tlonProfile, cancelCron, clearCron, hand, retryAdmis
   state = { ...state, policy: tlon }
   return state
 }
-createRoot(document.getElementById('root')).render(<div className="app-shell"><Sidebar chats={['daily-notes']} tlon onSelect={() => {}} onNew={() => {}} /><TlonSettings onBack={() => {}} /></div>)
+createRoot(document.getElementById('root')).render(<div className="app-shell"><Sidebar chats={['daily-notes']} tlon={!schedulesPage} settings={schedulesPage} onSelect={() => {}} onNew={() => {}} />{schedulesPage ? <Settings resources={resourcesFor('')} initialTab="schedules" onBack={() => {}} /> : <TlonSettings onBack={() => {}} />}</div>)

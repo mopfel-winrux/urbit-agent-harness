@@ -64,6 +64,11 @@ the independent publication outbox with claims and receipts. Native adapters
 use the same contract without ACP. See [hands](../docs-refs/hands.md) for the
 protocol, authority boundary, recovery rules, and an integration example.
 
+The same helper exposes `schedule`, `schedules`, `cancelSchedule`, and
+`clearSchedule` through the head-owned `harness/cron` namespace. Scheduling is
+available to any authorized hand and uses its existing delivery outbox; see
+[shared scheduled work](../docs-refs/scheduling.md).
+
 ## Smoke test
 
 Start the adapter and enter:

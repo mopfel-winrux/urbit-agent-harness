@@ -598,10 +598,10 @@ replay a receipt, but never blindly repeat a Messenger send. Late claim and
 receipt responses are fenced by dispatch stage and attempt. Claimed or uncertain
 ledger records block their destination even if this adapter has no cached entry.
 
-Timers are reserved for actual cron deadlines, presence-lease renewal, tool
+Tlon maintenance timers are reserved for presence-lease renewal, tool
 acknowledgement timeouts, Activity subscription recovery and bounded catch-up.
-An idle connected
-hand without a schedule has no wake. Status exposes `deliveryMode: "events"`,
+Schedule deadlines belong to the head's shared scheduler. An otherwise idle,
+connected Tlon hand has no maintenance wake. Status exposes `deliveryMode: "events"`,
 `headConnected`, `publicationsConnected`, and nullable `maintenanceWake`;
 `connected` continues to describe the Activity subscription.
 
@@ -627,7 +627,8 @@ Conversation identities and their notes outlive route authorization. Revocation
 disables the old binding and fences its work; it does not delete its evidence or
 assign its old publications to a new binding. Operational limits are admission
 backpressure, never permission to prune primary history: 128 retained social
-identities, 64 pending admissions and 64 retained schedules, in addition to the
+identities and 64 pending admissions; the head separately retains up to 64
+schedules across all hands. These complement the
 [shared hand limits and archive protocol](hands.md#fair-admission-and-explicit-retention).
 
 To reclaim a settled binding's operational ledger, stop admission by disabling
@@ -670,8 +671,8 @@ frontend or ACP agent. The dependency revision is defined in that script.
 
 ## Conversation tools and scheduled work
 
-Tlon reads, writes and cron are implicit within an authorized Tlon conversation.
-These tools require a current Tlon lane and a matching outstanding head request. They do not
+Tlon reads and writes are implicit within an authorized Tlon conversation.
+These Tlon tools require a current lane and a matching outstanding head request. They do not
 work in an unrelated browser session or a child without a Tlon binding.
 
 `tlon_read_history` returns at most 20 messages with durable IDs, authors and
@@ -711,57 +712,17 @@ remote delivery. Missing acknowledgements become uncertain after a minute and
 are not automatically retried. Ordinary final replies still use the publication
 ledger; there is no arbitrary cross-chat send or group-management grant here.
 
-An admitted actor can use `cron_add`, `cron_list`, and `cron_remove` within their
-bound conversation. Creation requires `schedule`, `timezone: "UTC"`, `prompt`, and
-`runs` (a decimal string, 1–100). Five-field expressions support `*`, steps,
-ranges and lists; weekdays are 0=Sunday through 6=Saturday. Restricted
-day-of-month and weekday fields use OR semantics. Local/IANA timezones and DST
-are not supported; convert deliberately to UTC, never guess. Invalid or
-impossible schedules fail rather than becoming a more frequent schedule.
-The next occurrence must fall within the bounded four-year search horizon.
+Scheduling is a shared head capability, available to every authorized hand.
+Tlon conversations use the same `cron_add`, `cron_list`, `cron_remove` and
+`reminder_add` tools, retaining their exact DM/channel/thread destination and
+live source authority. Tlon delivers their output through its normal publication
+worker; it no longer stores or fires new schedules.
 
-Each schedule owns a separate session at the exact original destination,
-including its thread address. It receives the configured instructions and grants,
-but no parent transcript, no cron grant, and no subagent grant. The source grant
-ceiling remains effective even if the scheduled session's configuration is edited.
-The source snapshot is rechecked at admission, tool dispatch and publication; changing source
-grants pauses the schedule and requires explicit rescheduling. Unrelated social
-policy edits preserve the schedule; affected authorization changes fence it.
-
-`reminder_add` creates a one-shot literal reminder, not a scheduled model prompt.
-Supply the exact conversation `destination`, `text` (1–4,096 UTF-8 bytes), and
-an `at` timestamp such as `2026-09-07T09:00:00-05:00`. A timezone is mandatory:
-`Z` is UTC; explicit offsets range through ±14:00. Missing offsets, the unknown
-offset `-00:00`, invalid calendar dates, past times and times more than 365 days
-ahead are rejected. IANA timezone inference and recurring local-time/DST rules
-are deliberately absent. Ask for the intended offset when it is not known.
-
-Reminders share cron's retained-record limit, Behn wake, cancellation controls,
-authorization fences and publication ledger. The scheduling acknowledgement
-reports the resolved time and exact destination; it is not a delivery receipt.
-When due, the head records a completed literal notification and a pending
-publication without inference, private transcript inheritance or command parsing.
-Text beginning with `/remember` remains message text. Provider availability and
-credits are not required at delivery time. An uncertain send is never repeated
-automatically, including after a restart or permission change.
-
-Behn drives the existing hand maintenance loop. A due occurrence becomes an
-idempotent hand observation and follows the normal execution/publication ledger.
-Downtime coalesces to one due run, without replaying a missed backlog. Runs do not
-overlap pending execution or an uncertain publication. The schedule advances in
-the same state transition that records its pending admission. The adapter
-retains at most 64 schedule records. Clear completed or cancelled schedules in the
-GUI to free capacity; unused runs do not prevent clearing a cancellation, even
-before its first run. Transcripts and delivery evidence remain. Running, pending or
-uncertain work cannot be cleared. Clearing disables the binding and removes its
-execution authority. Paused schedules require explicit rescheduling.
-
-Settings → Tlon → Scheduled work shows the schedule, remaining runs, execution,
-delivery and pause reason. Cancellation is immediate for pending work but cannot
-retract an already dispatched effect. A locally fired or completed run is not
-represented as a delivered reminder. ACP exposes `harness/tlon/cron` and
-`harness/tlon/cron/cancel` and `harness/tlon/cron/clear` (`{"id":"…"}`). The
-server's `clearable` field controls the GUI and is rechecked on every clear.
+Open **Settings → Schedules** for jobs from all hands. The Tlon page links there.
+See [shared scheduling](scheduling.md) for UTC expressions, literal reminders,
+run limits, permission changes, native/ACP methods and the legacy-record handoff.
+The old `harness/tlon/cron`, `/cancel` and `/clear` URLs remain aliases to the
+head-owned service.
 
 ## Testing
 

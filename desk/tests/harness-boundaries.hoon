@@ -14,7 +14,7 @@
 ++  test-rehearsal-does-not-add-read-authority
   (expect-eq !>(`(list term)`~) !>((rehearsal-tools:ht ~[%web %mcp])))
 ++  test-current-store-load-is-an-identity
-  =/  saved=state-19  *state-19
+  =/  saved=state-20  *state-20
   =.  peer-budget-resets.saved  (my ~[[~nec 1.234]])
   =.  defaults.saved  builtin-config:policy
   =.  provider-keys.saved  (my ~[['fixture' 'test-secret']])
@@ -60,7 +60,7 @@
     (expect-eq !>(`(map @p @ud)`~) !>(peer-budget-resets.loaded))
   ==
 ++  test-saved-tool-policy-is-not-replaced-by-bootstrap-defaults
-  =/  saved=state-19  *state-19
+  =/  saved=state-20  *state-20
   =/  cfg  builtin-config:policy
   =.  defaults.saved  cfg(tools ~[%author %skill-write [%mcp 'calendar']])
   =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced defaults.saved]] 0]]])

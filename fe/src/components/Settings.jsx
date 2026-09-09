@@ -8,10 +8,12 @@ import ProviderSettings from './ProviderSettings'
 import SkillSettings from './SkillSettings'
 import MemorySettings from './MemorySettings'
 import PeerSettings from './PeerSettings'
+import CronSettings from './CronSettings'
 
 const baseTabs = [
   ['defaults', 'Defaults'],
   ['memory', 'Memory'],
+  ['schedules', 'Schedules'],
   ['skills', 'Skills'],
   ['peers', 'Peers'],
   ['mcp', 'MCP'],
@@ -35,6 +37,7 @@ export default function Settings({ resources, theme, onThemeChange, onBack, init
       {tab === 'conversation' && <AgentSettings resources={resources} theme={theme} onThemeChange={onThemeChange} />}
       {tab === 'defaults' && <GlobalSettings resources={resources} theme={theme} onThemeChange={onThemeChange} />}
       {tab === 'memory' && <MemorySettings />}
+      {tab === 'schedules' && <CronSettings />}
       {tab === 'skills' && <SkillSettings />}
       {tab === 'peers' && <PeerSettings />}
       {tab === 'mcp' && <McpSettings resources={resources} />}

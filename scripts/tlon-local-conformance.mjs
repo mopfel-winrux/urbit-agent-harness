@@ -13,11 +13,12 @@ const fields = (await readFile(process.env.PEER_COOKIE, 'utf8')).split('\n').fin
 const peerCookie = `${fields[5]}=${fields[6]}`, peer = fields[5].slice('urbauth-'.length)
 const ship = cookie.split('=')[0].slice('urbauth-'.length), marker = `local-${randomUUID()}`
 const client = new Client(), errors = []
-let originals, job
+let originals, job, firedJob, modelCalls = 0
 const server = createServer(async (req, res) => {
   try {
     let raw = ''; for await (const chunk of req) raw += chunk
     const body = JSON.parse(raw), last = body.messages.findLastIndex((m) => m.role === 'user')
+    modelCalls++
     const receipt = body.messages.slice(last + 1).find((m) => m.role === 'tool')
     if (receipt) job = JSON.parse(receipt.content)
     const message = receipt ? { role: 'assistant', content: `${marker}-accepted` } : {
@@ -67,9 +68,25 @@ try {
   const before = await client.call('harness/session/snapshot', { sessionId: job.runSessionId })
   assert.ok(!(await client.call('harness/tlon/cron/clear', { id: job.id })).some((row) => row.id === job.id))
   assert.deepEqual(await client.call('harness/session/snapshot', { sessionId: job.runSessionId }), before)
-  console.log('PASS native DM reply without export blob, removed export API, cancelled unused reminder reclaimed and conversation evidence preserved')
+  const beforeCalls = modelCalls
+  const requestId = `0v${BigInt(`0x${randomUUID().replaceAll('-', '')}`).toString(32).replace(/\B(?=(.{5})+$)/g, '.')}`
+  firedJob = await client.call('harness/cron/add', { id: requestId, binding: job.sourceBinding, actor: peer, kind: 'reminder', args: {
+    at: new Date(Date.now() + 8000).toISOString().replace(/\.\d{3}Z$/, 'Z'), destination: `dm/${peer}`, text: `${marker}-literal-shared-reminder`,
+  } })
+  assert.equal(firedJob.hand, 'tlon')
+  await until('shared head reminder published through Tlon', async () => {
+    const response = await fetch(`${peerUrl}/~/scry/chat/v4/dm/${ship}/writs/newest/32/light.json`, { headers: { cookie: peerCookie }, signal: AbortSignal.timeout(15000) })
+    assert.ok(response.ok)
+    return Object.values((await response.json()).writs || {}).find((row) => row.essay?.author === ship && JSON.stringify(row.essay.content).includes(`${marker}-literal-shared-reminder`))
+  })
+  const delivered = await until('head delivery receipt', async () => (await client.call('harness/cron')).find((row) => row.id === firedJob.id && row.delivery === 'delivered'))
+  assert.equal(delivered.execution, 'completed'); assert.equal(delivered.clearable, true)
+  assert.equal(modelCalls, beforeCalls, 'literal reminder performs no inference')
+  await client.call('harness/cron/clear', { id: firedJob.id }); firedJob = null
+  console.log('PASS native DM reply, cancelled unused reminder reclaimed, preserved conversation evidence, shared-head reminder delivered through Tlon without inference')
 } finally {
   if (job?.id) await client.call('harness/tlon/cron/cancel', { id: job.id }).catch(() => {})
+  if (firedJob?.id) await client.call('harness/cron/cancel', { id: firedJob.id }).catch(() => {})
   if (originals) {
     await client.call('harness/tlon/configure', originals.policy)
     await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '' } })
