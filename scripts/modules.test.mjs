@@ -16,10 +16,15 @@ test('permission synchronization is change-driven and trust reads stay small', a
   const agent = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
   assert.match(agent, /before-access\s+access-inputs:hc/)
   assert.match(agent, /\?:\s+=\(before-access access-inputs:hc\)\s+`state\s+sync-peer-access:hc/)
-  assert.match(agent, /%peer-refresh\s+sync-peer-access/)
-  assert.match(agent, /\?:\(!=\(0 local-mcp-seen\) \| \.\^/)
+  assert.match(agent, /%peer-refresh\s+=\.\s+state\s+discover-local-mcp\s+sync-peer-access/)
+  const flush = agent.split('    flush-auth\n')[1].split('\n++  on-init')[0]
+  assert.doesNotMatch(flush, /mcp-server|discover-local-mcp/)
+  assert.match(agent, /\?:\s+!=\(0 local-mcp-seen\)\s+state/)
   assert.doesNotMatch(code('harness-peer-trust'), /status\/json|mole|dejs|cron|ledger/)
   assert.match(code('harness-peer-trust'), /peer-trust\/noun/)
+  const settings = agent.split('++  peer-settings\n')[1].split('\n++  peer-revision')[0]
+  assert.equal((settings.match(/snapshot:~\(\. peer-trust bowl\)/g) || []).length, 1)
+  assert.doesNotMatch(settings, /trusted-peers|effective-peers|\(is-owner /)
 })
 
 test('default native tests do not construct full Gall agents', async () => {

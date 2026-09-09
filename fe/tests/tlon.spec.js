@@ -115,13 +115,13 @@ test('a Contacts save failure retains the profile draft and can be retried', asy
 
 test('nickname suggestions select concrete ships; tools are explicitly granted', async ({ page }) => {
   await page.goto('/apps/harness/tests/tlon-fixture.html')
-  await expect(page.getByRole('combobox', { name: 'Owner ship' })).toHaveValue('~zod')
+  await expect(page.getByRole('heading', { name: 'Owner', exact: true }).locator('..')).toContainText('~zod')
   const picker = page.getByRole('combobox', { name: 'Add a trusted ship' })
   await picker.fill('alice')
   await expect(page.getByRole('option').first()).toContainText('~nec')
   await page.getByRole('option').first().click()
   await page.locator('.trusted-ship summary').click()
-  await expect(page.getByText(/Tlon actions are available within the conversation without extra grants/)).toBeVisible()
+  await expect(page.getByRole('spinbutton', { name: 'Peer token limit for ~nec' })).toHaveValue('0')
   await expect(page.getByRole('checkbox', { name: /tlon-read|tlon-write|cron/i })).toHaveCount(0)
   await expect(page.getByRole('checkbox', { name: /^Web search & GET/ })).not.toBeChecked()
   await page.getByRole('checkbox', { name: /^Web search & GET/ }).check()
@@ -137,7 +137,7 @@ test('nickname suggestions select concrete ships; tools are explicitly granted',
 
 test('keyboard selection and dark mode work without contacts matching', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
-  await page.goto('/apps/harness/tests/tlon-fixture.html')
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=peers')
   const picker = page.getByRole('combobox', { name: 'Owner ship' })
   await picker.fill('~lu')
   await expect(page.getByRole('option')).toHaveCount(0)
@@ -152,7 +152,7 @@ test('Tlon shows defaults and explicitly applies them to existing sessions', asy
   await page.goto('/apps/harness/tests/tlon-fixture.html')
   await expect(page.getByText('test/model', { exact: false })).toBeVisible()
   await page.getByRole('button', { name: 'Apply defaults to 1 Tlon conversations' }).click()
-  await expect(page.getByRole('status')).toContainText('Updated 1 conversations')
+  await expect(page.getByRole('status').filter({ hasText: 'Updated 1 conversations' })).toBeVisible()
   expect(await page.evaluate(() => window.tlonFixture.modelUpdates)).toEqual(['nec-dm-test'])
   expect(await page.evaluate(() => window.tlonFixture.saves)).toEqual([])
   await page.getByText('Conversation models', { exact: true }).click()

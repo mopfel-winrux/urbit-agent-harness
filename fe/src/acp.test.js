@@ -25,6 +25,8 @@ test('re-delivery after a lost acknowledgement does not duplicate updates', () =
 
 test('queue recovery never repeats a possibly admitted mutation', async () => {
   const client = new AcpClient()
+  client.receivedThrough = 12
+  client.acknowledgedThrough = 12
   const sent = []
   let rejected = false
   client.poke = async (value) => sent.push(value)
@@ -34,6 +36,50 @@ test('queue recovery never repeats a possibly admitted mutation', async () => {
   assert.equal(client.pending.size, 0)
   assert.equal(sent.length, 1)
   assert.ok(sent[0].open)
+  assert.equal(client.receivedThrough, 0)
+  assert.equal(client.acknowledgedThrough, 0)
+})
+
+test('empty polls do not repeat ACKs, while failed ACKs retry without redelivery', async (t) => {
+  const savedDocument = globalThis.document
+  globalThis.document = { hidden: false }
+  t.after(() => { globalThis.document = savedDocument })
+  const client = new AcpClient()
+  const acknowledgements = [], delivered = []
+  let polls = 0
+  client.receive = (frame) => delivered.push(frame)
+  client.poke = async (value) => {
+    acknowledgements.push(value.ack.through)
+    if (acknowledgements.length === 1) throw new Error('lost ACK')
+  }
+  client.dispatchEvent = () => true
+  t.mock.method(globalThis, 'fetch', async () => {
+    polls++
+    return Response.json({ messages: polls <= 2 ? [{ sequence: 1, payload: '{"method":"update"}' }] : [] })
+  })
+  client.waitForPoll = async () => { if (polls === 4) client.running = false }
+  client.running = true
+  await client.poll()
+  assert.equal(polls, 4)
+  assert.deepEqual(acknowledgements, [1, 1])
+  assert.equal(delivered.length, 1)
+  assert.equal(client.acknowledgedThrough, 1)
+})
+
+test('outbound calls wake an idle poll and closure releases a sleeping poll', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const client = new AcpClient()
+  client.poke = async () => {}
+  const sleeping = client.waitForPoll(1500)
+  const reply = client.call('session/list')
+  await sleeping
+  client.receive({ id: 1, result: [] })
+  assert.deepEqual(await reply, [])
+  client.wakePoll() // A send during an in-flight read skips the next sleep.
+  await client.waitForPoll(1500)
+  const closing = client.waitForPoll(1500)
+  client.close()
+  await closing
 })
 
 test('ACP targets the current server, ignoring other localhost cookies and globals', async (t) => {

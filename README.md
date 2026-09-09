@@ -199,3 +199,10 @@ node --test scripts/distribution.test.mjs
 SHIP_URL=http://localhost:8081 SHIP_COOKIE=/path/to/auth-cookie.txt \
   node scripts/conformance.mjs
 ```
+
+For read-only timings through the actual browser transport (including idle
+request counts), run `scripts/performance-read-benchmark.mjs` with `SHIP_URL`
+and `SHIP_COOKIE`. Optional `BENCH_BASE=<git revision>` compares that revision's
+client with the worktree, in both execution orders. It sends no model prompts
+or configuration writes and closes its temporary ACP connections. Run it while
+the ship is idle, separately from full-agent compilation tests.

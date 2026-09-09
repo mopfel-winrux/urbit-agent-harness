@@ -1,48 +1,54 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
+import { createResourceReads } from './resourceReads.js'
 
-// A replaceable client view of an ACP resource, not a second source of truth.
-// Generations fence responses from a closed view or a read predating a save.
-export function useResource(path, fallback, interval = 900) {
+const reads = createResourceReads((path) => api.read(path))
+
+// Stable settings refresh on entry, focus, saves, and a modest safety poll.
+// Live views opt into shorter intervals; overlapping requests share one read.
+export function useResource(path, fallback, interval = 30_000) {
   const [value, replaceValue] = useState(fallback)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const generation = useRef(0)
   const setValue = useCallback((next) => {
-    generation.current++; replaceValue(next); setLoading(false); setError('')
-  }, [])
-
-  const refresh = useCallback(async () => {
-    if (!path) return
-    const epoch = generation.current
-    try {
-      const next = await api.read(path)
-      if (epoch !== generation.current) return
-      replaceValue(next)
-      setError('')
-    } catch (cause) {
-      if (epoch === generation.current) setError(cause.message)
-    } finally {
-      if (epoch === generation.current) setLoading(false)
-    }
+    if (path) reads.replace(path, next)
   }, [path])
+  const refresh = useCallback(() => path ? reads.refresh(path) : Promise.resolve(), [path])
 
   useEffect(() => {
-    setValue(fallback)
-    setLoading(true)
+    replaceValue(fallback)
+    setLoading(Boolean(path))
     setError('')
-    if (!path) { setLoading(false); return undefined }
+    if (!path) return undefined
 
+    const unsubscribe = reads.subscribe(path, (next) => {
+      if ('value' in next) replaceValue(next.value)
+      setError(next.error)
+      setLoading(false)
+    })
     let live = true
     let timer
     const poll = async () => {
       if (!live) return
+      clearTimeout(timer)
       await refresh()
-      if (live) timer = setTimeout(poll, document.hidden ? Math.max(4000, interval) : interval)
+      if (live) {
+        clearTimeout(timer)
+        timer = setTimeout(poll, document.hidden ? Math.max(4000, interval) : interval)
+      }
     }
-    poll()
-    return () => { live = false; generation.current++; clearTimeout(timer) }
-  }, [path, refresh, setValue, interval])
+    const focus = () => { if (!document.hidden) void poll() }
+    window.addEventListener('focus', focus)
+    document.addEventListener('visibilitychange', focus)
+    void poll()
+    return () => {
+      live = false
+      unsubscribe()
+      clearTimeout(timer)
+      window.removeEventListener('focus', focus)
+      document.removeEventListener('visibilitychange', focus)
+    }
+  }, [path, refresh, interval])
 
   return { value, setValue, loading, error, refresh }
 }

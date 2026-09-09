@@ -14,7 +14,7 @@
     %+  mink  [attempt %9 2 %0 1]
     |=  [ref=* raw=*]
     =/  path  ;;(path raw)
-    ?:(=(%gu (head path)) ``%.y ~)
+    ?:(?=([%gu *] path) ``%.y ~)
   ?>  ?=(%0 -.out)
   ;;((list card:agent:gall) product.out)
 ++  watches

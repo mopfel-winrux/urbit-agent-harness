@@ -14,7 +14,7 @@ import { emptyPeers, effectivePeers, applyPeerLimits } from '../peers'
 
 const initial = { enabled: false, owner: null, mentions: true, trusted: [] }
 export default function TlonSettings({ onBack }) {
-  const state = useResource('tlon', null)
+  const state = useResource('tlon', null, 5000)
   const contacts = useResource('tlon/contacts', [], 30_000)
   const tools = useResource('tools', [])
   const mcp = useResource('mcp', [])

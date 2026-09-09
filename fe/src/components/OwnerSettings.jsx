@@ -3,9 +3,8 @@ import { api } from '../api'
 import { useResource } from '../useResource'
 import ShipPicker from './ShipPicker'
 
-export default function OwnerSettings({ onSaved }) {
-  const state = useResource('tlon', null)
-  const contacts = useResource('tlon/contacts', [], 30_000)
+export default function OwnerSettings({ onSaved, contacts }) {
+  const state = useResource('tlon/owner', null)
   const [owner, setOwner] = useState(null)
   const [siblings, setSiblings] = useState(false)
   const [baseline, setBaseline] = useState(null)

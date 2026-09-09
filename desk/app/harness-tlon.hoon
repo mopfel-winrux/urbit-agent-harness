@@ -206,6 +206,15 @@
     (emit [%pass wire %agent [our.bowl %harness] %leave ~])
   =.  cor  (emit [%pass wire %agent [our.bowl %harness] %watch path])
   (emit [%pass /command %agent [our.bowl %harness] %poke %harness-hand !>(`request:hh`[request-id act])])
+++  owner-status
+  ^-  json
+  %-  pairs:enjs:format
+  :~  ['policy' (policy-json:p policy)]
+      ['ship' %s (scot %p our.bowl)]
+      ['isMoon' %b moon:~(. ownership bowl)]
+      ['sponsor' ?:(moon:~(. ownership bowl) [%s (scot %p (sein:title our.bowl now.bowl our.bowl))] ~)]
+      ['siblingMoonOwners' %b sibling-moon-owners]
+  ==
 ++  status
   ^-  json
   =/  head-watch  (~(get by wex.bowl) /head our.bowl %harness)
@@ -265,6 +274,8 @@
     (emit (acp-error-card:codec connection.req id.req '-32601' 'Unknown Tlon method'))
       %'harness/tlon'
     (emit (acp-result-card:codec connection.req id.req status))
+      %'harness/tlon/owner'
+    (emit (acp-result-card:codec connection.req id.req owner-status))
       %'harness/tlon/owner/set'
     =/  parsed
       %-  mole  |.
@@ -604,6 +615,11 @@
   ^-  json
   =/  connected  head-live
   =/  db  ?:(connected ledger *state:hh)
+  =/  admitting  (silt (turn ~(val by jobs) |=(pending=job:t sid.pending)))
+  (cron-one-from id job connected db admitting)
+++  cron-one-from
+  |=  [id=@uv job=job:cr connected=? db=state:hh admitting=(set @t)]
+  ^-  json
   =/  observation  ?~(last.job ~ (~(get by observations.db) u.last.job))
   =/  publication  ?~(last.job ~ (~(get by outbox.db) u.last.job))
   %-  pairs:enjs:format
@@ -623,7 +639,7 @@
       ['execution' ?~(observation ~ [%s phase.u.observation])]
       ['delivery' ?~(publication ~ [%s status.u.publication])]
       ['evidenceAvailable' %b connected]
-      ['clearable' %b &(connected (clearable-cron job))]
+      ['clearable' %b &(connected (cron-clearable:p job db (~(has in admitting) run-sid.job)))]
   ==
 ++  clearable-cron
   |=  job=job:cr
@@ -634,12 +650,20 @@
 ++  cron-json
   |=  sid=(unit @t)
   ^-  json
+  =/  selected
+    %+  skim  ~(tap by cron)
+    |=  [id=@uv job=job:cr]
+    ?~(sid & =(u.sid sid.job))
+  ?~  selected  [%a ~]
+  ::  One live evidence snapshot for this response, shared across every row.
+  ::  Clear mutations continue to use +clearable-cron's fresh checks.
+  =/  connected  head-live
+  =/  db  ?:(connected ledger *state:hh)
+  =/  admitting  (silt (turn ~(val by jobs) |=(pending=job:t sid.pending)))
   :-  %a
-  %+  murn  ~(tap by cron)
+  %+  turn  selected
   |=  [id=@uv job=job:cr]
-  ^-  (unit json)
-  ?:  &(?=(^ sid) !=(u.sid sid.job))  ~
-  `(cron-one id job)
+  (cron-one-from id job connected db admitting)
 ++  add-cron
   |=  [id=@uv req=tool-request:ad authority=tool-authority:ad lane=lane:t args=json]
   ^+  cor

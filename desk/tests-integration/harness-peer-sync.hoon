@@ -39,7 +39,8 @@
   =.  our.bowl  ~zod
   =.  now.bowl  ~2026.9.8
   =/  saved=state-19  *state-19
-  =.  local-mcp-seen.saved  1
+  ::  Even an undiscovered/absent MCP agent must not add callback scries.
+  =.  local-mcp-seen.saved  0
   =/  attempt
     |.
     =/  loaded  (~(on-load head bowl) !>(saved))

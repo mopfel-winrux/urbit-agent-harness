@@ -29,6 +29,7 @@ export const scryUrl = (path) => `/~/scry/harness/${path}.json`
 async function read(path) {
   await acp.start()
   if (path === 'tlon') return acp.call('harness/tlon')
+  if (path === 'tlon/owner') return acp.call('harness/tlon/owner')
   if (path === 'tlon/contacts') return acp.call('harness/tlon/contacts')
   if (path === 'tlon/profile') return acp.call('harness/tlon/profile')
   if (path === 'tlon/cron') return acp.call('harness/tlon/cron')

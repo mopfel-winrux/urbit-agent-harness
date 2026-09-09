@@ -62,7 +62,11 @@ export default function ProviderSettings({ provider, resources }) {
       if (key) await api.action({ 'set-key': { provider: credentialSlot(provider, method), key } })
       await persist(form)
       await status.refresh(); void catalog.refresh()
-    } catch (cause) { setError(cause.message) } finally { setBusy(false) }
+    } catch (cause) {
+      setError(cause.message)
+      // A credential write can succeed even when the following config fails.
+      await status.refresh()
+    } finally { setBusy(false) }
   }
 
   async function acceptCredential({ token, refreshToken = '', account = '' }) {
@@ -77,8 +81,12 @@ export default function ProviderSettings({ provider, resources }) {
       // A completed login commits its matching route, not just its credential.
       // Account identity stays in credential storage, out of conversation logs.
       await persist(withAuth(form, provider, 'device'))
-      await status.refresh(); void catalog.refresh()
-    } finally { setBusy(false) }
+      void catalog.refresh()
+    } finally {
+      // Reflect a committed login even if its separate route save failed.
+      await status.refresh()
+      setBusy(false)
+    }
   }
 
   return <form className="settings-grid" onSubmit={save}>

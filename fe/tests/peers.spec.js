@@ -1,5 +1,21 @@
 import { expect, test } from '@playwright/test'
 
+test('ownership uses a light read and contacts are shared without rapid settings polling', async ({ page }) => {
+  await page.clock.install()
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=peers')
+  await expect(page.getByRole('combobox', { name: 'Owner ship' })).toHaveValue('~bud')
+  const reads = () => page.evaluate(() => window.settingsFixture.reads)
+  const initial = await reads()
+  expect(initial).toContain('tlon/owner')
+  expect(initial).not.toContain('tlon')
+  expect(initial.filter((path) => path === 'tlon/contacts')).toHaveLength(1)
+  await page.clock.fastForward(10_000)
+  const after = await reads()
+  for (const path of ['tlon/owner', 'tlon/contacts', 'defaults', 'tools', 'mcp', 'peers']) {
+    expect(after.filter((read) => read === path)).toHaveLength(1)
+  }
+})
+
 test('Peers is reachable from settings and trusted ships start unlimited', async ({ page }) => {
   await page.goto('/apps/harness/tests/settings-fixture.html?page=shell&global')
   await page.getByRole('button', { name: 'Peers', exact: true }).click()
@@ -61,6 +77,7 @@ test('failed peer limit saves keep the draft and report the partial Tlon save', 
 test('peer load errors do not expose an editable fallback policy', async ({ page }) => {
   await page.goto('/apps/harness/tests/settings-fixture.html?page=peers')
   await page.evaluate(() => { window.settingsFixture.failPeerRead = true })
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
   await expect(page.getByRole('alert')).toContainText('Peer settings unavailable')
   await expect(page.getByRole('button', { name: 'Save peer settings', exact: true })).toBeDisabled()
   await expect(page.getByRole('combobox', { name: 'Add a peer ship' })).toBeDisabled()

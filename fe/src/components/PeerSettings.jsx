@@ -52,7 +52,7 @@ export default function PeerSettings() {
     } catch (cause) { setError(cause.message) } finally { setBusy(false) }
   }
   return <div className="settings-grid">
-    <OwnerSettings onSaved={() => void stored.refresh()} />
+    <OwnerSettings contacts={contacts} onSaved={() => void stored.refresh()} />
     <RemotePeerAccess />
     <form className="settings-grid" onSubmit={save}>
     {(error || stored.error || defaults.error) && <div className="inline-error" role="alert">{error || stored.error || defaults.error}<button type="button" className="text-button" disabled={busy} onClick={reload}>Reload saved peer settings (discard edits)</button></div>}

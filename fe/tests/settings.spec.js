@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { PROVIDERS } from '../src/providers.js'
+import { defaultConfig } from '../src/defaults.js'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/apps/harness/tests/settings-fixture.html')
@@ -18,26 +19,27 @@ test('context is read from the catalog at save time, even when metadata arrives 
   expect(await page.evaluate(() => window.settingsFixture.saves.at(-1)['max-context'])).toBe(32768)
 })
 
-for (const surface of ['global', 'conversation']) test(`${surface}: bootstrap tools are narrow and explicit opt-ins survive reload`, async ({ page }) => {
+for (const surface of ['global', 'conversation']) test(`${surface}: default grants and explicit opt-ins and opt-outs survive reload`, async ({ page }) => {
   await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}`)
   await expect(page.getByRole('checkbox', { name: /^Web search & GET/ })).toBeChecked()
   await expect(page.getByRole('checkbox', { name: /^Skills Read instructions/ })).toBeChecked()
   const authoring = page.getByRole('checkbox', { name: /^Skill experiments/ })
-  await expect(authoring).not.toBeChecked()
-  await expect(page.getByRole('checkbox', { name: /^Write shared skills/ })).not.toBeChecked()
+  await expect(authoring).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: /^Write shared skills/ })).toBeChecked()
   await expect(page.getByRole('checkbox', { name: /^MCP: Calendar/ })).not.toBeChecked()
   await expect(page.getByRole('button', { name: 'Enable all' })).toHaveCount(0)
-  await authoring.check()
+  await authoring.uncheck()
   await page.getByRole('checkbox', { name: /^MCP: Calendar/ }).check()
   await page.getByRole('button', { name: surface === 'global' ? 'Save defaults' : 'Save conversation' }).click()
-  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)?.tools)).toEqual(['web', 'skills', 'author', { mcp: 'calendar' }])
+  const tools = defaultConfig().tools.filter((grant) => grant !== 'author')
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)?.tools)).toEqual([...tools, { mcp: 'calendar' }])
   await page.reload()
-  await expect(authoring).toBeChecked()
+  await expect(authoring).not.toBeChecked()
   await expect(page.getByRole('checkbox', { name: /^MCP: Calendar/ })).toBeChecked()
   await expect(page.getByRole('checkbox', { name: /^MCP: Notes/ })).not.toBeChecked()
   await page.getByRole('checkbox', { name: /^MCP: Calendar/ }).uncheck()
   await page.getByRole('button', { name: surface === 'global' ? 'Save defaults' : 'Save conversation' }).click()
-  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)?.tools)).toEqual(['web', 'skills', 'author'])
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)?.tools)).toEqual(tools)
 })
 
 for (const surface of ['global', 'conversation']) test(`${surface}: Clay grants name paths and survive reload independently of MCP`, async ({ page }) => {
@@ -54,7 +56,7 @@ for (const surface of ['global', 'conversation']) test(`${surface}: Clay grants 
   await page.getByRole('checkbox', { name: /^Clay: \/harness\/lib/ }).click()
   await expect(page.getByRole('checkbox', { name: /^Clay: \/harness\/lib/ })).toHaveCount(0)
   await save()
-  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1).tools)).toEqual(['web', 'skills', { mcp: 'calendar' }])
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1).tools)).toEqual([...defaultConfig().tools, { mcp: 'calendar' }])
 })
 
 test('search key can be configured, survives reload, and can be removed', async ({ page }) => {
@@ -95,14 +97,14 @@ test('MCP ids keep focus while typing and row removal preserves remaining header
   await page.getByLabel('Server id').pressSequentially('first-server')
   await expect(page.getByLabel('Server id')).toHaveValue('first-server')
   await expect(page.getByLabel('Server id')).toBeFocused()
-  await page.getByLabel('Streamable HTTP URL').fill('https://first.example/mcp')
+  await page.getByLabel('Server URL').fill('https://first.example/mcp')
   await save.click()
   await expect(page.getByText('Saved.', { exact: true })).toBeVisible()
   await add.click()
   await expect(page.getByText('Saved.', { exact: true })).toHaveCount(0)
   const second = page.locator('.mcp-server').nth(1)
   await second.getByLabel('Server id').pressSequentially('second-server')
-  await second.getByLabel('Streamable HTTP URL').fill('https://second.example/mcp')
+  await second.getByLabel('Server URL').fill('https://second.example/mcp')
   await second.getByRole('button', { name: 'Add header' }).click()
   await second.getByLabel('Header name').fill('authorization')
   await second.getByLabel('Header value').fill('fixture-token')

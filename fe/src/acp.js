@@ -20,6 +20,9 @@ export class AcpClient extends EventTarget {
     this.lastError = null
     this.recovering = null
     this.receivedThrough = 0
+    this.acknowledgedThrough = 0
+    this.pollWake = null
+    this.pollRequested = false
     this.host = null
     this.identity = null
     // A slow ship is not a failed request. Abort only when this client closes.
@@ -97,6 +100,7 @@ export class AcpClient extends EventTarget {
     result.catch(() => {})
     try {
       await this.poke({ send: { connection: this.connection, target: 'agent', payload: JSON.stringify(frame) } })
+      this.wakePoll()
     } catch (error) {
       const pending = this.pending.get(id)
       this.pending.delete(id)
@@ -106,9 +110,10 @@ export class AcpClient extends EventTarget {
     return result
   }
 
-  notify(method, params = {}) {
+  async notify(method, params = {}) {
     const frame = { jsonrpc: '2.0', method, params }
-    return this.poke({ send: { connection: this.connection, target: 'agent', payload: JSON.stringify(frame) } })
+    await this.poke({ send: { connection: this.connection, target: 'agent', payload: JSON.stringify(frame) } })
+    this.wakePoll()
   }
 
   async recover() {
@@ -116,6 +121,7 @@ export class AcpClient extends EventTarget {
     this.recovering = (async () => {
       await this.poke({ open: { connection: this.connection } })
       this.receivedThrough = 0
+      this.acknowledgedThrough = 0
       // A missing queue is not proof that a mutation was never admitted.
       for (const [id, pending] of this.pending) {
         pending.reject(new Error('Connection restored. Check the conversation before repeating your action.'))
@@ -144,7 +150,10 @@ export class AcpClient extends EventTarget {
           const update = await response.json()
           const messages = Array.isArray(update?.messages) ? update.messages : []
           const through = this.receiveBatch(messages)
-          if (through) await this.poke({ ack: { connection: this.connection, target: 'client', through } })
+          if (through > this.acknowledgedThrough) {
+            await this.poke({ ack: { connection: this.connection, target: 'client', through } })
+            this.acknowledgedThrough = through
+          }
         }
         if (this.lastError) {
           this.lastError = null
@@ -157,14 +166,37 @@ export class AcpClient extends EventTarget {
           this.dispatchEvent(new CustomEvent('transport-error', { detail: error }))
         }
       }
-      if (this.running) await sleep(document.hidden ? 1500 : 180)
+      if (this.running) await this.waitForPoll(document.hidden ? 1500 : this.pending.size ? 180 : 900)
     }
+  }
+
+  wakePoll() {
+    this.pollRequested = true
+    this.pollWake?.()
+  }
+
+  waitForPoll(ms) {
+    if (this.pollRequested) {
+      this.pollRequested = false
+      return Promise.resolve()
+    }
+    return new Promise((resolve) => {
+      const finish = () => {
+        clearTimeout(timer)
+        this.pollWake = null
+        this.pollRequested = false
+        resolve()
+      }
+      const timer = setTimeout(finish, ms)
+      this.pollWake = finish
+    })
   }
 
   close() {
     if (this.transport.signal.aborted) return
     const wasRunning = this.running
     this.running = false
+    this.wakePoll()
     this.ready = null
     this.transport.abort()
     for (const pending of this.pending.values()) {

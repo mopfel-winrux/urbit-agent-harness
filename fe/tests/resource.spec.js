@@ -25,3 +25,17 @@ test('an acknowledged save cannot be overwritten by a read begun before it', asy
   })
   await expect(page.getByLabel('Value')).toHaveText('saved value')
 })
+
+test('stable settings avoid rapid polling and refresh when the window regains focus', async ({ page }) => {
+  await page.clock.install()
+  await page.goto('/apps/harness/tests/resource-fixture.html')
+  await expect.poll(() => page.evaluate(() => window.resourceFixture?.reads.length)).toBe(1)
+  await page.evaluate(() => window.resourceFixture.resolve(0, 'initial'))
+  await expect(page.getByLabel('Value')).toHaveText('initial')
+  await page.clock.fastForward(10_000)
+  expect(await page.evaluate(() => window.resourceFixture.reads.length)).toBe(1)
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect.poll(() => page.evaluate(() => window.resourceFixture.reads.length)).toBe(2)
+  await page.evaluate(() => window.resourceFixture.resolve(1, 'fresh'))
+  await expect(page.getByLabel('Value')).toHaveText('fresh')
+})

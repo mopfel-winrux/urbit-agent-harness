@@ -1,0 +1,63 @@
+// Read-only ACP timings using the actual browser transport. No prompts, config
+// writes, or onboarding creation. Each temporary connection is closed afterward.
+// SHIP_URL=http://ship SHIP_COOKIE=/path/to/cookie node scripts/performance-read-benchmark.mjs
+// Optional BENCH_BASE=HEAD compares the previous transport against this worktree.
+import { readFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { setTimeout as sleep } from 'node:timers/promises'
+
+const base = process.env.SHIP_URL
+if (!base || !process.env.SHIP_COOKIE) throw new Error('Set SHIP_URL and SHIP_COOKIE.')
+const row = (await readFile(process.env.SHIP_COOKIE, 'utf8')).split('\n').find((line) => /\turbauth-~/.test(line))
+if (!row) throw new Error('Authenticated Netscape cookie required.')
+const fields = row.split('\t'), cookie = `${fields[5]}=${fields[6]}`
+const actualFetch = globalThis.fetch
+globalThis.document = { hidden: false }
+let events = [], closing = []
+globalThis.fetch = async (path, options = {}) => {
+  const json = options.body ? JSON.parse(options.body)[0]?.json : null
+  const op = json ? Object.keys(json)[0] : path.startsWith('/~/scry/') ? 'poll' : 'identity'
+  events.push(op)
+  const request = actualFetch(new URL(path, base), { ...options, headers: {
+    ...options.headers, cookie, ...(process.env.SHIP_HOST ? { host: process.env.SHIP_HOST } : {}),
+  } })
+  if (options.keepalive) closing.push(request)
+  return request
+}
+
+const methods = ['harness/status', 'session/list', 'harness/peers', 'harness/tlon']
+const counts = (events) => events.reduce((out, name) => ({ ...out, [name]: (out[name] || 0) + 1 }), {})
+const current = (await import('../fe/src/acp.js')).AcpClient
+const clients = [['current', current]]
+if (process.env.BENCH_BASE) {
+  const source = execFileSync('git', ['show', `${process.env.BENCH_BASE}:fe/src/acp.js`], { encoding: 'utf8' })
+    .replaceAll("'./people.js'", JSON.stringify(new URL('../fe/src/people.js', import.meta.url).href))
+    .replaceAll("'./clientId.js'", JSON.stringify(new URL('../fe/src/clientId.js', import.meta.url).href))
+  const previous = (await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)).AcpClient
+  clients.unshift(['baseline', previous])
+}
+for (let pass = 1; pass <= 2; pass++) {
+  for (const [label, Client] of pass === 1 ? clients : [...clients].reverse()) {
+    const client = new Client()
+    events = []; closing = []
+    try {
+      const start = performance.now()
+      await client.start()
+      const startupMs = Math.round(performance.now() - start)
+      const timings = Object.fromEntries(methods.map((method) => [method, []]))
+      for (let round = 0; round < 3; round++) for (const method of methods) {
+        const start = performance.now()
+        await client.call(method)
+        timings[method].push(Math.round(performance.now() - start))
+      }
+      // Let the last real acknowledgement finish before counting idle traffic.
+      await sleep(1000)
+      const offset = events.length
+      await sleep(3000)
+      console.log(JSON.stringify({ pass, label, startupMs, timings, idle3s: counts(events.slice(offset)), total: counts(events) }))
+    } finally {
+      client.close()
+      await Promise.allSettled(closing)
+    }
+  }
+}

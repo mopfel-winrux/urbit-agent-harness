@@ -1,5 +1,14 @@
 import { expect, test } from '@playwright/test'
 
+for (const legacy of [false, true]) test(`startup ${legacy ? 'falls back for old ships' : 'uses the combined welcome/list response'}`, async ({ page }) => {
+  await page.clock.install()
+  await page.goto(`/apps/harness/tests/settings-fixture.html?page=app${legacy ? '&legacy-bootstrap' : ''}`)
+  await expect(page.getByRole('button', { name: 'daily-notes', exact: true })).toBeVisible()
+  const calls = await page.evaluate(() => window.settingsFixture.calls)
+  expect(calls).toContain('harness/onboarding/ensure')
+  expect(calls.includes('session/list')).toBe(legacy)
+})
+
 test('sidebar pages twenty at a time and searches unloaded conversation names', async ({ page }) => {
   await page.goto('/apps/harness/tests/fixture.html?many')
   await expect(page.locator('.chat-row')).toHaveCount(20)

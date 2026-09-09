@@ -33,12 +33,6 @@
       =/  before-hands  hands
       =/  before-access  access-inputs:hc
       =.  state  loaded
-      ::  Once discovered, respect the durable marker without another scry.
-      =/  local-server
-        ?:(!=(0 local-mcp-seen) | .^(? %gu /(scot %p our.bowl)/mcp-server/(scot %da now.bowl)/$))
-      =/  discovery  (ensure:local-mcp-lib mcp-servers local-mcp-seen our.bowl local-server)
-      =.  local-mcp-seen  seen.discovery
-      =.  mcp-servers  registry.discovery
       =/  out  (filter:oauth -.result openai-auth provider-keys now.bowl)
       =^  cards  state  (accept-auth:hc out)
       =?  modified  !=(before-sessions sessions)
@@ -772,8 +766,13 @@
     =/  cards=(list card)
       ?~  sid  ~
       ~[(shadow-put-card u.sid (need-session u.sid))]
+    =/  listed  (list-json:index sessions modified)
+    ?>  ?=(%o -.listed)
     =/  result=json
-      (pairs:enjs:format ~[['sessionId' ?~(sid ~ [%s u.sid])]])
+      %-  pairs:enjs:format
+      :~  ['sessionId' ?~(sid ~ [%s u.sid])]
+          ['sessions' (need (~(get by p.listed) 'sessions'))]
+      ==
     [(snoc cards (acp-result-card:wire-codec connection u.id result)) state]
   ::
       %'session/new'
@@ -994,6 +993,7 @@
   ::
       %'harness/mcp/servers'
     ?~  id  `state
+    =.  state  discover-local-mcp
     =/  result=json  [%a (turn ~(tap by mcp-servers) mcp-server-json:hj)]
     [~[(acp-result-card:wire-codec connection u.id result)] state]
   ::
@@ -1710,6 +1710,7 @@
     ==
   ::
       %peer-refresh
+    =.  state  discover-local-mcp
     sync-peer-access
   ::
       %admin-call
@@ -3025,6 +3026,14 @@
   %+  skim  ~(tap by sk)
   |=  [n=@t s=skill:h]
   (~(has in inflows.u.g) n)
+++  discover-local-mcp
+  ^+  state
+  ::  Retry absent optional agents on lifecycle refresh or explicit listing,
+  ::  not every transport callback. Dispatch still checks live availability.
+  ?:  !=(0 local-mcp-seen)  state
+  =/  present  .^(? %gu /(scot %p our.bowl)/mcp-server/(scot %da now.bowl)/$)
+  =/  discovery  (ensure:local-mcp-lib mcp-servers local-mcp-seen our.bowl present)
+  state(local-mcp-seen seen.discovery, mcp-servers registry.discovery)
 ++  is-owner
   |=  who=@p
   ^-  ?
@@ -3056,7 +3065,11 @@
 ++  effective-peers
   ^-  (map @p peer-grant:h)
   =/  trust  snapshot:~(. peer-trust bowl)
-  =/  grants  (effective:peer-policy peers (trusted-from trust) peer-limits)
+  (effective-from trust (trusted-from trust))
+++  effective-from
+  |=  [trust=peer-trust:t trusted=(map @p peer-grant:h)]
+  ^-  (map @p peer-grant:h)
+  =/  grants  (effective:peer-policy peers trusted peer-limits)
   =/  known=(set @p)
     (~(uni in ~(key by grants)) (~(uni in ~(key by remote-access)) ~(key by announced-access)))
   %+  roll  ~(tap in known)
@@ -3076,18 +3089,21 @@
   (used:peer-policy (peer-total ship) (fall (~(get by peer-budget-resets) ship) 0))
 ++  peer-settings
   ^-  json
-  =/  settings  (settings-json:peer-policy our.bowl peers trusted-peers peer-base peer-limits)
+  =/  trust  snapshot:~(. peer-trust bowl)
+  =/  trusted  (trusted-from trust)
+  =/  effective  (effective-from trust trusted)
+  =/  settings  (settings-json:peer-policy our.bowl peers trusted peer-base peer-limits)
   ?>  ?=(%o -.settings)
-  =.  settings  [%o (~(put by p.settings) 'revision' [%s peer-revision])]
+  =.  settings  [%o (~(put by p.settings) 'revision' [%s (peer-revision-from trust trusted effective)])]
   ?>  ?=(%o -.settings)
   =/  owners=(list json)
-    %+  murn  ~(tap by effective-peers)
+    %+  murn  ~(tap by effective)
     |=  [who=@p grant=peer-grant:h]
-    ?:(!(is-owner who) ~ `(grant-json:peer-policy who grant))
+    ?:(!(owner:~(. ownership bowl) owner.policy.trust siblings.trust who) ~ `(grant-json:peer-policy who grant))
   =.  settings  [%o (~(put by p.settings) 'owners' [%a owners])]
   ?>  ?=(%o -.settings)
   =/  usage=(list json)
-    %+  turn  ~(tap by effective-peers)
+    %+  turn  ~(tap by effective)
     |=  [ship=@p grant=peer-grant:h]
     =/  total  (peer-total ship)
     =/  used  (used:peer-policy total (fall (~(get by peer-budget-resets) ship) 0))
@@ -3099,11 +3115,17 @@
   [%o (~(put by p.settings) 'usage' [%a usage])]
 ++  peer-revision
   ^-  @t
-  =/  revision  (revision:peer-policy peers trusted-peers peer-base peer-limits)
-  =/  owner  owner:~(. peer-trust bowl)
-  =/  siblings  siblings:~(. peer-trust bowl)
+  =/  trust  snapshot:~(. peer-trust bowl)
+  =/  trusted  (trusted-from trust)
+  (peer-revision-from trust trusted (effective-from trust trusted))
+++  peer-revision-from
+  |=  [trust=peer-trust:t trusted=(map @p peer-grant:h) effective=(map @p peer-grant:h)]
+  ^-  @t
+  =/  revision  (revision:peer-policy peers trusted peer-base peer-limits)
+  =/  owner  owner.policy.trust
+  =/  siblings  siblings.trust
   ?:  &(?=(~ owner) !siblings)  revision
-  (scot %uv (sham [revision owner siblings effective-peers]))
+  (scot %uv (sham [revision owner siblings effective]))
 ::  eyre: webhooks admit input from the outside world
 ::
 ++  serve

@@ -31,10 +31,11 @@ let siblingMoonOwners = sessionStorage.getItem('settings-fixture-siblings') === 
 let remoteShips = []
 const tlonSnapshot = () => ({ policy: tlonPolicy, sessions: [], ship: '~zod', isMoon: params.has('moon'), sponsor: params.has('moon') ? '~bud' : null, siblingMoonOwners })
 const peerSnapshot = () => ({ ...peerSettings, owners: [...(tlonPolicy.owner ? [newPeerGrant(tlonPolicy.owner, config.tools)] : []), ...(params.has('trusted-owner') ? [newPeerGrant('~nec', config.tools)] : [])], trusted: [...(tlonPolicy.owner ? [newPeerGrant(tlonPolicy.owner)] : []), ...tlonPolicy.trusted.map((entry) => newPeerGrant(entry.ship, entry.tools))] })
-window.settingsFixture = { requests: [], reads: [], saves: [], credentials: [], resolve: (id, value) => pending.get(id)(value) }
+window.settingsFixture = { requests: [], reads: [], calls: [], saves: [], credentials: [], resolve: (id, value) => pending.get(id)(value) }
 acp.start = async () => {}
 acp.call = async (method) => {
-  if (method === 'harness/onboarding/ensure') return { sessionId: null }
+  window.settingsFixture.calls.push(method)
+  if (method === 'harness/onboarding/ensure') return { sessionId: null, ...(params.has('legacy-bootstrap') ? {} : { sessions: ['daily-notes', 'reading-list'].map((sessionId) => ({ sessionId })) }) }
   if (method === 'session/list') return { sessions: ['daily-notes', 'reading-list'].map((sessionId) => ({ sessionId })) }
   if (method === 'harness/session/snapshot') return { revision: 1, phase: 'idle', entries: [], model: config.model }
   throw new Error(`Unexpected fixture method: ${method}`)
@@ -45,7 +46,7 @@ api.read = async (path) => {
     if (window.settingsFixture.failPeerRead) throw new Error('Peer settings unavailable in fixture')
     return peerSnapshot()
   }
-  if (path === 'tlon') return tlonSnapshot()
+  if (path === 'tlon' || path === 'tlon/owner') return tlonSnapshot()
   if (path === 'peers/remote') return { ships: remoteShips }
   if (path === 'tlon/profile') return { nickname: '', avatar: '' }
   if (path === 'tlon/work') return { items: [], events: [], next: '' }

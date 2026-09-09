@@ -13,11 +13,13 @@ export function useConversations(current, onSelect) {
   const refresh = useCallback(async () => {
     try {
       await acp.start()
+      let result
       if (!welcomed.current) {
-        await acp.call('harness/onboarding/ensure')
+        result = await acp.call('harness/onboarding/ensure')
         welcomed.current = true
       }
-      const result = await acp.call('session/list')
+      // Older ships return only sessionId from ensure; keep that compatible.
+      if (!Array.isArray(result?.sessions)) result = await acp.call('session/list')
       setChats(sortConversations(result?.sessions || []))
       setError('')
     } catch (cause) { setError(cause.message) }
