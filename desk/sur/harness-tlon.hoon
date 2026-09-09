@@ -7,6 +7,7 @@
       trusted=(map @p (list tool-grant:h))
       mentions=?
   ==
++$  peer-trust  [policy=policy siblings=?]
 +$  destination
   $%  [%dm who=@p parent=(unit message-id:a)]
       [%channel nest=nest:c parent=(unit @da)]

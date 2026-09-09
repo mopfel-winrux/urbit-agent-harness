@@ -29,7 +29,7 @@
   =/  cards  (reload bowl !>(saved))
   ;:  weld
     (expect-eq !>(~) !>((watches cards)))
-    (expect-eq !>(3) !>((lent cards)))
+    (expect-eq !>(4) !>((lent cards)))
   ==
 ++  test-pending-mirror-waits-for-acknowledgement
   =/  bowl=bowl:gall  *bowl:gall
@@ -39,5 +39,5 @@
   =/  saved=state-13  *state-13
   =.  sessions.saved  (my ~[['fixture' [~ 1]]])
   =/  cards  (reload bowl !>(saved))
-  (expect-eq !>(2) !>((lent cards)))
+  (expect-eq !>(3) !>((lent cards)))
 --

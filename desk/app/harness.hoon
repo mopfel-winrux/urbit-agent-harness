@@ -5,7 +5,7 @@
 ::  Persistence layouts/conversion, provider formats and client presentation
 ::  live in named modules so this file can concentrate on lifecycle ownership.
 ::
-/-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, *harness-store
+/-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, t=harness-tlon, *harness-store
 /+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, lcm-context=harness-lcm-context, corpus-lib=harness-corpus, corpus-json=harness-corpus-json, peer-policy=harness-peer-policy, peer-trust=harness-peer-trust, failure=harness-failure, policy=harness-defaults, storage=harness-store, index=harness-session-index, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 /+  onboarding=harness-onboarding, peer-access=harness-peer-access, admin=harness-admin, ownership=harness-ownership, local-mcp-lib=harness-local-mcp, peer-rpc=harness-peer-rpc
 |%
@@ -31,8 +31,11 @@
       =/  loaded  !<(state-19 on-save:next)
       =/  before-sessions  sessions
       =/  before-hands  hands
+      =/  before-access  access-inputs:hc
       =.  state  loaded
-      =/  local-server  .^(? %gu /(scot %p our.bowl)/mcp-server/(scot %da now.bowl)/$)
+      ::  Once discovered, respect the durable marker without another scry.
+      =/  local-server
+        ?:(!=(0 local-mcp-seen) | .^(? %gu /(scot %p our.bowl)/mcp-server/(scot %da now.bowl)/$))
       =/  discovery  (ensure:local-mcp-lib mcp-servers local-mcp-seen our.bowl local-server)
       =.  local-mcp-seen  seen.discovery
       =.  mcp-servers  registry.discovery
@@ -45,7 +48,9 @@
       =?  built-at.index.corpus  ?=(~ built-at.index.corpus)  `now.bowl
       =^  indexing  state  wake-corpus:hc
       =.  cards  (weld cards indexing)
-      =^  announcements  state  sync-peer-access:hc
+      =^  announcements  state
+        ?:  =(before-access access-inputs:hc)  `state
+        sync-peer-access:hc
       =.  cards  (weld cards announcements)
       ::  Invalidate native hands after committing ledger/session changes.
       ::  No transcript is broadcast: subscribers read the durable ledger.
@@ -59,6 +64,7 @@
   ^-  (quip card _this)
   :_  this(defaults builtin-config:policy, search-config [%brave ''])
   :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
+      [%pass /peer-access/refresh %agent [our.bowl dap.bowl] %poke %harness-action !>(`action:h`[%peer-refresh ~])]
       acp-open-card:wire-codec
       acp-watch-card:wire-codec
       (watch:hg our.bowl shadow-channel:hc)
@@ -74,7 +80,9 @@
   ^-  (quip card _this)
   :_  this
   =/  base=(list card)
-    :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
+    ::  Refresh after reload, when the adapter can expose its updated trust.
+    :~  [%pass /peer-access/refresh %agent [our.bowl dap.bowl] %poke %harness-action !>(`action:h`[%peer-refresh ~])]
+        [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
         acp-open-card:wire-codec
     ==
   ::  Gall retains subscriptions across code reloads. A new mirror watch
@@ -1696,7 +1704,7 @@
     ==
   ::
       %peer-refresh
-    `state
+    sync-peer-access
   ::
       %admin-call
     =/  ses  (need-session sid.act)
@@ -2864,6 +2872,10 @@
   =/  wire=wire
     ?:(?=(%query -.msg) /peer-access/query/(scot %uv id.msg) /peer-access/status)
   [%pass wire %agent [who dap.bowl] %poke %harness-access-0 !>(msg)]
+++  access-inputs
+  ::  Local, cheap invalidation only. Remote report timestamps and unrelated
+  ::  session/adapter events cannot cause live trust reads or announcements.
+  [peers peer-limits tools.defaults ~(key by skills) ~(key by remote-access)]
 ++  sync-peer-access
   ^-  (quip card _state)
   =/  current  effective-peers
@@ -3010,7 +3022,8 @@
 ++  is-owner
   |=  who=@p
   ^-  ?
-  (owner:~(. ownership bowl) owner:~(. peer-trust bowl) siblings:~(. peer-trust bowl) who)
+  =/  trust  snapshot:~(. peer-trust bowl)
+  (owner:~(. ownership bowl) owner.policy.trust siblings.trust who)
 ++  owner-grant
   ^-  peer-grant:h
   =/  tools
@@ -3020,8 +3033,13 @@
   [tools ~ 0 ~(key by skills)]
 ++  trusted-peers
   ^-  (map @p peer-grant:h)
-  =/  inherited  grants:~(. peer-trust bowl)
-  =/  owner  owner:~(. peer-trust bowl)
+  =/  trust  snapshot:~(. peer-trust bowl)
+  (trusted-from trust)
+++  trusted-from
+  |=  trust=peer-trust:t
+  ^-  (map @p peer-grant:h)
+  =/  inherited  (grants-from:~(. peer-trust bowl) trust)
+  =/  owner  owner.policy.trust
   ?~  owner  inherited
   (~(put by inherited) u.owner owner-grant)
 ++  peer-grant-for
@@ -3031,12 +3049,13 @@
   (~(get by (effective:peer-policy peers trusted-peers peer-limits)) who)
 ++  effective-peers
   ^-  (map @p peer-grant:h)
-  =/  grants  (effective:peer-policy peers trusted-peers peer-limits)
+  =/  trust  snapshot:~(. peer-trust bowl)
+  =/  grants  (effective:peer-policy peers (trusted-from trust) peer-limits)
   =/  known=(set @p)
     (~(uni in ~(key by grants)) (~(uni in ~(key by remote-access)) ~(key by announced-access)))
   %+  roll  ~(tap in known)
   |=  [who=@p out=_grants]
-  ?:((is-owner who) (~(put by out) who owner-grant) out)
+  ?:((owner:~(. ownership bowl) owner.policy.trust siblings.trust who) (~(put by out) who owner-grant) out)
 ++  peer-total
   |=  ship=@p
   ^-  @ud

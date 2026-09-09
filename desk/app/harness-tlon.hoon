@@ -21,7 +21,8 @@
 ++  on-init
   =.  state  state(policy [| ~ ~ &], watching |, activity-through now.bowl)
   =.  state  initialize-owner:cor
-  `this
+  =^  cards  state  abet:refresh-peers:cor
+  [cards this]
 ++  on-save  !>(state)
 ++  on-load
   |=  old=vase
@@ -72,7 +73,7 @@
   =^  cards  state
     ::  A saved timestamp is not evidence of a surviving Behn subscription.
     ::  Retire the legacy poll wake; maintenance gets fresh actual deadlines.
-    =/  c  retire-uploads:reset-wake:cor
+    =/  c  refresh-peers:retire-uploads:reset-wake:cor
     ?:  &(watching (~(has by wex.bowl) /activity our.bowl %activity))
       abet:watch-head:c
     abet:boot:c
@@ -101,6 +102,8 @@
   ?+  path  (on-peek:def path)
     [%x %state ~]  ``noun+!>(state)
     [%x %status ~]  ``json+!>(status:cor)
+    ::  Trust consumers must not render cron jobs or read head ledgers.
+    [%x %peer-trust ~]  ``noun+!>([policy sibling-moon-owners])
     [%x %authority @ ~]
       ``noun+!>((lane-authority:cor i.t.t.path))
     [%x %admin @ ~]
@@ -143,6 +146,10 @@
 ++  abet
   =/  next  schedule
   [(flop cards.next) state.next]
+++  refresh-peers
+  ^+  cor
+  ?.  .^(? %gu /(scot %p our.bowl)/harness/(scot %da now.bowl)/$)  cor
+  (head /peer-access/refresh [%peer-refresh ~])
 ++  emit  |=(c=card cor(cards [c cards]))
 ++  boot
   ^+  cor

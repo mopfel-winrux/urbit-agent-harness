@@ -3,32 +3,25 @@
 /-  h=harness, t=harness-tlon
 /+  p=harness-tlon-policy
 |_  =bowl:gall
++$  trust  peer-trust:t
+++  snapshot
+  ^-  trust
+  =/  base  /(scot %p our.bowl)/harness-tlon/(scot %da now.bowl)
+  ?.  .^(? %gu (weld base /$))  [[| ~ ~ &] |]
+  .^(trust %gx (weld base /peer-trust/noun))
+++  grants-from
+  |=  current=trust
+  ^-  (map @p peer-grant:h)
+  (peer-grants:p policy.current)
 ++  grants
   ^-  (map @p peer-grant:h)
-  =/  current  policy
-  ?~  current  ~
-  (peer-grants:p u.current)
+  (grants-from snapshot)
 ++  owner
   ^-  (unit @p)
-  =/  current  policy
-  ?~  current  ~
-  owner.u.current
+  =/  current  snapshot
+  owner.policy.current
 ++  siblings
   ^-  ?
-  =/  base  /(scot %p our.bowl)/harness-tlon/(scot %da now.bowl)
-  ?.  .^(? %gu (weld base /$))  |
-  =/  status  .^(json %gx (weld base /status/json))
-  =/  parsed
-    %-  mole  |.
-    ((ot:dejs:format ~[['siblingMoonOwners' bo:dejs:format]]) status)
-  (fall parsed |)
-++  policy
-  ^-  (unit policy:t)
-  =/  base  /(scot %p our.bowl)/harness-tlon/(scot %da now.bowl)
-  ?.  .^(? %gu (weld base /$))  ~
-  =/  status  .^(json %gx (weld base /status/json))
-  =/  parsed
-    %-  mole  |.
-    ((ot:dejs:format ~[policy+json-policy:p]) status)
-  parsed
+  =/  current  snapshot
+  siblings.current
 --

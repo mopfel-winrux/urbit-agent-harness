@@ -12,6 +12,16 @@ const code = (name) => sources.get(name).split('\n').filter((line) => !line.trim
 const dependencies = (name) => [...code(name).matchAll(/^\/\+\s+(.+)$/gm)]
   .flatMap((match) => match[1].split(',').map((entry) => entry.trim().split('=').at(-1).replace(/^\*/, '')))
 
+test('permission synchronization is change-driven and trust reads stay small', async () => {
+  const agent = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  assert.match(agent, /before-access\s+access-inputs:hc/)
+  assert.match(agent, /\?:\s+=\(before-access access-inputs:hc\)\s+`state\s+sync-peer-access:hc/)
+  assert.match(agent, /%peer-refresh\s+sync-peer-access/)
+  assert.match(agent, /\?:\(!=\(0 local-mcp-seen\) \| \.\^/)
+  assert.doesNotMatch(code('harness-peer-trust'), /status\/json|mole|dejs|cron|ledger/)
+  assert.match(code('harness-peer-trust'), /peer-trust\/noun/)
+})
+
 test('default native tests do not construct full Gall agents', async () => {
   const tests = new URL('../desk/tests/', import.meta.url)
   for (const name of await readdir(tests)) {
