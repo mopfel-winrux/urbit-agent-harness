@@ -86,14 +86,14 @@
         acp-open-card:wire-codec
     ==
   ::  Gall retains subscriptions across code reloads. A new mirror watch
-  ::  reprojects on acknowledgement; a surviving watch needs one refresh here.
+  ::  reprojects on acknowledgement. Refresh a surviving watch only after our
+  ::  self-poke completes: Tlon may still be old code during this +on-load.
   =?  base  !(~(has by wex.bowl) /acp/watch our.bowl %acp)
     (snoc base acp-watch-card:wire-codec)
   =/  mirror  (~(get by wex.bowl) /harness-grub/sessions our.bowl %harness-grub)
   ?~  mirror
     (snoc base (watch:hg our.bowl shadow-channel:hc))
-  ?.  acked.u.mirror  base
-  (weld base shadow-all-cards:hc)
+  base
 ++  on-poke
   |=  [=mark =vase]
   %-  flush-auth
@@ -375,6 +375,12 @@
   ::
       [%peer-access %status ~]
     `this
+  ::
+      [%peer-access %refresh ~]
+    ?.  ?&(?=(%poke-ack -.sign) ?=(~ p.sign))  (on-agent:def wire sign)
+    =/  mirror  (~(get by wex.bowl) /harness-grub/sessions our.bowl %harness-grub)
+    ?.  ?&(?=(^ mirror) acked.u.mirror)  `this
+    [shadow-all-cards:hc this]
   ::
       [%peer-rpc %request @ ~]
     ?.  ?&(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
