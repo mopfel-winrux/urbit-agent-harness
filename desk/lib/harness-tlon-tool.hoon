@@ -1,4 +1,5 @@
 ::  Public Tlon tool contract and strict identifier/argument decoding.
+/-  t=harness-tlon
 |%
 ++  sending-guidance
   'Your normal final reply is automatically delivered to the current DM/channel/thread that prompted you. Do not use send_dm or send_channel to answer that conversation; use them only for separate messages to other DMs or parallel channels.'
@@ -8,6 +9,16 @@
       'Actions: help; list_contacts; list_groups; get_group(group); list_channels(group); '
       'send_dm(ship,text); send_channel(channel,text); create_group(name,title,description?,privacy?); '
       'invite_to_group(group,ship); join_group(group); leave_group(group); create_channel(group,name,title,description?,kind?). '
+      'Conversation actions: list_dms; history(ship OR channel,parent?,cursor?); search_history(ship OR channel,query,parent?,cursor?); '
+      'react(ship OR channel,message_id,emoji,parent?); unreact(ship OR channel,message_id,parent?). '
+      'send_dm/send_channel also accept parent to message a thread in another conversation. '
+      'Use exact message_id values from history; parent is the root message_id, including its author for DMs. '
+      'History returns up to 20 messages (800 bytes each); search scans up to 64 rows per page. Follow next_cursor even on empty search pages. '
+      'Cursors belong only to the same destination, parent and query. Reactions require a message in the latest 20 messages of that conversation/thread. '
+      'Contacts: get_profile(ship?; omitted means self); update_profile(nickname?,bio?,status?,avatar?,cover?); add_contact(ship); remove_contact(ship). '
+      'Profile updates affect this ship only; empty fields clear them, omitted fields are preserved. Image fields must be http(s) URLs. '
+      'Groups: list_members(group); update_group(group,title?,description?); update_channel(group,channel,title?,description?). '
+      'Metadata updates preserve omitted fields and existing channel permissions; at least one edited field is required. '
       'Group IDs are ~ship/name; channel IDs are chat/~ship/name (or diary/ or heap/). '
       'Names are lowercase terms, up to 64 bytes. Text is 1..16384 bytes. '
       'create_group defaults to secret (invite-only, unlisted), creates no channels; use create_channel afterward. '
@@ -41,6 +52,16 @@
                   ['description' (field 'Optional description, at most 1024 bytes')]
                   ['privacy' (field 'Group privacy: secret (default), private, public')]
                   ['kind' (field 'Channel kind: chat (default), diary, heap')]
+                  ['parent' (field 'Exact root message_id from history, to read/react in a thread or send to a thread in another conversation')]
+                  ['message_id' (field 'Exact message_id from history; DMs include ~author/ prefix')]
+                  ['emoji' (field 'Reaction text, 1..64 bytes')]
+                  ['query' (field 'Case-insensitive history search, 1..128 bytes')]
+                  ['cursor' (field 'Opaque next_cursor from the same destination, parent and query; omit for newest page')]
+                  ['nickname' (field 'Own profile nickname, at most 64 bytes; empty clears')]
+                  ['bio' (field 'Own profile bio, at most 1024 bytes; empty clears')]
+                  ['status' (field 'Own profile status, at most 128 bytes; empty clears')]
+                  ['avatar' (field 'Own avatar http(s) URL, at most 2048 bytes; empty clears')]
+                  ['cover' (field 'Own cover http(s) URL, at most 2048 bytes; empty clears')]
               ==
           ==
       ==
@@ -63,6 +84,30 @@
   =/  value  (string args key '' cap)
   ?>  !=('' value)
   value
+++  has
+  |=  [args=json key=@t]
+  ?>  ?=(%o -.args)
+  (~(has by p.args) key)
+++  timestamp
+  |=  value=@t
+  ^-  @da
+  =/  at  (slav %da value)
+  ?>  &(=(value (scot %da at)) (gth at 0) (lte (met 0 at) 128))
+  at
+++  dm-id
+  |=  value=@t
+  ^-  [@p @da]
+  =/  parts  (need (rush (cat 3 '/' value) stap))
+  ?>  ?=([@ @ ~] parts)
+  [(ship i.parts) (timestamp i.t.parts)]
+++  destination
+  |=  args=json
+  ^-  destination:t
+  ?>  !=((has args 'ship') (has args 'channel'))
+  =/  parent  (string args 'parent' '' 256)
+  ?:  (has args 'ship')
+    [%dm (ship (required args 'ship' 128)) ?:(=('' parent) ~ `(dm-id parent))]
+  [%channel (nest (required args 'channel' 256)) ?:(=('' parent) ~ `(timestamp parent))]
 ++  ship
   |=  value=@t
   ^-  @p

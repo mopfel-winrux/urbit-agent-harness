@@ -1,5 +1,5 @@
 /-  t=harness-tlon, a=tlon-activity-ver
-/+  *test, spec=harness-tlon-tool, deny=harness-tlon-denial, ht=harness-tools, defaults=harness-defaults, clock=harness-tlon-clock
+/+  *test, spec=harness-tlon-tool, contact=harness-tlon-contact-tool, ops=harness-tlon-operations, deny=harness-tlon-denial, ht=harness-tools, defaults=harness-defaults, clock=harness-tlon-clock
 |%
 ++  test-catalog-and-independent-grant
   (expect !>(&(=(~[%tlon] (tool-families:ht ~[%tlon])) (tool-granted:ht 'tlon' default-tools:defaults) !(tool-granted:ht 'tlon' ~[%tlon-read %tlon-write]) =(`%harness-tlon (tool-hand:ht 'tlon')) =(~[%tlon] (without-tlon:ht ~[%tlon %tlon-read])))))
@@ -9,6 +9,30 @@
   (expect-eq !>([& & & &]) !>([=(%o -.jon) (find-sub:ht 'automatically delivered' text) (find-sub:ht 'parallel channels' text) (find-sub:ht 'Do not use send_dm or send_channel to answer that conversation' text)]))
 ++  test-identifiers
   (expect !>(&(=([~nec %test] (flag:spec '~nec/test')) =([%chat ~nec %test] (nest:spec 'chat/~nec/test')) =(~ (mole |.((flag:spec '~nec/test/extra')))) =(~ (mole |.((ship:spec 'nec')))) =(~ (mole |.((slug:spec '../escape')))))))
+++  test-explicit-destination-and-thread
+  =/  parent  (rap 3 '~nec/' (scot %da ~2026.9.9) ~)
+  =/  args  (pairs:enjs:format ~[['ship' %s '~nec'] ['parent' %s parent]])
+  =/  ambiguous  (pairs:enjs:format ~[['ship' %s '~nec'] ['channel' %s 'chat/~nec/test']])
+  (expect !>(&(=(`destination:t`[%dm ~nec `[~nec ~2026.9.9]] (destination:spec args)) =(~ (mole |.((destination:spec ambiguous)))) =(~ (mole |.((timestamp:spec '123')))) =(~ (mole |.((dm-id:spec '~nec/~2026.9.9/extra')))))))
+++  test-profile-patch-preserves-omitted-fields
+  =/  args  (pairs:enjs:format ~[['nickname' %s 'Test'] ['bio' %s '']])
+  =/  edits  (decode:contact args)
+  =/  okay
+    ?&  =(2 ~(wyt by edits))
+        =(`[%text 'Test'] (~(get by edits) %nickname))
+        =(`~ (~(get by edits) %bio))
+        !(~(has by edits) %avatar)
+        =(~ (mole |.((decode:contact [%o ~]))))
+    ==
+  (expect !>(okay))
+++  test-profile-validates-image-url
+  =/  good  (pairs:enjs:format ~[['avatar' %s 'https://example.com/avatar.png']])
+  =/  bad  (pairs:enjs:format ~[['avatar' %s 'javascript:alert(1)']])
+  (expect !>(&(?=(^ (mole |.((decode:contact good)))) =(~ (mole |.((decode:contact bad)))))))
+++  test-metadata-patch-preserves-image-and-cover
+  =/  args  (pairs:enjs:format ~[['title' %s 'New']])
+  =/  lib  ~(. ops *bowl:gall)
+  (expect-eq !>(['New' 'Description' 'image' 'cover']) !>((metadata:lib args ['Old' 'Description' 'image' 'cover'])))
 ++  test-denial-authentic-addresses
   =/  post=incoming-event:v8:a  [%dm-post [[~nec ~2026.9.9] ~2026.9.9] [%ship ~nec] ~ |]
   ?>  ?=(%dm-post -.post)

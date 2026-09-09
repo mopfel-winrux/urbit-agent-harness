@@ -25,12 +25,16 @@ The default-enabled **Tlon** grant exposes one model function, `tlon`, with an
 `action` argument. It works from Harness conversations even while the Tlon
 reply hand is disabled. It can send DMs and channel posts, list contacts and
 groups, inspect a group's channels, create groups/channels, invite a ship,
-and join or leave a group. `{"action":"help"}` describes the arguments.
+and join or leave a group. It also reads and searches other conversations and
+threads, lists DMs and group members, adds/removes reactions, manages contacts,
+reads/updates this ship's profile, and updates group/channel names and descriptions.
+`{"action":"help"}` describes the arguments.
 These are native Tlon operations as this ship, subject to Tlon's own permissions.
 
 Normal final replies are delivered to the DM/channel/thread that prompted the
-agent automatically. `send_dm` and `send_channel` are for separate top-level
-messages to other DMs or parallel channels, not for answering the current prompt.
+agent automatically. `send_dm` and `send_channel` are for separate messages to
+other DMs or parallel channels, not for answering the current prompt. An optional
+`parent` targets a thread in that other conversation.
 This rule is included in both the tool description and its sending-field help.
 
 New groups default to secret (unlisted and invite-only), with no channels.
@@ -38,6 +42,22 @@ Create channels afterward; they are readable and writable by all group members.
 Mutation receipts confirm local acceptance only, not remote delivery or completed
 joining. Pending calls become uncertain after one minute and are never retried
 automatically, including after reload. Lists return at most 100 entries.
+
+`history` and `search_history` take exactly one of `ship` or `channel`; optional
+`parent` selects a thread. Use exact `message_id` values from their results,
+including the author prefix for DMs. Each page returns up to 20 messages, with
+800-byte text previews and explicit truncation flags. Search scans at most 64
+rows per page; follow `next_cursor` even when a page has no matches. Cursors are
+bound to the destination, parent and query. `react`/`unreact` accept only messages
+in the latest 20-message conversation/thread window. `list_dms` includes active
+DMs and invitations, not archived conversations.
+
+`get_profile` defaults to self, or reads a known contact when given `ship`.
+`update_profile` edits only supplied nickname, bio, status, avatar or cover fields;
+empty strings clear those fields. `update_group` and `update_channel` similarly
+preserve omitted metadata, images, and channel permissions. These actions do not
+change Harness ownership or grants. Adding a Tlon contact does not authorize it
+to use the bot.
 
 This is a broad, separately removable grant: it extends beyond the current
 conversation. Existing saved defaults and conversation grants are preserved.
