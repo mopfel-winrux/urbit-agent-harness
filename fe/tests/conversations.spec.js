@@ -37,3 +37,35 @@ test('sidebar logo keeps its rounded white background in both themes', async ({ 
     await expect(logo).toHaveCSS('border-radius', '8px')
   }
 })
+
+test('conversation names reclaim action space until hover or keyboard focus', async ({ page }) => {
+  await page.goto('/apps/harness/tests/fixture.html')
+  const row = page.locator('.chat-row').first()
+  const link = row.locator('.chat-link')
+  const name = link.locator('.truncate')
+  await page.mouse.move(1000, 800)
+  await expect(link).toHaveCSS('padding-right', '10px')
+  await expect(row.locator('.chat-actions')).toHaveCSS('opacity', '0')
+  const fullWidth = (await name.boundingBox()).width
+  await row.hover()
+  await expect(link).toHaveCSS('padding-right', '82px')
+  expect(fullWidth - (await name.boundingBox()).width).toBeCloseTo(72, 0)
+  await expect(row.locator('.chat-actions')).toHaveCSS('opacity', '1')
+  await page.mouse.move(1000, 800)
+  await expect(link).toHaveCSS('padding-right', '10px')
+  await row.getByRole('button', { name: /^Rename / }).focus()
+  await expect(link).toHaveCSS('padding-right', '82px')
+  await expect(row.locator('.chat-actions')).toHaveCSS('opacity', '1')
+  await page.getByRole('searchbox', { name: 'Search conversations' }).focus()
+  await expect(link).toHaveCSS('padding-right', '10px')
+})
+
+test('mobile conversation actions keep visible touch targets and reserved space', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/apps/harness/tests/fixture.html')
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  const row = page.locator('.chat-row').first()
+  await expect(row.locator('.chat-link')).toHaveCSS('padding-right', '138px')
+  await expect(row.locator('.chat-actions')).toHaveCSS('opacity', '1')
+  await expect(row.getByRole('button', { name: /^Rename / })).toHaveCSS('width', '44px')
+})

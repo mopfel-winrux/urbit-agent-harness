@@ -30,6 +30,27 @@
   ^-  a-group:v8:g
   ?>  (admin our -.flag group)
   =/  action  (required:spec args 'action' 32)
+  ?:  =('delete_group' action)
+    ?>  =(our -.flag)
+    ?>  =((required:spec args 'confirm' 256) (required:spec args 'group' 256))
+    [%delete ~]
+  ?:  =('delete_role' action)
+    =/  role  (slug:spec (required:spec args 'role' 64))
+    ?>  (~(has by roles.group) role)
+    ?>  !(~(has in admins.group) role)
+    ?>  =(role (required:spec args 'confirm' 256))
+    [%role (silt ~[role]) %del ~]
+  ?:  |(=('delete_channel' action) =('add_channel_readers' action) =('remove_channel_readers' action))
+    =/  nest  (nest:spec (required:spec args 'channel' 256))
+    ?>  (~(has by channels.group) nest)
+    ?:  =('delete_channel' action)
+      ?>  =((required:spec args 'confirm' 256) (required:spec args 'channel' 256))
+      [%channel nest %del ~]
+    =/  role  (slug:spec (required:spec args 'role' 64))
+    ?>  (~(has by roles.group) role)
+    ?:  =('add_channel_readers' action)
+      [%channel nest %add-readers (silt ~[role])]
+    [%channel nest %del-readers (silt ~[role])]
   ?:  =('set_group_privacy' action)
     =/  privacy  (required:spec args 'privacy' 16)
     ?>  ?=(?(%secret %private %public) privacy)
@@ -47,6 +68,14 @@
     [%role (silt ~[role]) %edit meta.u.old(title title, description (string:spec args 'description' description.meta.u.old 1.024))]
   =/  who  (ship:spec (required:spec args 'ship' 128))
   =/  ships  (silt ~[who])
+  ?:  |(=('kick_member' action) =('ban_member' action) =('unban_member' action))
+    ?>  !=(who -.flag)
+    ?>  =(who (ship:spec (required:spec args 'confirm' 128)))
+    ?:  =('kick_member' action)
+      ?>  (~(has by seats.group) who)
+      [%seat ships %del ~]
+    ?:  =('ban_member' action)  [%entry %ban %add-ships ships]
+    [%entry %ban %del-ships ships]
   ?:  |(=('approve_join_request' action) =('reject_join_request' action))
     ?>  (~(has by requests.admissions.group) who)
     [%entry %ask ships ?:(=('approve_join_request' action) %approve %deny)]

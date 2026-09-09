@@ -3,9 +3,11 @@
 ::  Native hand requests and ACP use the same ledger gates. Messenger facts
 ::  are accepted only on our subscription to the local activity agent.
 /-  t=harness-tlon, h=harness, hh=harness-hand, ad=harness-adapter, a=tlon-activity-ver, dv=tlon-channels-ver, ac=acp, cr=harness-cron
+/-  notes=tlon-notes
 /+  default-agent, dbug, p=harness-tlon-policy, continuity=harness-tlon-continuity, io=harness-tlon-io, publication=harness-tlon-publication, profile=harness-tlon-profile, presence=harness-tlon-presence, clock=harness-tlon-clock, hj=harness-json, wire-codec=harness-acp, ht=harness-tools, cron-lib=harness-cron, reminder=harness-reminder, hd=harness-hand, media-lib=harness-tlon-media, s3=harness-s3, history-page=harness-tlon-history-page, history-read=harness-tlon-history-read, public-context=harness-tlon-context, work=harness-tlon-work, activity-read=harness-tlon-activity, admin=harness-admin
 /+  ownership=harness-ownership
 /+  operations=harness-tlon-operations, denial=harness-tlon-denial
+/+  tlon-spec=harness-tlon-tool, notes-tool=harness-tlon-notes-tool
 |%
 +$  card  card:agent:gall
 +$  storage-source  $%([%credentials creds=credentials:s3] [%hosted token=@t config=json])
@@ -395,6 +397,8 @@
     c(tool-receipts (~(del by tool-receipts.c) id))
   ?.  &(=(%sending stage.receipt) (gte now.bowl (add at.receipt ~m1)))  c
   =/  body  'uncertain: Messenger acknowledgement was not observed; do not automatically repeat this action'
+  =?  c  =('pending: awaiting native Notes result' body.receipt)
+    (emit:c [%pass /tlon-notes/(scot %uv id) %agent [our.bowl %notes] %leave ~])
   =.  tool-receipts.c  (~(put by tool-receipts.c) id receipt(stage %uncertain, body body))
   (emit:c [%give %fact ~[/tools/(scot %uv id)] %noun !>(body)])
 ++  tool
@@ -413,6 +417,12 @@
   ?.  ?&(?=(^ authority) =(call.req call.u.authority))
     (finish-tool id 'rejected: no authorized outstanding tool call')
   ?:  =('tlon' name.call.req)
+    =/  parsed  (de:json:html args.call.req)
+    ?.  ?=([~ %o *] parsed)  (finish-tool id 'error: expected Tlon arguments object')
+    =/  action  (~(get by p.u.parsed) 'action')
+    ?:  |(=(`[%s 'upload_image'] action) =(`[%s 'upload_file'] action))
+      ?:  (~(has by p.u.parsed) 'path')  (start-file-upload id u.parsed)
+      (start-upload id u.parsed)
     =.  last-sent  (next-message-stamp:p now.bowl last-sent)
     =/  built
       %-  mole  |.
@@ -497,6 +507,14 @@
   ?~  receipt  |
   =/  req  request.u.receipt
   =/  authority  (tool-authority req)
+  ?:  =('tlon' name.call.req)
+    ?.  ?&(?=(^ authority) =(call.req call.u.authority) =(%sending stage.u.receipt))  |
+    =/  args  (de:json:html args.call.req)
+    ?.  ?=([~ %o *] args)  |
+    ?.  (~(has by p.u.args) 'path')  &
+    =/  path  (mole |.((need (rush (required:tlon-spec u.args 'path' 1.024) stap))))
+    ?~  path  |
+    (clay-granted:ht u.path tools.u.authority)
   =/  lane  (~(get by lanes) sid.req)
   ?&  enabled.policy
       =(%sending stage.u.receipt)
@@ -549,6 +567,7 @@
   |=  [id=@uv args=json]
   ^+  cor
   ?>  ?=(%o -.args)
+  ?:  (~(has by p.args) 'path')  (finish-tool id 'error: use either url or path, not both')
   ?:  (gte ~(wyt by uploads) 4)
     (finish-tool id 'error: four image uploads are already in progress')
   =/  creds  storage-credentials
@@ -558,8 +577,49 @@
     %-  mole  |.
     (download-request:media-lib (so:dejs:format (~(got by p.args) 'url')))
   ?~  request  (finish-tool id 'error: provide a public HTTPS image URL with a DNS hostname, no credentials or custom port, up to 2048 bytes; redirects are not followed')
+  =?  u.request  =(`[%s 'upload_file'] (~(get by p.args) 'action'))
+    u.request(header-list ~[['Accept' '*/*'] ['Accept-Encoding' 'identity']])
   =.  uploads  (~(put by uploads) id `upload:t`[%fetch (sham u.creds) '' '' '' [0 0]])
   (emit [%pass /media/(scot %uv id)/fetch %arvo %i %request u.request [0 0]])
+++  start-file-upload
+  |=  [id=@uv args=json]
+  ^+  cor
+  ?:  (gte ~(wyt by uploads) 4)  (finish-tool id 'error: four uploads are already in progress')
+  =/  creds  storage-credentials
+  ?~  creds  (finish-tool id 'error: configure Tlon storage before uploading')
+  =/  loaded
+    %-  mole  |.
+    ?>  !(has:tlon-spec args 'url')
+    ?>  (upload-authorized id)
+    =/  pax  (need (rush (required:tlon-spec args 'path' 1.024) stap))
+    ?>  ?=([@ @ *] pax)
+    =/  target=path  (weld /(scot %p our.bowl)/[i.pax]/(scot %da now.bowl) t.pax)
+    ?>  .^(? %cu target)
+    =/  raw  .^(noun %cq target)
+    =/  mime=[p=@t q=octs]
+      ?+  (rear pax)  !!
+        %mime
+          =/  file  ;;(mime raw)
+          [(en-mite:mimes:html p.file) q.file]
+        %txt  ['text/plain' (as-octs:mimes:html (of-wain:format ;;(wain raw)))]
+        %hoon  ['text/plain' (as-octs:mimes:html ;;(@t raw))]
+        %json  ['application/json' (as-octs:mimes:html (en:json:html ;;(json raw)))]
+        %png  ['image/png' ;;(octs raw)]
+        %jpg  ['image/jpeg' ;;(octs raw)]
+        %gif  ['image/gif' ;;(octs raw)]
+        %webp  ['image/webp' ;;(octs raw)]
+        %pdf  ['application/pdf' ;;(octs raw)]
+      ==
+    ?>  (file-valid:media-lib mime)
+    ?:  =('upload_image' (required:tlon-spec args 'action' 32))
+      ?>  ?=(^ (image-type:media-lib q.mime))
+      mime
+    mime
+  ?~  loaded  (finish-tool id 'error: invalid, unsupported or oversized Clay file, or missing Clay read grant; use /desk/path/ext, not an operating-system path')
+  =/  key  (rap 3 (scot %p our.bowl) '/harness-' (scot %uv id) '.' (file-extension:media-lib p.u.loaded) ~)
+  =/  pending=upload:t  [%put (sham u.creds) key p.u.loaded '' q.u.loaded]
+  =.  uploads  (~(put by uploads) id pending)
+  (put-upload id pending)
 ++  put-upload
   |=  [id=@uv pending=upload:t]
   ^+  cor
@@ -593,13 +653,16 @@
     ?.  (upload-authorized id)  (stop-upload id)
     ?.  &(=(200 status-code.response-header.res) ?=(^ full-file.res))
       (close-upload id 'failed: image source did not return HTTP 200 with a body (redirects are not followed); no upload was sent')
-    =/  mime  (image-type:media-lib data.u.full-file.res)
-    ?.  &(?=(^ mime) =(u.mime type.u.full-file.res))
-      (close-upload id 'failed: image source returned invalid, unsupported or oversized image data; no upload was sent')
-    =/  extension  ?:  =('image/png' u.mime)  'png'
-      ?:  =('image/gif' u.mime)  'gif'
-      ?:  =('image/webp' u.mime)  'webp'
-      'jpg'
+    =/  receipt  (~(got by tool-receipts) id)
+    =/  args  (need (de:json:html args.call.request.receipt))
+    =/  general  &(?=(%o -.args) =(`[%s 'upload_file'] (~(get by p.args) 'action')))
+    =/  supplied  (file-type:media-lib type.u.full-file.res)
+    =/  mime=(unit @t)  ?:  general  `supplied
+      (image-type:media-lib data.u.full-file.res)
+    ?~  mime  (close-upload id 'failed: unsupported image data; no upload was sent')
+    ?.  &(=(u.mime supplied) (file-valid:media-lib u.mime data.u.full-file.res))
+      (close-upload id 'failed: source returned invalid, unsupported or oversized file data; no upload was sent')
+    =/  extension  (file-extension:media-lib u.mime)
     =/  key  (rap 3 (scot %p our.bowl) '/harness-' (scot %uv id) '.' extension ~)
     (put-upload id u.pending(stage %put, key key, mime u.mime, bytes data.u.full-file.res))
   ?:  =(%grant phase)
@@ -959,7 +1022,38 @@
     =/  receipt  (~(get by tool-receipts) id)
     ?~  receipt  cor
     ?.  =(%sending stage.u.receipt)  cor
+    ?:  &(=(~ p.sign) =('pending: awaiting native Notes result' body.u.receipt))
+      (emit [%pass /tlon-notes/(scot %uv id) %agent [our.bowl %notes] %watch /v1/request/(scot %uv id)])
     (finish-tool id ?~(p.sign body.u.receipt 'failed: native Tlon rejected the action; check the target and this ship permissions'))
+      [%tlon-notes @ ~]
+    =/  id=@uv  (slav %uv i.t.wire)
+    =/  receipt  (~(get by tool-receipts) id)
+    ?~  receipt  cor
+    ?.  =(%sending stage.u.receipt)  cor
+    ?:  ?=(%kick -.sign)
+      (finish-tool id 'uncertain: native Notes result subscription closed; inspect the notebook before retrying')
+    ?:  ?=(%watch-ack -.sign)
+      ?~  p.sign  cor
+      (finish-tool id 'uncertain: could not observe native Notes result; inspect the notebook before retrying')
+    ?.  ?=(%fact -.sign)  cor
+    =.  cor  (emit [%pass wire %agent [our.bowl %notes] %leave ~])
+    ?>  =(%notes-response-1 p.cage.sign)
+    =/  response  !<(response:v1:notes q.cage.sign)
+    ?>  =(id id.response)
+    =/  result=cord
+      ?+  -.body.response  'saved: native Notes confirmed the action; read the notebook for resulting IDs and revision'
+        %error  (cat 3 'failed: native Notes reported ' type.body.response)
+        %pending
+          =/  args  (need (de:json:html args.call.request.u.receipt))
+          =/  confirmed  (mole |.((deletion-confirmed:~(. notes-tool bowl) args)))
+          ?:  =(`& confirmed)  'confirmed: notebook is absent from the native Notes directory after deletion'
+          'uncertain: native Notes request is still pending; inspect the notebook before retrying'
+        %no-change  'confirmed: native Notes reported no change'
+        %notebook
+          =/  summary  summary.body.response
+          (en:json:html (pairs:enjs:format ~[['status' %s 'saved'] ['notebook' %s (rap 3 (scot %p ship.flag.summary) '/' name.flag.summary ~)] ['root_folder_id' %s (scot %ud +(id.notebook.summary))]]))
+      ==
+    (finish-tool id result)
       [%cron-create @ ~]
     ?.  ?=(%poke-ack -.sign)  cor
     =/  id=@uv  (slav %uv i.t.wire)

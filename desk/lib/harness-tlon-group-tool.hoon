@@ -5,7 +5,7 @@
 ++  handles
   |=  action=@t
   =/  actions=(list @t)
-    ~['create_group' 'list_roles' 'create_role' 'update_role' 'assign_role' 'remove_role' 'promote_member' 'demote_member' 'set_group_privacy' 'list_group_requests' 'approve_join_request' 'reject_join_request' 'revoke_group_invite' 'list_group_invites' 'request_group_invite' 'accept_group_invite' 'decline_group_invite' 'cancel_group_join']
+    ~['create_group' 'list_roles' 'create_role' 'update_role' 'assign_role' 'remove_role' 'promote_member' 'demote_member' 'set_group_privacy' 'list_group_requests' 'approve_join_request' 'reject_join_request' 'revoke_group_invite' 'list_group_invites' 'request_group_invite' 'accept_group_invite' 'decline_group_invite' 'cancel_group_join' 'delete_group' 'delete_channel' 'delete_role' 'kick_member' 'ban_member' 'unban_member' 'add_channel_readers' 'remove_channel_readers']
   (lien actions |=(value=@t =(value action)))
 ++  groups
   ^-  groups:v9:g
@@ -28,29 +28,31 @@
   ?:  =('list_group_invites' action)
     =/  rows  ~(tap by foreigns)
     =/  items
-      %+  turn  (scag 100 rows)
+      %+  turn  rows
       |=  [flag=[@p @tas] foreign=foreign:v8:g]
       (pairs:enjs:format ~[['group' %s (group-id flag)] ['title' %s ?~(preview.foreign '' title.meta.u.preview.foreign)] ['has_invite' %b (invited foreign)] ['progress' ?~(progress.foreign ~ [%s u.progress.foreign])]])
-    [(en:json:html (pairs:enjs:format ~[['items' %a items] ['has_more' %b (gth (lent rows) 100)]])) ~]
+    [(en:json:html (directory:spec args items)) ~]
   ?:  |(=('list_roles' action) =('list_group_requests' action))
     =/  flag  (flag:spec (required:spec args 'group' 256))
     =/  group  (~(got by groups) flag)
     ?:  =('list_roles' action)
       =/  rows  ~(tap by roles.group)
       =/  items
-        %+  turn  (scag 100 rows)
+        %+  turn  rows
         |=  [id=@tas role=role:v9:g]
         (pairs:enjs:format ~[['role' %s id] ['title' %s title.meta.role] ['description' %s description.meta.role] ['admin' %b (~(has in admins.group) id)]])
-      [(en:json:html (pairs:enjs:format ~[['items' %a items] ['has_more' %b (gth (lent rows) 100)]])) ~]
+      [(en:json:html (directory:spec args items)) ~]
     ?>  (admin:policy our.bowl -.flag group)
     ::  Never expose invitation tokens, referral links or request bodies.
     =/  pending  ~(tap in ~(key by pending.admissions.group))
     =/  requests  ~(tap in ~(key by requests.admissions.group))
     =/  invites  ~(tap in ~(key by invited.admissions.group))
     =/  ships  |=  rows=(list @p)
-      [%a (turn (scag 100 rows) |=(who=@p [%s (scot %p who)]))]
+      [%a (turn (scag 100 (slag (offset:spec args) rows)) |=(who=@p [%s (scot %p who)]))]
     =/  result
-      (pairs:enjs:format ~[['pending' (ships pending)] ['requests' (ships requests)] ['invited' (ships invites)] ['has_more' %b |((gth (lent pending) 100) (gth (lent requests) 100) (gth (lent invites) 100))]])
+      =/  next  (add (offset:spec args) 100)
+      =/  more  |((gth (lent pending) next) (gth (lent requests) next) (gth (lent invites) next))
+      (pairs:enjs:format ~[['pending' (ships pending)] ['requests' (ships requests)] ['invited' (ships invites)] ['has_more' %b more] ['next_offset' ?:(more [%s (scot %ud next)] ~)]])
     [(en:json:html result) ~]
   =/  card=card:agent:gall
     ?:  =('create_group' action)

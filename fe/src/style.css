@@ -252,6 +252,9 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 
 .chat-row:hover .chat-actions,
 .chat-row:focus-within .chat-actions { opacity: 1; }
+@media (hover: hover) and (min-width: 761px) {
+  .chat-row:not(:hover):not(:focus-within) .chat-link { padding-right: 10px; }
+}
 .chat-actions button:hover { background: var(--soft); color: var(--text); }
 .chat-actions button:last-child:hover { color: var(--danger); }
 .sidebar-spacer { flex: 1; }

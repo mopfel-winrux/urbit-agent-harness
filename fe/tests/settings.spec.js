@@ -9,9 +9,9 @@ test.beforeEach(async ({ page }) => {
 
 for (const surface of ['global', 'conversation']) test(`${surface}: Tlon is a default, independently removable cross-conversation grant`, async ({ page }) => {
   await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}`)
-  const tool = page.getByRole('checkbox', { name: /^Tlon Send to other DMs/ })
+  const tool = page.getByRole('checkbox', { name: /^Tlon Read and send messages/ })
   await expect(tool).toBeChecked()
-  await expect(page.getByText(/Access extends beyond the current conversation/)).toBeVisible()
+  await expect(page.getByText(/Includes editing and deletion beyond the current conversation/)).toBeVisible()
   await tool.uncheck()
   await page.getByRole('button', { name: surface === 'global' ? 'Save defaults' : 'Save conversation' }).click()
   await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)?.tools)).toEqual(defaultConfig().tools.filter((grant) => grant !== 'tlon'))

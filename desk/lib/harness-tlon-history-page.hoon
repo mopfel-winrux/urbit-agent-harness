@@ -52,7 +52,9 @@
   ?:  |(=(scanned.out limit) =(hits 20))  out
   =/  candidate=(unit message)
     ?~  message.i.rows  ~
-    ?:((matches needle u.message.i.rows) message.i.rows ~)
+    ?.  (matches needle u.message.i.rows)  ~
+    =/  msg  u.message.i.rows
+    `msg(text (clip-text text.msg 800), clipped |(clipped.msg (gth (met 3 text.msg) 800)))
   =/  size=@ud  ?~(candidate 0 (met 3 (en:json:html (message-json u.candidate))))
   ::  Preserve complete JSON under the head's 24 KB tool-result boundary.
   ::  Do not consume a matching row until it fits; the cursor must revisit it.
@@ -75,7 +77,7 @@
   |=  [id=@t author=author:v9:dv sent=@da content=story:s]
   ^-  message
   =/  text  (story-to-text:story content)
-  [id ?@(author author ship.author) sent (clip-text text 800) (gth (met 3 text) 800)]
+  [id ?@(author author ship.author) sent text |]
 ++  dm-post
   |=  post=writ:v7:cv
   ^-  message
@@ -95,7 +97,7 @@
 ++  message-json
   |=  message=message
   ^-  json
-  (pairs:enjs:format ~[['message_id' %s id.message] ['author' %s (scot %p author.message)] ['sent' %s (scot %da sent.message)] ['text' %s text.message] ['text_truncated' %b clipped.message]])
+  (pairs:enjs:format ~[['message_id' %s id.message] ['author' %s (scot %p author.message)] ['sent' %s (scot %da sent.message)] ['text' %s (clip-text text.message 800)] ['text_truncated' %b |(clipped.message (gth (met 3 text.message) 800))]])
 ++  encode
   |=  [scope=@uv page=page parent=(unit message) needle=@t]
   ^-  json

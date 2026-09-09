@@ -46,7 +46,9 @@ their own ship. A pre-created seat is not proof of a completed join. Existing
 group names are rejected rather than replacing the group.
 Mutation receipts confirm local acceptance only, not remote delivery or completed
 joining. Pending calls become uncertain after one minute and are never retried
-automatically, including after reload. Lists return at most 100 entries.
+automatically, including after reload. Directory pages return at most 100 entries
+within the tool's JSON byte budget. Continue with `next_offset`; these are live
+views, so concurrent directory changes can shift positions.
 
 `history` and `search_history` take exactly one of `ship` or `channel`; optional
 `parent` selects a thread. Use exact `message_id` values from their results,
@@ -86,6 +88,49 @@ reject a newly granted privilege; reread state before trying a fresh request.
 Native acknowledgements still mean local acceptance, not remote completion.
 These operations never modify Harness ownership or trusted-ship permissions.
 
+The same grant also covers:
+
+- Channel reader/writer role restrictions: `get_channel_permissions` and
+  `add_channel_readers`, `remove_channel_readers`, `add_channel_writers`,
+  `remove_channel_writers`. An empty restriction set means all group members;
+  removing its final role opens access.
+- Moderation: kick, ban/unban, and delete groups, channels or ordinary roles.
+  Destructive calls require `confirm` to repeat the exact target ID after user
+  authorization. The host is protected, only the host can delete a group, and
+  admin-marked roles cannot be deleted through the tool.
+- `get_message` reads a full post or reply in UTF-8-safe chunks. Search examines
+  full text, not just the displayed preview. `history_around` reads five nearby
+  messages on either side; `resolve_citation` follows native group, channel and
+  Notes references without joining anything or executing a desk converter.
+  `edit_message` preserves channel post/reply identity and metadata. Native Tlon
+  does not support editing DM or group-DM messages. `delete_message`
+  requires exact-target confirmation. `accept_dm` and `decline_dm` resolve only
+  pending invitations.
+- `activity_inbox` reads all activity, mentions, replies or unread summaries.
+  Group DMs have dedicated `list_clubs`, `get_club`, `club_history`,
+  `search_club_history`, `send_club`, creation and invitation actions. A club is
+  addressed by its native `0v` ID, never by an invented channel identifier.
+  `get_club_message` reads full posts/replies in chunks; `delete_club_message`
+  deletes this ship's own messages with exact-target confirmation. These are
+  explicit tools; incoming club messages do not start automatic Harness replies.
+- Native `%notes` notebooks, folders and Markdown notes: list/read, create,
+  rename, move, delete, invitations, archived revisions and restoration.
+  `edit_note` requires the revision returned by `get_note`. Writes wait for the
+  correlated native Notes response, including conflict/permission errors;
+  transport acknowledgement alone is not reported as a saved edit.
+  If native notebook deletion times out after removing the book, the adapter
+  checks the native directory and reports the observed absence, without retrying.
+- `upload_image` and `upload_file` reuse the existing upload implementation,
+  storage settings, signing, durable receipts and bounded transfer handling.
+  They add ship-wide access and non-image files. A `path` is a ship-local Clay
+  `/desk/path/ext`, requires an additional matching Clay read grant, and never
+  invokes a desk-defined converter. It is not a host operating-system path.
+  The existing current-conversation `tlon_upload_image` remains available.
+  URL sources retain HTTPS/no-redirect restrictions; all uploads are capped at
+  8 MiB and may be public under the configured storage policy.
+
+Hooks and public-web publishing are deliberately not exposed.
+
 This is a broad, separately removable grant: it extends beyond the current
 conversation. Existing saved defaults and conversation grants are preserved.
 Trusted ships receive only the tools explicitly granted to them; their implicit
@@ -103,6 +148,15 @@ limited to one per sender per five minutes and eight total per minute.
 Native verification: `scripts/tlon-actions-conformance.mjs` exercises the broad
 tool with automatic replies disabled; `scripts/tlon-denial-conformance.mjs`
 checks real two-ship denial delivery, rate limiting and zero model calls.
+`scripts/tlon-completion-conformance.mjs` checks permissions, moderation, full
+message reads, activity, clubs, Notes and granted Clay uploads on local fake
+`~lux`, restoring policy and storage settings afterward.
+The completion fixture deliberately reads deleted messages to check rejection;
+native missing-message scries can print `bail: 4` / `bail: 2`. The pinned Tlon
+chat source also emits `chat-club-action-2` on its old `/v3` club paths while
+declaring `chat-club-action-1`, producing `%bad-fact-mark` diagnostics during
+club changes. Harness uses v4 club reads; the fixture verifies the resulting
+native state rather than treating those diagnostics as proof of failure.
 `scripts/tlon-groups-conformance.mjs` checks requester-admin creation, role
 semantics, real two-ship invitation/join flows, and denied/authorized remote
 administration. Set `SHIP_COOKIE`, `SHIP_URL`, `PEER_COOKIE`, and `PEER_URL` to

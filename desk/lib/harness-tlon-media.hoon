@@ -75,6 +75,45 @@
   ?:  |(=('GIF87a' (end 3^6 q.data)) =('GIF89a' (end 3^6 q.data)))  `'image/gif'
   ?:  &(=('RIFF' (end 3^4 q.data)) =('WEBP' (cut 3 [8 4] q.data)))  `'image/webp'
   ~
+++  file-type
+  |=  raw=@t
+  ^-  @t
+  ::  Iris preserves MIME parameters; storage signing needs the base type.
+  =/  chars  (cass (trip raw))
+  =/  base=tape
+    |-  ^-  tape
+    ?~  chars  ~
+    ?:  =(';' i.chars)  ~
+    [i.chars $(chars t.chars)]
+  (crip (skip base |=(c=@t |(=(c 32) =(c 9)))))
+++  file-extension
+  |=  mime=@t
+  ^-  @t
+  ?+  mime  !!
+    %'image/png'  'png'
+    %'image/jpeg'  'jpg'
+    %'image/gif'  'gif'
+    %'image/webp'  'webp'
+    %'text/plain'  'txt'
+    %'text/markdown'  'md'
+    %'text/csv'  'csv'
+    %'application/json'  'json'
+    %'application/pdf'  'pdf'
+    %'application/zip'  'zip'
+    %'application/octet-stream'  'bin'
+    %'audio/mpeg'  'mp3'
+    %'audio/ogg'  'ogg'
+    %'audio/wav'  'wav'
+    %'video/mp4'  'mp4'
+  ==
+++  file-valid
+  |=  [mime=@t data=octs]
+  ^-  ?
+  ?.  &((gth p.data 0) (lte p.data 8.388.608) (lte (met 3 q.data) p.data))  |
+  ?~  (mole |.((file-extension mime)))  |
+  ?:  =('image/' (end [3 6] mime))  =(`mime (image-type data))
+  ?:  =('application/pdf' mime)  =('%PDF-' (end [3 5] q.data))
+  &(!=('<!DOCTYPE html' (end [3 14] q.data)) !=('<html' (end [3 5] q.data)))
 ++  acl-rejected
   |=  res=client-response:iris
   ^-  ?
@@ -88,5 +127,8 @@
 ++  result
   |=  [url=@t mime=@t]
   ^-  @t
-  (en:json:html (pairs:enjs:format ~[['url' %s url] ['content_type' %s mime] ['note' %s 'Upload accepted. Use ![description](url) on its own line in your final reply to publish an image. Public access depends on the storage configuration.']]))
+  =/  note  ?:  =('image/' (end [3 6] mime))
+    'Upload accepted. Use ![description](url) on its own line in your final reply to publish an image. Public access depends on the storage configuration.'
+    'Upload accepted. Share [filename](url) only with the intended recipients. Access depends on storage configuration and may be public.'
+  (en:json:html (pairs:enjs:format ~[['url' %s url] ['content_type' %s mime] ['note' %s note]]))
 --

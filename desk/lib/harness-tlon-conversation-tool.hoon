@@ -24,6 +24,7 @@
   =/  snapshot  (load:~(. reader bowl) to before ?:(search 65 21))
   (encode:hp scope (scan:hp rows.snapshot needle) parent.snapshot needle)
 ++  dms
+  |=  args=json
   ^-  json
   ?>  .^(? %gu /(scot %p our.bowl)/chat/(scot %da now.bowl)/$)
   =/  accepted=(set @p)
@@ -32,8 +33,8 @@
     .^((set @p) %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/dm/invited/ships)
   =/  rows  ~(tap in (~(uni in accepted) invited))
   =/  items
-    %+  turn  (scag 100 rows)
+    %+  turn  rows
     |=  who=@p
     (pairs:enjs:format ~[['ship' %s (scot %p who)] ['invited' %b (~(has in invited) who)]])
-  (pairs:enjs:format ~[['items' %a items] ['has_more' %b (gth (lent rows) 100)]])
+  (directory:spec args items)
 --

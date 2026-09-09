@@ -3,7 +3,7 @@
 ::  pure functions for converting between plaintext/markdown
 ::  and urbit story structures. no agent dependencies.
 ::
-/-  d=tlon-story
+/-  d=tlon-story, cite=tlon-cite
 |%
 ::
 ::  +story-to-text: extract plain text from a story
@@ -26,7 +26,7 @@
       %header  `(inlines-to-text q.blk)
       %listing  `(listing-to-text p.blk)
       %rule  `'---'
-      %cite  `'[citation]'
+      %cite  `(rap 3 '[citation: ' (spat (print:cite cite.blk)) ']' ~)
       %image
         ?:  =('' alt.blk)
           `(rap 3 '[Image: ' src.blk ']' ~)
