@@ -106,6 +106,20 @@ test('schedules have one shared head owner and no adapter timer', async () => {
   assert.match(settings, /CronSettings/)
   assert.doesNotMatch(tlon, /<TlonCron|<CronSettings/)
 })
+test('scheduler maintenance is change-driven without caching effect authority', async () => {
+  const head = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  const arm = (name) => head.split(`++  ${name}\n`)[1]?.split('\n++  ')[0]
+  assert.match(head, /before-scheduler\s+schedule-inputs:hc/)
+  assert.match(head, /maintenance-needed:schedule-lib schedules schedule-wake now\.bowl !=\(before-scheduler schedule-inputs:hc\)/)
+  const inputs = arm('schedule-inputs').split('\n').filter((line) => !line.trimStart().startsWith('::')).join('\n')
+  for (const input of ['schedules', 'sessions', 'hands', 'rehearsals', 'peers', 'peer-limits', 'announced-access', 'tools.defaults']) {
+    assert.ok(inputs.includes(input), `Missing scheduler invalidation input: ${input}`)
+  }
+  assert.doesNotMatch(inputs, /\.\^\(|acp-through|model-requests|streams/)
+  assert.match(arm('poll-schedules'), /\(schedule-live job\)/)
+  assert.match(arm('execution-tools'), /\(schedule-live u\.scheduled\)/)
+  assert.match(head, /\[%x %cron-authority @ ~\][\s\S]*?\(schedule-live:hc u\.job\)/)
+})
 test('channel reconciliation uses self-role events and native live read authority', async () => {
   const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
   const activity = adapter.split('++  activity\n')[1].split('\n++  ')[0]

@@ -44,6 +44,14 @@ for (let pass = 1; pass <= 2; pass++) {
       const start = performance.now()
       await client.start()
       const startupMs = Math.round(performance.now() - start)
+      // The initial Settings reads share one ACP connection and run together.
+      // Keep this distinct from sequential RPC timings and model-catalog I/O.
+      const settingsStart = performance.now()
+      await Promise.all([
+        client.call('harness/defaults'), client.call('harness/tools'),
+        client.call('harness/mcp/servers'), client.call('harness/status', { provider: 'openai' }),
+      ])
+      const settingsMs = Math.round(performance.now() - settingsStart)
       const timings = Object.fromEntries(methods.map((method) => [method, []]))
       for (let round = 0; round < 3; round++) for (const method of methods) {
         const start = performance.now()
@@ -54,7 +62,7 @@ for (let pass = 1; pass <= 2; pass++) {
       await sleep(1000)
       const offset = events.length
       await sleep(3000)
-      console.log(JSON.stringify({ pass, label, startupMs, timings, idle3s: counts(events.slice(offset)), total: counts(events) }))
+      console.log(JSON.stringify({ pass, label, startupMs, settingsMs, timings, idle3s: counts(events.slice(offset)), total: counts(events) }))
     } finally {
       client.close()
       await Promise.allSettled(closing)

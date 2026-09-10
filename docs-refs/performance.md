@@ -39,6 +39,20 @@ implicitly. Destination blocking and authority checks govern delivery.
 - External inference, network requests and native Tlon publication add latency
   beyond Harness's local processing.
 
+## Scheduler maintenance
+
+Scheduler maintenance follows changes to jobs, sessions, hand evidence and
+permission inputs, or the scheduler's armed deadline. Routine ACP reads and
+acknowledgements do not sweep active schedules. The deadline includes busy-job
+backoff; a receipt can trigger an earlier reassessment. Active jobs without an
+armed timer are checked and re-armed after reload or a consumed wake. Settled
+jobs alone do not require a timer.
+
+This cadence does not cache authorization. Scheduled execution and hand delivery
+check live authority at their effect boundaries. Local source binding and grant
+changes trigger maintenance, and re-enabling a revoked source does not resume
+paused jobs automatically.
+
 ## Full-turn benchmark
 
 The full-turn fixture uses the actual browser ACP client, an immediate local
@@ -66,6 +80,10 @@ tail latency. Synthetic history and local endpoints do not represent external
 model, network or Tlon publication costs.
 
 The read-only transport fixture is `scripts/performance-read-benchmark.mjs`.
+It reports initialization, the parallel Settings read batch, subsequent RPCs
+and idle traffic separately. Model-catalog I/O and browser rendering are outside
+these timings. Include active schedules when measuring a scheduler workload;
+an empty scheduler does not exercise live job-authority checks.
 
 ## Native benchmarks and correctness
 

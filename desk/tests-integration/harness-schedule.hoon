@@ -1,6 +1,6 @@
 ::  Full-agent persistence and timer checks; emitted cards are never executed.
 ::  -test /=harness=/tests-integration/harness-schedule
-/-  c=harness-cron, hh=harness-hand, *harness-store
+/-  c=harness-cron, hh=harness-hand, h=harness, ac=acp, *harness-store
 /+  *test, schedule=harness-schedule, defaults=harness-defaults
 /=  head  /app/harness
 |%
@@ -45,6 +45,35 @@
     (expect-eq !>(2) !>((lent timers)))
     (expect-eq !>(schedules.s) !>(schedules.next))
     (expect-eq !>(schedule-wake.s) !>(schedule-wake.next))
+  ==
+++  test-reads-and-acks-with-an-active-schedule-do-not-read-authority
+  (isolated |=(ignored=* read-cadence))
+++  read-cadence
+  =/  s  fixture
+  =/  job  job
+  =.  tools.job  ~[%admin]
+  =.  tlon-cron-imported.s  &
+  =.  schedules.s  (my ~[[0v1 job]])
+  ::  A real actor makes live grant evaluation consult the identity boundary.
+  ::  Loading may validate it; the subsequent read and ACK must not do so.
+  =.  sessions.s
+    (~(put by sessions.s) 'source' [~[[%input-received [0v9 [%acp 'fixture'] `~zod ~ ~2026.9.9 [%user 'fixture']]] [%config-replaced defaults.s]] 1])
+  =/  loaded  (~(on-load head bowl) !>(s))
+  =/  ready  !<(state-20 ~(on-save +.loaded bowl))
+  =/  step
+    |.
+    =/  ack  (~(on-agent +.loaded bowl) /acp/ack [%poke-ack ~])
+    =/  update=update:v1:ac
+      [%messages 'fixture' %agent ~[[1 ~2026.9.9 '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}']]]
+    =/  read  (~(on-agent +.ack bowl) /acp/watch [%fact %acp-update-1 !>(update)])
+    =/  next  !<(state-20 ~(on-save +.read bowl))
+    &(=(schedules.ready schedules.next) =(schedule-wake.ready schedule-wake.next) =(2 (lent -.read)) =(~ -.ack))
+  ::  Any attempted authority scry blocks this isolated evaluation.
+  =/  checked  (mink [step %9 2 %0 1] |=([* *] ~))
+  ;:  weld
+    (expect-eq !>(%active) !>(state:(~(got by schedules.ready) 0v1)))
+    (expect !>(?=(%0 -.checked)))
+    (expect !>(?:(?=(%0 -.checked) ;;(? product.checked) |)))
   ==
 ++  test-legacy-handoff-preserves-receipts-and-cannot-resurrect-cleared-jobs
   (isolated |=(ignored=* legacy-handoff))

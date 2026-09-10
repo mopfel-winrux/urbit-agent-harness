@@ -35,13 +35,19 @@
       =/  before-hands  hands
       =/  before-schedules  schedules
       =/  before-access  access-inputs:hc
+      =/  before-scheduler  schedule-inputs:hc
       =.  state  loaded
       =/  out  (filter:oauth -.result openai-auth provider-keys now.bowl)
       =^  cards  state  (accept-auth:hc out)
-      =^  scheduled  state  poll-schedules:hc
+      =^  scheduled  state
+        ::  Reads and transport acknowledgements cannot invalidate schedules.
+        ::  Keep live effect authorization separate from maintenance cadence.
+        ?.  (maintenance-needed:schedule-lib schedules schedule-wake now.bowl !=(before-scheduler schedule-inputs:hc))
+          `state
+        =^  started  state  poll-schedules:hc
+        =^  waking  state  wake-schedules:hc
+        [(weld started waking) state]
       =.  cards  (weld cards scheduled)
-      =^  waking  state  wake-schedules:hc
-      =.  cards  (weld cards waking)
       =?  modified  !=(before-sessions sessions)
         (update:index before-sessions sessions modified now.bowl)
       =?  corpus  |(!=(before-sessions sessions) ?=(~ built-at.index.corpus))
@@ -761,6 +767,10 @@
     ?:  ?=(%& -.result.out)  (acp-result-card:wire-codec connection id p.result.out)
     (acp-error-card:wire-codec connection id '-32602' p.result.out)
   [(snoc cards.out response) new.out]
+++  schedule-inputs
+  ::  Local invalidation only: never perform trust scries to decide whether
+  ::  maintenance is needed. Peer refresh publishes changes in announced-access.
+  [schedules sessions hands rehearsals peers peer-limits announced-access tools.defaults]
 ++  poll-schedules
   ^-  (quip card _state)
   =/  pending  ~(tap by schedules)

@@ -3,6 +3,16 @@
 /-  c=harness-cron, h=harness, hh=harness-hand
 /+  calendar=harness-cron, reminder=harness-reminder
 |%
+++  maintenance-needed
+  |=  [jobs=(map @uv schedule:c) wake=(unit @da) now=@da changed=?]
+  ^-  ?
+  ?:  changed  &
+  ::  An armed deadline includes the busy-job backoff; unrelated traffic must
+  ::  not turn an overdue but busy job into continuous authority polling.
+  ?^  wake  (lte u.wake now)
+  ::  Reloads and consumed timer wakes must re-arm active jobs. Settled jobs
+  ::  alone need no timer or read-triggered sweep; effects still authorize live.
+  (lien ~(val by jobs) |=(job=schedule:c =(%active state.job)))
 ++  job-value
   |=  job=schedule:c
   ^-  job:c

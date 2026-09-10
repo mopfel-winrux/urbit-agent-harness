@@ -10,6 +10,35 @@
 ++  job
   ^-  schedule:c
   (create:schedule action source ~[%web] ~2026.9.9)
+++  test-maintenance-follows-invalidation-and-the-armed-deadline
+  =/  job  job
+  =/  jobs  (my ~[[0v1 job]])
+  ;:  weld
+    (expect !>(!(maintenance-needed:schedule jobs `next.job ~2026.9.9 |)))
+    (expect !>((maintenance-needed:schedule jobs `next.job ~2026.9.9 &)))
+    (expect !>((maintenance-needed:schedule jobs `next.job next.job |)))
+    (expect !>((maintenance-needed:schedule jobs `next.job (add next.job ~s1) |)))
+    (expect !>((maintenance-needed:schedule jobs ~ ~2026.9.9 |)))
+  ==
+++  test-overdue-busy-job-respects-backoff-until-receipt-or-wake
+  =/  job  job
+  =/  jobs  (my ~[[0v1 job]])
+  =/  now  (add next.job ~s1)
+  =/  retry  (add now ~s30)
+  ;:  weld
+    (expect !>(!(maintenance-needed:schedule jobs `retry now |)))
+    (expect !>((maintenance-needed:schedule jobs `retry now &)))
+    (expect !>((maintenance-needed:schedule jobs `retry retry |)))
+  ==
+++  test-settled-jobs-do-not-sweep-on-reads-but-still-invalidate
+  =/  job  job
+  =/  jobs  (my ~[[0v1 job(state %complete)] [0v2 job(state %cancelled)] [0v3 job(state %paused)]])
+  ;:  weld
+    (expect !>(!(maintenance-needed:schedule jobs ~ ~2026.9.10 |)))
+    (expect !>((maintenance-needed:schedule jobs ~ ~2026.9.10 &)))
+    (expect !>(!(maintenance-needed:schedule ~ ~ ~2026.9.10 |)))
+    (expect !>((maintenance-needed:schedule ~ `~2026.9.11 ~2026.9.10 &)))
+  ==
 ++  test-scheduler-has-no-tlon-dependency
   =/  job  job
   ;:  weld
