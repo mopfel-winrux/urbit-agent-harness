@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
 import { PROVIDERS } from './providers.js'
+import { createModelCatalogs } from './modelCatalogs.js'
 
-const cache = new Map()
+const cache = createModelCatalogs(async (provider, endpoint) => normalizeCatalog(await api.models(provider, endpoint)))
+export const invalidateModelCatalogs = () => cache.invalidate()
 const emptyCatalog = () => ({ models: [], contexts: {} })
 
 export function normalizeCatalog(result = {}) {
@@ -21,37 +23,37 @@ export function normalizeCatalog(result = {}) {
   return { models: [...new Set(ids)].sort(), contexts }
 }
 
-export function useProviderModels(provider, endpoint) {
+export function useProviderModels(provider, endpoint, enabled = true) {
   const details = PROVIDERS[provider]
   const modelsEndpoint = endpoint || details?.modelsEndpoint || ''
   const key = `${provider}:${modelsEndpoint}`
-  const [result, setResult] = useState(() => ({ key, catalog: cache.get(key) || emptyCatalog() }))
+  const [result, setResult] = useState(() => ({ key, catalog: cache.peek(key) || emptyCatalog() }))
   const active = useRef(key)
-  active.current = key
+  active.current = enabled ? key : null
   const generation = useRef(0)
   // Never show one provider's limits while the next provider is loading.
-  const catalog = result.key === key ? result.catalog : cache.get(key) || emptyCatalog()
+  const catalog = !enabled ? emptyCatalog() : result.key === key ? result.catalog : cache.peek(key) || emptyCatalog()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const refresh = useCallback(async () => {
+  const load = useCallback(async (force) => {
     const request = ++generation.current
     const current = () => active.current === key && generation.current === request
-    if (!modelsEndpoint) { setResult({ key, catalog: emptyCatalog() }); setError(''); setLoading(false); return }
+    if (!enabled || !modelsEndpoint) { setResult({ key, catalog: emptyCatalog() }); setError(''); setLoading(false); return }
     setLoading(true); setError('')
     try {
-      const result = await api.models(provider, modelsEndpoint)
-      const next = normalizeCatalog(result)
-      if (current()) { cache.set(key, next); setResult({ key, catalog: next }) }
+      const next = await cache.load(provider, modelsEndpoint, { force })
+      if (current()) setResult({ key, catalog: next })
     } catch (cause) { if (current()) setError(cause.message) }
     finally { if (current()) setLoading(false) }
-  }, [key, modelsEndpoint, provider])
+  }, [key, modelsEndpoint, provider, enabled])
+  const refresh = useCallback(() => load(true), [load])
 
   useEffect(() => {
-    setResult({ key, catalog: cache.get(key) || emptyCatalog() })
-    void refresh()
+    setResult({ key, catalog: cache.peek(key) || emptyCatalog() })
+    void load(false)
     return () => { ++generation.current }
-  }, [key, refresh])
+  }, [key, load])
   return {
     models: catalog.models,
     contextFor: (model) => catalog.contexts[model] || null,

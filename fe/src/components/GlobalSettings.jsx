@@ -21,15 +21,17 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const dirty = useRef(false)
+  const loaded = useRef(null)
   const details = PROVIDERS[provider]
   const catalogUrl = catalogEndpoint(provider, form)
-  const catalog = useProviderModels(provider, catalogUrl)
+  const catalog = useProviderModels(provider, catalogUrl, !defaults.loading && !defaults.error && (dirty.current || loaded.current === defaults.value))
 
   useEffect(() => {
-    if (!defaults.value || dirty.current) return
+    if (defaults.loading || defaults.error || !defaults.value || dirty.current) return
+    loaded.current = defaults.value
     setForm(defaults.value)
     setProvider(providerOf(defaults.value.url))
-  }, [defaults.value])
+  }, [defaults.value, defaults.loading, defaults.error])
 
   const field = (name, value) => {
     dirty.current = true

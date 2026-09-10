@@ -3,6 +3,72 @@ import test from 'node:test'
 
 import { AcpClient, webConnection } from './acp.js'
 
+const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }
+const settle = async () => { for (let i = 0; i < 12; i++) await Promise.resolve() }
+
+test('a ready RPC reply is returned while its HTTP send remains pending', async () => {
+  const client = new AcpClient()
+  const send = deferred()
+  client.poke = () => send.promise
+  const result = client.call('session/list')
+  client.receive({ id: 1, result: { sessions: [] } })
+  let resolved = false
+  result.then(() => { resolved = true })
+  await settle()
+  assert.equal(resolved, true)
+  // An authoritative reply wins even if the HTTP request subsequently fails.
+  send.reject(new Error('late HTTP failure'))
+  assert.deepEqual(await result, { sessions: [] })
+  await settle()
+})
+
+test('slow ACKs do not hold queue reads or the next ready response', async (t) => {
+  const savedDocument = globalThis.document
+  globalThis.document = { hidden: false }
+  t.after(() => { globalThis.document = savedDocument })
+  const client = new AcpClient()
+  const ack = deferred()
+  let polls = 0, received = false
+  client.poke = (value) => value.ack ? ack.promise : Promise.resolve()
+  client.pending.set(2, { resolve: () => { received = true } })
+  t.mock.method(globalThis, 'fetch', async () => ({ ok: true, json: async () => ({ messages: [
+    { sequence: ++polls, payload: JSON.stringify({ id: polls, result: {} }) },
+  ] }) }))
+  client.waitForPoll = async () => { if (polls === 2) client.running = false }
+  client.running = true
+  const polling = client.poll()
+  await settle()
+  assert.equal(polls, 2)
+  assert.equal(received, true)
+  ack.resolve()
+  await polling
+})
+
+test('ACKs coalesce to the highest delivered cursor and fence recovery', async () => {
+  const client = new AcpClient()
+  const sends = []
+  client.running = true
+  client.poke = (value) => {
+    if (value.open) return Promise.resolve()
+    const pending = deferred(); sends.push({ ...pending, through: value.ack.through, connection: value.ack.connection }); return pending.promise
+  }
+  client.receivedThrough = 1; client.acknowledge()
+  client.receivedThrough = 4; client.acknowledge()
+  client.receivedThrough = 9; client.acknowledge()
+  assert.deepEqual(sends.map((s) => s.through), [1])
+  sends[0].resolve(); await settle()
+  assert.deepEqual(sends.map((s) => s.through), [1, 9])
+  await client.recover()
+  client.receivedThrough = 2; client.acknowledge()
+  assert.notEqual(sends[1].connection, sends[2].connection, 'old ACKs cannot delete frames in the replacement queue')
+  sends[1].resolve(); await settle()
+  assert.equal(client.acknowledgedThrough, 0)
+  assert.notEqual(client.ackFlight, null)
+  sends[2].resolve(); await settle()
+  assert.equal(client.acknowledgedThrough, 2)
+  client.close()
+})
+
 test('each browser instance gets a fresh valid ACP connection', () => {
   const first = webConnection()
   const second = webConnection()

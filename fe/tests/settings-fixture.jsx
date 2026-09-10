@@ -32,6 +32,7 @@ let remoteShips = []
 const tlonSnapshot = () => ({ policy: tlonPolicy, sessions: [], ship: '~zod', isMoon: params.has('moon'), sponsor: params.has('moon') ? '~bud' : null, siblingMoonOwners })
 const peerSnapshot = () => ({ ...peerSettings, owners: [...(tlonPolicy.owner ? [newPeerGrant(tlonPolicy.owner, config.tools)] : []), ...(params.has('trusted-owner') ? [newPeerGrant('~nec', config.tools)] : [])], trusted: [...(tlonPolicy.owner ? [newPeerGrant(tlonPolicy.owner)] : []), ...tlonPolicy.trusted.map((entry) => newPeerGrant(entry.ship, entry.tools))] })
 window.settingsFixture = { requests: [], reads: [], calls: [], saves: [], credentials: [], resolve: (id, value) => pending.get(id)(value) }
+window.settingsFixture.sessionsChanged = () => acp.dispatchEvent(new Event('harness/sessions/changed'))
 acp.start = async () => {}
 acp.call = async (method) => {
   window.settingsFixture.calls.push(method)
@@ -52,7 +53,10 @@ api.read = async (path) => {
   if (path === 'tlon/work') return { items: [], events: [], next: '' }
   if (path === 'skills') return skills.map(({ name, desc }) => ({ name, desc }))
   if (path.startsWith('skill/')) return skills.find((skill) => skill.name === path.slice(6))
-  if (path === 'defaults' || path.startsWith('session/')) return config
+  if (path === 'defaults' || path.startsWith('session/')) {
+    if (params.has('hold-config')) await new Promise((resolve) => { window.settingsFixture.releaseConfig = resolve })
+    return config
+  }
   if (path === 'status/openai') return { 'has-key': device || apiKey, 'has-api-key': apiKey, 'has-device-login': device, 'auth-method': device ? 'device' : 'api-key' }
   if (path === 'status/brave') return { 'has-key': braveKey }
   if (path === 'search') return search

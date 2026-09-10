@@ -2,6 +2,8 @@ import { canonicalShip } from './people.js'
 import { clientId } from './clientId.js'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+const changesSessions = new Set(['session/new', 'session/delete', 'session/prompt',
+  'harness/session/rename', 'harness/session/fork', 'harness/session/configure'])
 
 export function webConnection() {
   return `harness-web-${clientId()}`
@@ -21,6 +23,9 @@ export class AcpClient extends EventTarget {
     this.recovering = null
     this.receivedThrough = 0
     this.acknowledgedThrough = 0
+    this.ackFlight = null
+    this.ackGeneration = 0
+    this.ackError = null
     this.pollWake = null
     this.pollRequested = false
     this.host = null
@@ -98,15 +103,16 @@ export class AcpClient extends EventTarget {
     })
     // A reply or connection closure can arrive before the HTTP poke finishes.
     result.catch(() => {})
-    try {
-      await this.poke({ send: { connection: this.connection, target: 'agent', payload: JSON.stringify(frame) } })
+    // Normally wake after admission to avoid an empty read per outgoing call.
+    // A slow HTTP completion gets an earlier poll hint, not a request timeout.
+    const wake = setTimeout(() => { if (this.pending.has(id)) this.wakePoll() }, 180)
+    void this.poke({ send: { connection: this.connection, target: 'agent', payload: JSON.stringify(frame) } }).then(() => {
       this.wakePoll()
-    } catch (error) {
+    }).catch((error) => {
       const pending = this.pending.get(id)
       this.pending.delete(id)
       pending?.reject(error)
-      throw error
-    }
+    }).finally(() => clearTimeout(wake))
     return result
   }
 
@@ -118,6 +124,12 @@ export class AcpClient extends EventTarget {
 
   async recover() {
     if (this.recovering) return this.recovering
+    ++this.ackGeneration
+    this.ackFlight = null
+    this.ackError = null
+    // A late ACK/send must never target a recreated queue whose sequence has
+    // restarted. Fresh identity also avoids the head's old admission cursor.
+    this.connection = webConnection()
     this.recovering = (async () => {
       await this.poke({ open: { connection: this.connection } })
       this.receivedThrough = 0
@@ -150,12 +162,9 @@ export class AcpClient extends EventTarget {
           const update = await response.json()
           const messages = Array.isArray(update?.messages) ? update.messages : []
           const through = this.receiveBatch(messages)
-          if (through > this.acknowledgedThrough) {
-            await this.poke({ ack: { connection: this.connection, target: 'client', through } })
-            this.acknowledgedThrough = through
-          }
+          this.acknowledge(through)
         }
-        if (this.lastError) {
+        if (this.lastError && !this.ackError) {
           this.lastError = null
           this.dispatchEvent(new Event('transport-ready'))
         }
@@ -168,6 +177,29 @@ export class AcpClient extends EventTarget {
       }
       if (this.running) await this.waitForPoll(document.hidden ? 1500 : this.pending.size ? 180 : 900)
     }
+  }
+
+  acknowledge(through = this.receivedThrough) {
+    if (this.ackFlight || through <= this.acknowledgedThrough || !this.running) return
+    const generation = this.ackGeneration
+    // One cumulative ACK at a time; polling and ready RPC replies keep moving.
+    this.ackFlight = this.poke({ ack: { connection: this.connection, target: 'client', through } }).then(() => {
+      if (generation !== this.ackGeneration || !this.running) return
+      this.acknowledgedThrough = through
+      this.ackError = null
+    }).catch((error) => {
+      if (generation !== this.ackGeneration || !this.running) return
+      this.ackError = error
+      if (error.message !== this.lastError) {
+        this.lastError = error.message
+        this.dispatchEvent(new CustomEvent('transport-error', { detail: error }))
+      }
+    }).finally(() => {
+      if (generation !== this.ackGeneration) return
+      this.ackFlight = null
+      // Failure retries at the normal poll cadence, never in a tight loop.
+      if (!this.ackError) this.acknowledge()
+    })
   }
 
   wakePoll() {
@@ -196,6 +228,8 @@ export class AcpClient extends EventTarget {
     if (this.transport.signal.aborted) return
     const wasRunning = this.running
     this.running = false
+    ++this.ackGeneration
+    this.ackFlight = null
     this.wakePoll()
     this.ready = null
     this.transport.abort()
@@ -230,7 +264,10 @@ export class AcpClient extends EventTarget {
       if (!pending) return
       this.pending.delete(Number(frame.id))
       if (frame.error) pending.reject(new Error(frame.error.message || 'ACP request failed'))
-      else pending.resolve(frame.result)
+      else {
+        pending.resolve(frame.result)
+        if (changesSessions.has(pending.frame?.method)) this.dispatchEvent(new Event('harness/sessions/changed'))
+      }
       return
     }
     if (frame.method) this.dispatchEvent(new CustomEvent(frame.method, { detail: frame.params }))

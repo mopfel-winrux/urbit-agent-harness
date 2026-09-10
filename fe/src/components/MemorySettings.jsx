@@ -12,7 +12,7 @@ function ModelOverride({ name, title, description, value, defaults, onChange, di
   const id = useId()
   const config = value || defaults
   const provider = providerOf(config.url)
-  const catalog = useProviderModels(provider, catalogEndpoint(provider, config))
+  const catalog = useProviderModels(provider, catalogEndpoint(provider, config), !disabled && !!value)
   const update = (next) => onChange(withAuth({ ...next, key: '', system: '', tools: [] }, providerOf(next.url), authMethod(providerOf(next.url), next)))
   return <section className="panel settings-panel">
     <div className="section-title"><div><h2>{title}</h2><p>{description}</p></div></div>

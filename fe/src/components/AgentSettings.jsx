@@ -23,16 +23,16 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
   const [dirty, setDirty] = useState(false)
   const loadedChat = useRef('')
   const catalogUrl = catalogEndpoint(provider, form)
-  const catalog = useProviderModels(provider, catalogUrl)
+  const catalog = useProviderModels(provider, catalogUrl, !session.loading && !session.error && loadedChat.current === resources.chat && (dirty || form === session.value))
 
   useEffect(() => {
-    if (!session.value) return
+    if (session.loading || session.error || !session.value) return
     if (dirty && loadedChat.current === resources.chat) return
     loadedChat.current = resources.chat
     setForm(session.value)
     setProvider(providerOf(session.value.url))
     setDirty(false)
-  }, [dirty, resources.chat, session.value])
+  }, [dirty, resources.chat, session.value, session.loading, session.error])
   const field = (name, value) => {
     setDirty(true)
     setSaved(false)

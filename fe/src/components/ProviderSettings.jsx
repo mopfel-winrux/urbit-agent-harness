@@ -3,7 +3,7 @@ import { api } from '../api'
 import { useResource } from '../useResource'
 import { PROVIDERS } from '../providers'
 import { authMethod, withAuth, chooseProvider, catalogEndpoint, credentialSlot } from '../providerConfig'
-import { useProviderModels } from '../useProviderModels'
+import { useProviderModels, invalidateModelCatalogs } from '../useProviderModels'
 import { AnthropicDeviceLogin, OpenAIDeviceLogin } from './ProviderLogin'
 import ProviderRoute from './ProviderRoute'
 import HeaderEditor from './HeaderEditor'
@@ -20,7 +20,7 @@ export default function ProviderSettings({ provider, resources }) {
   const dirty = useRef(false)
   const loaded = useRef('')
   const method = authMethod(provider, form)
-  const catalog = useProviderModels(provider, catalogEndpoint(provider, form))
+  const catalog = useProviderModels(provider, catalogEndpoint(provider, form), !session.loading && !status.loading && loaded.current === `${provider}:${resources.chat || 'defaults'}`)
   const configured = provider === 'openai'
     ? status.value?.[method === 'device' ? 'has-device-login' : 'has-api-key']
     : status.value?.['has-key']
@@ -28,7 +28,7 @@ export default function ProviderSettings({ provider, resources }) {
   useEffect(() => {
     const identity = `${provider}:${resources.chat || 'defaults'}`
     if (dirty.current && loaded.current === identity) return
-    if (!session.value) return
+    if (session.loading || status.loading || !session.value) return
     loaded.current = identity
     const preferred = status.value?.['auth-method'] || 'api-key'
     let next = chooseProvider(session.value, provider, preferred)
@@ -36,7 +36,7 @@ export default function ProviderSettings({ provider, resources }) {
     // a device login. Persisting it still goes through the ordinary Save path.
     if (provider === 'openai' && !status.value?.['has-api-key'] && status.value?.['has-device-login']) next = withAuth(next, provider, 'device')
     setForm(next); setKey(''); dirty.current = false
-  }, [provider, resources.chat, session.value, status.value])
+  }, [provider, resources.chat, session.value, status.value, session.loading, status.loading])
 
   function edit(next) { dirty.current = true; setSaved(false); setForm(next) }
 
@@ -59,7 +59,10 @@ export default function ProviderSettings({ provider, resources }) {
     setBusy(true); setSaved(false); setError('')
     try {
       if (provider === 'openai' && !configured && !key) throw new Error(method === 'device' ? 'Complete device login first.' : 'Enter an API key for API-key authentication.')
-      if (key) await api.action({ 'set-key': { provider: credentialSlot(provider, method), key } })
+      if (key) {
+        await api.action({ 'set-key': { provider: credentialSlot(provider, method), key } })
+        invalidateModelCatalogs()
+      }
       await persist(form)
       await status.refresh(); void catalog.refresh()
     } catch (cause) {
@@ -78,6 +81,7 @@ export default function ProviderSettings({ provider, resources }) {
         ...(provider === 'openai' ? { refreshToken, account } : {}),
       } })
       if (provider !== 'openai' && refreshToken) await api.action({ 'set-key': { provider: `${provider}-refresh`, key: refreshToken } })
+      invalidateModelCatalogs()
       // A completed login commits its matching route, not just its credential.
       // Account identity stays in credential storage, out of conversation logs.
       await persist(withAuth(form, provider, 'device'))

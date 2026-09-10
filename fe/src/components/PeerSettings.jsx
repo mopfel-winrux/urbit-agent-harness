@@ -30,8 +30,8 @@ export default function PeerSettings() {
   const modelId = useId()
   const config = form.config || defaults.value
   const provider = providerOf(config.url)
-  const catalog = useProviderModels(provider, catalogEndpoint(provider, config))
   const unavailable = stored.loading || defaults.loading || !!stored.error || !!defaults.error
+  const catalog = useProviderModels(provider, catalogEndpoint(provider, config), !unavailable && (dirty.current || form === stored.value))
   useEffect(() => { if (!dirty.current && stored.value) setForm(stored.value) }, [stored.value])
   const liveForm = { ...form, owners: stored.value?.owners || [], trusted: stored.value?.trusted || [] }
   const change = (next) => { dirty.current = true; setSaved(false); setForm(next) }

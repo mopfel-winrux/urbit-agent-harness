@@ -699,7 +699,10 @@
 ++  cron-lane-live
   |=  sid=@t
   ^-  ?
-  =/  job  (scheduled sid)
+  (cron-lane-live-for sid (scheduled sid))
+++  cron-lane-live-for
+  |=  [sid=@t job=(unit schedule:cr)]
+  ^-  ?
   ?~  job
     ::  Never revive a legacy schedule before the explicit head handoff.
     !(lien ~(val by cron) |=(old=job:cr =(sid run-sid.old)))
@@ -721,16 +724,20 @@
 ++  lane-authority
   |=  sid=@t
   ^-  hand-authority:ad
-  =/  lane  (delivery-lane sid)
-  ?.  ?&(?=(^ lane) (route-ready sid) ?=(^ (actor-grants actor.u.lane ~)) (cron-lane-live sid))
+  ::  Reuse only within this calculation; the next check reads fresh authority.
+  =/  job  (scheduled sid)
+  =/  lane  (~(get by lanes) ?~(job sid sid.u.job))
+  ?.  ?&(?=(^ lane) (route-ready-for sid job))
     [| ~]
-  =/  scheduled  (scheduled sid)
-  ?^  scheduled
+  =/  owner  (actor-owner actor.u.lane)
+  ?.  &(?=(^ (grants-owned:p policy actor.u.lane ~ owner)) (cron-lane-live-for sid job))
+    [| ~]
+  ?^  job
     :-  &
     :-  ~
-    ?:  =(%reminder kind.u.scheduled)  ~
+    ?:  =(%reminder kind.u.job)  ~
     (scheduled-tools:ht (with-tlon:ht tools.u.lane))
-  [& ?:(!(actor-owner actor.u.lane) `(with-tlon:ht tools.u.lane) ~)]
+  [& ?:(!owner `(with-tlon:ht tools.u.lane) ~)]
 ++  thread-context
   |=  [sid=@t binding=@t]
   ^-  (unit @t)
@@ -755,7 +762,10 @@
 ++  route-ready
   |=  sid=@t
   ^-  ?
-  =/  job  (scheduled sid)
+  (route-ready-for sid (scheduled sid))
+++  route-ready-for
+  |=  [sid=@t job=(unit schedule:cr)]
+  ^-  ?
   ?^  job
     =/  route  (~(get by routes) sid.u.job)
     ?&(?=(^ route) =(%ready phase.u.route) =(binding.u.job binding.u.route))
@@ -766,7 +776,7 @@
   ^-  ?
   =/  job  (scheduled sid.pub)
   ?^  job
-    &((route-ready sid.pub) =(run-sid.u.job binding.pub) (cron-lane-live sid.pub))
+    &((route-ready-for sid.pub job) =(run-sid.u.job binding.pub) (cron-lane-live-for sid.pub job))
   =/  route  (~(get by routes) sid.pub)
   ?&(?=(^ route) =(%ready phase.u.route) =(binding.pub binding.u.route))
 ++  read-profile
