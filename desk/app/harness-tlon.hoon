@@ -1403,12 +1403,9 @@
     ?~  pub  |
     ?:  =(%pending status.u.pub)  =(%claim stage.delivery)
     ?=(?(%claimed %uncertain) status.u.pub)
-  ::  Sort by source admission, not hashed effect id. Only one active send per
-  ::  destination, while unrelated conversations remain concurrent.
-  =/  pending
-    %+  sort  ~(tap by outbox.db)
-    |=  [left=[@uv publication:hh] right=[@uv publication:hh]]
-    (lth at:(~(got by observations.db) -.left) at:(~(got by observations.db) -.right))
+  ::  Only runnable Tlon publications need ordering. Retained receipts and
+  ::  other hands must not make every head invalidation more expensive.
+  =/  pending  (pending-publications:hd db 'tlon')
   %+  roll  pending
   |=  [[id=@uv pub=publication:hh] c=_cor]
   ?.  &(=('tlon' hand.pub) =(%pending status.pub))  c

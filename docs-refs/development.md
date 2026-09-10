@@ -81,6 +81,9 @@ These tests use virtualized agent evaluation and can be slow and memory-intensiv
 on a 2 GB loom. Pure policy, persistence and media checks remain in the default
 suite. Avoid running heavy compilation concurrently with timing measurements.
 
+For runtime performance characteristics and benchmark instructions, see
+[performance](performance.md).
+
 ## Live conformance
 
 Use disposable test ships. Read a fixture's header and environment options

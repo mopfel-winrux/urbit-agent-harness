@@ -66,3 +66,9 @@ test('runtime startup does not activate desktop-only bridges', async () => {
   assert.ok(source.includes('(ensure-dir /sys/clay/desks/harness)'))
   assert.ok(!source.includes('%connect [~ /grubbery/push]'))
 })
+test('runtime prepares mark dispatch once while deferring extraction failures', async () => {
+  const source = await readFile(new URL('lib/marks.hoon', desk), 'utf8')
+  assert.ok(source.includes('validator=(each $-(* vase) tang)'))
+  assert.ok(source.includes('++  type  ?:(?=(%& -.typ) p.typ (mean p.typ))'))
+  assert.ok(source.includes('++  vale  ?:(?=(%& -.validator) p.validator (mean p.validator))'))
+})

@@ -134,15 +134,36 @@ fn adaptRuntimeDesk(allocator: std.mem.Allocator, install_path: []const u8) !voi
     try replaceFile(allocator, fiberio, "++  dap  %grubbery", "++  dap  %harness-grub");
     try replaceFile(allocator, fiberio, "++  dek  %grubbery", "++  dek  %harness");
 
+    // Persist the prepared dispatch in the compiled artifact itself. Writes
+    // can run under an outer +mule, so an ordinary memo does not survive from
+    // one write to the next. Store extraction failures too, and raise them
+    // only when the corresponding arm is used, as the lazy upstream marc did.
+    const marks = try std.fs.path.join(allocator, &.{ install_path, "lib/marks.hoon" });
+    try replaceRequired(allocator, marks,
+        \\  ^-  marc:tarball
+        \\  |%
+        \\  ++  type  p:(vale +6.q.cor)
+        \\  ++  vale  (build-vale cor)
+    ,
+        \\  ^-  marc:tarball
+        \\  =/  validator=(each $-(* vase) tang)
+        \\    (mule |.((build-vale cor)))
+        \\  =/  typ=(each type tang)
+        \\    ?:  ?=(%| -.validator)  validator
+        \\    (mule |.(p:(p.validator +6.q.cor)))
+        \\  |%
+        \\  ++  type  ?:(?=(%& -.typ) p.typ (mean p.typ))
+        \\  ++  vale  ?:(?=(%& -.validator) p.validator (mean p.validator))
+    );
+
     const named_app = try std.fs.path.join(allocator, &.{ install_path, "app/harness-grub.hoon" });
     try std.fs.cwd().rename(app, named_app);
 }
 
-// Fail closed if a pinned-runtime update changes a startup integration point.
-// Silently missing one would re-enable an unwanted ambient service.
+// Fail closed if a pinned-runtime update changes an integration point.
 fn replaceRequired(allocator: std.mem.Allocator, path: []const u8, needle: []const u8, replacement: []const u8) !void {
     const source = try std.fs.cwd().readFileAlloc(allocator, path, 16 * 1024 * 1024);
-    if (std.mem.count(u8, source, needle) != 1) return error.RuntimeStartupChanged;
+    if (std.mem.count(u8, source, needle) != 1) return error.RuntimeIntegrationChanged;
     try replaceFile(allocator, path, needle, replacement);
 }
 

@@ -74,6 +74,25 @@
   ?~  cfg  ~
   ?.  enabled.u.cfg  ~
   `(publication-json db id pub)
+++  pending-publications
+  |=  [db=state:hh hand=@t]
+  ^-  (list [id=input-id:h pub=publication:hh])
+  ::  Retained receipts are evidence, not the runnable queue. Filter before
+  ::  sorting, and resolve admission timestamps once rather than per compare.
+  =/  pending
+    %+  murn  ~(tap by outbox.db)
+    |=  [id=input-id:h pub=publication:hh]
+    ^-  (unit [at=@da id=input-id:h pub=publication:hh])
+    ?.  &(=(hand hand.pub) =(%pending status.pub))  ~
+    =/  obs  (~(get by observations.db) input.pub)
+    ?~  obs  ~
+    `[at.u.obs id pub]
+  =.  pending
+    %+  sort  pending
+    |=  [a=[at=@da id=input-id:h pub=publication:hh] b=[at=@da id=input-id:h pub=publication:hh]]
+    ?:  =(at.a at.b)  (lth id.a id.b)
+    (lth at.a at.b)
+  (turn pending |=([at=@da id=input-id:h pub=publication:hh] [id pub]))
 ++  claim-json
   |=  [db=state:hh id=input-id:h pub=publication:hh acquired=?]
   ^-  json
