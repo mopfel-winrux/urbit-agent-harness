@@ -1,5 +1,6 @@
 import { canonicalShip } from './people.js'
 import { clientId } from './clientId.js'
+import { EyreSubscription } from './eyreSubscription.js'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const changesSessions = new Set(['session/new', 'session/delete', 'session/prompt',
@@ -24,12 +25,17 @@ export class AcpClient extends EventTarget {
     this.receivedThrough = 0
     this.acknowledgedThrough = 0
     this.ackFlight = null
+    this.ackTimer = null
     this.ackGeneration = 0
     this.ackError = null
     this.pollWake = null
     this.pollRequested = false
     this.host = null
     this.identity = null
+    this.subscription = null
+    this.streamRetryAt = 0
+    this.queueClosed = false
+    this.streamError = null
     // A slow ship is not a failed request. Abort only when this client closes.
     this.transport = new AbortController()
   }
@@ -86,6 +92,10 @@ export class AcpClient extends EventTarget {
     this.ready.catch(() => {
       this.ready = null
       this.running = false
+      this.subscription?.close()
+      this.subscription = null
+      clearTimeout(this.ackTimer)
+      this.ackTimer = null
     })
     return this.ready
   }
@@ -105,28 +115,35 @@ export class AcpClient extends EventTarget {
     result.catch(() => {})
     // Normally wake after admission to avoid an empty read per outgoing call.
     // A slow HTTP completion gets an earlier poll hint, not a request timeout.
-    const wake = setTimeout(() => { if (this.pending.has(id)) this.wakePoll() }, 180)
+    const wake = setTimeout(() => { if (this.pending.has(id)) this.wakePoll() }, this.subscription?.connected ? 1000 : 180)
+    result.then(() => clearTimeout(wake), () => clearTimeout(wake))
     void this.poke({ send: { connection: this.connection, target: 'agent', payload: JSON.stringify(frame) } }).then(() => {
-      this.wakePoll()
+      if (!this.subscription?.connected) this.wakePoll()
     }).catch((error) => {
       const pending = this.pending.get(id)
       this.pending.delete(id)
       pending?.reject(error)
-    }).finally(() => clearTimeout(wake))
+    })
     return result
   }
 
   async notify(method, params = {}) {
     const frame = { jsonrpc: '2.0', method, params }
     await this.poke({ send: { connection: this.connection, target: 'agent', payload: JSON.stringify(frame) } })
-    this.wakePoll()
+    if (!this.subscription?.connected) this.wakePoll()
   }
 
   async recover() {
     if (this.recovering) return this.recovering
+    this.queueClosed = false
     ++this.ackGeneration
+    clearTimeout(this.ackTimer)
+    this.ackTimer = null
     this.ackFlight = null
     this.ackError = null
+    this.subscription?.close()
+    this.subscription = null
+    this.streamRetryAt = 0
     // A late ACK/send must never target a recreated queue whose sequence has
     // restarted. Fresh identity also avoids the head's old admission cursor.
     this.connection = webConnection()
@@ -145,7 +162,9 @@ export class AcpClient extends EventTarget {
 
   async poll() {
     while (this.running) {
+      this.startStreaming()
       try {
+        if (this.queueClosed) { await this.recover(); continue }
         const response = await fetch(`/~/scry/acp/v1/${this.connection}/client.json?_=${Date.now()}`, {
           credentials: 'same-origin',
           cache: 'no-store',
@@ -175,8 +194,37 @@ export class AcpClient extends EventTarget {
           this.dispatchEvent(new CustomEvent('transport-error', { detail: error }))
         }
       }
-      if (this.running) await this.waitForPoll(document.hidden ? 1500 : this.pending.size ? 180 : 900)
+      if (this.running) await this.waitForPoll(this.pollDelay())
     }
+  }
+
+  pollDelay() {
+    if (this.subscription?.connected) return this.pending.size || this.ackError ? 1000 : document.hidden ? 30_000 : 15_000
+    return document.hidden ? 1500 : this.pending.size ? 180 : 900
+  }
+
+  startStreaming() {
+    if (!this.running || !this.host || this.subscription || Date.now() < this.streamRetryAt) return
+    const subscription = new EyreSubscription({
+      ship: this.ship(), connection: this.connection,
+      onUpdate: (update) => {
+        if (!this.running || this.subscription !== subscription) return
+        this.streamError = null
+        if (Array.isArray(update?.messages)) { this.receiveBatch(update.messages); this.queueAcknowledgement() }
+        if (update?.connection?.open === false) { this.queueClosed = true; this.wakePoll() }
+      },
+      onDisconnect: (error) => {
+        if (this.subscription !== subscription) return
+        this.streamError = error.message
+        this.subscription = null
+        this.streamRetryAt = Date.now() + 10_000
+        // Losing a watch does not prove any RPC failed. Poll the durable queue
+        // while reconnecting, without replaying commands or clearing cursors.
+        this.wakePoll()
+      },
+    })
+    this.subscription = subscription
+    void subscription.run()
   }
 
   acknowledge(through = this.receivedThrough) {
@@ -190,6 +238,7 @@ export class AcpClient extends EventTarget {
     }).catch((error) => {
       if (generation !== this.ackGeneration || !this.running) return
       this.ackError = error
+      this.wakePoll()
       if (error.message !== this.lastError) {
         this.lastError = error.message
         this.dispatchEvent(new CustomEvent('transport-error', { detail: error }))
@@ -198,8 +247,16 @@ export class AcpClient extends EventTarget {
       if (generation !== this.ackGeneration) return
       this.ackFlight = null
       // Failure retries at the normal poll cadence, never in a tight loop.
-      if (!this.ackError) this.acknowledge()
+      if (!this.ackError) {
+        if (this.subscription?.connected) this.queueAcknowledgement()
+        else this.acknowledge()
+      }
     })
+  }
+
+  queueAcknowledgement() {
+    if (this.ackTimer || this.ackFlight || this.ackError || !this.running || this.receivedThrough <= this.acknowledgedThrough) return
+    this.ackTimer = setTimeout(() => { this.ackTimer = null; this.acknowledge() }, 250)
   }
 
   wakePoll() {
@@ -228,6 +285,10 @@ export class AcpClient extends EventTarget {
     if (this.transport.signal.aborted) return
     const wasRunning = this.running
     this.running = false
+    clearTimeout(this.ackTimer)
+    this.ackTimer = null
+    this.subscription?.close()
+    this.subscription = null
     ++this.ackGeneration
     this.ackFlight = null
     this.wakePoll()
@@ -252,6 +313,9 @@ export class AcpClient extends EventTarget {
     for (const message of messages) {
       const sequence = Number(message.sequence) || 0
       if (sequence <= this.receivedThrough) continue
+      // A watch and a simultaneous scry may finish out of order. Never ACK
+      // past an unseen frame; the durable queue fills the gap on the next poll.
+      if (sequence !== this.receivedThrough + 1) { this.wakePoll(); continue }
       this.receive(JSON.parse(message.payload))
       this.receivedThrough = sequence
     }

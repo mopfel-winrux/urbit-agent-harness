@@ -8,6 +8,7 @@ import { AcpClient } from '../fe/src/acp.js'
 const source = execFileSync('git', ['show', `${process.env.BENCH_BASE || 'HEAD'}:fe/src/acp.js`], { encoding: 'utf8' })
   .replaceAll("'./people.js'", JSON.stringify(new URL('../fe/src/people.js', import.meta.url).href))
   .replaceAll("'./clientId.js'", JSON.stringify(new URL('../fe/src/clientId.js', import.meta.url).href))
+  .replaceAll("'./eyreSubscription.js'", JSON.stringify(new URL('../fe/src/eyreSubscription.js', import.meta.url).href))
 const baseline = (await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)).AcpClient
 globalThis.document = { hidden: false }
 const actualFetch = globalThis.fetch

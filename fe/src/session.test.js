@@ -66,3 +66,13 @@ test('interrupted tools are terminal while completed siblings retain their resul
   assert.deepEqual(entries.map((entry) => entry.status), ['completed', 'cancelled', undefined])
   assert.equal(entries[0].body, 'HTTP 200')
 })
+
+test('unchanged snapshots reuse retained history instead of copying or merging it', () => {
+  const entries = Array.from({ length: 10_000 }, (_, index) => ({ id: String(index), eventCount: index, body: 'retained message' }))
+  let snapshot = { revision: 10_000, phase: 'idle', entries, before: 1 }
+  for (let i = 0; i < 1000; i++) {
+    snapshot = applySnapshot(snapshot, { revision: 10_000, phase: 'idle', entries: null })
+    assert.equal(snapshot.entries, entries)
+    assert.equal(snapshot.before, 1)
+  }
+})

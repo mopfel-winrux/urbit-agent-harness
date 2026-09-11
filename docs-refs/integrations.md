@@ -33,7 +33,7 @@ is required. `harness/hand` is an ACP method on that API, not an off-ship servic
 or a standalone HTTP URL.
 
 Each client opens a unique connection in `%acp`, sends JSON-RPC frames to its
-agent queue, and polls its client queue. Frames have monotonically increasing
+agent queue, and watches or polls its client queue. Frames have monotonically increasing
 sequence numbers and are acknowledged cumulatively. A client reconnecting to
 the same identifier resumes its unacknowledged queue; a new page should choose
 a fresh identifier.
@@ -42,12 +42,20 @@ The browser uses these endpoints:
 
 ```text
 PUT /~/channel/<channel>                         poke %acp with %acp-action-1
+PUT /~/channel/<watch-channel>                   subscribe to /v1/<connection>/client
+GET /~/channel/<watch-channel>                   receive Eyre server-sent events
 GET /~/scry/acp/v1/<connection>/client.json     read outbound frames
 ```
 
 Use `Cache-Control: no-cache` or a query nonce for polls. The poke actions are
 `open`, `send`, `ack`, and `close`; see `desk/sur/acp.hoon` for their exact noun
 shape. Initialize the JSON-RPC connection before invoking session methods.
+
+The browser uses a separate disposable watch channel and retains polling as a
+fallback. Eyre's `ack` action acknowledges event IDs (starting at zero); the ACP
+`ack` poke acknowledges message sequences (starting at one). They are separate
+cursors. A lost watch does not justify replaying a command. See
+[browser delivery and regression checks](performance.md#browser-idle-work-and-subscriptions).
 
 For clients that launch a local agent process and speak stdin/stdout, the
 optional dependency-free bridge exposes the same connection as NDJSON:

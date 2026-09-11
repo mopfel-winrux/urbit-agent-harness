@@ -30,14 +30,67 @@ implicitly. Destination blocking and authority checks govern delivery.
 
 ## Sources of latency
 
-- The browser polls for ACP results. Completion latency includes the wait for
-  a poll as well as the request round trip; shorter intervals increase traffic.
+- The browser receives ACP results through an authenticated Eyre subscription.
+  Safety polls cover missed events and unavailable subscriptions.
 - Runtime file updates propagate tree versions and notify subscribers. Their
   cost depends on namespace contents and subscription structure.
 - Session replay and history projections depend on event count. Session-index
   and corpus maintenance contribute additional work when session state changes.
 - External inference, network requests and native Tlon publication add latency
   beyond Harness's local processing.
+
+## Browser idle work and subscriptions
+
+An open conversation checks snapshots every 600 ms while loading or running,
+and every 10 seconds while idle. Hidden tabs use 2.5 seconds and 30 seconds,
+respectively. Session notifications, focus, reconnection, sending and completion
+refresh sooner. Token chunks do not each trigger a snapshot request. Reads are
+single-flight; an invalidation during a read gets a trailing read so a stale
+response cannot hide the newer state until the next idle interval.
+
+ACP watches `/v1/<connection>/client` through a separate disposable Eyre event
+channel. The command channel and durable ACP queue retain their identities.
+Eyre events and ACP messages have separate cumulative acknowledgements, batched
+over 250 ms during push delivery. RPC results do not wait for those ACKs or for
+their send's HTTP response to finish. Concurrent watch/scry deliveries cannot
+advance acknowledgement past an unseen ACP frame.
+
+With a healthy watch, queue safety reads use a one-second cadence for pending
+RPCs and 15 seconds while idle (30 seconds in hidden tabs). Unavailable watches
+restore the existing faster polling and retry subscription after 10 seconds.
+Missing Eyre heartbeats for 45 seconds also restore fallback; this is a watch
+health check, never an RPC deadline. Reconnecting a watch does not replay RPCs.
+A genuinely missing or closed ACP queue uses a fresh connection identity and
+rejects unresolved calls with the existing check-before-repeating guidance.
+
+The watch covers this ACP connection's updates, not every native hand's state
+changes. Idle snapshot polling remains necessary for changes without a matching
+notification. Native hand execution and delivery authorization are unchanged.
+
+## Performance regression checks
+
+Run deterministic request-count and retention checks without a ship:
+
+```sh
+npm run test:performance --prefix fe
+```
+
+Use `PLAYWRIGHT_CHANNEL=chrome` when testing with an installed Chrome. The suite
+covers idle/active snapshot budgets with 95 and 4,096 retained messages,
+10,000-entry unchanged-history reuse, notification races, stream framing,
+ACK coalescing, replay/gap handling, and catalog/conversation-list read budgets.
+These checks constrain work and preserve behavior without fragile CPU timings.
+
+For the real subscription/recovery boundary on a local development ship:
+
+```sh
+SHIP_URL=http://127.0.0.1 SHIP_COOKIE=/path/to/private-cookie \
+  node scripts/acp-subscription-conformance.mjs
+```
+
+This creates and removes only temporary transport channels. It checks live push,
+silent watch loss, fallback, reconnection, and no RPC replay. No conversation,
+configuration, inference, or external publication is created.
 
 ## Scheduler maintenance
 
@@ -78,6 +131,12 @@ has settled when comparing steady-state performance. Keep outliers visible.
 Measure cold-start behavior separately, and use enough repetitions to assess
 tail latency. Synthetic history and local endpoints do not represent external
 model, network or Tlon publication costs.
+
+Optional `BENCH_MAX_P95_MS` and `BENCH_MAX_GROWTH` fail the full-turn fixture when
+any workload exceeds an absolute p95 budget or its median exceeds the first
+workload by the given factor. Calibrate these on the same development machine;
+they are not production latency promises. Budget failures still clean up the
+fixture sessions. Keep the first workload at zero prior turns for growth checks.
 
 The read-only transport fixture is `scripts/performance-read-benchmark.mjs`.
 It reports initialization, the parallel Settings read batch, subsequent RPCs

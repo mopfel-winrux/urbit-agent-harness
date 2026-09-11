@@ -15,8 +15,9 @@ const actualFetch = globalThis.fetch
 globalThis.document = { hidden: false }
 let events = [], closing = []
 globalThis.fetch = async (path, options = {}) => {
-  const json = options.body ? JSON.parse(options.body)[0]?.json : null
-  const op = json ? Object.keys(json)[0] : path.startsWith('/~/scry/') ? 'poll' : 'identity'
+  const action = options.body ? JSON.parse(options.body)[0] : null
+  const op = action?.json ? Object.keys(action.json)[0] : action?.action ? `eyre-${action.action}`
+    : path.startsWith('/~/scry/') ? 'poll' : path.startsWith('/~/channel/') ? 'stream' : 'identity'
   events.push(op)
   const request = actualFetch(new URL(path, base), { ...options, headers: {
     ...options.headers, cookie, ...(process.env.SHIP_HOST ? { host: process.env.SHIP_HOST } : {}),
@@ -33,6 +34,7 @@ if (process.env.BENCH_BASE) {
   const source = execFileSync('git', ['show', `${process.env.BENCH_BASE}:fe/src/acp.js`], { encoding: 'utf8' })
     .replaceAll("'./people.js'", JSON.stringify(new URL('../fe/src/people.js', import.meta.url).href))
     .replaceAll("'./clientId.js'", JSON.stringify(new URL('../fe/src/clientId.js', import.meta.url).href))
+    .replaceAll("'./eyreSubscription.js'", JSON.stringify(new URL('../fe/src/eyreSubscription.js', import.meta.url).href))
   const previous = (await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)).AcpClient
   clients.unshift(['baseline', previous])
 }
@@ -62,7 +64,7 @@ for (let pass = 1; pass <= 2; pass++) {
       await sleep(1000)
       const offset = events.length
       await sleep(3000)
-      console.log(JSON.stringify({ pass, label, startupMs, settingsMs, timings, idle3s: counts(events.slice(offset)), total: counts(events) }))
+      console.log(JSON.stringify({ pass, label, startupMs, settingsMs, timings, subscribed: Boolean(client.subscription?.connected), streamError: client.streamError || null, idle3s: counts(events.slice(offset)), total: counts(events) }))
     } finally {
       client.close()
       await Promise.allSettled(closing)

@@ -7,7 +7,8 @@
     "build": "vite build",
     "dev": "vite",
     "test": "node --test src/*.test.js",
-    "test:ui": "playwright test"
+    "test:ui": "playwright test",
+    "test:performance": "node --test src/acp.test.js src/eyreSubscription.test.js src/sessionPolling.test.js src/session.test.js src/conversationUpdates.test.js src/modelCatalogs.test.js && playwright test performance.spec.js session-performance.spec.js"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

@@ -2,9 +2,85 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { AcpClient, webConnection } from './acp.js'
+import { EyreSubscription } from './eyreSubscription.js'
 
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }
 const settle = async () => { for (let i = 0; i < 12; i++) await Promise.resolve() }
+
+test('watch recovery keeps pending mutations and ignores the retired watch without replay', async (t) => {
+  t.mock.method(EyreSubscription.prototype, 'run', async () => {})
+  t.mock.method(globalThis, 'fetch', async () => new Response(null, { status: 204 }))
+  const client = new AcpClient()
+  client.host = 'nec'; client.running = true
+  const sends = []
+  client.poke = async (value) => sends.push(value)
+  client.startStreaming()
+  const old = client.subscription, connection = client.connection
+  const reply = client.call('session/prompt')
+  old.fail(new Error('lost stream'))
+  assert.equal(client.pending.size, 1)
+  assert.equal(client.connection, connection)
+  client.startStreaming(); assert.equal(client.subscription, null, 'retries back off')
+  client.streamRetryAt = 0; client.startStreaming()
+  const message = { sequence: 1, payload: '{"id":1,"result":"done"}' }
+  old.onUpdate({ messages: [message] })
+  assert.equal(client.pending.size, 1)
+  client.subscription.onUpdate({ messages: [message] })
+  assert.equal(await reply, 'done')
+  assert.equal(sends.filter((value) => value.send).length, 1)
+  client.close()
+})
+
+test('failed initialization retires its subscription', async () => {
+  const client = new AcpClient()
+  let closed = false
+  client.poke = async () => {}
+  client.poll = async () => { client.subscription = { close: () => { closed = true } } }
+  client.call = async () => { throw new Error('initialization failed') }
+  await assert.rejects(client.start(), /initialization failed/)
+  assert.equal(closed, true)
+  assert.equal(client.subscription, null)
+})
+
+test('stream/scry races never acknowledge past an unseen frame', () => {
+  const client = new AcpClient()
+  const delivered = []
+  client.receive = (frame) => delivered.push(frame.result)
+  const first = { sequence: 1, payload: '{"id":1,"result":"first"}' }
+  const second = { sequence: 2, payload: '{"id":2,"result":"second"}' }
+  assert.equal(client.receiveBatch([second]), 0)
+  assert.equal(client.pollRequested, true)
+  assert.equal(client.receiveBatch([first, second]), 2)
+  assert.equal(client.receiveBatch([first]), 2)
+  assert.deepEqual(delivered, ['first', 'second'])
+})
+
+test('a token burst is acknowledged cumulatively without a poke per frame', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const client = new AcpClient()
+  client.running = true
+  const acks = []
+  client.poke = async (value) => acks.push(value.ack.through)
+  for (let i = 1; i <= 100; i++) { client.receivedThrough = i; client.queueAcknowledgement() }
+  assert.deepEqual(acks, [])
+  t.mock.timers.tick(250); await settle()
+  assert.deepEqual(acks, [100])
+  client.receivedThrough = 101; client.queueAcknowledgement()
+  client.close(); t.mock.timers.tick(250); await settle()
+  assert.deepEqual(acks, [100], 'closing cancels the pending acknowledgement timer')
+})
+
+test('healthy push delivery suppresses per-call polling while stalled streams retain a safety check', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const client = new AcpClient()
+  client.subscription = { connected: true }
+  client.poke = async () => {}
+  const result = client.call('session/list')
+  await settle(); assert.equal(client.pollRequested, false)
+  t.mock.timers.tick(999); assert.equal(client.pollRequested, false)
+  t.mock.timers.tick(1); assert.equal(client.pollRequested, true)
+  client.receive({ id: 1, result: {} }); await result
+})
 
 test('a ready RPC reply is returned while its HTTP send remains pending', async () => {
   const client = new AcpClient()

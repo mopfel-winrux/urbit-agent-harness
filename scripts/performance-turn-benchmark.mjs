@@ -18,6 +18,10 @@ globalThis.fetch = (path, options = {}) => {
 }
 const sizes = (process.env.BENCH_TURNS || '0,64,256').split(',').map(Number)
 const repeats = Number(process.env.BENCH_REPEATS || 5)
+const maxP95 = process.env.BENCH_MAX_P95_MS ? Number(process.env.BENCH_MAX_P95_MS) : null
+const maxGrowth = process.env.BENCH_MAX_GROWTH ? Number(process.env.BENCH_MAX_GROWTH) : null
+assert.ok(maxP95 === null || (Number.isFinite(maxP95) && maxP95 > 0))
+assert.ok(maxGrowth === null || (Number.isFinite(maxGrowth) && maxGrowth >= 1))
 assert.ok(sizes.every((n) => Number.isSafeInteger(n) && n >= 0 && n <= 1024))
 assert.ok(Number.isSafeInteger(repeats) && repeats >= 1 && repeats <= 20)
 const marker = `perf-turn-${randomUUID()}`, sessions = [], results = [], faults = []
@@ -93,6 +97,13 @@ try {
   console.log(JSON.stringify({ workload: 'Immediate local model + one local HTTP tool, ordinary browser ACP transport',
     limitations: ['Client-observed wall time, not CPU-only', 'Final completion includes ACP polling',
       'Synthetic history and warm runtime; no external model latency or Tlon publication'], results }, null, 2))
+  // Opt-in wall-time budgets must be calibrated on the same development
+  // machine. Deterministic browser request budgets run in test:performance.
+  for (const row of results) {
+    if (maxP95 !== null) assert.ok(row.totalMs.p95 <= maxP95, `p95 ${row.totalMs.p95}ms exceeds ${maxP95}ms at ${row.priorCommandTurns} prior turns`)
+    if (maxGrowth !== null) assert.ok(row.totalMs.median <= results[0].totalMs.median * maxGrowth,
+      `Median growth at ${row.priorCommandTurns} prior turns exceeds ${maxGrowth}x the first workload`)
+  }
 } finally {
   for (const sessionId of sessions) await client.call('session/delete', { sessionId }).catch((error) => console.error(`Fixture cleanup ${sessionId}: ${error.message}`))
   client.close(); await Promise.allSettled(closing)

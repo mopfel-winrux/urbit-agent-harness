@@ -57,15 +57,17 @@ let snapshot = {
   ],
 }
 const historyRows = new URLSearchParams(location.search).has('history')
-  ? Array.from({ length: 95 }, (_, index) => ({ id: String(index + 1), eventCount: index + 1, role: 'assistant', calls: [], body: `History reply ${index + 1}` }))
+  ? Array.from({ length: Number(new URLSearchParams(location.search).get('history-count')) || 95 }, (_, index) => ({ id: String(index + 1), eventCount: index + 1, role: 'assistant', calls: [], body: `History reply ${index + 1}` }))
   : null
-if (historyRows) snapshot = { ...snapshot, revision: 95, before: 56, entries: historyRows.slice(-40) }
-const publish = (next) => {
+if (historyRows) snapshot = { ...snapshot, revision: historyRows.length, before: historyRows.length - 39, entries: historyRows.slice(-40) }
+const publish = (next, notify = true, kind = 'test_snapshot') => {
   snapshot = { ...snapshot, ...next, revision: snapshot.revision + 1 }
-  acp.dispatchEvent(new CustomEvent('session/update', { detail: { sessionId: chat, update: { sessionUpdate: 'test_snapshot' } } }))
+  if (notify) acp.dispatchEvent(new CustomEvent('session/update', { detail: { sessionId: chat, update: { sessionUpdate: kind } } }))
 }
 const heldPrompts = []
-window.harnessFixture = { sent: [], update: publish, holdPrompts: false,
+const heldSnapshots = []
+window.harnessFixture = { sent: [], update: publish, holdPrompts: false, snapshotReads: 0, holdSnapshots: false,
+  completeSnapshot: (index) => heldSnapshots[index]?.(),
   completePrompt: (index) => heldPrompts[index]?.({ stopReason: 'end_turn' }) }
 acp.start = async () => {}
 acp.call = async (method, params) => {
@@ -74,7 +76,12 @@ acp.call = async (method, params) => {
     const entries = older.slice(-40)
     return { revision: snapshot.revision, entries, before: older.length > 40 ? entries[0].eventCount : null }
   }
-  if (method === 'harness/session/snapshot') return { ...snapshot, entries: params.since === snapshot.revision ? null : snapshot.entries }
+  if (method === 'harness/session/snapshot') {
+    window.harnessFixture.snapshotReads++
+    const result = { ...snapshot, entries: params.since === snapshot.revision ? null : snapshot.entries }
+    if (window.harnessFixture.holdSnapshots) await new Promise((resolve) => heldSnapshots.push(resolve))
+    return result
+  }
   if (method === 'session/cancel') { publish({ phase: 'idle', streaming: '' }); return {} }
   if (method === 'session/prompt') {
     window.harnessFixture.sent.push(params.prompt[0].text)

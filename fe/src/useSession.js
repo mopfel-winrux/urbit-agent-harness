@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { acp } from './acp'
 import { admitted, applySnapshot, applyHistory } from './session'
 import { clientId } from './clientId.js'
+import { createSessionPolling } from './sessionPolling.js'
+
+const running = (snapshot) => ['thinking', 'tools', 'compacting'].includes(snapshot?.phase)
 
 export function useSession(chat) {
   const [snapshot, setSnapshot] = useState(null)
@@ -14,8 +17,9 @@ export function useSession(chat) {
   const live = useRef(false)
   const fetching = useRef(null)
   const latestSend = useRef(null)
+  const polling = useRef(null)
 
-  const refresh = useCallback(() => {
+  const read = useCallback(() => {
     if (fetching.current) return fetching.current
     fetching.current = (async () => {
       try {
@@ -33,15 +37,15 @@ export function useSession(chat) {
     })()
     return fetching.current
   }, [chat])
+  const refresh = useCallback(() => polling.current?.refresh() ?? read(), [read])
 
   useEffect(() => {
     live.current = true
-    let cancelled = false
-    let timer
-    const poll = async () => {
-      await refresh()
-      if (!cancelled) timer = setTimeout(poll, document.hidden ? 2500 : 600)
-    }
+    const loop = createSessionPolling({ read,
+      active: () => !current.current || !!latestSend.current || running(current.current),
+      hidden: () => document.hidden,
+    })
+    polling.current = loop
     const update = ({ detail }) => {
       if (detail?.sessionId !== chat) return
       const value = detail.update
@@ -52,12 +56,25 @@ export function useSession(chat) {
           return admitted(next, current.current?.entries || []) ? null : next
         })
       }
-      if (value?.sessionUpdate !== 'harness_agent_stream_chunk') void refresh()
+      if (value?.sessionUpdate === 'harness_agent_stream_chunk') loop.stream()
+      else void loop.refresh()
     }
+    const focus = () => { if (!document.hidden) void loop.refresh() }
+    const ready = () => { void loop.refresh() }
     acp.addEventListener('session/update', update)
-    void poll()
-    return () => { cancelled = true; live.current = false; clearTimeout(timer); acp.removeEventListener('session/update', update) }
-  }, [chat, refresh])
+    acp.addEventListener('transport-ready', ready)
+    window.addEventListener('focus', focus)
+    document.addEventListener('visibilitychange', focus)
+    void loop.refresh()
+    return () => {
+      live.current = false; loop.close()
+      if (polling.current === loop) polling.current = null
+      acp.removeEventListener('session/update', update)
+      acp.removeEventListener('transport-ready', ready)
+      window.removeEventListener('focus', focus)
+      document.removeEventListener('visibilitychange', focus)
+    }
+  }, [chat, read])
 
   async function send(text) {
     const attempt = {}
@@ -65,13 +82,14 @@ export function useSession(chat) {
     try {
       const id = clientId()
       setPending({ id, text }); setSending(true); setActionError('')
-      await acp.call('session/prompt', { sessionId: chat, clientMessageId: id, prompt: [{ type: 'text', text }] })
-      if (live.current) await refresh()
+      const result = acp.call('session/prompt', { sessionId: chat, clientMessageId: id, prompt: [{ type: 'text', text }] })
+      void refresh()
+      await result
     } catch (cause) { if (live.current && latestSend.current === attempt) setActionError(cause.message) }
     finally {
       // A /stop prompt may supersede an in-flight prompt. Its predecessor's
       // completion must not clear the new command's ghost or sending state.
-      if (live.current && latestSend.current === attempt) { setPending(null); setSending(false); void refresh() }
+      if (live.current && latestSend.current === attempt) { latestSend.current = null; setPending(null); setSending(false); void refresh() }
     }
   }
 
@@ -95,7 +113,7 @@ export function useSession(chat) {
     finally { if (live.current) setLoadingHistory(false) }
   }
 
-  const active = ['thinking', 'tools', 'compacting'].includes(snapshot?.phase)
+  const active = running(snapshot)
   return { snapshot, pending, error: error || actionError || snapshot?.error || '', loading: !snapshot,
     busy: sending || active, send, stop, refresh, loadHistory, loadingHistory }
 }
