@@ -57,9 +57,9 @@ Urbit's event loop; this is asynchronous progress, not parallel CPU execution.
   The reply hand and the ship-wide Tlon tool are independently configurable.
 - Scheduled work: destination-bound UTC cron runs and literal one-shot reminders,
   with separate execution and delivery status.
-- Artifacts and projects: editable Markdown, reviewed agent proposals, shared
-  documents and atomic task claims. Explicitly publish saved pages at
-  `/harness-pages/<slug>` without exposing private project records.
+- Artifacts and projects: Notes-backed Markdown and history, reviewed agent
+  proposals, shared documents and atomic task claims. Publish saved snapshots
+  through native Notes; unified search groups matching artifact revisions.
 - Clients: a React web app, a dependency-free ACP stdio adapter, native
   poke/watch/scry interfaces, webhooks and a durable conversation-hand protocol.
 

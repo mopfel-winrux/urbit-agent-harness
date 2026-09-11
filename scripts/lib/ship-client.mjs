@@ -34,11 +34,15 @@ export class Client {
     await this.poke({ open: { connection: this.connection } })
     this.running = true
     this.polling = this.poll().catch((error) => {
+      this.failure = error
+      this.running = false
       for (const value of this.pending.values()) value.reject(error)
+      this.pending.clear()
     })
     await this.call('initialize', { protocolVersion: 1, clientInfo: { name: 'harness-conformance', version: '1' } })
   }
   async call(method, params = {}) {
+    if (this.failure) throw this.failure
     const id = ++this.rpc
     const result = new Promise((resolve, reject) => {
       const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`${method} timed out`)) }, 90_000)

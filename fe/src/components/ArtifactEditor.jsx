@@ -12,7 +12,7 @@ const safeLink = (url) => { try { const parsed = new URL(url); return ['http:', 
 function Sources({ sources, onChange, disabled }) {
   const edit = (index, key, value) => onChange(sources.map((source, i) => i === index ? { ...source, [key]: value } : source))
   return <details className="work-sources"><summary>Source references ({sources.length})</summary>
-    <p className="field-note">Private provenance for this revision. References are not included in the public page; links written in the document body are.</p>
+    <p className="field-note">Harness source references. These are not stored in the Note or included in its public page; links written in the document body are.</p>
     {sources.map((source, index) => <div className="work-source-row" key={index}>
       <label><span>Source {index + 1} label</span><input value={source.label} maxLength={256} disabled={disabled} onChange={(event) => edit(index, 'label', event.target.value)} /></label>
       <label><span>Source {index + 1} URL or address</span><input value={source.url} maxLength={2048} disabled={disabled} onChange={(event) => edit(index, 'url', event.target.value)} /></label>
@@ -28,25 +28,35 @@ function ReadSources({ sources }) {
 
 function Publication({ artifact, onClose }) {
   const [revision, setRevision] = useState(artifact.head)
-  const [slug, setSlug] = useState(artifact.publication?.slug || artifact.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80))
   const [confirmed, setConfirmed] = useState(false)
   const [published, setPublished] = useState(null)
   const query = useWorkspace('preview', { id: artifact.id, revision })
   const mutation = useWorkMutation()
-  const validSlug = /^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(slug)
+  const path = artifact.notes?.path
   return <WorkDialog title={published ? 'Page published' : 'Publish a saved revision'} onClose={onClose} busy={mutation.busy} className="publication-dialog">
     {published ? <><p>Revision {published.revision} is public. Further edits stay private until you publish again.</p><a className="work-public-url" href={publicURL(published.path)} target="_blank" rel="noopener noreferrer">{publicURL(published.path)}</a><div className="form-actions"><button className="button primary" onClick={onClose}>Done</button></div></> : <>
       <p>Anyone with this URL can read and copy the page without signing in. Publish only content you intend to share.</p>
-      <div className="field-grid"><label><span>Saved revision</span><select value={revision} disabled={mutation.busy} onChange={(event) => { setRevision(Number(event.target.value)); setConfirmed(false) }}>{Array.from({ length: artifact.head }, (_, index) => artifact.head - index).map((number) => <option key={number} value={number}>Revision {number}{number === artifact.head ? ' · latest' : ''}</option>)}</select></label><label><span>Public URL name</span><input value={slug} maxLength={80} disabled={mutation.busy} onChange={(event) => { setSlug(event.target.value); setConfirmed(false) }} autoComplete="off" spellCheck="false" /></label></div>
-      <p className="field-note work-public-url">{publicURL(`/harness-pages/${slug || 'your-page'}`)}</p>
-      {!validSlug && <p className="field-note">Use lowercase letters, digits, and interior hyphens, up to 80 characters.</p>}
+      <label><span>Saved revision</span><select value={revision} disabled={mutation.busy} onChange={(event) => { setRevision(Number(event.target.value)); setConfirmed(false) }}>{Array.from({ length: artifact.head }, (_, index) => artifact.head - index).map((number) => <option key={number} value={number}>Revision {number}{number === artifact.head ? ' · latest' : ''}</option>)}</select></label>
+      <p className="field-note">Published by Notes at this fixed URL:</p>
+      {path ? <p className="field-note work-public-url">{publicURL(path)}</p> : <p className="inline-error" role="alert">The Notes URL is unavailable. Close this dialog and reload the document.</p>}
       <WorkFeedback query={query} />
       {query.value && <iframe className="work-page-preview" title={`Public preview of revision ${revision}`} sandbox="" srcDoc={query.value.html} />}
       <p className="field-note">This is the exact public rendering. It includes only the saved title and body—not project access, source references, proposals, or history. Raw HTML and remote images are not embedded.</p>
       <label className="work-check"><input type="checkbox" checked={confirmed} disabled={mutation.busy || query.loading || !!query.error} onChange={(event) => setConfirmed(event.target.checked)} /><span>I reviewed revision {revision} and want its title, body, and body links publicly accessible.</span></label>
       <WorkFeedback query={mutation} />
-      <div className="form-actions"><button className="button ghost" disabled={mutation.busy} onClick={onClose}>Cancel</button><button className="button primary" disabled={mutation.busy || !confirmed || !validSlug || !query.value || !!query.error} onClick={() => mutation.run('publish', { id: artifact.id, revision, head: query.value.head, exposure: artifact.exposure, slug, confirm: `${artifact.id}@${revision}` }, (result) => setPublished(result.artifact.publication))}>{mutation.busy ? 'Publishing…' : artifact.publication ? 'Update public page' : 'Publish page'}</button></div>
+      <div className="form-actions"><button className="button ghost" disabled={mutation.busy} onClick={onClose}>Cancel</button><button className="button primary" disabled={mutation.busy || !confirmed || !path || !query.value || query.loading || !!query.error} onClick={() => mutation.run('publish', { id: artifact.id, revision, head: query.value.head, exposure: artifact.exposure, previewToken: query.value.previewToken, confirm: `${artifact.id}@${revision}` }, (result) => setPublished(result.artifact.publication))}>{mutation.busy ? 'Publishing…' : artifact.publication ? 'Update public page' : 'Publish page'}</button></div>
     </>}
+  </WorkDialog>
+}
+
+function RenameArtifact({ artifact, onClose, onSaved }) {
+  const [title, setTitle] = useState(artifact.title)
+  const mutation = useWorkMutation()
+  return <WorkDialog title="Rename this Note" onClose={onClose} busy={mutation.busy}>
+    <p>Notes stores titles separately from body revisions. Renaming does not create a body revision or update the public page. Your unsaved body draft stays here.</p>
+    <label><span>Document title</span><input autoFocus value={title} maxLength={256} disabled={mutation.busy} onChange={(event) => setTitle(event.target.value)} /></label>
+    <WorkFeedback query={mutation} />
+    <div className="form-actions"><button className="button ghost" disabled={mutation.busy} onClick={onClose}>Cancel</button><button className="button primary" disabled={mutation.busy || !title.trim() || title === artifact.title} onClick={() => mutation.run('artifact-rename', { id: artifact.id, title }, (result) => onSaved(result.artifact.title))}>{mutation.busy ? 'Renaming…' : 'Rename Note'}</button></div>
   </WorkDialog>
 }
 
@@ -95,7 +105,7 @@ function ProposalReview({ id, artifact, onClose }) {
       </>}
       {decided ? <p className="work-notice" role="status">{decided}</p> : proposal.status !== 'pending' ? <p className="work-notice">Proposal {proposal.status}. {proposal.decision}</p> : <>
         <label><span>Review note (optional)</span><textarea rows={2} value={reason} maxLength={4096} disabled={mutation.busy} onChange={(event) => setReason(event.target.value)} /></label>
-        <p className="field-note">Accepting creates an exact saved revision. It does not publish anything.</p>
+        <p className="field-note">Accepting saves the proposed body in Notes and records its references in Harness. Notes creates a revision only when the body changes. Nothing is published.</p>
         <WorkFeedback query={mutation} />
         <div className="form-actions"><button className="button ghost" disabled={mutation.busy} onClick={() => mutation.run('review', { id, accept: false, reason }, () => setDecided('Proposal rejected. The document is unchanged.'))}>Reject proposal</button><button className="button primary" disabled={mutation.busy || stale || !ready} onClick={() => mutation.run('review', { id, accept: true, reason }, (result) => setDecided(`Accepted as revision ${result.revision}. It has not been published.`))}>{mutation.busy ? 'Recording review…' : 'Accept exact changes'}</button></div>
       </>}
@@ -122,7 +132,7 @@ function History({ artifact }) {
   const revision = useWorkspace(selected ? 'revision' : null, { id: artifact.id, revision: selected })
   const [copy, setCopy] = useState(false)
   return <section><WorkFeedback query={query} />
-    <div className="work-records">{query.value?.items?.map((item) => <button className="work-record" key={item.revision} onClick={() => setSelected(item.revision)} aria-pressed={selected === item.revision}><div><strong>Revision {item.revision} · {item.title}</strong><span className="work-record-meta">{item.by.label} · {workDate(item.at)}</span></div>{artifact.publication?.revision === item.revision && <span className="work-label public">Public</span>}</button>)}</div>
+    <div className="work-records">{query.value?.items?.map((item) => <button className="work-record" key={item.revision} onClick={() => setSelected(item.revision)} aria-pressed={selected === item.revision}><div><strong>Revision {item.revision} · {item.title}</strong><span className="work-record-meta">{item.by.label} · {workDate(item.at)}</span></div>{artifact.publication?.revision === item.revision && <span className="work-label public">Last published here</span>}</button>)}</div>
     <WorkPager query={query} offset={offset} onOffset={setOffset} />
     <WorkFeedback query={revision} />
     {revision.value?.content && <div className="work-history-document"><div className="section-title"><h2>{revision.value.content.title}</h2><button className="button ghost" onClick={() => setCopy(true)}>Copy this revision</button></div><p className="field-note">Saved revision {selected} · read-only</p><Markdown text={revision.value.content.body} /><ReadSources sources={revision.value.content.sources} /></div>}
@@ -147,6 +157,13 @@ export default function ArtifactEditor({ id }) {
     if (!baseline) setBaseline(contentDraft(content))
     if (!draft) setDraft(contentDraft(content))
   }, [content, draft, baseline])
+  useEffect(() => {
+    if (!content || !draft || content.revision !== draft.base || content.title === draft.title) return
+    const next = { ...draft, title: content.title }
+    setDraft(next)
+    setBaseline((previous) => previous ? { ...previous, title: content.title } : previous)
+    setStorageOK(persistDraft(sessionStorage, id, next))
+  }, [content, draft, id])
   const dirty = !!draft && (!baseline || changedContent(draft, baseline))
   const conflict = !!artifact && !!draft && artifact.head > draft.base
   useEffect(() => {
@@ -179,22 +196,23 @@ export default function ArtifactEditor({ id }) {
     <a className="work-breadcrumb" href="#/artifacts">All artifacts</a>
     <WorkFeedback query={query} />
     {artifact && <>
-      <div className="work-heading"><div><h1>{artifact.title}</h1><p className="field-note">{artifact.project ? <a href={projectHref(artifact.project)}>Project access</a> : 'Private artifact'} · {artifact.head ? `Saved revision ${artifact.head}` : 'Agent draft · awaiting review'}{artifact.archived ? ' · Archived' : ''}</p></div><div className="work-actions"><button className="button ghost" disabled={!artifact.head || artifact.archived || mutation.busy} onClick={() => setDialog('publish')}>Publish…</button>{draft && <button className="button primary" disabled={mutation.busy || !dirty || conflict || artifact.archived || !draft.title.trim()} onClick={save}>{mutation.busy ? 'Saving…' : 'Save revision'}</button>}</div></div>
-      {artifact.publication && <div className="work-publication"><div><strong>Public revision {artifact.publication.revision}</strong><a href={publicURL(artifact.publication.path)} target="_blank" rel="noopener noreferrer">{publicURL(artifact.publication.path)}</a>{artifact.head !== artifact.publication.revision && <span className="field-note">The latest saved revision is not the published revision.</span>}</div><button className="text-button" disabled={mutation.busy} onClick={() => setDialog('unpublish')}>Unpublish…</button></div>}
+      <div className="work-heading"><div><h1>{artifact.title}</h1><p className="field-note">{artifact.project ? <a href={projectHref(artifact.project)}>Project access</a> : 'Private in Harness'} · {artifact.head ? `Saved revision ${artifact.head}` : 'Agent draft · awaiting review'}{artifact.archived ? ' · Archived' : ''}</p>{artifact.notes && <div className="work-actions"><a href="/notes/" target="_blank" rel="noopener noreferrer">Stored in Notes</a><button className="text-button" disabled={artifact.archived || mutation.busy} onClick={() => setDialog('rename')}>Rename…</button></div>}</div><div className="work-actions"><button className="button ghost" disabled={!artifact.head || artifact.archived || mutation.busy} onClick={() => setDialog('publish')}>Publish…</button>{draft && <button className="button primary" disabled={mutation.busy || !dirty || conflict || artifact.archived || !draft.title.trim()} onClick={save}>{mutation.busy ? 'Saving…' : 'Save revision'}</button>}</div></div>
+      {artifact.publication && <div className="work-publication"><div><strong>Public page in Notes</strong><a href={publicURL(artifact.publication.path)} target="_blank" rel="noopener noreferrer">{publicURL(artifact.publication.path)}</a><span className="field-note">{artifact.publication.revision ? `Last published here: revision ${artifact.publication.revision}.` : 'Published outside Harness.'} Notes can also change this page.</span></div><button className="text-button" disabled={mutation.busy} onClick={() => setDialog('unpublish')}>Unpublish…</button></div>}
       {conflict && <div className="work-notice" role="status">Revision {artifact.head} is newer than your draft's base ({draft.base}). Your draft is preserved. Copy any changes you need before loading the latest revision. <button className="text-button" disabled={mutation.busy} onClick={reload}>Load latest revision</button></div>}
       {!storageOK && <div className="inline-error" role="alert">This browser could not retain your draft. Keep this page open and save or copy your work before navigating away.</div>}
       {!!notice && <p className="work-save-status" role="status">{notice}</p>}
       {dirty && !notice && <p className="field-note" role="status">Unsaved draft{storageOK ? ' · retained in this browser tab' : ''}. Publishing uses a saved revision, not this draft.</p>}
       <WorkFeedback query={mutation} />
       <nav className="work-tabs" aria-label="Artifact sections">{[['edit', 'Edit'], ['preview', 'Draft preview'], ['proposals', 'Proposals'], ['history', 'History']].map(([key, label]) => <button key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</button>)}</nav>
-      {tab === 'edit' && (draft ? <div className="work-editor"><label><span>Document title</span><input value={draft.title} maxLength={256} disabled={artifact.archived || mutation.busy} onChange={(event) => change({ title: event.target.value })} /></label><label><span>Document body · Markdown</span><textarea className="work-markdown-input" value={draft.body} disabled={artifact.archived || mutation.busy} onChange={(event) => change({ body: event.target.value })} placeholder="Start the document here…" spellCheck="true" /></label><p className="field-note">Headings, lists, links, tables, and code blocks are supported. Public formatting is intentionally limited; inspect the exact page before publishing.</p><Sources sources={draft.sources} onChange={(sources) => change({ sources })} disabled={artifact.archived || mutation.busy} /></div> : <div className="work-empty"><h2>Review the first draft</h2><p>This agent-created artifact has no accepted revision yet. Review its proposal to start the document.</p><button className="button primary" onClick={() => setTab('proposals')}>Review proposals</button></div>)}
+      {tab === 'edit' && (draft ? <div className="work-editor"><label><span>Document body · Markdown</span><textarea className="work-markdown-input" value={draft.body} disabled={artifact.archived || mutation.busy} onChange={(event) => change({ body: event.target.value })} placeholder="Start the document here…" spellCheck="true" /></label><p className="field-note">Body and history live in Notes. Renaming is separate from saving a body revision. Notes notebook sharing also applies; Harness project access does not change those permissions.</p><p className="field-note">Headings, lists, links, tables, and code blocks are supported. Public formatting is intentionally limited; inspect the exact page before publishing.</p><Sources sources={draft.sources} onChange={(sources) => change({ sources })} disabled={artifact.archived || mutation.busy} /></div> : <div className="work-empty"><h2>Review the first draft</h2><p>This agent-created artifact has no accepted revision yet. Review its proposal to start the document.</p><button className="button primary" onClick={() => setTab('proposals')}>Review proposals</button></div>)}
       {tab === 'preview' && (draft ? <div className="work-draft-preview"><p className="field-note">Draft preview · not the public page</p><h2>{draft.title}</h2><Markdown text={draft.body} /></div> : <p>No accepted content yet. Review the first proposal.</p>)}
       {tab === 'proposals' && <Proposals artifact={artifact} />}
       {tab === 'history' && <History artifact={artifact} />}
       <div className="work-footer"><code title="Stable artifact ID">{id}</code><div className="work-actions">{content && <button className="text-button" onClick={() => setDialog('copy')}>Copy saved revision to project…</button>}<button className="text-button" disabled={mutation.busy || !!artifact.publication} onClick={() => setDialog('archive')}>{artifact.archived ? 'Restore artifact…' : 'Archive artifact…'}</button></div></div>
       {dialog === 'publish' && <Publication artifact={artifact} onClose={() => setDialog(null)} />}
+      {dialog === 'rename' && <RenameArtifact artifact={artifact} onClose={() => setDialog(null)} onSaved={(title) => { setDialog(null); setNotice(`Renamed to “${title}”. Body revisions and the public page are unchanged.`) }} />}
       {dialog === 'copy' && <CopyArtifact artifact={artifact} content={content} onClose={() => setDialog(null)} />}
-      {dialog === 'unpublish' && <WorkDialog title="Unpublish this page?" busy={mutation.busy} onClose={() => setDialog(null)}><p>The public URL will stop serving this page. Copies already downloaded or shared cannot be recalled. Your document and history stay private on the ship.</p><WorkFeedback query={mutation} /><div className="form-actions"><button className="button ghost" disabled={mutation.busy} onClick={() => setDialog(null)}>Cancel</button><button className="button primary" disabled={mutation.busy} onClick={() => mutation.run('unpublish', { id, exposure: artifact.exposure }, () => { setDialog(null); setNotice('Page unpublished.') })}>Unpublish page</button></div></WorkDialog>}
+      {dialog === 'unpublish' && <WorkDialog title="Unpublish this page?" busy={mutation.busy} onClose={() => setDialog(null)}><p>Notes will stop serving this snapshot. Copies already downloaded or shared cannot be recalled. Your Note and its history remain under the notebook’s existing access settings.</p><WorkFeedback query={mutation} /><div className="form-actions"><button className="button ghost" disabled={mutation.busy} onClick={() => setDialog(null)}>Cancel</button><button className="button primary" disabled={mutation.busy} onClick={() => mutation.run('unpublish', { id, exposure: artifact.exposure }, () => { setDialog(null); setNotice('Page unpublished.') })}>Unpublish page</button></div></WorkDialog>}
       {dialog === 'archive' && <WorkDialog title={artifact.archived ? 'Restore this artifact?' : 'Archive this artifact?'} busy={mutation.busy} onClose={() => setDialog(null)}><p>{artifact.archived ? 'Project members will be able to read it again under current access settings.' : 'Agents will no longer be able to read or propose changes. Accepted history and proposals remain available to you.'}</p><WorkFeedback query={mutation} /><div className="form-actions"><button className="button ghost" disabled={mutation.busy} onClick={() => setDialog(null)}>Cancel</button><button className="button primary" disabled={mutation.busy} onClick={() => mutation.run('artifact-archive', { id, base: artifact.head, archived: !artifact.archived }, () => setDialog(null))}>{artifact.archived ? 'Restore artifact' : 'Archive artifact'}</button></div></WorkDialog>}
     </>}
   </div>

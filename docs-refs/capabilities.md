@@ -25,16 +25,20 @@ See [ACP](acp.md) and [architecture](architecture.md#session-ownership).
 
 ## Artifacts and projects
 
-Artifacts are editable Markdown documents with immutable accepted revisions and
-reviewable agent proposals. Projects explicitly share documents and versioned
+Artifacts are native Notes Markdown documents with accepted body history and
+reviewable agent proposals. Titles are separate, unversioned Notes metadata.
+Projects explicitly share documents and versioned
 tasks with selected conversation identities; claims belong to individual workers.
 Project access does not share transcripts or grant additional tools. Live
 delegated workers may participate within their parent's current authority.
 
-Owners can publish an exact saved revision at `/harness-pages/<slug>` for readers
+Owners can publish a reviewed saved snapshot through Notes at
+`/notes/pub/~host/notebook/note-id` for readers
 without authentication. Editing does not republish. Public responses omit private
 history, source-reference metadata and project records. Pages are inert Markdown,
-not arbitrary HTML applications. See [artifacts and projects](workspaces.md).
+not arbitrary HTML applications. Search content combines conversation evidence,
+accepted artifact history, projects and tasks, grouping each artifact's matching
+revisions into one expandable result. See [artifacts and projects](workspaces.md).
 
 ## Providers and context
 

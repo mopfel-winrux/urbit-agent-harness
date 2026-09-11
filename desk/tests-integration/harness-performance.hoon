@@ -21,12 +21,12 @@
   =/  sid  (cat 3 'benchmark-' (scot %ud count))
   $(count (dec count), sessions (~(put by sessions) sid [log 1]))
 ++  test-hot-path-costs
-  =/  saved=state-21  *state-21
+  =/  saved=state-23  *state-23
   =.  sessions.saved  (fleet 128)
   =/  packed=vase  !>(saved)
   =/  validated
     ~>  %bout.[1 'perf-validate-full-store-128x513']
-    !<(state-21 packed)
+    !<(state-23 packed)
   =/  log  (history 4.096)
   =/  view
     ~>  %bout.[1 'perf-replay-8193-events']

@@ -9,6 +9,7 @@ import { Client, base } from './lib/ship-client.mjs'
 
 assert.ok(['127.0.0.1', 'localhost', '[::1]'].includes(new URL(base).hostname), 'Run this fixture only on a local test ship')
 const marker = `work-${randomUUID().slice(0, 8)}`
+console.log(`Fixture ${marker}; inspect this identity if interrupted.`)
 const client = new Client(), workerClient = new Client()
 const sessions = [], artifacts = new Set(), projects = new Set(), replies = new Map(), errors = [], held = new Map()
 const content = { title: 'A page for friends', body: '# Welcome\n\n**Approved** public text. [A link](https://example.com).\n\n<script>UNSAFE_SCRIPT</script>\n\n![No request](https://example.com/tracker.png)', sources: [{ label: 'PRIVATE_SOURCE_LABEL', url: 'https://example.com/PRIVATE_SOURCE_URL' }] }
@@ -84,6 +85,7 @@ try {
   const adminToken = randomUUID()
   await prompt(admin, { token: adminToken, mode: 'admin', action: 'publish', args: { id: doc } })
   assert.match(replies.get(adminToken), /scoped workspace|owner|not.*allow|not.*support|Unknown/i)
+  console.log('PASS owner/native API, membership and model authority separation')
 
   const draft = await agent(first, 'artifact-create', { id: privateDoc, ...content }); artifacts.add(privateDoc)
   assert.equal(draft.artifact.head, 0); assert.equal(draft.proposal.status, 'pending')
@@ -102,6 +104,7 @@ try {
   assert.match(await agent(first, 'artifact', { id: doc }), /not found|not permitted/)
   await member(project, firstScope, 'contributor')
   await work('review', { id: liveProposal.id, accept: true })
+  console.log('PASS private proposals, stale rejection and live review authority')
 
   const delegated = { token: randomUUID(), mode: 'tool', action: 'propose', args: { artifact: doc, base: 3, ...content, reason: 'Delegated worker proposal' } }
   await prompt(first, { token: randomUUID(), mode: 'delegate', child: delegated })
@@ -124,29 +127,26 @@ try {
   assert.match(replies.get(token), /not found|not permitted/, 'Revocation before tool execution fences the private read')
   await member(project, firstScope, 'contributor')
 
-  const slug = `${marker}-friends`, preview = await work('preview', { id: doc, revision: 3 })
+  const preview = await work('preview', { id: doc, revision: 3 })
+  console.log('PASS delegated attribution, atomic claims and in-flight revocation')
   assert.ok(!preview.html.includes('<script>'))
   assert.ok(preview.html.includes('&lt;script&gt;'))
-  await assert.rejects(work('publish', { id: doc, revision: 3, head: 3, exposure: 0, slug, confirm: 'wrong' }), /Invalid/)
-  const published = await work('publish', { id: doc, revision: 3, head: 3, exposure: 0, slug, confirm: `${doc}@3` })
-  assert.equal(published.artifact.publication.path, `/harness-pages/${slug}`)
-  const unauthenticated = await fetch(`${base}/harness-pages/${slug}`)
+  await assert.rejects(work('publish', { id: doc, revision: 3, head: 3, exposure: 0, previewToken: preview.previewToken, confirm: 'wrong' }), /Invalid/)
+  const published = await work('publish', { id: doc, revision: 3, head: 3, exposure: 0, previewToken: preview.previewToken, confirm: `${doc}@3` })
+  const publicURL = `${base}${published.artifact.publication.path}`
+  assert.match(published.artifact.publication.path, /^\/notes\/pub\//)
+  const unauthenticated = await fetch(publicURL)
   assert.equal(unauthenticated.status, 200)
   const html = await unauthenticated.text()
   assert.equal(html, preview.html)
-  assert.match(unauthenticated.headers.get('content-security-policy'), /default-src 'none'.*sandbox/)
-  assert.equal(unauthenticated.headers.get('x-content-type-options'), 'nosniff')
-  assert.equal(unauthenticated.headers.get('referrer-policy'), 'no-referrer')
-  assert.equal(unauthenticated.headers.get('cache-control'), 'no-store')
+  // Native Notes owns HTTP headers; Harness supplies restrictive document policy.
+  assert.match(html, /Content-Security-Policy/)
+  assert.match(html, /default-src &#39;none&#39;/)
   for (const secret of ['PRIVATE_SOURCE_LABEL', 'PRIVATE_SOURCE_URL', 'PRIVATE_PROJECT_TITLE', first, proposal.reason]) assert.ok(!html.includes(secret), `Public projection omits ${secret}`)
-  const head = await fetch(`${base}/harness-pages/${slug}`, { method: 'HEAD' }); assert.equal(head.status, 200); assert.equal(await head.text(), '')
-  assert.equal((await fetch(`${base}/harness-pages/${slug}`, { method: 'POST' })).status, 405)
-  assert.equal((await fetch(`${base}/harness-pages/${slug}-missing`)).status, 404)
-  await assert.rejects(work('publish', { id: privateDoc, revision: 1, head: 1, exposure: 0, slug, confirm: `${privateDoc}@1` }), /belongs to another/)
   await work('artifact-save', { id: doc, base: 3, project, ...content, body: 'PRIVATE_UNPUBLISHED_REVISION' })
-  assert.equal(await (await fetch(`${base}/harness-pages/${slug}`)).text(), html)
+  assert.equal(await (await fetch(publicURL)).text(), html)
   await work('unpublish', { id: doc, exposure: 1 })
-  assert.equal((await fetch(`${base}/harness-pages/${slug}`)).status, 404)
+  assert.notEqual(await (await fetch(publicURL)).text(), html, 'Notes removes the snapshot (its app fallback may still return 200)')
 
   const long = `${marker}-long`, longBody = 'é'.repeat(9_000)
   await work('artifact-create', { id: long, project, title: 'Paged Unicode', body: longBody, sources: [] }); artifacts.add(long)
@@ -164,7 +164,7 @@ try {
   await client.call('session/delete', { sessionId: renamed })
   await make('renamed')
   assert.match(await agent(renamed, 'artifact', { id: doc }), /not found|not permitted/)
-  console.log(JSON.stringify({ ok: true, checks: ['owner/native workspace API', 'reader/contributor separation', 'private drafts', 'no model approval or publication', 'stale proposal rejection', 'live revocation', 'delegated worker attribution', 'atomic competing task claims', 'immutable project scope', 'exact public snapshot', 'unauthenticated GET and HEAD', 'inert HTML and security headers', 'private metadata omission', 'slug conflicts', 'unpublish', 'Unicode pagination', 'rename and recreate identity'], retainedFixtures: { project, artifacts: [...artifacts], sessions } }, null, 2))
+  console.log(JSON.stringify({ ok: true, checks: ['owner/native workspace API', 'reader/contributor separation', 'private drafts', 'no model approval or publication', 'stale proposal rejection', 'live revocation', 'delegated worker attribution', 'atomic competing task claims', 'immutable project scope', 'exact native Notes public snapshot', 'unauthenticated GET', 'inert HTML and document policy', 'private metadata omission', 'native unpublish', 'Unicode pagination', 'rename and recreate identity'], retainedFixtures: { project, artifacts: [...artifacts], sessions } }, null, 2))
 } finally {
   for (const release of held.values()) release()
   for (const id of artifacts) {

@@ -98,4 +98,12 @@
     (expect-eq !>(8.000) !>((number:codec args 'offset' 0)))
     (expect !>(?=(%| -.refused)))
   ==
+++  test-empty-directory-first-page
+  =/  args=json  [%o (my ~[['offset' [%n '0']] ['limit' [%n '24']]])]
+  =/  result  (page:codec ~ args &)
+  ;:  weld
+    (expect-eq !>(0) !>((number:codec args 'offset' 99)))
+    (expect-eq !>(`json`[%a ~]) !>((need (get:codec result 'items'))))
+    (expect-eq !>(`json`~) !>((need (get:codec result 'nextOffset'))))
+  ==
 --

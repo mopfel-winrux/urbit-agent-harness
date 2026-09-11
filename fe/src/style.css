@@ -87,6 +87,13 @@
 .corpus-evidence { border-top: 1px solid var(--line); margin-top: 28px; padding-top: 12px; }
 .corpus-evidence-link { display: grid; gap: 4px; width: 100%; padding: 12px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
 .corpus-evidence-link span { color: var(--muted); }
+.corpus-version-toggle { margin: 8px 0; }
+.corpus-versions { margin: 8px 0 20px; border-block: 1px solid var(--line); }
+.corpus-version { display: grid; gap: 4px; width: 100%; padding: 12px; text-align: left; border: 0; background: transparent; overflow-wrap: anywhere; cursor: pointer; }
+.corpus-version:hover { background: var(--soft); }
+.corpus-version.active { background: var(--accent-soft); }
+.corpus-version span { color: var(--muted); font-size: var(--text-small); }
+.work-content.work-operation { padding-bottom: 0; }
 @media (max-width: 1050px) {
   .corpus-layout.has-source { grid-template-columns: minmax(0, 1fr); }
   .corpus-detail { grid-row: 1; position: static; max-height: none; }

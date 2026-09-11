@@ -2,7 +2,11 @@
 ::  directly, and harness-store loads each supported version without dropping
 ::  sessions or credentials. Runtime bookkeeping is not session semantics.
 /-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, corpus=harness-corpus, cron=harness-cron, work=harness-workspace
+/-  hn=harness-notes
+/-  ws=harness-workspace-search
 |%
++$  state-23  [%23 workspace-search=state:ws state-22]
++$  state-22  [%22 workspace-notes=state:hn legacy-workspace=state:work state-21]
 +$  state-21  [%21 workspace=state:work state-20]
 +$  state-20
   [%20 schedules=(map @uv schedule:cron) schedule-wake=(unit @da) tlon-cron-imported=? state-19]

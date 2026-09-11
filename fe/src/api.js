@@ -43,6 +43,7 @@ async function read(path) {
   if (path === 'peers') return acp.call('harness/peers')
   if (path === 'peers/remote') return acp.call('harness/peers/remote')
   if (path === 'corpus/status') return acp.call('harness/corpus/status')
+  if (path === 'search/status') return acp.call('harness/search/status')
   if (path === 'mcp') return acp.call('harness/mcp/servers')
   if (path === 'search') return acp.call('harness/search')
   if (path === 'skills') return acp.call('harness/skills')
@@ -63,7 +64,13 @@ const corpus = async (operation, params = {}) => {
   return acp.call(`harness/corpus/${operation}`, params)
 }
 
-export const api = { read, action, models, corpus }
+const search = async (operation, params = {}) => {
+  if (!['query', 'versions', 'read'].includes(operation)) throw new Error('Unsupported unified search operation')
+  await acp.start()
+  return acp.call(`harness/search/${operation}`, params)
+}
+
+export const api = { read, action, models, corpus, search }
 
 export function resourcesFor(chat) {
   return {

@@ -1,5 +1,21 @@
 import { expect, test } from '@playwright/test'
 
+test('uncertain Notes recovery observes without replay and requires an explicit release', async ({ page }) => {
+  await page.goto('/apps/harness/tests/workspace-fixture.html#/artifacts/guide')
+  await page.getByLabel('Document body · Markdown').fill('Preserve this unsaved draft.')
+  await page.evaluate(() => { window.workFixture.pending = { id: '0v1', artifact: 'guide', action: 'artifact-save', uncertain: true }; window.workFixture.changed() })
+  await expect(page.getByText('Notes result is uncertain')).toBeVisible()
+  await page.getByRole('button', { name: 'Check result again' }).click()
+  await page.getByRole('button', { name: 'Stop waiting…', exact: true }).click()
+  const release = page.getByRole('button', { name: 'Stop waiting', exact: true })
+  await expect(release).toBeDisabled()
+  await page.getByRole('checkbox', { name: /I inspected Notes/ }).check()
+  await release.click()
+  await expect(page.getByText('Notes result is uncertain')).toHaveCount(0)
+  await expect(page.getByLabel('Document body · Markdown')).toHaveValue('Preserve this unsaved draft.')
+  expect(await page.evaluate(() => window.workFixture.calls.filter((call) => ['artifact-create', 'artifact-save', 'publish'].includes(call.action)))).toEqual([])
+})
+
 const open = (page, hash = 'artifacts/guide') => page.goto(`/apps/harness/tests/workspace-fixture.html#/${hash}`)
 const writes = (page, action) => page.evaluate((name) => window.workFixture.calls.filter((call) => call.action === name), action)
 
@@ -21,12 +37,29 @@ test('artifact edits save immutable revisions and preserve drafts on conflicts',
 
 test('failed saves leave the draft editable and show the concrete error', async ({ page }) => {
   await open(page)
-  await page.getByLabel('Document title', { exact: true }).fill('A better title')
+  await page.getByLabel('Document body · Markdown').fill('A better body')
   await page.evaluate(() => { window.workFixture.failNext = 'artifact-save' })
   await page.getByRole('button', { name: 'Save revision', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('Synthetic save failure')
-  await expect(page.getByLabel('Document title', { exact: true })).toHaveValue('A better title')
+  await expect(page.getByLabel('Document body · Markdown')).toHaveValue('A better body')
   await expect(page.getByRole('button', { name: 'Save revision', exact: true })).toBeEnabled()
+})
+
+test('renaming uses Notes metadata and keeps an unsaved body draft', async ({ page }) => {
+  await open(page)
+  const body = page.getByLabel('Document body · Markdown')
+  await body.fill('Keep this unsaved draft')
+  await page.getByRole('button', { name: 'Rename…', exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Document title').fill('A new Note title')
+  await dialog.getByRole('button', { name: 'Rename Note', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'A new Note title', exact: true })).toBeVisible()
+  await expect(body).toHaveValue('Keep this unsaved draft')
+  expect(await writes(page, 'artifact-save')).toHaveLength(0)
+  expect(await writes(page, 'publish')).toHaveLength(0)
+  expect(await page.evaluate(() => window.workFixture.db.artifacts.guide.head)).toBe(1)
+  await page.getByRole('button', { name: 'Save revision', exact: true }).click()
+  expect((await writes(page, 'artifact-save'))[0].args).toMatchObject({ title: 'A new Note title', body: 'Keep this unsaved draft', base: 1 })
 })
 
 test('publishing requires exact preview confirmation and saving never republishes', async ({ page }) => {
@@ -42,11 +75,11 @@ test('publishing requires exact preview confirmation and saving never republishe
   await dialog.getByRole('button', { name: 'Done', exact: true }).click()
   await page.getByLabel('Document body · Markdown').fill('Private edits after publication')
   await page.getByRole('button', { name: 'Save revision', exact: true }).click()
-  await expect(page.getByText('Public revision 1', { exact: true })).toBeVisible()
+  await expect(page.getByText('Last published here: revision 1.', { exact: false })).toBeVisible()
   expect(await writes(page, 'publish')).toHaveLength(1)
   await page.getByRole('button', { name: 'Unpublish…', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Unpublish page', exact: true }).click()
-  await expect(page.getByText('Public revision 1', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('Public page in Notes', { exact: true })).toHaveCount(0)
 })
 
 test('agent proposals expose the exact body difference and accept without publishing', async ({ page }) => {

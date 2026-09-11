@@ -8,15 +8,18 @@
 /-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, t=harness-tlon, *harness-store
 /-  cr=harness-cron
 /-  work=harness-workspace
+/-  hn=harness-notes, native-notes=tlon-notes
 /+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, lcm-context=harness-lcm-context, corpus-lib=harness-corpus, corpus-json=harness-corpus-json, peer-policy=harness-peer-policy, peer-trust=harness-peer-trust, failure=harness-failure, policy=harness-defaults, storage=harness-store, index=harness-session-index, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 /+  onboarding=harness-onboarding, peer-access=harness-peer-access, admin=harness-admin, ownership=harness-ownership, local-mcp-lib=harness-local-mcp, peer-rpc=harness-peer-rpc
 /+  schedule-lib=harness-schedule, calendar=harness-cron
 /+  workspace-lib=harness-workspace, workspace-json=harness-workspace-json
+/+  notes-lib=harness-notes
+/+  workspace-index=harness-workspace-search, unified-search=harness-unified-search
 |%
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-21
+=|  state-23
 =*  state  -
 ^-  agent:gall
 =<
@@ -32,14 +35,18 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =/  loaded  !<(state-21 on-save:next)
+      =/  loaded  !<(state-23 on-save:next)
       =/  before-workspace  writes.workspace
+      =/  previous-workspace  workspace
+      =/  previous-notes  workspace-notes
       =/  before-sessions  sessions
       =/  before-hands  hands
       =/  before-schedules  schedules
       =/  before-access  access-inputs:hc
       =/  before-scheduler  schedule-inputs:hc
       =.  state  loaded
+      =?  writes.workspace  &(!=(previous-notes workspace-notes) =(before-workspace writes.workspace))
+        +(writes.workspace)
       =/  out  (filter:oauth -.result openai-auth provider-keys now.bowl)
       =^  cards  state  (accept-auth:hc out)
       =^  scheduled  state
@@ -56,6 +63,8 @@
       =?  corpus  |(!=(before-sessions sessions) ?=(~ built-at.index.corpus))
         (sync:corpus-lib corpus sessions)
       =?  built-at.index.corpus  ?=(~ built-at.index.corpus)  `now.bowl
+      =?  workspace-search  |(!initialized.workspace-search !=(before-workspace writes.workspace))
+        (sync:workspace-index workspace-search previous-workspace workspace now.bowl)
       =^  indexing  state  wake-corpus:hc
       =.  cards  (weld cards indexing)
       =^  announcements  state
@@ -87,7 +96,7 @@
 ::
 ++  on-load
   |=  old-vase=vase
-  =/  new=state-21  (load:storage old-vase)
+  =/  new=state-23  (load:storage old-vase)
   =.  state  new(corpus-wake ~, schedule-wake ~)
   %-  flush-auth
   ^-  (quip card _this)
@@ -108,8 +117,15 @@
   ::  Gall retains subscriptions across code reloads. A new mirror watch
   ::  reprojects on acknowledgement. Refresh a surviving watch only after our
   ::  self-poke completes: Tlon may still be old code during this +on-load.
-  =?  base  !(~(has by wex.bowl) /acp/watch our.bowl %acp)
-    (snoc base acp-watch-card:wire-codec)
+  ::  Re-establish even a retained watch: an interrupted delivery can leave
+  ::  stale transport bookkeeping. Durable ingress cursors prevent replay.
+  =.  base
+    (weld base `(list card)`~[[%pass /acp/watch %agent [our.bowl %acp] %leave ~] acp-watch-card:wire-codec])
+  =?  base  ?=(^ pending.workspace-notes)
+    =/  rid  (request-id:notes-lib u.pending.workspace-notes)
+    (snoc base [%pass /artifact-notes/request/(scot %uv rid) %agent [our.bowl %notes] %watch /v1/request/(scot %uv rid)])
+  =?  base  &(?=(^ book.workspace-notes) !(~(has by wex.bowl) /artifact-notes/book our.bowl %notes))
+    (snoc base notes-watch:hc)
   =/  mirror  (~(get by wex.bowl) /harness-grub/sessions our.bowl %harness-grub)
   ?~  mirror
     (snoc base (watch:hg our.bowl shadow-channel:hc))
@@ -122,8 +138,8 @@
       %harness-workspace
     ?>  =(src.bowl our.bowl)
     =/  req  !<(request:work vase)
-    =/  out  (workspace-request:hc [& [0v0 'Owner'] 0v0] action.req args.req id.req)
-    [[[%give %fact ~[/workspace/[id.req]] %noun !>(result.out)] ~] this(state new.out)]
+    =^  cards  state  (workspace-owner:hc [%native id.req] action.req args.req id.req)
+    [cards this]
       %harness-cron
     ?>  =(src.bowl our.bowl)
     =/  req  !<(request:cr vase)
@@ -342,6 +358,22 @@
   %-  flush-auth
   ^-  (quip card _this)
   ?+  wire  (on-agent:def wire sign)
+      ?([%artifact-notes %request @ ~] [%artifact-notes %send @ ~])
+    =^  cards  state  (notes-result:hc (slav %uv i.t.t.wire) sign)
+    [cards this]
+      [%artifact-notes %book ~]
+    ?:  ?=(%watch-ack -.sign)
+      `this(workspace-notes workspace-notes(connected ?=(~ p.sign)))
+    ?:  ?=(%kick -.sign)  `this(workspace-notes workspace-notes(connected |))
+    ?.  &(?=(%fact -.sign) ?=(^ book.workspace-notes))  `this
+    ?>  =(%notes-response p.cage.sign)
+    =/  response  !<(r-notes:native-notes q.cage.sign)
+    ?.  =(flag.response u.book.workspace-notes)  `this
+    =.  workspace
+      ?:  ?=(%snapshot -.response)
+        (project-book:notes-lib workspace workspace-notes notebook-state.response)
+      (project-update:notes-lib workspace workspace-notes u-notebook.update.response)
+    `this
       [%hand-tool @ @ @ ~]
     =/  sid=@t  i.t.wire
     =/  generation=@ud  (slav %ud i.t.t.wire)
@@ -401,11 +433,14 @@
       [%acp %watch ~]
     ?+  -.sign  (on-agent:def wire sign)
         %kick
-      [~[acp-watch-card:wire-codec] this]
+      ::  Leave this event before reconnecting: replay can kick again.
+      [~[[%pass /acp/reconnect %arvo %b %wait (add now.bowl ~s5)]] this]
     ::
         %watch-ack
       ?~  p.sign  `this
-      [~[acp-watch-card:wire-codec] this]
+      ::  A rejected watch must not recursively retry in the same event.
+      %-  (slog 'harness: ACP subscription rejected; reconnect on reload' u.p.sign)
+      `this
     ::
         %fact
       ?.  ?=(%acp-update-1 p.cage.sign)  `this
@@ -520,6 +555,9 @@
   %-  flush-auth
   ^-  (quip card _this)
   ?+  wire  (on-arvo:def wire sign)
+      [%acp %reconnect ~]
+    ?.  ?=([%behn %wake ~] sign)  `this
+    [~[[%pass /acp/watch %agent [our.bowl %acp] %leave ~] acp-watch-card:wire-codec] this]
       [%schedules @ ~]
     ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
     ?.  =(schedule-wake `(slav %da i.t.wire))  `this
@@ -529,6 +567,7 @@
     ?.  =(corpus-wake `(slav %da i.t.wire))  `this
     =.  corpus-wake  ~
     =.  corpus  (work:corpus-lib corpus 32 65.536)
+    =.  workspace-search  (work:workspace-index workspace-search workspace 8 65.536)
     `this
       [%openai-renew @ ~]
     ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
@@ -793,6 +832,12 @@
   ^-  [result=(each json @t) new=_state]
   ?.  |(owner.who (model-action:workspace-json action))
     [[%| 'This workspace action requires the owner interface, not a model tool'] state]
+  =/  refreshed
+    %-  mule  |.
+    ?.  (needs-notes:notes-lib action)  workspace
+    (refresh:~(. reader:notes-lib bowl) workspace workspace-notes)
+  ?.  ?=(%& -.refreshed)  [[%| 'Native Notes is unavailable; no cached document was returned or changed'] state]
+  =.  workspace  p.refreshed
   ?:  =('sessions' action)
     ?.  owner.who  [[%| 'Conversation directory is owner-only'] state]
     =/  rows
@@ -804,10 +849,17 @@
     [?:(?=(%& -.result) [%& p.result] [%| 'Invalid directory offset or limit']) state]
   ?:  (is-read:workspace-json action)
     =/  result  (mule |.((read:workspace-json workspace who action args)))
-    [?:(?=(%& -.result) [%& p.result] [%| 'Record not found, not permitted, or invalid read parameters']) state]
+    [?:(?=(%& -.result) [%& (decorate:notes-lib workspace-notes p.result)] [%| 'Record not found, not permitted, or invalid read parameters']) state]
   =/  decoded  (mule |.((decode:workspace-json workspace action args fallback)))
   ?.  ?=(%& -.decoded)  [[%| 'Invalid workspace action or parameters; inspect help and the current record'] state]
   =/  act  p.decoded
+  ?:  &(?=(^ pending.workspace-notes) ?=(?(%artifact-create %artifact-save %artifact-archive %propose %review %publish %unpublish) -.act))
+    [[%| 'A native Notes operation is pending; wait for its result before changing documents or proposals'] state]
+  ?:  ?=(%propose -.act)
+    =/  art  (~(get by artifacts.workspace) artifact.act)
+    ?:  ?&(?=(^ art) (gth head.u.art 0) !=(title.value.act label.u.art))
+      [[%| 'Notes titles are separate metadata; proposals must retain the current title'] state]
+    (workspace-apply who act)
   ?:  &(?=(%member -.act) !(~(has by scopes.corpus) scope.act))
     [[%| 'Conversation no longer exists; select its current identity'] state]
   ?:  &(?=(%review -.act) accept.act)
@@ -835,11 +887,174 @@
   ?.  ?=(%& -.decoded)
     [~[(acp-error-card:wire-codec connection id '-32602' 'Expected action and args')] state]
   =/  fallback  (cat 3 'w-' (crip (a-co:co (sham [connection id params]))))
-  =/  out  (workspace-request [& [0v0 'Owner'] 0v0] -.p.decoded +.p.decoded fallback)
-  =/  card
-    ?:  ?=(%& -.result.out)  (acp-result-card:wire-codec connection id p.result.out)
-    (acp-error-card:wire-codec connection id '-32602' p.result.out)
-  [[card ~] new.out]
+  (workspace-owner [%acp connection id] -.p.decoded +.p.decoded fallback)
+++  notes-reply
+  |=  [reply=reply:hn result=(each json @t)]
+  ^-  card
+  ?:  ?=(%native -.reply)
+    [%give %fact ~[/workspace/[id.reply]] %noun !>(result)]
+  ?:  ?=(%& -.result)  (acp-result-card:wire-codec connection.reply id.reply p.result)
+  (acp-error-card:wire-codec connection.reply id.reply '-32602' p.result)
+++  workspace-owner
+  |=  [reply=reply:hn action=@t args=json fallback=@t]
+  ^-  (quip card _state)
+  ?:  (lien `(list @t)`~['notes-status' 'notes-resume' 'notes-release'] |=(item=@t =(item action)))
+    (notes-control reply action args)
+  =/  native  (mule |.((accepts:notes-lib action args)))
+  ?.  ?=(%& -.native)
+    [~[(notes-reply reply [%| 'Invalid document operation'])] state]
+  ?:  !p.native
+    =/  out  (workspace-request [& [0v0 'Owner'] 0v0] action args fallback)
+    [~[(notes-reply reply result.out)] new.out]
+  =/  refreshed  (mule |.((refresh:~(. reader:notes-lib bowl) workspace workspace-notes)))
+  ?.  ?=(%& -.refreshed)
+    [~[(notes-reply reply [%| 'Native Notes is unavailable; no document change was sent'])] state]
+  =.  workspace  p.refreshed
+  =/  source-live
+    ?.  =('review' action)  &
+    =/  proposed  (mole |.((~(got by proposals.workspace) (string:workspace-json args 'id'))))
+    ?~  proposed  |
+    |(=(0 access.u.proposed) (~(has by scopes.corpus) access.u.proposed))
+  ?.  source-live
+    [~[(notes-reply reply [%| 'Proposal source conversation no longer exists'])] state]
+  =/  prepared
+    %-  mule  |.
+    (prepare:notes-lib workspace workspace-notes reply action args fallback now.bowl (sham [now.bowl reply action args]))
+  ?.  ?=(%& -.prepared)
+    [~[(notes-reply reply [%| 'Invalid Notes operation or parameters'])] state]
+  =/  out  p.prepared
+  ?.  ?=(%& -.out)  [~[(notes-reply reply [%| p.out])] state]
+  =.  pending.workspace-notes  `p.out
+  =/  rid  (request-id:notes-lib p.out)
+  [~[[%pass /artifact-notes/request/(scot %uv rid) %agent [our.bowl %notes] %watch /v1/request/(scot %uv rid)]] state]
+++  notes-status
+  ^-  json
+  =/  pending=pending:hn  ?~(pending.workspace-notes *pending:hn u.pending.workspace-notes)
+  (pairs:enjs:format ~[['notebook' ?~(book.workspace-notes ~ [%s (rap 3 (scot %p ship.u.book.workspace-notes) '/' name.u.book.workspace-notes ~)])] ['pending' ?~(pending.workspace-notes ~ (pairs:enjs:format ~[['id' %s (scot %uv id.pending)] ['requestId' %s (scot %uv (request-id:notes-lib pending))] ['action' %s action.pending] ['artifact' %s artifact.pending] ['sent' %b sent.pending] ['uncertain' %b uncertain.pending]]))]])
+++  notes-control
+  |=  [reply=reply:hn action=@t args=json]
+  ^-  (quip card _state)
+  ?:  =('notes-status' action)  [~[(notes-reply reply [%& notes-status])] state]
+  =/  expected  (mole |.((string:workspace-json args 'id')))
+  ?.  ?&(?=(^ pending.workspace-notes) =(expected `(scot %uv id.u.pending.workspace-notes)))
+    [~[(notes-reply reply [%| 'The pending Notes operation changed. Refresh its status.'])] state]
+  =/  pending  u.pending.workspace-notes
+  =/  rid  (request-id:notes-lib pending)
+  ?:  =('notes-resume' action)
+    :_  state
+    :~  [%pass /artifact-notes/request/(scot %uv rid) %agent [our.bowl %notes] %leave ~]
+        [%pass /artifact-notes/request/(scot %uv rid) %agent [our.bowl %notes] %watch /v1/request/(scot %uv rid)]
+        (notes-reply reply [%& notes-status])
+    ==
+  =/  confirmation  (mole |.((string:workspace-json args 'confirm')))
+  ?.  =(confirmation `(cat 3 'release ' (scot %uv id.pending)))
+    [~[(notes-reply reply [%| 'Confirm that you inspected Notes and understand that stopping observation cannot undo a dispatched change.'])] state]
+  =/  saved=state-23  state
+  =/  next  saved(workspace-notes workspace-notes.saved(pending ~))
+  =.  workspace.next  (record:workspace-lib workspace.next [& [0v0 'Owner'] 0v0] 'notes-release' artifact.pending now.bowl)
+  [[[%pass /artifact-notes/request/(scot %uv rid) %agent [our.bowl %notes] %leave ~] (notes-reply reply [%& (pairs:enjs:format ~[['released' %b &]])]) ~] next]
+++  notes-watch
+  ^-  card
+  =/  flag  (need book.workspace-notes)
+  [%pass /artifact-notes/book %agent [our.bowl %notes] %watch /v0/notes/(scot %p ship.flag)/[name.flag]/stream]
+++  notes-failed
+  |=  [message=@t uncertain=?]
+  ^-  (quip card _state)
+  ?~  pending.workspace-notes  `state
+  =/  pending  u.pending.workspace-notes
+  =/  saved=state-23  state
+  =/  next  saved(workspace-notes workspace-notes.saved(pending ?:(uncertain `pending(uncertain &) ~)))
+  [~[(notes-reply reply.pending [%| message])] next]
+++  notes-result
+  |=  [rid=@uv sign=sign:agent:gall]
+  ^-  (quip card _state)
+  ?~  pending.workspace-notes  `state
+  =/  pending  u.pending.workspace-notes
+  ?.  =(rid (request-id:notes-lib pending))  `state
+  ?:  ?=(%watch-ack -.sign)
+    ?^  p.sign  (notes-failed 'Could not observe Notes; no automatic retry. Inspect Notes before trying again.' sent.pending)
+    ?:  sent.pending  `state
+    =/  checked
+      %-  mule  |.
+      =/  current  (refresh:~(. reader:notes-lib bowl) workspace workspace-notes)
+      =/  source-live
+        ?~  proposal.pending  &
+        =/  proposed  (~(get by proposals.current) u.proposal.pending)
+        ?~  proposed  |
+        |(=(0 access.u.proposed) (~(has by scopes.corpus) access.u.proposed))
+      ?>  source-live
+      =/  prepared  (prepare:notes-lib current workspace-notes(pending ~) reply.pending action.pending args.pending artifact.pending now.bowl id.pending)
+      ?>  ?=(%& -.prepared)
+      ?>  =(command.pending command.p.prepared)
+      current
+    ?.  ?=(%& -.checked)
+      (notes-failed 'The document, proposal authority, or publication choice changed before dispatch. Reload and review it again; no change was sent.' |)
+    =.  workspace  p.checked
+    ::  Persist the send fence before dispatch. On reload, only re-observe.
+    =.  pending.workspace-notes  `pending(sent &)
+    [~[[%pass /artifact-notes/send/(scot %uv rid) %agent [our.bowl %notes] %poke %notes-action-1 !>(`action:v1:native-notes`[rid command.pending])]] state]
+  ?:  ?=(%poke-ack -.sign)
+    ?~  p.sign  `state
+    (notes-failed 'Notes rejected the request transport; inspect the note before retrying.' &)
+  ?:  ?=(%kick -.sign)
+    (notes-failed 'Notes result subscription closed; the result is uncertain. Inspect Notes before retrying.' &)
+  ?>  ?=(%fact -.sign)
+  ?>  =(%notes-response-1 p.cage.sign)
+  =/  response  !<(response:v1:native-notes q.cage.sign)
+  ?.  =(rid id.response)  `state
+  ?:  ?=(%pending -.body.response)  `state
+  =/  leave=card  [%pass /artifact-notes/request/(scot %uv rid) %agent [our.bowl %notes] %leave ~]
+  ?:  ?=(%error -.body.response)
+    =/  out  (notes-failed (cat 3 'Native Notes rejected the change: ' type.body.response) |)
+    [[leave -.out] +.out]
+  ?:  =(%book stage.pending)
+    ?.  ?=(%notebook -.body.response)
+      (notes-failed 'Notes did not return the new notebook identity; inspect Notes before retrying.' &)
+    =/  summary  summary.body.response
+    =.  book.workspace-notes  `flag.summary
+    =.  folder.workspace-notes  +(id.notebook.summary)
+    =.  pending
+      pending(stage %write, sent |, command [%notebook flag.summary %create-note folder.workspace-notes title.value.pending body.value.pending])
+    =.  pending.workspace-notes  `pending
+    =/  next  (request-id:notes-lib pending)
+    [[leave notes-watch [%pass /artifact-notes/request/(scot %uv next) %agent [our.bowl %notes] %watch /v1/request/(scot %uv next)] ~] state]
+  =/  resolved
+    %-  mule  |.
+    =/  link  (~(get by links.workspace-notes) artifact.pending)
+    =/  nid=@ud
+      ?^  link  note.u.link
+      ?>  ?=(%ok -.body.response)
+      =/  out  r-notes.body.response
+      ?>  ?=(%update -.out)
+      ?>  ?=(%note -.u-notebook.update.out)
+      id.u-notebook.update.out
+    =/  book  (need book.workspace-notes)
+    =/  note  (note:~(. reader:notes-lib bowl) book nid)
+    =/  applied=@ud
+      ?:  ?=(%ok -.body.response)
+        =/  out  r-notes.body.response
+        ?>  ?=(%update -.out)
+        ?>  ?=(%note -.u-notebook.update.out)
+        =/  update  u-note.u-notebook.update.out
+        ?>  ?=(?(%created %updated) -.update)
+        +(revision.note.update)
+      ?:  |(=('artifact-save' action.pending) ?=(^ proposal.pending))
+        (dec head.candidate.pending)
+      +(revision.note)
+    ?>  ?:  |(=('publish' action.pending) =('unpublish' action.pending))
+          =((visible:~(. reader:notes-lib bowl) book nid) =('publish' action.pending))
+        &
+    (complete:notes-lib workspace workspace-notes note (history:~(. reader:notes-lib bowl) book nid) applied now.bowl)
+  ?.  ?=(%& -.resolved)
+    (notes-failed 'Notes confirmed a result, but its current document could not be read. Do not repeat the operation.' &)
+  =/  saved=state-23  state
+  =/  next  saved(workspace db.p.resolved, workspace-notes native.p.resolved)
+  =/  art  (~(got by artifacts.workspace.next) artifact.pending)
+  =/  result
+    ?^  proposal.pending
+      (proposal-json:workspace-json u.proposal.pending (~(got by proposals.workspace.next) u.proposal.pending))
+    (decorate:notes-lib workspace-notes.next (pairs:enjs:format ~[['artifact' (artifact-json:workspace-json artifact.pending art)]]))
+  [[leave (notes-reply reply.pending [%& result]) ~] next]
 ++  workspace-tool
   |=  req=tool-request:adapter
   ^-  (quip card _state)
@@ -967,11 +1182,36 @@
 ++  wake-corpus
   ^-  (quip card _state)
   =/  waiting  ?=(^ corpus-wake)
-  ?:  |(?=(~ queued.corpus) waiting)  `state
+  ?:  |(&(?=(~ queued.corpus) ?=(~ queued.workspace-search)) waiting)  `state
   =/  deadline  (add now.bowl (div ~s1 10))
   =.  corpus-wake  `deadline
   :_  state
   ~[[%pass /corpus-index/(scot %da deadline) %arvo %b %wait deadline]]
+++  unified-request
+  |=  [connection=@t id=json method=@t params=(unit json)]
+  ^-  (quip card _state)
+  ?^  (decode:admin connection)
+    [~[(acp-error-card:wire-codec connection id '-32602' 'Unified owner search is not a model tool. Use scoped recall or workspace reads.')] state]
+  =/  previous  workspace
+  =/  refreshed  (mule |.((refresh:~(. reader:notes-lib bowl) workspace workspace-notes)))
+  =/  available  ?=(%& -.refreshed)
+  =?  workspace  ?=(%& -.refreshed)  p.refreshed
+  ::  Queue changed Notes projections now so the returned status is accurate.
+  =.  workspace-search  (sync:workspace-index workspace-search previous workspace now.bowl)
+  =/  result
+    %-  mule  |.
+    =/  args  (need params)
+    ?:  =('harness/search/versions' method)
+      (expand:unified-search corpus workspace-search workspace ~(key by scopes.corpus) [& [0v0 'Owner'] 0v0] available args)
+    ?:  =('harness/search/read' method)
+      (read:unified-search corpus workspace-search workspace ~(key by scopes.corpus) [& [0v0 'Owner'] 0v0] available args)
+    (search:unified-search corpus workspace-search workspace ~(key by scopes.corpus) [& [0v0 'Owner'] 0v0] available (string:workspace-json args 'query') (optional:workspace-json args 'cursor') (number:workspace-json args 'limit' 20))
+  ?.  ?=(%& -.result)
+    [~[(acp-error-card:wire-codec connection id '-32602' 'Invalid search parameters.')] state]
+  =/  out  p.result
+  ?:  ?=(%| -.out)
+    [~[(acp-error-card:wire-codec connection id '-32602' p.out)] state]
+  [~[(acp-result-card:wire-codec connection id p.out)] state]
 ++  corpus-number
   |=  [params=(unit json) key=@t fallback=@ud]
   ^-  (unit @ud)
@@ -1116,7 +1356,18 @@
   =/  sequence  sequence.i.remaining
   ?:  (lte sequence through)
     $(remaining t.remaining)
-  =^  admitted  state  (handle-acp-message connection i.remaining)
+  ::  A failed handler has emitted no cards. Reject and acknowledge just
+  ::  that frame, rather than losing the shared subscription and replaying it.
+  =/  outcome  (mule |.((handle-acp-message connection i.remaining)))
+  =/  admitted=(list card)
+    ?:  ?=(%& -.outcome)  -.p.outcome
+    %-  (slog 'harness: ACP request handler failed' p.outcome)
+    =/  frame  (de:json:html payload.i.remaining)
+    ?.  ?&(?=(^ frame) ?=(%o -.u.frame))  ~
+    =/  id  (~(get by p.u.frame) 'id')
+    ?~  id  ~
+    ~[(acp-error-card:wire-codec connection u.id '-32603' 'Request failed inside Harness; no changes from this request were committed.')]
+  =.  state  ?:(?=(%& -.outcome) +.p.outcome state)
   =.  acp-through  (~(put by acp-through) connection sequence)
   %=  $
     remaining  t.remaining
@@ -1385,6 +1636,16 @@
     =.  corpus  (rebuild:corpus-lib corpus now.bowl)
     =.  corpus-wake  ~
     [~[(acp-result-card:wire-codec connection u.id (status:corpus-json corpus ~(key by scopes.corpus)))] state]
+  ::
+      %'harness/search/status'
+    ?~  id  `state
+    ?^  (decode:admin connection)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Owner search is not a model tool.')] state]
+    [~[(acp-result-card:wire-codec connection u.id (status:unified-search corpus workspace-search ~(key by scopes.corpus) |(?=(~ book.workspace-notes) connected.workspace-notes)))] state]
+  ::
+      ?(%'harness/search/query' %'harness/search/versions' %'harness/search/read')
+    ?~  id  `state
+    (unified-request connection u.id p.u.method params)
   ::
       ?(%'harness/corpus/search' %'harness/corpus/read' %'harness/corpus/expand' %'harness/corpus/status')
     ?~  id  `state
@@ -3576,27 +3837,9 @@
   ?~  parsed  (bad 400 'bad url')
   =/  site=(list @t)  site.u.parsed
   ?:  ?=([%'harness-pages' @ ~] site)
-    ?.  ?&(?=(~ ext.u.parsed) (valid-slug:workspace-lib i.t.site))
-      (bad 404 'Page not found')
-    ?.  |(=(%'GET' method.request.req) =(%'HEAD' method.request.req))
-      (bad 405 'GET or HEAD only')
-    =/  target  (~(get by slugs.workspace) i.t.site)
-    ?~  target  (bad 404 'Page not found')
-    =/  art  (~(get by artifacts.workspace) u.target)
-    ?.  &(?=(^ art) ?=(^ publication.u.art))  (bad 404 'Page not found')
-    ::  The only unauthenticated projection is this exact published snapshot.
-    ::  It contains no project name, private sources, revision history or API.
-    =/  headers=(list [@t @t])
-      :~  ['content-type' 'text/html; charset=utf-8']
-          ['cache-control' 'no-store']
-          ['referrer-policy' 'no-referrer']
-          ['x-content-type-options' 'nosniff']
-          ['content-security-policy' (crip "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; sandbox")]
-      ==
-    =/  payload=(unit octs)
-      ?:  =(%'HEAD' method.request.req)  ~
-      `(as-octs:mimes:html html.u.publication.u.art)
-    [(give-http:effects eyre-id [200 headers] payload) state]
+    ::  Retired route stays bound only to prevent accidentally serving old
+    ::  snapshots. Native Notes exclusively owns publication and its URL.
+    (bad 404 'Page not found')
   ?>  =(src.bowl our.bowl)
   ?.  =(%'POST' method.request.req)  (bad 405 'POST only')
   ?.  ?=([%'harness-api' %webhook @ ~] site)

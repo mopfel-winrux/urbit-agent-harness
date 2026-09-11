@@ -94,7 +94,8 @@
     =/  rev  (number args 'revision' 0)
     ?>  =((rap 3 id '@' (scot %ud rev) ~) (string args 'confirm'))
     =/  value  value:(~(got by revisions.art) rev)
-    [%publish id rev (number args 'head' 0) (number args 'exposure' 0) (string args 'slug') (page:document title.value body.value)]
+    ?>  =((scot %uv (sham [title.value body.value])) (string args 'previewToken'))
+    [%publish id rev (number args 'head' 0) (number args 'exposure' 0) 'native-notes' (page:document title.value body.value)]
       %unpublish
     [%unpublish id (number args 'exposure' 0)]
       %'task-create'
@@ -140,7 +141,7 @@
       ['head' (numb:enjs:format head.art)]
       ['archived' %b archived.art]
       ['exposure' (numb:enjs:format exposure.art)]
-      ['publication' ?~(publication.art ~ (pairs:enjs:format ~[['revision' (numb:enjs:format revision.u.publication.art)] ['slug' %s slug.u.publication.art] ['path' %s (cat 3 '/harness-pages/' slug.u.publication.art)] ['at' (stamp at.u.publication.art)]]))]
+      ['publication' ?~(publication.art ~ (pairs:enjs:format ~[['revision' (numb:enjs:format revision.u.publication.art)] ['path' %s slug.u.publication.art] ['at' (stamp at.u.publication.art)]]))]
   ==
 ++  revision-json
   |=  [id=@ud revision=revision:w full=? offset=@ud source-offset=@ud]
@@ -244,7 +245,7 @@
     =/  rev  (~(get by revisions.art) revno)
     ?:  =('preview' action)
       ?>  &(?=(^ rev) owner.who)
-      (pairs:enjs:format ~[['revision' (numb:enjs:format revno)] ['head' (numb:enjs:format head.art)] ['html' %s (page:document title.value.u.rev body.value.u.rev)]])
+      (pairs:enjs:format ~[['revision' (numb:enjs:format revno)] ['head' (numb:enjs:format head.art)] ['previewToken' %s (scot %uv (sham [title.value.u.rev body.value.u.rev]))] ['html' %s (page:document title.value.u.rev body.value.u.rev)]])
     (pairs:enjs:format ~[['artifact' (artifact-json id art)] ['content' ?~(rev ~ (revision-json revno u.rev owner.who (number args 'offset' 0) (number args 'sourceOffset' 0)))]])
   ?:  |(=('proposals' action) =('proposal' action))
     ?:  =('proposal' action)

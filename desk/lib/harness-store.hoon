@@ -2,9 +2,26 @@
 ::  Load preserves the saved envelope; it does not dispatch work. Explicit
 ::  constructors make every retained field auditable across version changes.
 /-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, corpus=harness-corpus, work=harness-workspace, *harness-store
+/-  hn=harness-notes
+/-  ws=harness-workspace-search
 /+  hl=harness, ht=harness-tools, hd=harness-hand, policy=harness-defaults, index=harness-session-index
 |%
 ++  load
+  |=  old-vase=vase
+  ^-  state-23
+  =/  current  (mule |.(!<(state-23 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  [%23 *state:ws (load-22 old-vase)]
+++  load-22
+  |=  old-vase=vase
+  ^-  state-22
+  =/  current  (mule |.(!<(state-22 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  =/  prior  (load-21 old-vase)
+  ::  The retired artifact store is retained only for recovery. It is not
+  ::  imported, indexed, served publicly, or presented as native Notes.
+  [%22 *state:hn workspace.prior prior(workspace *state:work)]
+++  load-21
   |=  old-vase=vase
   ^-  state-21
   =/  current  (mule |.(!<(state-21 old-vase)))

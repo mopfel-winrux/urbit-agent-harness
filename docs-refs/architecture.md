@@ -402,18 +402,35 @@ Arvo and durable ACP queues; there is no direct executor-to-client stream.
 
 ## Durable workspace records
 
-The head persists workspace state alongside conversations in storage version 21;
-migration preserves the entire prior envelope without adding grants to saved
-configurations. `harness-workspace` is a pure transition library, with no provider,
-Gall, timer or session-store dependency. `harness-workspace-json` supplies bounded
+The head persists workspace metadata, native Notes links and a disposable search
+index alongside conversations in storage version 23. Version 22 introduced Notes;
+version 23 preserves those links and seeds the derived index. The pre-Notes
+workspace is intentionally not imported: old Harness documents/publication records
+remain in a recovery-only envelope, excluded from active reads, search and public
+serving, without changing conversation records or saved tool grants.
+`harness-workspace` supplies pure metadata/proposal/task transitions;
+`harness-notes` maps native Notes into bounded read projections. Notes owns body
+history, titles and published HTML; Harness owns projects, grants, proposals,
+source references and task claims. `harness-workspace-json` supplies bounded
 projections and decoding, while `harness-document` renders inert public Markdown.
 
 The head derives live access from immutable corpus scope IDs and active
 delegations, never model-supplied identity. Models can propose revisions and
 claim tasks; owner-only approval, membership and publication remain separate.
-Tool execution and receipt settlement occur in one Gall event, so revocation
-cannot fall between a private read and its admitted tool result. Public Eyre
-reads use only a precomputed published snapshot, not the owner projection.
+Read execution and receipt settlement occur in one Gall event. Native writes
+persist their intent, watch the request result before sending, and settle only
+on the typed Notes result, never merely on poke acknowledgement. Uncertain writes
+are not automatically repeated. Public reads use Notes' stored HTML snapshot,
+not the owner projection. Native notebook permissions remain independent of
+Harness project access.
+
+`harness-workspace-search` incrementally indexes accepted Notes revisions and
+current project/task metadata using inverted term postings and per-revision
+match masks. Background work is bounded; query terms must match the same revision.
+`harness-unified-search` merges conversation hits and grouped workspace hits before
+pagination. Cursor/source tokens fence query, index and live workspace changes;
+unavailable Notes content fails closed. This owner search API does not widen
+model tool grants or change conversation-only corpus recall.
 See [workspace interfaces and limits](workspaces.md).
 
 ## Build and verification

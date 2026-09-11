@@ -129,6 +129,16 @@ read bodies; **Search content** uses the separate indexed corpus methods below.
   explicitly to reach original records.
 - `harness/corpus/rebuild` — explicitly resets the disposable index and queues
   bounded backfill; source scope IDs survive, old cursors do not.
+- `harness/search/status` — conversation and workspace index status, backlog and
+  Notes availability. These unified search methods are owner-only.
+- `harness/search/query` — `{query, cursor?, limit?}`; merges conversation evidence,
+  accepted artifact history and current projects/tasks. Artifact revisions are
+  grouped before pagination; hits include `matchCount` and `currentMatches`.
+- `harness/search/versions` — `{kind: "artifact", id, query, searchToken, offset?, limit?}`;
+  expands only the matching accepted revisions of a grouped hit.
+- `harness/search/read` — `{kind, id, query, searchToken, revision?, offset?}`;
+  bounded, read-only matched source content. Stale tokens and unavailable Notes
+  content fail closed. Conversation source reading still uses corpus methods.
 - `harness/session/use-default-model` — adopt model defaults for an existing
   session without changing its instructions or grants; does not retry work.
 - `harness/mcp/servers`
