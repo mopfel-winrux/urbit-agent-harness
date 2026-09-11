@@ -135,6 +135,8 @@ read bodies; **Search content** uses the separate indexed corpus methods below.
 - `harness/mcp/configure`
 - `harness/session/config`
 - `harness/session/configure`
+- `harness/workspace` — editable artifacts, projects, proposals, tasks and
+  owner-controlled publication; see [workspace actions](workspaces.md#interfaces-and-bounds).
 - `harness/session/rename`
 - `harness/session/snapshot`
 - `harness/session/history`

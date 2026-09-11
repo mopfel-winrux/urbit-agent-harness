@@ -7,14 +7,16 @@
 ::
 /-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, t=harness-tlon, *harness-store
 /-  cr=harness-cron
+/-  work=harness-workspace
 /+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, lcm-context=harness-lcm-context, corpus-lib=harness-corpus, corpus-json=harness-corpus-json, peer-policy=harness-peer-policy, peer-trust=harness-peer-trust, failure=harness-failure, policy=harness-defaults, storage=harness-store, index=harness-session-index, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 /+  onboarding=harness-onboarding, peer-access=harness-peer-access, admin=harness-admin, ownership=harness-ownership, local-mcp-lib=harness-local-mcp, peer-rpc=harness-peer-rpc
 /+  schedule-lib=harness-schedule, calendar=harness-cron
+/+  workspace-lib=harness-workspace, workspace-json=harness-workspace-json
 |%
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-20
+=|  state-21
 =*  state  -
 ^-  agent:gall
 =<
@@ -30,7 +32,8 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =/  loaded  !<(state-20 on-save:next)
+      =/  loaded  !<(state-21 on-save:next)
+      =/  before-workspace  writes.workspace
       =/  before-sessions  sessions
       =/  before-hands  hands
       =/  before-schedules  schedules
@@ -65,12 +68,15 @@
       =/  changed  |(!=(before-hands hands) !=(before-sessions sessions) !=(before-schedules schedules))
       =?  cards  changed
         (snoc cards [%give %fact ~[/hand-events] %noun !>(%changed)])
+      =?  cards  !=(before-workspace writes.workspace)
+        (snoc cards [%give %fact ~[/workspace-events] %json !>((pairs:enjs:format ~[['revision' (numb:enjs:format writes.workspace)]]))])
       [cards this]
 ::
 ++  on-init
   ^-  (quip card _this)
   :_  this(defaults builtin-config:policy, search-config [%brave ''])
   :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
+      [%pass /eyre/connect %arvo %e %connect [~ /harness-pages] dap.bowl]
       [%pass /peer-access/refresh %agent [our.bowl dap.bowl] %poke %harness-action !>(`action:h`[%peer-refresh ~])]
       acp-open-card:wire-codec
       acp-watch-card:wire-codec
@@ -81,7 +87,7 @@
 ::
 ++  on-load
   |=  old-vase=vase
-  =/  new=state-20  (load:storage old-vase)
+  =/  new=state-21  (load:storage old-vase)
   =.  state  new(corpus-wake ~, schedule-wake ~)
   %-  flush-auth
   ^-  (quip card _this)
@@ -90,6 +96,7 @@
     ::  Refresh after reload, when the adapter can expose its updated trust.
     :~  [%pass /peer-access/refresh %agent [our.bowl dap.bowl] %poke %harness-action !>(`action:h`[%peer-refresh ~])]
         [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
+        [%pass /eyre/connect %arvo %e %connect [~ /harness-pages] dap.bowl]
         acp-open-card:wire-codec
     ==
   =?  base  ?=(^ schedule-wake.new)
@@ -112,6 +119,11 @@
   %-  flush-auth
   ^-  (quip card _this)
   ?+  mark  (on-poke:def mark vase)
+      %harness-workspace
+    ?>  =(src.bowl our.bowl)
+    =/  req  !<(request:work vase)
+    =/  out  (workspace-request:hc [& [0v0 'Owner'] 0v0] action.req args.req id.req)
+    [[[%give %fact ~[/workspace/[id.req]] %noun !>(result.out)] ~] this(state new.out)]
       %harness-cron
     ?>  =(src.bowl our.bowl)
     =/  req  !<(request:cr vase)
@@ -124,7 +136,9 @@
       %harness-tool
     ?>  =(src.bowl our.bowl)
     =/  req  !<(tool-request:adapter vase)
-    =^  cards  state  (schedule-tool:hc req)
+    =^  cards  state
+      ?:  =('workspace' name.call.req)  (workspace-tool:hc req)
+      (schedule-tool:hc req)
     [cards this]
       %harness-action
     ?>  =(src.bowl our.bowl)
@@ -162,7 +176,6 @@
     [%give %fact ~[/hands/[id.req]] %noun !>(result.out)]
   ::
       %handle-http-request
-    ?>  =(src.bowl our.bowl)
     =+  !<([eyre-id=@ta req=inbound-request:eyre] vase)
     =^  cards  state  (serve:hc eyre-id req)
     [cards this]
@@ -183,14 +196,19 @@
 ++  on-watch
   |=  =path
   ^-  (quip card _this)
+  ::  Eyre represents anonymous visitors with a non-owner source identity.
+  ::  HTTP replies contain only serve's explicit public projection or the
+  ::  existing webhook acknowledgement; all work-record watches remain local.
+  ?:  ?=([%http-response @ ~] path)  `this
   ?>  =(src.bowl our.bowl)
   ?+  path  (on-watch:def path)
+    [%workspace-events ~]  [~[[%give %fact ~[path] %json !>((pairs:enjs:format ~[['revision' (numb:enjs:format writes.workspace)]]))]] this]
+    [%workspace @ ~]     `this
     [%hand-events ~]     [~[[%give %fact ~[path] %noun !>(%changed)]] this]
     [%session @ ~]       `this
     [%hands @ ~]         `this
     [%crons @ ~]         `this
     [%tools @ ~]         `this
-    [%http-response *]   `this
   ==
 ::
 ++  on-leave  |=(path `this)
@@ -200,6 +218,8 @@
   ^-  (unit (unit cage))
   ?>  =(src.bowl our.bowl)
   ?+  path  (on-peek:def path)
+      [%x %workspace ~]
+    ``noun+!>(workspace)
       [%x %cron ~]
     ``json+!>((list-json:schedule-lib schedules hands ~))
       [%x %cron-session @ ~]
@@ -742,6 +762,111 @@
   ::  Use the existing outstanding-request generation fence and completion
   ::  path; self-pokes do not invent a second tool/inference loop.
   [(snoc cards.out [%give %fact ~[/tools/(scot %uv (sham req))] %noun !>(body)]) new.out]
+++  workspace-authority
+  |=  sid=session-id:h
+  ^-  (unit authority:work)
+  =/  worker  (~(get by names.corpus) sid)
+  ?~  worker  ~
+  =/  label  sid
+  =/  depth=@ud  0
+  |-  ^-  (unit authority:work)
+  ?:  (gte depth 8)  ~
+  =/  ses  (~(get by sessions) sid)
+  ?~  ses  ~
+  ?:  |((~(has by rehearsals) sid) ?=(^ (for-session:schedule-lib schedules sid)))  ~
+  =/  parent  (delegation:hl log.u.ses)
+  ?^  parent
+    ?:  rehearsal.u.parent  ~
+    =/  pses  (~(get by sessions) parent.u.parent)
+    ?~  pses  ~
+    =/  generation  (request-generation:hl u.pses call-id.u.parent)
+    ?.  ?&  =(sid (delegated-id:hl parent.u.parent call-id.u.parent | generation))
+            (request-current:hl u.pses generation call-id.u.parent)
+        ==
+      ~
+    $(sid parent.u.parent, depth +(depth))
+  =/  access  (~(get by names.corpus) sid)
+  ?~  access  ~
+  `[| [u.worker label] u.access]
+++  workspace-request
+  |=  [who=authority:work action=@t args=json fallback=@t]
+  ^-  [result=(each json @t) new=_state]
+  ?.  |(owner.who (model-action:workspace-json action))
+    [[%| 'This workspace action requires the owner interface, not a model tool'] state]
+  ?:  =('sessions' action)
+    ?.  owner.who  [[%| 'Conversation directory is owner-only'] state]
+    =/  rows
+      %+  turn  ~(tap by names.corpus)
+      |=  [sid=@t scope=@uv]
+      =/  ses  (~(get by sessions) sid)
+      (pairs:enjs:format ~[['sessionId' %s sid] ['scope' %s (scot %uv scope)] ['workspaceTools' %b ?~(ses | (tool-granted:ht 'workspace' tools.config:(play:hl log.u.ses)))]])
+    =/  result  (mule |.((page:workspace-json rows args &)))
+    [?:(?=(%& -.result) [%& p.result] [%| 'Invalid directory offset or limit']) state]
+  ?:  (is-read:workspace-json action)
+    =/  result  (mule |.((read:workspace-json workspace who action args)))
+    [?:(?=(%& -.result) [%& p.result] [%| 'Record not found, not permitted, or invalid read parameters']) state]
+  =/  decoded  (mule |.((decode:workspace-json workspace action args fallback)))
+  ?.  ?=(%& -.decoded)  [[%| 'Invalid workspace action or parameters; inspect help and the current record'] state]
+  =/  act  p.decoded
+  ?:  &(?=(%member -.act) !(~(has by scopes.corpus) scope.act))
+    [[%| 'Conversation no longer exists; select its current identity'] state]
+  ?:  &(?=(%review -.act) accept.act)
+    =/  proposal  (~(get by proposals.workspace) id.act)
+    ?:  ?&(?=(^ proposal) !=(0 access.u.proposal) !(~(has by scopes.corpus) access.u.proposal))
+      [[%| 'Proposal source conversation no longer exists'] state]
+    (workspace-apply who act)
+  (workspace-apply who act)
+++  workspace-apply
+  |=  [who=authority:work act=action:work]
+  ^-  [result=(each json @t) new=_state]
+  =/  applied  (apply:workspace-lib workspace who act now.bowl)
+  ?:  ?=(%| -.applied)  [[%| p.applied] state]
+  [[%& (result:workspace-json p.applied who act)] state(workspace p.applied)]
+++  workspace-acp
+  |=  [connection=@t id=json params=(unit json)]
+  ^-  (quip card _state)
+  ::  Administrative model dispatch is not a human approval. It uses the
+  ::  scoped workspace tool even when other admin methods are available.
+  ?^  (decode:admin connection)
+    [~[(acp-error-card:wire-codec connection id '-32602' 'Use the scoped workspace tool; owner approval requires the owner interface')] state]
+  =/  decoded
+    %-  mule  |.
+    [(string:workspace-json (need params) 'action') (fall (get:workspace-json (need params) 'args') [%o ~])]
+  ?.  ?=(%& -.decoded)
+    [~[(acp-error-card:wire-codec connection id '-32602' 'Expected action and args')] state]
+  =/  fallback  (cat 3 'w-' (crip (a-co:co (sham [connection id params]))))
+  =/  out  (workspace-request [& [0v0 'Owner'] 0v0] -.p.decoded +.p.decoded fallback)
+  =/  card
+    ?:  ?=(%& -.result.out)  (acp-result-card:wire-codec connection id p.result.out)
+    (acp-error-card:wire-codec connection id '-32602' p.result.out)
+  [[card ~] new.out]
+++  workspace-tool
+  |=  req=tool-request:adapter
+  ^-  (quip card _state)
+  =/  authority  (hand-tool-authority sid.req generation.req id.call.req)
+  =/  who  (workspace-authority sid.req)
+  =/  out=[result=(each json @t) new=_state]
+    ?.  ?&(?=(^ authority) =(call.req call.u.authority) ?=(^ who))
+      [[%| 'No current authorized workspace request'] state]
+    =/  decoded
+      %-  mule  |.
+      =/  args  (need (de:json:html args.call.req))
+      [(string:workspace-json args 'action') (need (de:json:html (string:workspace-json args 'args')))]
+    ?.  ?=(%& -.decoded)  [[%| 'Expected action and args as a JSON object string'] state]
+    =/  fallback  (cat 3 'w-' (crip (a-co:co (sham req))))
+    (workspace-request u.who -.p.decoded +.p.decoded fallback)
+  =/  body=@t
+    ?:  ?=(%& -.result.out)
+      =/  json  (en:json:html p.result.out)
+      ?:  (gth (met 3 json) 120.000)  'error: result exceeds the tool response budget; request fewer list items or a later source/body offset'
+      json
+    (cat 3 'error: ' p.result.out)
+  ::  Workspace effects are local head transitions. Commit the work record
+  ::  and its tool receipt in this same Gall event, so revocation cannot land
+  ::  between reading private material and admitting it into the transcript.
+  =.  state  new.out
+  =^  cards  state  (finish-hand-tool sid.req generation.req id.call.req body)
+  [(snoc cards [%give %kick ~[/tools/(scot %uv (sham req))] ~]) state]
 ++  schedule-acp
   |=  [connection=@t id=json method=@t params=(unit json)]
   ^-  (quip card _state)
@@ -1012,6 +1137,9 @@
   ?.  ?=([~ %s *] method)  `state
   =/  id  (~(get by p.jon) 'id')
   =/  params  (~(get by p.jon) 'params')
+  ?:  =('harness/workspace' p.u.method)
+    ?~  id  `state
+    (workspace-acp connection u.id params)
   ::  Shared schedules precede the legacy adapter namespace. Old clients
   ::  retain their URLs, but no Tlon scheduler continues to own these jobs.
   ?:  |(=('harness/cron' p.u.method) =('harness/cron/' (end [3 13] p.u.method)) =('harness/tlon/cron' p.u.method) =('harness/tlon/cron/' (end [3 18] p.u.method)))
@@ -2845,7 +2973,9 @@
   ?~  (tool-hand:ht name.u.call)  `state
   =?  body  =(~ (hand-tool-authority sid generation call-id))
     'rejected: hand tool is no longer authorized'
-  =^  cs1  ses  (record-all sid ses ~[[%tool-completed call-id name.u.call (clip:ht body 24.000)]])
+  =?  body  &(=('workspace' name.u.call) ?=(~ (workspace-authority sid)))
+    'rejected: workspace source authority is no longer available'
+  =^  cs1  ses  (record-all sid ses ~[[%tool-completed call-id name.u.call (clip:ht body ?:(=('workspace' name.u.call) 120.000 24.000))]])
   =^  cs2  state  (drive-put sid ses)
   [(weld cs1 cs2) state]
 ++  start-local-mcp
@@ -3440,12 +3570,35 @@
     |=  [code=@ud msg=@t]
     ^-  (quip card _state)
     [(give-http:effects eyre-id [code ~] `(as-octs:mimes:html msg)) state]
-  ?.  =(%'POST' method.request.req)  (bad 405 'POST only')
   =/  parsed=(unit [[ext=(unit @ta) site=(list @t)] args=(list [@t @t])])
     %+  rush  url.request.req
     ;~(plug apat:de-purl:html yque:de-purl:html)
   ?~  parsed  (bad 400 'bad url')
   =/  site=(list @t)  site.u.parsed
+  ?:  ?=([%'harness-pages' @ ~] site)
+    ?.  ?&(?=(~ ext.u.parsed) (valid-slug:workspace-lib i.t.site))
+      (bad 404 'Page not found')
+    ?.  |(=(%'GET' method.request.req) =(%'HEAD' method.request.req))
+      (bad 405 'GET or HEAD only')
+    =/  target  (~(get by slugs.workspace) i.t.site)
+    ?~  target  (bad 404 'Page not found')
+    =/  art  (~(get by artifacts.workspace) u.target)
+    ?.  &(?=(^ art) ?=(^ publication.u.art))  (bad 404 'Page not found')
+    ::  The only unauthenticated projection is this exact published snapshot.
+    ::  It contains no project name, private sources, revision history or API.
+    =/  headers=(list [@t @t])
+      :~  ['content-type' 'text/html; charset=utf-8']
+          ['cache-control' 'no-store']
+          ['referrer-policy' 'no-referrer']
+          ['x-content-type-options' 'nosniff']
+          ['content-security-policy' (crip "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; sandbox")]
+      ==
+    =/  payload=(unit octs)
+      ?:  =(%'HEAD' method.request.req)  ~
+      `(as-octs:mimes:html html.u.publication.u.art)
+    [(give-http:effects eyre-id [200 headers] payload) state]
+  ?>  =(src.bowl our.bowl)
+  ?.  =(%'POST' method.request.req)  (bad 405 'POST only')
   ?.  ?=([%'harness-api' %webhook @ ~] site)
     (bad 404 'not found')
   =/  sid=session-id:h  i.t.t.site

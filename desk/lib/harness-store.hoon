@@ -1,10 +1,16 @@
 ::  Persistence version conversion, deliberately outside the running head.
 ::  Load preserves the saved envelope; it does not dispatch work. Explicit
 ::  constructors make every retained field auditable across version changes.
-/-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, corpus=harness-corpus, *harness-store
+/-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, corpus=harness-corpus, work=harness-workspace, *harness-store
 /+  hl=harness, ht=harness-tools, hd=harness-hand, policy=harness-defaults, index=harness-session-index
 |%
 ++  load
+  |=  old-vase=vase
+  ^-  state-21
+  =/  current  (mule |.(!<(state-21 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  [%21 *state:work (load-20 old-vase)]
+++  load-20
   |=  old-vase=vase
   ^-  state-20
   =/  current  (mule |.(!<(state-20 old-vase)))

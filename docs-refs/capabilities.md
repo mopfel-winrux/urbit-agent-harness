@@ -23,6 +23,19 @@ late completion, but is not external rollback.
 
 See [ACP](acp.md) and [architecture](architecture.md#session-ownership).
 
+## Artifacts and projects
+
+Artifacts are editable Markdown documents with immutable accepted revisions and
+reviewable agent proposals. Projects explicitly share documents and versioned
+tasks with selected conversation identities; claims belong to individual workers.
+Project access does not share transcripts or grant additional tools. Live
+delegated workers may participate within their parent's current authority.
+
+Owners can publish an exact saved revision at `/harness-pages/<slug>` for readers
+without authentication. Editing does not republish. Public responses omit private
+history, source-reference metadata and project records. Pages are inert Markdown,
+not arbitrary HTML applications. See [artifacts and projects](workspaces.md).
+
 ## Providers and context
 
 OpenRouter, OpenAI, Anthropic and compatible custom endpoints share the same

@@ -10,6 +10,7 @@ const copy = {
   peers: ['Peer agents', 'Ask explicitly permitted agents on other ships.'],
   tlon: ['Tlon', 'Read and send messages, manage contacts, groups, permissions and Notes, and upload files as this ship. Includes editing, deletion, public publishing and persistent channel hooks beyond this conversation.'],
   corpus: ['Cross-conversation recall', 'Search retained evidence from all conversations. Owner conversations only; social and delegated inputs stay scoped to their own conversation.'],
+  workspace: ['Workspace', 'Read permitted artifacts, propose document changes, and claim project tasks. Project membership is separate. Only you can accept changes or publish public pages.'],
   code: ['Run JavaScript', 'Run code for calculations, data processing, and automation. Grants broad ship file and network access. Experimental and off by default; a stuck script can stall the ship.'],
 }
 

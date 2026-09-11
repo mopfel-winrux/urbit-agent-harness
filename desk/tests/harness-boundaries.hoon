@@ -1,12 +1,12 @@
 ::  Composition contracts: storage, wire shapes and grants remain independent
 ::  of the reducer. Use fixture credentials only; never inspect real secrets.
-/-  h=harness, *harness-store
+/-  h=harness, w=harness-workspace, *harness-store
 /+  *test, storage=harness-store, policy=harness-defaults, hj=harness-json, hp=harness-provider, ht=harness-tools, hl=harness
 |%
 ++  test-bootstrap-enables-configurable-local-families
   =/  cfg  builtin-config:policy
   =/  expected=(list tool-grant:h)
-    ~[[%clay ~] %web %curl %skills %skill-write %author %subagents %peers %corpus %tlon]
+    ~[[%clay ~] %web %curl %skills %skill-write %author %subagents %peers %corpus %workspace %tlon]
   (expect-eq !>(expected) !>(tools.cfg))
 ++  test-rehearsal-keeps-only-inherited-reads
   =/  out  (rehearsal-tools:ht ~[[%clay /harness/lib] %web %skills %skill-write %author %subagents %peers %mcp %code %future-tool])
@@ -14,7 +14,7 @@
 ++  test-rehearsal-does-not-add-read-authority
   (expect-eq !>(`(list term)`~) !>((rehearsal-tools:ht ~[%web %mcp])))
 ++  test-current-store-load-is-an-identity
-  =/  saved=state-20  *state-20
+  =/  saved=state-21  *state-21
   =.  peer-budget-resets.saved  (my ~[[~nec 1.234]])
   =.  defaults.saved  builtin-config:policy
   =.  provider-keys.saved  (my ~[['fixture' 'test-secret']])
@@ -35,6 +35,22 @@
     (expect-eq !>(`summary-models:h`*summary-models:h) !>(summary-models.loaded))
     (expect-eq !>(0) !>(count.corpus.loaded))
   ==
+++  test-twenty-migration-keeps-the-entire-prior-envelope
+  =/  saved=state-20  *state-20
+  =/  cfg  builtin-config:policy
+  =.  defaults.saved  cfg(tools ~[%web])
+  =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced defaults.saved]] 37]]])
+  =.  provider-keys.saved  (my ~[['fixture' 'test-secret']])
+  =/  loaded  (load:storage !>(saved))
+  ;:  weld
+    (expect-eq !>([%21 *state:w saved]) !>(loaded))
+    (expect-eq !>(loaded) !>((load:storage !>(loaded))))
+  ==
+++  test-current-store-retains-workspace-evidence
+  =/  saved=state-21  *state-21
+  =.  writes.workspace.saved  7
+  =.  projects.workspace.saved  (my ~[['fixture' ['Keep project' '' 2 ~ |]]])
+  (expect-eq !>(saved) !>((load:storage !>(saved))))
 ++  test-fourteen-migration-preserves-peer-grants-and-starts-empty-limit-overrides
   =/  saved=state-14  *state-14
   =.  peers.saved  (my ~[[~nec [~[%web] ~ 12.345 ~]]])
@@ -60,7 +76,7 @@
     (expect-eq !>(`(map @p @ud)`~) !>(peer-budget-resets.loaded))
   ==
 ++  test-saved-tool-policy-is-not-replaced-by-bootstrap-defaults
-  =/  saved=state-20  *state-20
+  =/  saved=state-21  *state-21
   =/  cfg  builtin-config:policy
   =.  defaults.saved  cfg(tools ~[%author %skill-write [%mcp 'calendar']])
   =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced defaults.saved]] 0]]])

@@ -14,3 +14,6 @@ export const RenameIcon = () => <Icon size={15}><path d="m4 20 4.2-1 10.4-10.4a2
 export const TrashIcon = () => <Icon size={15}><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13" /></Icon>
 export const BackIcon = () => <Icon><path d="m15 18-6-6 6-6" /></Icon>
 export const SearchIcon = () => <Icon><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></Icon>
+export const DocumentIcon = () => <Icon><path d="M6 3h8l4 4v14H6zM14 3v5h4M9 12h6M9 16h6" /></Icon>
+export const ProjectIcon = () => <Icon><path d="M3 6h7l2 3h9v12H3zM3 6V3h7l2 3h7v3" /></Icon>
+export const CloseIcon = () => <Icon><path d="m6 6 12 12M18 6 6 18" /></Icon>

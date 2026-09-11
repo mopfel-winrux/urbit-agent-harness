@@ -25,7 +25,7 @@ test('new conversations default to an OpenAI-compatible endpoint', () => {
   assert.match(config.url, /openrouter\.ai/)
   assert.equal(config.model, 'z-ai/glm-5.3-flash')
   assert.equal(config['max-context'], 1_310_720)
-  assert.deepEqual(config.tools, [{ clay: '/' }, 'web', 'curl', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'corpus', 'tlon'])
+  assert.deepEqual(config.tools, [{ clay: '/' }, 'web', 'curl', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'corpus', 'workspace', 'tlon'])
   assert.deepEqual(config.headers, [])
 })
 
@@ -47,7 +47,7 @@ test('bootstrap grants are fresh per conversation and preserve explicit override
   const first = defaultConfig()
   first.tools.push('future-tool')
   first.tools[0].clay = '/narrow'
-  assert.deepEqual(defaultConfig().tools, [{ clay: '/' }, 'web', 'curl', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'corpus', 'tlon'])
+  assert.deepEqual(defaultConfig().tools, [{ clay: '/' }, 'web', 'curl', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'corpus', 'workspace', 'tlon'])
   assert.deepEqual(defaultConfig({ tools: ['clay', 'mcp'] }).tools, ['clay', 'mcp'])
   assert.ok(!defaultConfig().tools.includes('code'))
   assert.deepEqual(defaultConfig({ tools: ['code'] }).tools, ['code'])

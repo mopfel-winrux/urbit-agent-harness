@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import Chat from './components/Chat'
 import ConversationModal from './components/ConversationModal'
 import Settings from './components/Settings'
@@ -8,10 +8,13 @@ import TlonSettings from './components/TlonSettings'
 import CorpusSearch from './components/CorpusSearch'
 import { useConversations } from './useConversations'
 import { acp } from './acp'
+const Workspace = lazy(() => import('./components/Workspace'))
 
 function route() {
   const [value, query = ''] = location.hash.replace(/^#\/?/, '').split('?')
   try {
+    if (value === 'artifacts' || value.startsWith('artifacts/')) return { page: 'artifacts', chat: '', id: decodeURIComponent(value.slice(10)) }
+    if (value === 'projects' || value.startsWith('projects/')) return { page: 'projects', chat: '', id: decodeURIComponent(value.slice(9)) }
     if (value === 'tlon') return { page: 'tlon', chat: '' }
     if (value === 'search') return { page: 'corpus', chat: '' }
     if (value === 'settings') return { page: 'settings', chat: '', tab: new URLSearchParams(query).get('tab') }
@@ -69,6 +72,11 @@ export default function App() {
     history.pushState({}, '', '#/search')
   }
 
+  function openWorkspace(kind) {
+    setView({ page: kind, chat: current, id: '' }); setError('')
+    history.pushState({}, '', `#/${kind}`)
+  }
+
   async function createChat(name) {
     await conversations.create(name)
   }
@@ -94,8 +102,8 @@ export default function App() {
   const toggleTheme = () => setTheme((value) => ({ system: 'light', light: 'dark', dark: 'system' })[value] || 'system')
 
   return <div className="app-shell">
-    <Sidebar chats={chats} current={page === 'chat' ? current : ''} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings && !current} onSettings={() => openSettings()} onSessionSettings={openSettings} tlon={page === 'tlon'} onTlon={openTlon} corpus={page === 'corpus'} onCorpus={openCorpus} />
-    {page === 'corpus' ? <CorpusSearch onBack={() => choose(current)} onOpen={choose} /> : page === 'tlon' ? <TlonSettings onBack={() => choose(current)} /> : settings
+    <Sidebar chats={chats} current={page === 'chat' ? current : ''} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings && !current} onSettings={() => openSettings()} onSessionSettings={openSettings} tlon={page === 'tlon'} onTlon={openTlon} corpus={page === 'corpus'} onCorpus={openCorpus} work={page} onWorkspace={openWorkspace} />
+    {page === 'artifacts' || page === 'projects' ? <Suspense fallback={<main className="workspace"><p className="field-note" role="status">Loading workspace…</p></main>}><Workspace kind={page} id={view.id} onBack={() => choose(current)} /></Suspense> : page === 'corpus' ? <CorpusSearch onBack={() => choose(current)} onOpen={choose} /> : page === 'tlon' ? <TlonSettings onBack={() => choose(current)} /> : settings
       ? <Settings key={`${current}:${settingsEntry}:${view.tab || ''}`} initialTab={view.tab} resources={resources} theme={theme} onThemeChange={setTheme} onBack={() => choose(current)} />
       : current ? <Chat key={current} chat={current} theme={theme} onToggleTheme={toggleTheme} onSettings={() => openSettings(current)} onSelect={choose} onFork={(eventCount) => setDialog({ mode: 'fork', chat: current, eventCount })} /> : <Welcome loading={loading} onNew={() => setDialog({ mode: 'create' })} />}
     {(error || conversations.error) && <div className="global-error" onClick={() => setError('')}>{error || conversations.error}</div>}

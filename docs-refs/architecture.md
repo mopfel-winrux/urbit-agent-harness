@@ -400,6 +400,22 @@ Arvo and durable ACP queues; there is no direct executor-to-client stream.
   writes may instead use separately authorized hands or configured MCP servers.
 - External channels and remote peers require narrow typed adapters.
 
+## Durable workspace records
+
+The head persists workspace state alongside conversations in storage version 21;
+migration preserves the entire prior envelope without adding grants to saved
+configurations. `harness-workspace` is a pure transition library, with no provider,
+Gall, timer or session-store dependency. `harness-workspace-json` supplies bounded
+projections and decoding, while `harness-document` renders inert public Markdown.
+
+The head derives live access from immutable corpus scope IDs and active
+delegations, never model-supplied identity. Models can propose revisions and
+claim tasks; owner-only approval, membership and publication remain separate.
+Tool execution and receipt settlement occur in one Gall event, so revocation
+cannot fall between a private read and its admitted tool result. Public Eyre
+reads use only a precomputed published snapshot, not the owner projection.
+See [workspace interfaces and limits](workspaces.md).
+
 ## Build and verification
 
 Zig assembles the minimal Grubbery runtime, its required marks and this desk's

@@ -3,9 +3,12 @@ import { clientId } from './clientId.js'
 // A separate, disposable Eyre channel contains only this watch's events, not
 // the command channel's poke acknowledgements. ACP remains the durable queue.
 export class EyreSubscription {
-  constructor({ ship, connection, onUpdate, onDisconnect }) {
+  constructor({ ship, connection, app = 'acp', path, isReady = (value) => Array.isArray(value?.messages), onUpdate, onDisconnect }) {
     this.ship = ship
     this.connection = connection
+    this.app = app
+    this.path = path || `/v1/${connection}/client`
+    this.isReady = isReady
     this.onUpdate = onUpdate
     this.onDisconnect = onDisconnect
     this.channel = `harness-events-${clientId()}`
@@ -29,7 +32,7 @@ export class EyreSubscription {
 
   async run() {
     try {
-      await this.send([{ id: 1, action: 'subscribe', ship: this.ship, app: 'acp', path: `/v1/${this.connection}/client` }])
+      await this.send([{ id: 1, action: 'subscribe', ship: this.ship, app: this.app, path: this.path }])
       if (this.controller.signal.aborted) return
       const response = await fetch(`/~/channel/${this.channel}`, {
         credentials: 'same-origin', cache: 'no-store', signal: this.controller.signal,
@@ -77,7 +80,7 @@ export class EyreSubscription {
       if (frame.response === 'quit' || (frame.response === 'subscribe' && frame.err)) throw new Error('ACP subscription unavailable')
       if (frame.response === 'diff') {
         this.onUpdate(frame.json)
-        if (Array.isArray(frame.json?.messages)) this.connected = true
+        if (this.isReady(frame.json)) this.connected = true
       }
     }
     this.through = id

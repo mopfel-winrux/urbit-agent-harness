@@ -1,8 +1,9 @@
 ::  Gall persistence envelope. Keep its noun layout stable: on-save writes this
 ::  directly, and harness-store loads each supported version without dropping
 ::  sessions or credentials. Runtime bookkeeping is not session semantics.
-/-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, corpus=harness-corpus, cron=harness-cron
+/-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, corpus=harness-corpus, cron=harness-cron, work=harness-workspace
 |%
++$  state-21  [%21 workspace=state:work state-20]
 +$  state-20
   [%20 schedules=(map @uv schedule:cron) schedule-wake=(unit @da) tlon-cron-imported=? state-19]
 +$  stream-progress  [body=@t sent=@ud]

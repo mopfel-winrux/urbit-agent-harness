@@ -9,7 +9,7 @@
 ::  tools still derive from live hands rather than ambient configuration.
 ++  default-tools
   ^-  (list tool-grant:h)
-  ~[[%clay ~] %web %curl %skills %skill-write %author %subagents %peers %corpus %tlon]
+  ~[[%clay ~] %web %curl %skills %skill-write %author %subagents %peers %corpus %workspace %tlon]
 ::  +default-system: useful identity and operating posture for a new
 ::  session.  This describes the harness from the agent's point of view;
 ::  capability schemas below remain the authority on what it can do.

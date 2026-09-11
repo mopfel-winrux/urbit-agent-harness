@@ -57,6 +57,9 @@ Urbit's event loop; this is asynchronous progress, not parallel CPU execution.
   The reply hand and the ship-wide Tlon tool are independently configurable.
 - Scheduled work: destination-bound UTC cron runs and literal one-shot reminders,
   with separate execution and delivery status.
+- Artifacts and projects: editable Markdown, reviewed agent proposals, shared
+  documents and atomic task claims. Explicitly publish saved pages at
+  `/harness-pages/<slug>` without exposing private project records.
 - Clients: a React web app, a dependency-free ACP stdio adapter, native
   poke/watch/scry interfaces, webhooks and a durable conversation-hand protocol.
 
@@ -144,6 +147,7 @@ See the [adapter setup](acp/README.md) and [integration guide](docs-refs/integra
 | [ACP reference](docs-refs/acp.md) | Client methods, commands, authentication and recovery |
 | [Conversation hands](docs-refs/hands.md) | Bindings, deduplication, publication receipts and retirement |
 | [Shared scheduling](docs-refs/scheduling.md) | Tasks and reminders from any hand; Settings → Schedules |
+| [Artifacts and projects](docs-refs/workspaces.md) | Editing, agent coordination, proposal review and public pages |
 | [Tlon reference](docs-refs/tlon.md) | Social tools, Notes, hooks, publishing and media |
 | [Peers](docs-refs/peers.md) | Ship-to-ship requests, tool RPC and administrative authority |
 | [Context and memory](docs-refs/context-and-memory.md) | Summaries, pinned notes, corpus search and provenance |
