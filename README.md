@@ -153,3 +153,4 @@ See the [adapter setup](acp/README.md) and [integration guide](docs-refs/integra
 | [Context and memory](docs-refs/context-and-memory.md) | Summaries, pinned notes, corpus search and provenance |
 | [JavaScript execution](docs-refs/execution.md) | Opt-in executor, host APIs and resource limits |
 | [Development](docs-refs/development.md) | Build layout, test selection and safe live verification |
+| [Reliability](docs-refs/reliability.md) | Sustained local operation, fault recovery, bounded reports and development sequence |

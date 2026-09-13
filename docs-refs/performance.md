@@ -1,5 +1,10 @@
 # Performance
 
+For multi-client sustained operation and fault recovery, see the
+[local reliability runner](reliability.md). It records full-run maxima and
+bounded recent percentiles, and keeps HTTP/RPC latency distinct from event CPU
+time, process RSS and live loom measurements.
+
 Harness performance involves session processing, runtime verification, delivery
 reconciliation and client transport. The benchmark fixtures isolate these costs
 from external model latency.

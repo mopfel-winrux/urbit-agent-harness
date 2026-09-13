@@ -115,9 +115,14 @@ existed.
 | HTTP and search | `fetch-conformance.mjs`, `curl-conformance.mjs`, `searxng-conformance.mjs` |
 | JavaScript | `js-conformance.mjs` |
 | Peer work | `peers-conformance.mjs`, `peer-rpc-conformance.mjs`, `peer-tool-client-conformance.mjs` |
+| Sustained operation | `reliability-soak.mjs` (local-only; application reads by default, bounded synthetic work opt-in) |
 | Tlon | See the [Tlon testing reference](tlon.md#testing) and feature-specific fixtures |
 
 All names in the table are under `scripts/`.
+
+See [sustained operation and recovery](reliability.md) for workload bounds,
+fault coverage, interrupted-run evidence and the separate cold-start/restart
+checks. Run `node --test scripts/reliability.test.mjs` without a ship.
 `conformance.mjs` uses ship-configured inference and checks independent clients,
 admission and session behavior. It is not a complete installation or ACP
 specification-conformance suite.
