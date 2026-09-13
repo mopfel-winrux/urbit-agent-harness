@@ -70,7 +70,12 @@ const search = async (operation, params = {}) => {
   return acp.call(`harness/search/${operation}`, params)
 }
 
-export const api = { read, action, models, corpus, search }
+const inbox = async (params = {}) => {
+  await acp.start()
+  return acp.call('harness/inbox', params)
+}
+
+export const api = { read, action, models, corpus, search, inbox }
 
 export function resourcesFor(chat) {
   return {

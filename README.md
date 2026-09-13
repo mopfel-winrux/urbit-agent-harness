@@ -60,6 +60,8 @@ Urbit's event loop; this is asynchronous progress, not parallel CPU execution.
 - Artifacts and projects: Notes-backed Markdown and history, reviewed agent
   proposals, shared documents and atomic task claims. Publish saved snapshots
   through native Notes; unified search groups matching artifact revisions.
+- [Work inbox](docs-refs/inbox.md): an attention-first, read-only view of retained
+  tasks, proposals, schedules and hand receipts, with explicit delivery uncertainty.
 - Clients: a React web app, a dependency-free ACP stdio adapter, native
   poke/watch/scry interfaces, webhooks and a durable conversation-hand protocol.
 

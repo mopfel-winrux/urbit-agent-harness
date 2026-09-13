@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useResource } from '../useResource'
 
@@ -82,9 +82,11 @@ function WorkList() {
   </>
 }
 
-export default function TlonWork() {
-  const [open, setOpen] = useState(false)
-  return <section className="panel settings-panel"><details onToggle={(event) => setOpen(event.currentTarget.open)}>
+export default function TlonWork({ initialOpen = false }) {
+  const [open, setOpen] = useState(initialOpen)
+  const section = useRef(null)
+  useEffect(() => { if (initialOpen) { setOpen(true); section.current?.scrollIntoView({ block: 'start' }) } }, [initialOpen])
+  return <section className="panel settings-panel" ref={section}><details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
     <summary>Delivery diagnostics</summary>
     <p className="field-note">Inspect stuck work or failed replies. This history also includes successful deliveries; no action is needed for those.</p>
     {open && <WorkList />}

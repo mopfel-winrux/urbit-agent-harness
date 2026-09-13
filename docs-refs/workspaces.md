@@ -111,6 +111,10 @@ maintenance, arbitrary JavaScript pages, or production deployment is implied.
 
 ## Interfaces and bounds
 
+The owner [work inbox](inbox.md) collects task and proposal metadata alongside
+scheduled and admitted hand work. It links to exact source records without
+starting inference or approving changes; a claimed task is not shown as running.
+
 Owner ACP calls use `harness/workspace` with `{action, args}`. Native local-owner
 pokes use mark `harness-workspace` with `{id, action, args}` and replies on
 `/workspace/<id>`; subscribe before poking. `/workspace-events` emits a revision

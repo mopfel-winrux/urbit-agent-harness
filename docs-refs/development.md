@@ -106,6 +106,7 @@ existed.
 | Boundary | Fixtures |
 | --- | --- |
 | ACP and sessions | `conformance.mjs`, `conversations-conformance.mjs`, `session-history-conformance.mjs` |
+| Work inbox | Read-only `inbox-conformance.mjs`; native `/tests/harness-inbox` and `/tests-integration/harness-inbox`; browser `fe/tests/inbox.spec.js` (see [inbox](inbox.md)) |
 | Commands and settlement | `command-conformance.mjs`, `cancellation-conformance.mjs`, `settlement-conformance.mjs` |
 | Conversation hands | `hand-conformance.mjs`, `hand-operations-conformance.mjs` |
 | Grubbery verification | `shadow-conformance.mjs` |
@@ -118,7 +119,8 @@ existed.
 | Sustained operation | `reliability-soak.mjs` (local-only; application reads by default, bounded synthetic work opt-in) |
 | Tlon | See the [Tlon testing reference](tlon.md#testing) and feature-specific fixtures |
 
-All names in the table are under `scripts/`.
+Script filenames in the table are under `scripts/`; native and browser tests
+show their own paths.
 
 See [sustained operation and recovery](reliability.md) for workload bounds,
 fault coverage, interrupted-run evidence and the separate cold-start/restart

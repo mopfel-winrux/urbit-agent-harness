@@ -47,24 +47,30 @@ function NewTask({ project, onClose }) {
   </form>
 }
 
-function Tasks({ project }) {
+function Tasks({ project, initialTask }) {
   const [offset, setOffset] = useState(0)
   const [create, setCreate] = useState(false)
   const [selected, setSelected] = useState(null)
-  const query = useWorkspace('tasks', { project: project.id, offset, limit: 24 })
+  const [focused, setFocused] = useState(initialTask || null)
+  useEffect(() => { if (initialTask) { setFocused(initialTask); setSelected(null) } }, [initialTask])
+  const query = useWorkspace(focused ? 'task' : 'tasks', focused ? { id: focused } : { project: project.id, offset, limit: 24 })
+  const mismatch = focused && query.value && query.value.project !== project.id
+  const items = focused ? (query.value && !mismatch ? [query.value] : []) : query.value?.items || []
   const mutation = useWorkMutation()
   return <section><div className="section-title"><h2>Shared tasks</h2><button className="button primary" disabled={project.archived || create} onClick={() => setCreate(true)}>New task</button></div>
     <p className="field-note">Agents claim work before acting. A claim belongs to one worker; only that worker or you can update it. Live delegated agents can participate through their parent's project access.</p>
     {create && <NewTask project={project} onClose={() => setCreate(false)} />}
     <WorkFeedback query={query} /><WorkFeedback query={mutation} />
-    {!query.loading && !query.error && !query.value?.items?.length && <div className="work-empty"><h3>Give each agent a clear piece of work</h3><p>Add a brief and the expected output. A task can link to a project artifact when the work is ready.</p></div>}
-    <div className="work-task-list">{query.value?.items?.map((task) => <article className="work-task" key={task.id}>
+    {focused && <button className="text-button" onClick={() => setFocused(null)}>Show all project tasks</button>}
+    {mismatch && <p className="inline-error" role="alert">This task belongs to another project. Open it from the work inbox.</p>}
+    {!focused && !query.loading && !query.error && !items.length && <div className="work-empty"><h3>Give each agent a clear piece of work</h3><p>Add a brief and the expected output. A task can link to a project artifact when the work is ready.</p></div>}
+    <div className="work-task-list">{items.map((task) => <article className="work-task" key={task.id}>
       <div className="section-title"><h3>{task.title}</h3><span className={`work-label ${task.status === 'done' ? 'public' : ''}`}>{task.status}</span></div>
       {task.description && <p>{task.description}</p>}<p className="field-note">{task.claimant ? `Claimed by ${task.claimant.label}` : 'Available to claim'} · {workDate(task.updated)}</p>
       {task.outcome && <p className="work-task-outcome">{task.outcome}</p>}{task.artifact && <a href={artifactHref(task.artifact)}>Open result artifact</a>}
       <div className="work-task-actions"><code>{task.id}</code><div className="work-actions">{task.status === 'open' && <button className="button ghost" disabled={project.archived || mutation.busy} onClick={() => mutation.run('task-claim', { id: task.id, version: task.version })}>Claim for myself</button>}<button className="button ghost" disabled={project.archived || mutation.busy} onClick={() => setSelected(task)}>Update task</button></div></div>
     </article>)}</div>
-    <WorkPager query={query} offset={offset} onOffset={setOffset} />
+    {!focused && <WorkPager query={query} offset={offset} onOffset={setOffset} />}
     {selected && <TaskEditor key={`${selected.id}:${selected.version}`} task={selected} project={project} onClose={() => setSelected(null)} />}
   </section>
 }
@@ -115,15 +121,16 @@ function ProjectSettings({ project }) {
   </section>
 }
 
-export default function ProjectWorkspace({ id }) {
+export default function ProjectWorkspace({ id, initialTask }) {
   const query = useWorkspace('project', { id })
-  const [tab, setTab] = useState('documents')
+  const [tab, setTab] = useState(initialTask ? 'tasks' : 'documents')
+  useEffect(() => { if (initialTask) setTab('tasks') }, [initialTask])
   const project = query.value
   return <div className="work-content"><a className="work-breadcrumb" href="#/projects">All projects</a><WorkFeedback query={query} />{project && <>
     <div className="work-heading"><div><h1>{project.title}</h1><p className="work-description">{project.description || 'A shared place for documents and tasks.'}</p></div><span className="work-label">{project.archived ? 'Archived' : 'Private project'}</span></div>
     {project.archived && <p className="work-notice">This project is archived. Agent access is suspended; public pages are unchanged.</p>}
     <nav className="work-tabs" aria-label="Project sections">{[['documents', 'Documents'], ['tasks', 'Tasks'], ['access', 'Access'], ['settings', 'Settings']].map(([key, label]) => <button key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</button>)}</nav>
-    {tab === 'documents' && <ProjectArtifacts project={project} />}{tab === 'tasks' && <Tasks project={project} />}{tab === 'access' && <Access project={project} />}{tab === 'settings' && <ProjectSettings project={project} />}
+    {tab === 'documents' && <ProjectArtifacts project={project} />}{tab === 'tasks' && <Tasks project={project} initialTask={initialTask} />}{tab === 'access' && <Access project={project} />}{tab === 'settings' && <ProjectSettings project={project} />}
     <p className="work-id field-note">Project ID: <code>{id}</code></p>
   </>}</div>
 }

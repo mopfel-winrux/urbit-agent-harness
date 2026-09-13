@@ -4,6 +4,7 @@ import { workId } from '../workspace'
 import { BackIcon, PlusIcon } from './Icons'
 import ArtifactEditor from './ArtifactEditor'
 import ProjectWorkspace from './ProjectWorkspace'
+import WorkInbox from './WorkInbox'
 import { ArtifactRows, ProjectSelect, WorkDialog, WorkFeedback, WorkPager, artifactHref, projectHref, useWorkMutation } from './WorkspaceCommon'
 import './workspace.css'
 
@@ -71,10 +72,9 @@ function NotesOperation() {
   </div>
 }
 
-export default function Workspace({ kind, id, onBack }) {
+export default function Workspace({ kind, id, proposal, task, onBack }) {
   return <main className="workspace work-workspace">
-    <header className="topbar"><button className="back-button" onClick={onBack}><BackIcon />Conversations</button><nav className="work-topnav" aria-label="Workspace"><a href="#/artifacts" aria-current={kind === 'artifacts' ? 'page' : undefined}>Artifacts</a><a href="#/projects" aria-current={kind === 'projects' ? 'page' : undefined}>Projects</a></nav></header>
-    <NotesOperation />
-    {id ? kind === 'artifacts' ? <ArtifactEditor key={id} id={id} /> : <ProjectWorkspace key={id} id={id} /> : <Directory key={kind} kind={kind} />}
+    <header className="topbar"><button className="back-button" onClick={onBack}><BackIcon />Conversations</button><nav className="work-topnav" aria-label="Workspace"><a href="#/inbox" aria-current={kind === 'inbox' ? 'page' : undefined}>Inbox</a><a href="#/artifacts" aria-current={kind === 'artifacts' ? 'page' : undefined}>Artifacts</a><a href="#/projects" aria-current={kind === 'projects' ? 'page' : undefined}>Projects</a></nav></header>
+    {kind === 'inbox' ? <WorkInbox /> : <><NotesOperation />{id ? kind === 'artifacts' ? <ArtifactEditor key={id} id={id} initialProposal={proposal} /> : <ProjectWorkspace key={id} id={id} initialTask={task} /> : <Directory key={kind} kind={kind} />}</>}
   </main>
 }

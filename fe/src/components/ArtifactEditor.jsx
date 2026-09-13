@@ -77,7 +77,8 @@ function CopyArtifact({ artifact, content, onClose }) {
 function ProposalReview({ id, artifact, onClose }) {
   const query = useWorkspace('proposal', { id })
   const proposal = query.value?.proposal, content = query.value?.content
-  const base = useWorkspace(proposal?.base ? 'revision' : null, { id: artifact.id, revision: proposal?.base })
+  const matchesArtifact = proposal?.artifact === artifact.id
+  const base = useWorkspace(matchesArtifact && proposal?.base ? 'revision' : null, { id: artifact.id, revision: proposal?.base })
   const mutation = useWorkMutation()
   const [reason, setReason] = useState('')
   const [decided, setDecided] = useState('')
@@ -88,7 +89,8 @@ function ProposalReview({ id, artifact, onClose }) {
   return <section className="work-review" aria-label="Proposal review">
     <div className="section-title"><h2>Review proposed changes</h2><button className="button ghost" disabled={mutation.busy} onClick={onClose}>Back to proposals</button></div>
     <WorkFeedback query={query} /><WorkFeedback query={base} />
-    {proposal && <>
+    {proposal && !matchesArtifact && <p className="inline-error" role="alert">This proposal belongs to a different artifact. Open it from that artifact or the work inbox.</p>}
+    {proposal && matchesArtifact && <>
       <p className="field-note">{proposal.by.label} · {workDate(proposal.at)} · Based on {proposal.base ? `revision ${proposal.base}` : 'a new document'}</p>
       <p>{proposal.reason || 'No explanation supplied.'}</p>
       {stale && proposal.status === 'pending' && <div className="work-notice" role="status">This proposal is based on revision {proposal.base}; the artifact is now revision {artifact.head}. It cannot be accepted over newer work. Ask the agent to read the current revision and submit a new proposal.</div>}
@@ -113,10 +115,11 @@ function ProposalReview({ id, artifact, onClose }) {
   </section>
 }
 
-function Proposals({ artifact }) {
+function Proposals({ artifact, initialSelected }) {
   const [offset, setOffset] = useState(0)
-  const [selected, setSelected] = useState(null)
-  const query = useWorkspace('proposals', { artifact: artifact.id, offset, limit: 24 })
+  const [selected, setSelected] = useState(initialSelected || null)
+  useEffect(() => { if (initialSelected) setSelected(initialSelected) }, [initialSelected])
+  const query = useWorkspace(selected ? null : 'proposals', { artifact: artifact.id, offset, limit: 24 })
   if (selected) return <ProposalReview key={selected} id={selected} artifact={artifact} onClose={() => setSelected(null)} />
   return <section><WorkFeedback query={query} />
     {!query.loading && !query.error && !query.value?.items?.length && <div className="work-empty"><h2>No proposals yet</h2><p>Ask an agent with Workspace tools to read this artifact and propose an edit. Its changes will appear here for your review.</p><code>{artifact.id}</code></div>}
@@ -140,12 +143,13 @@ function History({ artifact }) {
   </section>
 }
 
-export default function ArtifactEditor({ id }) {
+export default function ArtifactEditor({ id, initialProposal }) {
   const query = useWorkspace('artifact', { id })
   const artifact = query.value?.artifact, content = query.value?.content
   const [draft, setDraft] = useState(() => readDraft(sessionStorage, id))
   const [baseline, setBaseline] = useState(null)
-  const [tab, setTab] = useState('edit')
+  const [tab, setTab] = useState(initialProposal ? 'proposals' : 'edit')
+  useEffect(() => { if (initialProposal) setTab('proposals') }, [initialProposal])
   const [dialog, setDialog] = useState(null)
   const [storageOK, setStorageOK] = useState(true)
   const [notice, setNotice] = useState('')
@@ -206,7 +210,7 @@ export default function ArtifactEditor({ id }) {
       <nav className="work-tabs" aria-label="Artifact sections">{[['edit', 'Edit'], ['preview', 'Draft preview'], ['proposals', 'Proposals'], ['history', 'History']].map(([key, label]) => <button key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</button>)}</nav>
       {tab === 'edit' && (draft ? <div className="work-editor"><label><span>Document body · Markdown</span><textarea className="work-markdown-input" value={draft.body} disabled={artifact.archived || mutation.busy} onChange={(event) => change({ body: event.target.value })} placeholder="Start the document here…" spellCheck="true" /></label><p className="field-note">Body and history live in Notes. Renaming is separate from saving a body revision. Notes notebook sharing also applies; Harness project access does not change those permissions.</p><p className="field-note">Headings, lists, links, tables, and code blocks are supported. Public formatting is intentionally limited; inspect the exact page before publishing.</p><Sources sources={draft.sources} onChange={(sources) => change({ sources })} disabled={artifact.archived || mutation.busy} /></div> : <div className="work-empty"><h2>Review the first draft</h2><p>This agent-created artifact has no accepted revision yet. Review its proposal to start the document.</p><button className="button primary" onClick={() => setTab('proposals')}>Review proposals</button></div>)}
       {tab === 'preview' && (draft ? <div className="work-draft-preview"><p className="field-note">Draft preview · not the public page</p><h2>{draft.title}</h2><Markdown text={draft.body} /></div> : <p>No accepted content yet. Review the first proposal.</p>)}
-      {tab === 'proposals' && <Proposals artifact={artifact} />}
+      {tab === 'proposals' && <Proposals artifact={artifact} initialSelected={initialProposal} />}
       {tab === 'history' && <History artifact={artifact} />}
       <div className="work-footer"><code title="Stable artifact ID">{id}</code><div className="work-actions">{content && <button className="text-button" onClick={() => setDialog('copy')}>Copy saved revision to project…</button>}<button className="text-button" disabled={mutation.busy || !!artifact.publication} onClick={() => setDialog('archive')}>{artifact.archived ? 'Restore artifact…' : 'Archive artifact…'}</button></div></div>
       {dialog === 'publish' && <Publication artifact={artifact} onClose={() => setDialog(null)} />}

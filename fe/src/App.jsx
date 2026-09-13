@@ -13,9 +13,11 @@ const Workspace = lazy(() => import('./components/Workspace'))
 function route() {
   const [value, query = ''] = location.hash.replace(/^#\/?/, '').split('?')
   try {
-    if (value === 'artifacts' || value.startsWith('artifacts/')) return { page: 'artifacts', chat: '', id: decodeURIComponent(value.slice(10)) }
-    if (value === 'projects' || value.startsWith('projects/')) return { page: 'projects', chat: '', id: decodeURIComponent(value.slice(9)) }
-    if (value === 'tlon') return { page: 'tlon', chat: '' }
+    const params = new URLSearchParams(query)
+    if (value === 'inbox') return { page: 'inbox', chat: '' }
+    if (value === 'artifacts' || value.startsWith('artifacts/')) return { page: 'artifacts', chat: '', id: decodeURIComponent(value.slice(10)), proposal: params.get('proposal') }
+    if (value === 'projects' || value.startsWith('projects/')) return { page: 'projects', chat: '', id: decodeURIComponent(value.slice(9)), task: params.get('task') }
+    if (value === 'tlon') return { page: 'tlon', chat: '', workOpen: params.get('work') === '1' }
     if (value === 'search') return { page: 'corpus', chat: '' }
     if (value === 'settings') return { page: 'settings', chat: '', tab: new URLSearchParams(query).get('tab') }
     if (value.startsWith('settings/')) return { page: 'settings', chat: decodeURIComponent(value.slice(9)) }
@@ -103,7 +105,7 @@ export default function App() {
 
   return <div className="app-shell">
     <Sidebar chats={chats} current={page === 'chat' ? current : ''} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings && !current} onSettings={() => openSettings()} onSessionSettings={openSettings} tlon={page === 'tlon'} onTlon={openTlon} corpus={page === 'corpus'} onCorpus={openCorpus} work={page} onWorkspace={openWorkspace} />
-    {page === 'artifacts' || page === 'projects' ? <Suspense fallback={<main className="workspace"><p className="field-note" role="status">Loading workspace…</p></main>}><Workspace kind={page} id={view.id} onBack={() => choose(current)} /></Suspense> : page === 'corpus' ? <CorpusSearch onBack={() => choose(current)} onOpen={choose} /> : page === 'tlon' ? <TlonSettings onBack={() => choose(current)} /> : settings
+    {['inbox', 'artifacts', 'projects'].includes(page) ? <Suspense fallback={<main className="workspace"><p className="field-note" role="status">Loading workspace…</p></main>}><Workspace kind={page} id={view.id} proposal={view.proposal} task={view.task} onBack={() => choose(current)} /></Suspense> : page === 'corpus' ? <CorpusSearch onBack={() => choose(current)} onOpen={choose} /> : page === 'tlon' ? <TlonSettings workOpen={view.workOpen} onBack={() => choose(current)} /> : settings
       ? <Settings key={`${current}:${settingsEntry}:${view.tab || ''}`} initialTab={view.tab} resources={resources} theme={theme} onThemeChange={setTheme} onBack={() => choose(current)} />
       : current ? <Chat key={current} chat={current} theme={theme} onToggleTheme={toggleTheme} onSettings={() => openSettings(current)} onSelect={choose} onFork={(eventCount) => setDialog({ mode: 'fork', chat: current, eventCount })} /> : <Welcome loading={loading} onNew={() => setDialog({ mode: 'create' })} />}
     {(error || conversations.error) && <div className="global-error" onClick={() => setError('')}>{error || conversations.error}</div>}

@@ -15,6 +15,7 @@
 /+  workspace-lib=harness-workspace, workspace-json=harness-workspace-json
 /+  notes-lib=harness-notes
 /+  workspace-index=harness-workspace-search, unified-search=harness-unified-search
+/+  inbox=harness-inbox
 |%
 +$  card  card:agent:gall
 --
@@ -1410,6 +1411,19 @@
       %initialize
     ?~  id  `state
     [~[(acp-result-card:wire-codec connection u.id acp-initialize-result:wire-codec)] state]
+  ::
+      %'harness/inbox'
+    ?~  id  `state
+    ?^  (decode:admin connection)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'The work inbox is owner-only; use scoped work tools from a model')] state]
+    =/  result
+      %-  mule  |.
+      (read:inbox workspace hands schedules workspace-notes (fall params [%o ~]) now.bowl)
+    ?.  ?=(%& -.result)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Invalid inbox read parameters')] state]
+    ?:  ?=(%| -.p.result)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' p.p.result)] state]
+    [~[(acp-result-card:wire-codec connection u.id p.p.result)] state]
   ::
       %'harness/hand'
     ?~  id  `state

@@ -1,4 +1,4 @@
-import { DocumentIcon, ProjectIcon, MenuIcon, PlusIcon, RenameIcon, SearchIcon, SettingsIcon, TrashIcon } from './Icons'
+import { DocumentIcon, InboxIcon, ProjectIcon, MenuIcon, PlusIcon, RenameIcon, SearchIcon, SettingsIcon, TrashIcon } from './Icons'
 import TlonIcon from './TlonIcon'
 import { useEffect, useRef, useState } from 'react'
 import { CONVERSATION_PAGE_SIZE, conversationPage } from '../conversations'
@@ -39,6 +39,7 @@ export default function Sidebar({ chats, current, onSelect, onNew, onRename, onD
         {remaining > 0 && <button className="conversation-load-more text-button" onClick={() => setLimit((value) => value + CONVERSATION_PAGE_SIZE)} aria-label={`Load more conversations (${remaining} remaining)`}>Load more</button>}
       </nav>
       <div className="sidebar-spacer" />
+      <button className={work === 'inbox' ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onWorkspace, 'inbox')} aria-current={work === 'inbox' ? 'page' : undefined}><InboxIcon /><span>Work inbox</span></button>
       <button className={work === 'artifacts' ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onWorkspace, 'artifacts')} aria-current={work === 'artifacts' ? 'page' : undefined}><DocumentIcon /><span>Artifacts</span></button>
       <button className={work === 'projects' ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onWorkspace, 'projects')} aria-current={work === 'projects' ? 'page' : undefined}><ProjectIcon /><span>Projects</span></button>
       <button className={corpus ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onCorpus)} aria-current={corpus ? 'page' : undefined}><SearchIcon /><span>Search content</span></button>

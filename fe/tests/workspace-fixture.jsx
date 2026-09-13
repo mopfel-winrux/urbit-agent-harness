@@ -40,6 +40,30 @@ acp.start = async () => {}
 acp.ship = () => 'lux'
 const writes = new Set(['artifact-create', 'artifact-save', 'artifact-rename', 'artifact-archive', 'project-create', 'project-edit', 'member', 'publish', 'unpublish', 'review', 'task-create', 'task-claim', 'task-update'])
 window.workFixture = { db, calls: [], failNext: null, changed, watchCount: () => watches.size, externalEdit: () => { const artifact = db.artifacts.guide; artifact.head++; artifact.revisions[artifact.head] = { ...artifact.revisions[1], revision: artifact.head, body: 'A newer revision from another browser.' }; changed() } }
+const extraInboxRecords = [
+  { kind: 'input', id: '0v123', state: 'uncertain', at: at + 3000, title: 'Confirm the courtyard reservation', detail: 'Synthetic example: the reply was prepared, but its delivery is uncertain. Check the native conversation before another attempt.', execution: 'completed', delivery: 'uncertain', actor: '~sampel', hand: 'tlon', destination: 'dm/~sampel', sessionId: 'neighborhood-research', attempt: 1, binding: 'synthetic-dm', current: true, externalId: '' },
+  { kind: 'task', id: 'venue', state: 'blocked', at: at + 2000, title: 'Choose a rain location', detail: 'Synthetic example: waiting for the community room’s capacity and availability.', status: 'blocked', project: 'neighborhood', projectTitle: 'A good day together', claimant: researcher, version: 2 },
+  { kind: 'input', id: '0v124', state: 'running', at, title: 'Check the supplies list', detail: '', execution: 'running', delivery: null, actor: '~lux', hand: 'tlon', destination: 'dm/~lux', sessionId: 'afternoon-plans', attempt: 0, binding: 'synthetic-owner-dm', current: true },
+  { kind: 'input', id: '0v125', state: 'finished', at, title: 'Send the accepted gathering guide', detail: 'Synthetic receipt: the hand confirmed local acceptance, not remote arrival.', execution: 'completed', delivery: 'delivered', actor: '~sampel', hand: 'tlon', destination: 'dm/~sampel', sessionId: 'neighborhood-research', attempt: 1, binding: 'synthetic-dm', externalId: 'synthetic-native-reference', current: true },
+  { kind: 'schedule', id: '0v200', state: 'waiting', at: null, title: 'Gathering checklist reminder', status: 'active', scheduleKind: 'reminder', schedule: '2026-09-12T10:00:00-05:00', next: '~2026.9.12..15.00.00', remaining: 1, hand: 'tlon', sessionId: 'afternoon-plans' },
+]
+function inboxFixture(params) {
+  db.tasks.venue ||= { id: 'venue', project: 'neighborhood', title: 'Choose a rain location', description: 'Synthetic example: confirm the community room’s capacity and availability.', status: 'blocked', claimant: researcher, version: 2, outcome: 'Waiting for a reply from the venue.', updated: at + 2000 }
+  const states = ['uncertain', 'blocked', 'approval', 'running', 'waiting', 'finished']
+  const { state = 'attention', kind = 'all', limit = 24, cursor } = params
+  const position = cursor ? JSON.parse(cursor) : { offset: 0, version }
+  if (position.version !== version || (cursor && (position.state !== state || position.kind !== kind))) throw new Error('Work changed or the page is no longer valid. Refresh the inbox from the first page.')
+  const rows = window.workFixture.emptyInbox ? [] : [
+    ...extraInboxRecords.filter((row) => row.kind !== 'task'),
+    ...Object.values(db.tasks).map((task) => ({ ...task, kind: 'task', state: task.status === 'blocked' ? 'blocked' : task.status === 'done' ? 'finished' : 'waiting', at: task.updated, detail: task.outcome || task.description, projectTitle: db.projects[task.project]?.title })),
+    ...Object.values(db.proposals).map((proposal) => ({ ...proposal, content: undefined, kind: 'proposal', state: proposal.status === 'pending' ? 'approval' : 'finished', detail: proposal.reason })),
+  ].filter((row) => kind === 'all' || row.kind === kind)
+  const counts = {}
+  for (const row of rows) counts[row.state] = (counts[row.state] || 0) + 1
+  const matching = rows.filter((row) => state === 'all' || row.state === state || (state === 'attention' && states.indexOf(row.state) < 3)).sort((a, b) => states.indexOf(a.state) - states.indexOf(b.state) || b.at - a.at || a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id))
+  const end = position.offset + limit
+  return { items: clone(matching.slice(position.offset, end)), counts, observedAt: at, cursor: end < matching.length ? JSON.stringify({ offset: end, state, kind, version }) : null, referenceOnly: true }
+}
 const searchStatus = { indexed: 12, conversations: 2, indexing: false, workspaceRecords: 6, workspaceIndexing: false, workspaceAvailable: true }
 const searchToken = 'synthetic-search-v1'
 function searchFixture(method, args) {
@@ -68,6 +92,12 @@ function searchFixture(method, args) {
   throw new Error(`Unexpected search operation ${method}`)
 }
 acp.call = async (method, params = {}) => {
+  if (method === 'harness/inbox') {
+    window.workFixture.calls.push({ action: 'inbox', args: clone(params) })
+    if (window.workFixture.holdInbox) await new Promise((resolve) => { window.workFixture.releaseInbox = resolve })
+    if (window.workFixture.failInbox) throw new Error('Synthetic inbox read failed; current evidence is unavailable.')
+    return inboxFixture(params)
+  }
   if (method.startsWith('harness/search/') || method === 'harness/corpus/read') return searchFixture(method, params)
   const { action, args = {} } = params
   if (method !== 'harness/workspace') throw new Error(`Unexpected method ${method}`)
@@ -86,6 +116,7 @@ acp.call = async (method, params = {}) => {
   if (action === 'project') return clone(project)
   if (action === 'sessions') return page(db.sessions, args)
   if (action === 'tasks') return page(Object.values(db.tasks).filter((item) => !args.project || item.project === args.project), args)
+  if (action === 'task') { if (!db.tasks[args.id]) throw new Error('Task not found'); return clone(db.tasks[args.id]) }
   if (action === 'revisions') return page(Object.values(artifact.revisions).reverse(), args)
   if (action === 'proposals') return page(Object.values(db.proposals).filter((item) => !args.artifact || item.artifact === args.artifact).map(({ content, ...rest }) => rest), args)
   if (action === 'proposal') { const { content, ...proposal } = db.proposals[args.id]; return { proposal: clone(proposal), content: clone(content) } }
@@ -127,10 +158,10 @@ acp.call = async (method, params = {}) => {
   return clone(result)
 }
 
-const route = () => { const [kind = 'artifacts', id = ''] = location.hash.replace(/^#\//, '').split('/'); return { kind: kind || 'artifacts', id } }
+const route = () => { const [path, query = ''] = location.hash.replace(/^#\//, '').split('?'); const [kind = 'artifacts', id = ''] = path.split('/'); const params = new URLSearchParams(query); return { kind: kind || 'artifacts', id: decodeURIComponent(id), proposal: params.get('proposal'), task: params.get('task') } }
 function Fixture() {
   const [view, setView] = useState(route)
   useEffect(() => { const next = () => setView(route()); window.addEventListener('hashchange', next); return () => window.removeEventListener('hashchange', next) }, [])
-  return <div className="app-shell"><Sidebar chats={['neighborhood-research', 'afternoon-plans']} current="" onSelect={() => {}} onNew={() => {}} onSettings={() => {}} onCorpus={() => { location.hash = '#/search' }} corpus={view.kind === 'search'} onWorkspace={(kind) => { location.hash = `#/${kind}` }} work={view.kind} />{view.kind === 'search' ? <CorpusSearch onBack={() => { location.hash = '#/artifacts' }} onOpen={() => {}} /> : <Workspace kind={view.kind} id={view.id} onBack={() => { location.hash = '#/artifacts' }} />}</div>
+  return <div className="app-shell"><Sidebar chats={['neighborhood-research', 'afternoon-plans']} current="" onSelect={() => {}} onNew={() => {}} onSettings={() => {}} onCorpus={() => { location.hash = '#/search' }} corpus={view.kind === 'search'} onWorkspace={(kind) => { location.hash = `#/${kind}` }} work={view.kind} />{view.kind === 'search' ? <CorpusSearch onBack={() => { location.hash = '#/artifacts' }} onOpen={() => {}} /> : <Workspace kind={view.kind} id={view.id} proposal={view.proposal} task={view.task} onBack={() => { location.hash = '#/artifacts' }} />}</div>
 }
 createRoot(document.getElementById('root')).render(<StrictMode><Fixture /></StrictMode>)

@@ -73,6 +73,18 @@ test('Harness libraries have no dependency cycles', () => {
   for (const name of sources.keys()) visit(name)
 })
 
+test('inbox is a bounded owner projection, not a transcript reader or mutation path', async () => {
+  const projection = code('harness-inbox')
+  assert.doesNotMatch(projection, /play:|harness-session|harness-store|bowl:gall|%pass|\.\^\(|command\.pending|body\.value\.proposal/)
+  assert.match(projection, /\(lte limit 32\)/)
+  assert.match(projection, /\(row-json row db hands jobs native\)/)
+  const agent = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  const handler = agent.split("%'harness/inbox'")[1].split("%'harness/hand'")[0]
+  assert.match(handler, /decode:admin connection/)
+  assert.match(handler, /read:inbox/)
+  assert.doesNotMatch(handler, /handle-action|workspace-apply|hand-call/)
+})
+
 test('run inspection stays local and the adapter has no Steward export or trust effects', async () => {
   assert.equal(sources.has('harness-run-report'), false, 'no orphaned export-only projection')
   const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')

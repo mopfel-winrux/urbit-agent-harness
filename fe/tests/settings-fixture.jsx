@@ -39,6 +39,7 @@ acp.call = async (method) => {
   if (method === 'harness/onboarding/ensure') return { sessionId: null, ...(params.has('legacy-bootstrap') ? {} : { sessions: ['daily-notes', 'reading-list'].map((sessionId) => ({ sessionId })) }) }
   if (method === 'session/list') return { sessions: ['daily-notes', 'reading-list'].map((sessionId) => ({ sessionId })) }
   if (method === 'harness/session/snapshot') return { revision: 1, phase: 'idle', entries: [], model: config.model }
+  if (method === 'harness/inbox') return { items: [], counts: {}, cursor: null, observedAt: Date.UTC(2026, 8, 12), referenceOnly: true }
   throw new Error(`Unexpected fixture method: ${method}`)
 }
 api.read = async (path) => {
