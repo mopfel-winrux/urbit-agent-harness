@@ -4,7 +4,11 @@
 /-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, corpus=harness-corpus, cron=harness-cron, work=harness-workspace
 /-  hn=harness-notes
 /-  ws=harness-workspace-search
+/-  pc=harness-project-client
+/-  wc=harness-work-control
 |%
++$  state-25  [%25 work-controls=state:wc state-24]
++$  state-24  [%24 project-clients=state:pc state-23]
 +$  state-23  [%23 workspace-search=state:ws state-22]
 +$  state-22  [%22 workspace-notes=state:hn legacy-workspace=state:work state-21]
 +$  state-21  [%21 workspace=state:work state-20]

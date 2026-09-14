@@ -11,6 +11,16 @@
   ?:  owner.who  `%contributor
   ?:  =(0 access.who)  ~
   (~(get by members.u.project) access.who)
+++  can-contribute
+  |=  [db=state:w who=authority:w id=id:w]
+  ^-  ?
+  =/  role  (project-role db who id)
+  ?~  role  |
+  ?=(?(%contributor %maintainer) u.role)
+++  can-maintain
+  |=  [db=state:w who=authority:w id=id:w]
+  ^-  ?
+  =(`%maintainer (project-role db who id))
 ++  can-read
   |=  [db=state:w who=authority:w art=artifact:w]
   ^-  ?
@@ -24,7 +34,7 @@
   ?:  archived.art  |
   ?:  owner.who  &
   ?~  project.art  &(!=(0 access.who) =(owner.art access.who))
-  =(`%contributor (project-role db who u.project.art))
+  (can-contribute db who u.project.art)
 ++  content-size
   |=  value=content:w
   ^-  @ud
@@ -80,15 +90,19 @@
     ^-  (each state:w @t)
     [%& (record next who (scot %tas -.act) id.act now)]
   ?:  ?=(%project-create -.act)
-    ?.  owner.who  [%| 'Only the owner can create projects']
+    ?.  |(owner.who !=(0 access.who))  [%| 'An agent with the workspace tool is required']
     ?:  (~(has by projects.db) id.act)  [%| 'Project ID already exists']
     ?.  ?&((gth (met 3 title.act) 0) (lte (met 3 title.act) 256) (lte (met 3 description.act) 4.096) (lth ~(wyt by projects.db) 128))
       [%| 'Project title, description or capacity limit exceeded']
     (done db(projects (~(put by projects.db) id.act [title.act description.act 1 ~ |])))
   ?:  ?=(?(%project-edit %member) -.act)
-    ?.  owner.who  [%| 'Only the owner can change project access or settings']
     =/  project  (~(get by projects.db) id.act)
     ?~  project  [%| 'Project not found']
+    =/  permitted
+      ?:  owner.who  &
+      ?:  ?=(%member -.act)  |
+      &((can-maintain db who id.act) =(archived.act archived.u.project))
+    ?.  permitted  [%| 'Only the owner can change access or archive projects; current maintainers can edit project details']
     ?.  =(version.act version.u.project)  [%| 'Project changed; reload before saving']
     =/  next=project:w
       ?:  ?=(%member -.act)
@@ -104,7 +118,7 @@
     ?:  (~(has by artifacts.db) id.act)  [%| 'Artifact ID already exists']
     ?.  (lth ~(wyt by artifacts.db) 512)  [%| 'Artifact capacity reached']
     ?.  (can-add-content db value.act)  [%| 'Document or retained-content capacity limit exceeded']
-    ?.  ?~(project.act |(owner.who !=(0 access.who)) =(`%contributor (project-role db who u.project.act)))
+    ?.  ?~(project.act |(owner.who !=(0 access.who)) (can-contribute db who u.project.act))
       [%| 'No contributor access to this project']
     =/  art=artifact:w  [access.who project.act title.value.act 0 ~ ~ 0 |]
     =.  db  db(bytes (add bytes.db (content-size value.act)))
@@ -173,30 +187,48 @@
     =/  next  u.art(publication `[revision.act slug.act html.act now], exposure +(exposure.u.art))
     (done db(slugs (~(put by slugs) slug.act id.act), artifacts (~(put by artifacts.db) id.act next)))
   ?:  ?=(%task-create -.act)
-    ?.  =(`%contributor (project-role db who project.act))  [%| 'No contributor access to this project']
+    ?.  |(owner.who !=(0 access.who))  [%| 'An agent with the workspace tool is required']
+    =/  project  (~(get by projects.db) project.act)
+    ?.  |(=('' project.act) ?~(project | !archived.u.project))  [%| 'Project is unavailable']
     ?:  (~(has by tasks.db) id.act)  [%| 'Task ID already exists']
     ?.  ?&((gth (met 3 title.act) 0) (lte (met 3 title.act) 256) (lte (met 3 description.act) 4.096) (lth ~(wyt by tasks.db) 2.048))
       [%| 'Task title, description or capacity limit exceeded']
     (done db(tasks (~(put by tasks.db) id.act [project.act title.act description.act 1 %open ~ '' ~ now])))
   =/  task  (~(get by tasks.db) id.act)
   ?~  task  [%| 'Task not found or unavailable']
-  ?.  =(`%contributor (project-role db who project.u.task))  [%| 'No contributor access to this project']
-  =/  expected  ?:(?=(%task-claim -.act) version.act version.act)
-  ?.  =(expected version.u.task)  [%| 'Task changed; inspect its current claim before acting']
+  ?.  |(owner.who !=(0 access.who))  [%| 'An agent with the workspace tool is required']
+  =/  expected
+    ?-  -.act
+      %task-claim   version.act
+      %task-assign  version.act
+      %task-update  version.act
+      %task-delete  version.act
+    ==
+  ?.  =(expected version.u.task)  [%| 'Task changed; read it again before updating']
+  ?:  ?=(%task-delete -.act)
+    (done db(tasks (~(del by tasks.db) id.act)))
+  ?:  ?=(%task-assign -.act)
+    (done db(tasks (~(put by tasks.db) id.act u.task(version +(version.u.task), claimant assignee.act, updated now))))
   ?:  ?=(%task-claim -.act)
-    ?.  =(%open status.u.task)  [%| 'Task is not available to claim']
+    ?.  &(=(%open status.u.task) ?=(~ claimant.u.task))  [%| 'Task is already assigned or not open']
     (done db(tasks (~(put by tasks.db) id.act u.task(version +(version.u.task), status %claimed, claimant `by.who, updated now))))
-  ?.  |(owner.who =(`scope.by.who ?~(claimant.u.task ~ `scope.u.claimant.u.task)))
-    [%| 'Only the claiming agent or owner can update this task']
   ?.  (lte (met 3 outcome.act) 4.096)  [%| 'Task outcome exceeds limit']
   =/  linked  ?~(artifact.act ~ (~(get by artifacts.db) u.artifact.act))
-  ?.  ?~(artifact.act & &(?=(^ linked) =(`project.u.task project.u.linked) (can-read db who u.linked)))
-    [%| 'Task artifact must be accessible in the same project']
+  ?.  ?~(artifact.act & &(?=(^ linked) (can-read db who u.linked)))
+    [%| 'Task result document must be accessible to this agent']
+  =/  edited  u.task
+  =?  edited  ?=(^ details.act)
+    edited(title title.u.details.act, description description.u.details.act, project project.u.details.act)
+  ?.  ?&((gth (met 3 title.edited) 0) (lte (met 3 title.edited) 256) (lte (met 3 description.edited) 4.096))
+    [%| 'Task title or description exceeds limits']
+  =/  group  (~(get by projects.db) project.edited)
+  ?.  |(=(project.edited project.u.task) =('' project.edited) ?~(group | !archived.u.group))
+    [%| 'Project is unavailable']
   =/  next
-    %=  u.task
+    %=  edited
       version  +(version.u.task)
       status  status.act
-      claimant  ?:(=(%open status.act) ~ ?~(claimant.u.task `by.who claimant.u.task))
+      claimant  ?:(=(status.act status.u.task) claimant.u.task ?:(=(%open status.act) ~ ?~(claimant.u.task `by.who claimant.u.task)))
       outcome  outcome.act
       artifact  artifact.act
       updated  now

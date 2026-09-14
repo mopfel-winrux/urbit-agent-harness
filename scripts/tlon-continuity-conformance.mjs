@@ -158,7 +158,7 @@ try {
   assert.deepEqual(await snapshot(channel), untouched, 'unrelated edit does not rewrite an idle head')
   assert.equal((await bindingStatus(dmBinding)).enabled, true)
   assert.equal((await bindingStatus(channelBinding)).enabled, true)
-  assert.equal((await client.call('harness/tlon/cron')).find((j) => j.id === cron.id).state, 'active')
+  assert.equal((await client.call('harness/cron')).find((j) => j.id === cron.id).state, 'active')
   release(h1, 'UNRELATED_WORK_FINISHED'); await finished(dm, first)
   console.log('PASS unrelated actor edit preserves in-flight work, bindings, notes, settings and schedule')
 
@@ -170,11 +170,11 @@ try {
   assert.deepEqual((await command(channel, '/memory', new RegExp(tag(channel)))).memory, channel.saved.memory)
   assert.notEqual(channel.binding, channelBinding)
   assert.deepEqual(await config(channel), channel.cfg)
-  assert.equal((await client.call('harness/tlon/cron')).find((j) => j.id === cron.id).state, 'active')
+  assert.equal((await client.call('harness/cron')).find((j) => j.id === cron.id).state, 'active')
   console.log('PASS mention-policy change fences only the channel; same head, note and chosen config resume with a fresh binding')
 
   await configure({ ...policy, owner: ship, trusted: [{ ship: peer, tools: ['web', 'subagents'] }, { ship: extra, tools: [] }] })
-  await until('source schedule paused', async () => (await client.call('harness/tlon/cron')).find((j) => j.id === cron.id).state === 'paused')
+  await until('source schedule paused', async () => (await client.call('harness/cron')).find((j) => j.id === cron.id).state === 'paused')
   await command(dm, '/memory', new RegExp(tag(dm)))
   assert.deepEqual((await snapshot(dm)).memory, dm.saved.memory)
   assert.equal((await config(dm)).model, dm.cfg.model)
@@ -262,7 +262,7 @@ try {
     assert.notEqual(ctx.binding, binding)
     await command(ctx, `/forget ${note}`, /Note unpinned/)
   }
-  assert.equal((await client.call('harness/tlon/cron')).find((j) => j.id === cron.id).state, 'paused')
+  assert.equal((await client.call('harness/cron')).find((j) => j.id === cron.id).state, 'paused')
   console.log('PASS same-call child gets fresh identity; reload and disable/re-enable retain conversation notes without restarting schedules')
 } finally {
   if (headStopped) await head(true)
@@ -275,7 +275,7 @@ try {
     await client.pokeAgent('harness', 'harness-action', { 'timer-cancel': { sid: ctx.sid, name: 'continuity-fixture' } })
   }
   for (const sid of children) await client.call('session/cancel', { sessionId: sid })
-  if (cron?.id) await client.call('harness/tlon/cron/cancel', { id: cron.id })
+  if (cron?.id) await client.call('harness/cron/cancel', { id: cron.id })
   if (originals) {
     await client.call('harness/tlon/configure', originals.policy)
     await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '' } })

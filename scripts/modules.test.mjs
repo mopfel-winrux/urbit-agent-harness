@@ -85,6 +85,24 @@ test('inbox is a bounded owner projection, not a transcript reader or mutation p
   assert.doesNotMatch(handler, /handle-action|workspace-apply|hand-call/)
 })
 
+test('project client reads have no execution imports, owner promotion or notebook body listing', async () => {
+  const capability = code('harness-project-client')
+  assert.deepEqual(dependencies('harness-project-client'), ['harness-workspace-json', 'harness-workspace'])
+  assert.doesNotMatch(capability, /harness-store|harness-session|%pass|\.\^\(|bowl:gall/)
+  const agent = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  const handler = agent.split('++  serve-project-read\n')[1].split('\n++  serve\n')[0]
+  assert.match(handler, /authenticate:project-client/)
+  assert.match(handler, /read-action:project-client/)
+  assert.match(handler, /refresh-scoped:/)
+  assert.doesNotMatch(handler, /workspace-owner|workspace-request|handle-action|hand-call|authenticated\.req|acp-open|%poke/)
+  const fastPath = agent.split('++  on-poke\n')[1].split('  %-  flush-auth')[0]
+  assert.match(fastPath, /serve-project-read:hc/)
+  assert.match(fastPath, /%handle-http-request/)
+  const scoped = code('harness-notes').split('  ++  refresh-scoped\n')[1].split('  ++  refresh\n')[0]
+  assert.match(scoped, /\(note book note\.link\)/)
+  assert.doesNotMatch(scoped, /\/v0\/notes\//)
+})
+
 test('run inspection stays local and the adapter has no Steward export or trust effects', async () => {
   assert.equal(sources.has('harness-run-report'), false, 'no orphaned export-only projection')
   const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')

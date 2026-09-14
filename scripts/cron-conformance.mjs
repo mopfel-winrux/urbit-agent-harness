@@ -110,8 +110,7 @@ try {
   await hand.cancelSchedule(modelJob.id)
   await hand.clearSchedule(modelJob.id); schedules.delete(modelJob.id)
   assert.ok(runCalls >= 2, 'scheduled task completed its rejected-recursion tool turn')
-  assert.deepEqual(await client.call('harness/tlon/cron'), await client.call('harness/cron'), 'legacy read aliases the one shared owner')
-  console.log(JSON.stringify({ ok: true, checks: ['non-Tlon model scheduling', 'native/ACP parity', 'idempotent creation', 'actor and destination validation', 'literal no-inference reminder', 'bounded isolated inference', 'no recursive schedules', 'exclusive hand delivery', 'uncertainty blocks clear', 'source revocation', 'no automatic resurrection', 'legacy endpoint alias'], retainedFixture: source }, null, 2))
+  console.log(JSON.stringify({ ok: true, checks: ['non-Tlon model scheduling', 'native/ACP parity', 'idempotent creation', 'actor and destination validation', 'literal no-inference reminder', 'bounded isolated inference', 'no recursive schedules', 'exclusive hand delivery', 'uncertainty blocks clear', 'source revocation', 'no automatic resurrection'], retainedFixture: source }, null, 2))
 } finally {
   for (const job of schedules) await hand.cancelSchedule(job).catch((error) => console.error(`Fixture schedule ${job}: ${error.message}`))
   for (const binding of bindings) await hand.enable(binding, false).catch(() => {})

@@ -8,6 +8,7 @@
 /-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, t=harness-tlon, *harness-store
 /-  cr=harness-cron
 /-  work=harness-workspace
+/-  wc=harness-work-control
 /-  hn=harness-notes, native-notes=tlon-notes
 /+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, lcm-context=harness-lcm-context, corpus-lib=harness-corpus, corpus-json=harness-corpus-json, peer-policy=harness-peer-policy, peer-trust=harness-peer-trust, failure=harness-failure, policy=harness-defaults, storage=harness-store, index=harness-session-index, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 /+  onboarding=harness-onboarding, peer-access=harness-peer-access, admin=harness-admin, ownership=harness-ownership, local-mcp-lib=harness-local-mcp, peer-rpc=harness-peer-rpc
@@ -16,11 +17,17 @@
 /+  notes-lib=harness-notes
 /+  workspace-index=harness-workspace-search, unified-search=harness-unified-search
 /+  inbox=harness-inbox
+/+  project-client=harness-project-client
+/+  work-control=harness-work-control
+/+  tlon-work=harness-tlon-work-card
+/+  work-help=harness-work-help
+/+  work-view=harness-work-view
+/+  work-copy=harness-work-copy
 |%
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-23
+=|  state-25
 =*  state  -
 ^-  agent:gall
 =<
@@ -36,7 +43,7 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =/  loaded  !<(state-23 on-save:next)
+      =/  loaded  !<(state-25 on-save:next)
       =/  before-workspace  writes.workspace
       =/  previous-workspace  workspace
       =/  previous-notes  workspace-notes
@@ -86,7 +93,7 @@
   ^-  (quip card _this)
   :_  this(defaults builtin-config:policy, search-config [%brave ''])
   :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
-      [%pass /eyre/connect %arvo %e %connect [~ /harness-pages] dap.bowl]
+      [%pass /eyre/connect %arvo %e %connect [~ /harness-project] dap.bowl]
       [%pass /peer-access/refresh %agent [our.bowl dap.bowl] %poke %harness-action !>(`action:h`[%peer-refresh ~])]
       acp-open-card:wire-codec
       acp-watch-card:wire-codec
@@ -97,7 +104,7 @@
 ::
 ++  on-load
   |=  old-vase=vase
-  =/  new=state-23  (load:storage old-vase)
+  =/  new=state-25  (load:storage old-vase)
   =.  state  new(corpus-wake ~, schedule-wake ~)
   %-  flush-auth
   ^-  (quip card _this)
@@ -106,7 +113,7 @@
     ::  Refresh after reload, when the adapter can expose its updated trust.
     :~  [%pass /peer-access/refresh %agent [our.bowl dap.bowl] %poke %harness-action !>(`action:h`[%peer-refresh ~])]
         [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
-        [%pass /eyre/connect %arvo %e %connect [~ /harness-pages] dap.bowl]
+        [%pass /eyre/connect %arvo %e %connect [~ /harness-project] dap.bowl]
         acp-open-card:wire-codec
     ==
   =?  base  ?=(^ schedule-wake.new)
@@ -133,9 +140,25 @@
   base
 ++  on-poke
   |=  [=mark =vase]
+  ::  Keep capability reads outside the owner/event maintenance wrapper too:
+  ::  even unrelated indexing, OAuth or scheduler maintenance is not a client
+  ::  read effect. Reserve the entire prefix, including malformed paths.
+  =/  client-read=(unit [eyre-id=@ta req=inbound-request:eyre])
+    ?.  =(%handle-http-request mark)  ~
+    =/  request  !<([eyre-id=@ta req=inbound-request:eyre] vase)
+    ?.  =('/harness-project' (end [3 16] url.request.req.request))  ~
+    `request
+  ?^  client-read
+    =^  cards  state  (serve-project-read:hc eyre-id.u.client-read req.u.client-read)
+    [cards this]
   %-  flush-auth
   ^-  (quip card _this)
   ?+  mark  (on-poke:def mark vase)
+      %harness-work-result
+    ?>  =(src.bowl our.bowl)
+    =/  result  !<([id=@uv value=(each json @t)] vase)
+    =^  cards  state  (work-result:hc id.result value.result)
+    [cards this]
       %harness-workspace
     ?>  =(src.bowl our.bowl)
     =/  req  !<(request:work vase)
@@ -252,6 +275,9 @@
   ::
       [%x %hand-state ~]
     ``noun+!>(hands)
+  ::
+      [%x %work-card @ ~]
+    ``noun+!>((work-card:hc (slav %uv i.t.t.path)))
   ::
       [%x %sessions ~]
     :^  ~  ~  %json
@@ -678,19 +704,23 @@
 ++  schedule-source-live
   |=  job=schedule:cr
   ^-  ?
-  =/  source  (~(get by bindings.hands) binding.job)
+  (hand-source-live binding.job sid.job hand.job destination.job actor.job)
+++  hand-source-live
+  |=  [binding=@t sid=session-id:h hand=@t destination=@t actor=@t]
+  ^-  ?
+  =/  source  (~(get by bindings.hands) binding)
   ?.  ?&  ?=(^ source)
       enabled.u.source
-      =(sid.job sid.u.source)
-      =(hand.job hand.u.source)
-      =(destination.job address.u.source)
-      (lien actors.u.source |=(actor=@t =(actor actor.job)))
-      ?=(~ (for-session:schedule-lib schedules sid.job))
+      =(sid sid.u.source)
+      =(hand hand.u.source)
+      =(destination address.u.source)
+      (lien actors.u.source |=(allowed=@t =(allowed actor)))
+      ?=(~ (for-session:schedule-lib schedules sid))
       ==
     |
-  ?.  =('tlon' hand.job)  &
+  ?.  =('tlon' hand)  &
   ?.  .^(? %gu /(scot %p our.bowl)/harness-tlon/(scot %da now.bowl)/$)  |
-  live:.^(hand-authority:adapter %gx /(scot %p our.bowl)/harness-tlon/(scot %da now.bowl)/authority/[sid.job]/noun)
+  live:.^(hand-authority:adapter %gx /(scot %p our.bowl)/harness-tlon/(scot %da now.bowl)/authority/[sid]/noun)
 ++  schedule-live
   |=  job=schedule:cr
   ^-  ?
@@ -833,6 +863,18 @@
   ^-  [result=(each json @t) new=_state]
   ?.  |(owner.who (model-action:workspace-json action))
     [[%| 'This workspace action requires the owner interface, not a model tool'] state]
+  ?:  (lien `(list @t)`~['clients' 'client-create' 'client-revoke'] |=(item=@t =(action item)))
+    ::  The owner/model boundary above runs before credential parsing.
+    =/  out
+      %-  mule  |.
+      (owner-request:project-client project-clients workspace action args now.bowl)
+    ?.  ?=(%& -.out)  [[%| 'Invalid client credential operation or parameters'] state]
+    ?:  ?=(%| -.p.out)  [[%| p.p.out] state]
+    =/  changed  !=(project-clients db.p.p.out)
+    =.  project-clients  db.p.p.out
+    =?  workspace  changed
+      (record:workspace-lib workspace who action (string:workspace-json args 'id') now.bowl)
+    [[%& result.p.p.out] state]
   =/  refreshed
     %-  mule  |.
     ?.  (needs-notes:notes-lib action)  workspace
@@ -851,6 +893,18 @@
   ?:  (is-read:workspace-json action)
     =/  result  (mule |.((read:workspace-json workspace who action args)))
     [?:(?=(%& -.result) [%& (decorate:notes-lib workspace-notes p.result)] [%| 'Record not found, not permitted, or invalid read parameters']) state]
+  =/  assigned
+    %-  mule  |.
+    ?.  =('task-assign' action)  args
+    =/  name  (optional:workspace-json args 'assignee')
+    ?~  name  args
+    =/  scope  (~(got by names.corpus) u.name)
+    =/  target  (~(got by sessions) u.name)
+    ?>  (tool-granted:ht 'workspace' tools.config:(play:hl log.target))
+    ?>  ?=(%o -.args)
+    [%o (~(put by p.args) 'scope' [%s (scot %uv scope)])]
+  ?.  ?=(%& -.assigned)  [[%| 'Choose an existing agent with the workspace tool. Assignment does not grant tools or start execution.'] state]
+  =.  args  p.assigned
   =/  decoded  (mule |.((decode:workspace-json workspace action args fallback)))
   ?.  ?=(%& -.decoded)  [[%| 'Invalid workspace action or parameters; inspect help and the current record'] state]
   =/  act  p.decoded
@@ -892,6 +946,8 @@
 ++  notes-reply
   |=  [reply=reply:hn result=(each json @t)]
   ^-  card
+  ?:  ?=(%work -.reply)
+    [%pass /work-result/(scot %uv id.reply) %agent [our.bowl dap.bowl] %poke %harness-work-result !>([id.reply result])]
   ?:  ?=(%native -.reply)
     [%give %fact ~[/workspace/[id.reply]] %noun !>(result)]
   ?:  ?=(%& -.result)  (acp-result-card:wire-codec connection.reply id.reply p.result)
@@ -950,7 +1006,7 @@
   =/  confirmation  (mole |.((string:workspace-json args 'confirm')))
   ?.  =(confirmation `(cat 3 'release ' (scot %uv id.pending)))
     [~[(notes-reply reply [%| 'Confirm that you inspected Notes and understand that stopping observation cannot undo a dispatched change.'])] state]
-  =/  saved=state-23  state
+  =/  saved=state-25  state
   =/  next  saved(workspace-notes workspace-notes.saved(pending ~))
   =.  workspace.next  (record:workspace-lib workspace.next [& [0v0 'Owner'] 0v0] 'notes-release' artifact.pending now.bowl)
   [[[%pass /artifact-notes/request/(scot %uv rid) %agent [our.bowl %notes] %leave ~] (notes-reply reply [%& (pairs:enjs:format ~[['released' %b &]])]) ~] next]
@@ -963,7 +1019,7 @@
   ^-  (quip card _state)
   ?~  pending.workspace-notes  `state
   =/  pending  u.pending.workspace-notes
-  =/  saved=state-23  state
+  =/  saved=state-25  state
   =/  next  saved(workspace-notes workspace-notes.saved(pending ?:(uncertain `pending(uncertain &) ~)))
   [~[(notes-reply reply.pending [%| message])] next]
 ++  notes-result
@@ -1048,7 +1104,7 @@
     (complete:notes-lib workspace workspace-notes note (history:~(. reader:notes-lib bowl) book nid) applied now.bowl)
   ?.  ?=(%& -.resolved)
     (notes-failed 'Notes confirmed a result, but its current document could not be read. Do not repeat the operation.' &)
-  =/  saved=state-23  state
+  =/  saved=state-25  state
   =/  next  saved(workspace db.p.resolved, workspace-notes native.p.resolved)
   =/  art  (~(got by artifacts.workspace.next) artifact.pending)
   =/  result
@@ -1056,6 +1112,416 @@
       (proposal-json:workspace-json u.proposal.pending (~(got by proposals.workspace.next) u.proposal.pending))
     (decorate:notes-lib workspace-notes.next (pairs:enjs:format ~[['artifact' (artifact-json:workspace-json artifact.pending art)]]))
   [[leave (notes-reply reply.pending [%& result]) ~] next]
+++  work-origin
+  |=  sid=session-id:h
+  ^-  (unit admitted-input:h)
+  =/  ses  (~(get by sessions) sid)
+  ?~  ses  ~
+  =/  log  log.u.ses
+  |-  ^-  (unit admitted-input:h)
+  ?~  log  ~
+  ?:  ?=(%input-received -.i.log)  `input.i.log
+  ?:  ?=(%input-admitted -.i.log)  ~
+  $(log t.log)
+++  work-authority
+  |=  [sid=session-id:h input=admitted-input:h]
+  ^-  (unit authority:work)
+  =/  ses  (~(get by sessions) sid)
+  =/  scope  (~(get by names.corpus) sid)
+  ?.  &(?=(^ ses) ?=(^ scope))  ~
+  ?:  |((~(has by rehearsals) sid) ?=(^ (delegation:hl log.u.ses)) ?=(^ (for-session:schedule-lib schedules sid)))  ~
+  =/  source  source.input
+  =/  owner=?
+    ?+  -.source  |
+      %acp   &(?=(~ (decode:admin client.source)) =(actor.input `our.bowl) (session-admin sid))
+      %poke  &(=(ship.source our.bowl) =(actor.input `our.bowl))
+      %hand
+        =/  binding  (~(get by bindings.hands) binding.source)
+        ?.  ?&(?=(^ binding) enabled.u.binding =(sid sid.u.binding) =(hand.source hand.u.binding) =(address.source address.u.binding) (lien actors.u.binding |=(a=@t =(a actor.source))))  |
+        ?:  =('tlon' hand.source)  (session-admin sid)
+        (~(has in owners.work-controls) [binding.source actor.source])
+    ==
+  ?.  ?=(?(%acp %poke %hand) -.source)  ~
+  ?:  ?=(%hand -.source)
+    =/  binding  (~(get by bindings.hands) binding.source)
+    ?.  ?&(?=(^ binding) enabled.u.binding =(sid sid.u.binding) =(hand.source hand.u.binding) =(address.source address.u.binding) (lien actors.u.binding |=(a=@t =(a actor.source))))  ~
+    ?:  owner  `[& [u.scope actor.source] u.scope]
+    ?.  (tool-granted:ht 'workspace' (execution-tools sid tools.config:(play:hl log.u.ses)))  ~
+    (workspace-authority sid)
+  ?:  owner  `[& [u.scope (scot %p our.bowl)] u.scope]
+  ~
+++  work-result
+  |=  [id=@uv value=(each json @t)]
+  ^-  (quip card _state)
+  [~ state(work-controls (complete:work-control work-controls id value))]
+++  work-card
+  |=  id=@uv
+  ^-  (unit @t)
+  =/  pub  (~(get by outbox.hands) id)
+  ?.  ?&(?=(^ pub) =('tlon' hand.u.pub) =(%reply kind.u.pub))  ~
+  =/  obs  (~(get by observations.hands) input.u.pub)
+  =/  ses  (~(get by sessions) sid.u.pub)
+  =/  scope  (~(get by names.corpus) sid.u.pub)
+  ?.  ?&(?=(^ obs) ?=(^ ses) ?=(^ scope))  ~
+  =/  source=input-source:h  [%hand binding.u.pub hand.u.pub address.u.pub event.u.obs actor.u.obs]
+  =/  input=admitted-input:h  [input.u.pub source ~ `[%hand binding.u.pub] at.u.obs [%user text.u.obs]]
+  =/  who  (work-authority sid.u.pub input)
+  ?.  &(?=(^ who) owner.u.who)  ~
+  =/  browse
+    %-  mole  |.
+    (need (browse:tlon-work workspace u.who input.u.pub text.u.obs body.u.pub log.u.ses))
+  ?^  browse  browse
+  =/  expected
+    %-  mole  |.
+    =/  id  (need (candidate:tlon-work work-controls source text.u.obs))
+    =/  request  (~(got by requests.work-controls) id)
+    ?>  (matches:work-control request sid.u.pub u.scope source ~)
+    ?>  (visible:work-control workspace u.who request)
+    ?:  !=(%pending status.request)  (work-receipt id request)
+    ?>  =(fence.request (work-fence action.request args.request))
+    (work-preview id request u.who)
+  =/  selected  (select:tlon-work work-controls sid.u.pub u.scope source input.u.pub body.u.pub log.u.ses expected)
+  ?~  selected  ~
+  =/  request  (~(got by requests.work-controls) id.u.selected)
+  ?.  (visible:work-control workspace u.who request)  ~
+  =/  current
+    %-  fall  :-  (mole |.(&((lth now.bowl expires.request) =(fence.request (work-fence action.request args.request)))))
+    |
+  `(render:tlon-work id.u.selected request inspected.u.selected current (fall expected (work-receipt id.u.selected request)))
+++  work-fence
+  |=  [action=@t args=json]
+  ^-  @uvH
+  =/  base  (snapshot:work-control workspace action args)
+  ?:  =('task-reply' action)
+    =/  target
+      %-  mule  |.
+      =/  binding  (~(got by bindings.hands) (string:workspace-json args 'binding'))
+      [binding (~(get by names.corpus) sid.binding)]
+    (sham [base target])
+  base
+++  work-reply-preview
+  |=  args=json
+  ^-  json
+  =/  task  (~(got by tasks.workspace) (string:workspace-json args 'id'))
+  ?>  &(=(version.task (number:workspace-json args 'version' 0)) =(%done status.task))
+  =/  artifact  (string:workspace-json args 'artifact')
+  ?>  =(`artifact artifact.task)
+  =/  art  (~(got by artifacts.workspace) artifact)
+  ?>  !archived.art
+  =/  revision  (number:workspace-json args 'revision' 0)
+  =/  accepted  (~(got by revisions.art) revision)
+  =/  text  body.value.accepted
+  ?>  &((gth (met 3 text) 0) (lte (met 3 text) 4.096))
+  =/  binding  (string:workspace-json args 'binding')
+  =/  actor  (string:workspace-json args 'actor')
+  =/  target  (~(got by bindings.hands) binding)
+  ?>  (hand-source-live binding sid.target hand.target address.target actor)
+  ?>  (~(has by sessions) sid.target)
+  (pairs:enjs:format ~[['binding' %s binding] ['hand' %s hand.target] ['address' %s address.target] ['actor' %s actor] ['artifact' %s artifact] ['revision' (numb:enjs:format revision)] ['text' %s text] ['effect' %s 'Queue this exact accepted body for delivery. No model turn or automatic retry.']])
+++  work-receipt
+  |=  [id=@uv request=request:wc]
+  ^-  json
+  =/  out  (work-context request (encode:work-control id request))
+  ?.  =('task-reply' action.request)  out
+  =/  effect  (input-id:hd (string:workspace-json args.request 'binding') (cat 3 'work-reply/' (scot %uv id)))
+  =/  publication  (~(get by outbox.hands) effect)
+  ?>  ?=(%o -.out)
+  [%o (~(put by p.out) 'delivery' ?~(publication ~ (publication-json:hd hands effect u.publication)))]
+++  work-publication-live
+  |=  pub=publication:hh
+  ^-  ?
+  =/  obs  (~(get by observations.hands) input.pub)
+  ?~  obs  &
+  ?.  =('work-reply/' (end [3 11] event.u.obs))  &
+  =/  checked
+    %-  mule  |.
+    =/  id  (slav %uv (rsh [3 11] event.u.obs))
+    =/  request  (~(got by requests.work-controls) id)
+    ?>  &(=(%done status.request) =('task-reply' action.request))
+    =/  prior  (work-reply-prior args.request)
+    ?>  ?~(prior & =(u.prior id))
+    =/  input=admitted-input:h  [id source.request actor.request ~ now.bowl [%user '']]
+    =/  who  (need (work-authority sid.request input))
+    ?>  &(owner.who =(scope.request scope.by.who))
+    =.  workspace  (refresh:~(. reader:notes-lib bowl) workspace workspace-notes)
+    ?>  =(fence.request (work-fence action.request args.request))
+    =/  preview  (work-reply-preview args.request)
+    ?&  =(binding.pub (string:workspace-json preview 'binding'))
+        =(hand.pub (string:workspace-json preview 'hand'))
+        =(address.pub (string:workspace-json preview 'address'))
+        =(body.pub (string:workspace-json preview 'text'))
+    ==
+  &(?=(%& -.checked) p.checked)
+++  work-reply-prior
+  |=  args=json
+  ^-  (unit @uv)
+  =/  db  work-controls
+  |-  ^-  (unit @uv)
+  =/  id  (reply-request:work-control db args)
+  ?~  id  ~
+  =/  effect  (input-id:hd (string:workspace-json args 'binding') (cat 3 'work-reply/' (scot %uv u.id)))
+  =/  publication  (~(get by outbox.hands) effect)
+  ?.  ?&(?=(^ publication) ?=(?(%failed %abandoned) status.u.publication))  id
+  $(db db(requests (~(del by requests.db) u.id)))
+++  work-check
+  |=  [who=authority:work id=@uv action=@t args=json]
+  ^-  (each json @t)
+  ?:  =('task-reply' action)
+    ?.  owner.who  [%| 'Only an owner can approve a task result reply.']
+    =/  checked  (mule |.((work-reply-preview args)))
+    ?.  ?=(%& -.checked)  [%| 'Require a current done task, its accepted artifact revision (body 1..4096 bytes), and a live hand binding with an allowed actor.']
+    =/  prior  (work-reply-prior args)
+    ?^  prior  [%| (cat 3 'This result already has a reply receipt. Inspect it instead of sending again: /work result ' (scot %uv u.prior))]
+    [%& p.checked]
+  ?:  =('hand-access' action)
+    ?.  owner.who  [%| 'Only an owner can grant hand management access.']
+    =/  parsed
+      %-  mule  |.
+      [(string:workspace-json args 'binding') (string:workspace-json args 'actor') (boolean:workspace-json args 'owner' |)]
+    ?.  ?=(%& -.parsed)  [%| 'Expected binding, actor, and owner.']
+    =/  binding  (~(get by bindings.hands) -.p.parsed)
+    ?.  ?&(?=(^ binding) !=('tlon' hand.u.binding) enabled.u.binding (lien actors.u.binding |=(a=@t =(a +<.p.parsed))))
+      [%| 'Choose an enabled non-Tlon hand binding and one of its allowed actors. Tlon uses its live owner DM policy.']
+    [%& args]
+  =/  native  (mule |.(&(owner.who (accepts:notes-lib action args))))
+  ?.  ?=(%& -.native)  [%| 'Invalid document operation.']
+  ?:  p.native
+    =/  prepared
+      %-  mule  |.
+      (prepare:notes-lib workspace workspace-notes [%work id] action args (cat 3 'w-' (crip (a-co:co id))) now.bowl id)
+    ?.  ?=(%& -.prepared)  [%| 'Invalid Notes operation or parameters.']
+    ?:  ?=(%| -.p.prepared)  [%| p.p.prepared]
+    [%& args]
+  result:(workspace-request who action args (cat 3 'w-' (crip (a-co:co id))))
+++  work-prepare
+  |=  [sid=session-id:h action=@t args=json]
+  ^-  [result=(each json @t) new=_state]
+  =/  input  (work-origin sid)
+  ?~  input  [[%| 'Work management requires a human conversation.'] state]
+  =/  who  (work-authority sid u.input)
+  ?~  who  [[%| 'This conversation has no current work management permission.'] state]
+  ?.  &(?=(%o -.args) (lte (met 3 (en:json:html args)) 32.768))
+    [[%| 'Expected a JSON object of at most 32768 encoded bytes.'] state]
+  ?:  (is-read:workspace-json action)
+    =/  paged  (~(put by p.args) 'paged' [%b &])
+    =/  limit  (mule |.((min 4 (number:workspace-json args 'limit' 4))))
+    ?.  ?=(%& -.limit)  [[%| 'Invalid page limit.'] state]
+    =/  out  (workspace-request u.who action [%o (~(put by paged) 'limit' (numb:enjs:format p.limit))] '')
+    ?:  ?&(?=(%& -.result.out) (gth (met 3 (en:json:html p.result.out)) 48.000))
+      [[%| 'The read exceeds the conversation budget. Request fewer items or paged document content.'] new.out]
+    out
+  ?:  (bookkeeping-action:workspace-json action)
+    (workspace-request u.who action args (cat 3 'w-' (crip (a-co:co (sham [sid u.input action args])))))
+  ?.  (permitted:work-control action)  [[%| 'Unsupported work action.'] state]
+  =/  refreshed
+    %-  mule  |.
+    ?.  (needs-notes:notes-lib action)  workspace
+    (refresh:~(. reader:notes-lib bowl) workspace workspace-notes)
+  ?.  ?=(%& -.refreshed)  [[%| 'Native Notes is unavailable. Nothing was prepared.'] state]
+  =.  workspace  p.refreshed
+  =/  id  (sham [sid u.input action args now.bowl])
+  =/  checked  (work-check u.who id action args)
+  ?:  ?=(%| -.checked)  [checked state]
+  =/  request=request:wc
+    [sid scope.by.u.who source.u.input actor.u.input action args (work-fence action args) now.bowl %pending ~]
+  =/  prepared  (prepare:work-control work-controls id request now.bowl)
+  ?:  ?=(%| -.prepared)  [[%| p.prepared] state]
+  =/  preview  (work-preview id (~(got by requests.p.prepared) id) u.who)
+  ?:  |((gth (met 3 (en:json:html preview)) 48.000) (gth (met 3 (receipt:work-view preview)) 48.000))
+    [[%| 'The exact confirmation preview exceeds the conversation budget. Narrow this operation before preparing it.'] state]
+  [[%& preview] state(work-controls p.prepared)]
+++  work-preview
+  |=  [id=@uv request=request:wc who=authority:work]
+  ^-  json
+  =/  preview  (work-context request (encode:work-control id request))
+  =?  preview  =('task-reply' action.request)
+    ?>  ?=(%o -.preview)
+    [%o (~(put by p.preview) 'reply' (work-reply-preview args.request))]
+  ::  Review previews include the exact proposed content, not just its name.
+  =?  preview  =('review' action.request)
+    ?>  ?=(%o -.preview)
+    =/  proposal  (read:workspace-json workspace who 'proposal' (pairs:enjs:format ~[['id' %s (string:workspace-json args.request 'id')]]))
+    [%o (~(put by p.preview) 'proposal' proposal)]
+  =?  preview  =('publish' action.request)
+    ?>  ?=(%o -.preview)
+    =/  args  (pairs:enjs:format ~[['id' %s (string:workspace-json args.request 'id')] ['revision' (numb:enjs:format (number:workspace-json args.request 'revision' 0))]])
+    =/  revision  (read:workspace-json workspace who 'revision' args)
+    [%o (~(put by p.preview) 'publication' revision)]
+  preview
+++  work-context
+  |=  [request=request:wc value=json]
+  ^-  json
+  =/  action  action.request
+  =/  args  args.request
+  =/  id  (string:work-copy args 'id')
+  =/  subject=json
+    =/  task  (~(get by tasks.workspace) id)
+    ?:  &(=('task' (end [3 4] action)) ?=(^ task))
+      (task-json:workspace-json id u.task)
+    =/  project  (~(get by projects.workspace) id)
+    ?:  &(?=(^ project) |(=('project-edit' action) =('member' action)))
+      (pairs:enjs:format ~[['title' %s title.u.project]])
+    =/  proposal  (~(get by proposals.workspace) id)
+    =?  id  &(=('review' action) ?=(^ proposal))  artifact.u.proposal
+    =?  id  =('propose' action)  (string:work-copy args 'artifact')
+    =/  artifact  (~(get by artifacts.workspace) id)
+    ?~  artifact  [%o ~]
+    (pairs:enjs:format ~[['title' %s label.u.artifact] ['project' ?~(project.u.artifact ~ [%s u.project.u.artifact])]])
+  =/  project  (string:work-copy args 'project')
+  =?  project  =('' project)  (string:work-copy subject 'project')
+  =/  record  (~(get by projects.workspace) project)
+  ?>  ?=(%o -.value)
+  =/  linked  (~(get by artifacts.workspace) (string:work-copy args 'artifact'))
+  =?  value  ?=(^ linked)
+    [%o (~(put by p.value) 'artifactTitle' [%s label.u.linked])]
+  [%o (~(put by (~(put by p.value) 'subject' subject)) 'projectTitle' [%s ?~(record '' title.u.record)])]
+++  work-arguments
+  |=  [action=@t args=json]
+  ^-  json
+  ?>  ?=(%o -.args)
+  =/  id  (optional:workspace-json args 'id')
+  =?  args  ?=(^ id)
+    =/  kind
+      ?:  (lien `(list @t)`~['project' 'project-edit' 'member'] |=(a=@t =(a action)))  'p'
+      ?:  (lien `(list @t)`~['task' 'task-send' 'task-update' 'task-claim' 'task-assign' 'task-delete'] |=(a=@t =(a action)))  't'
+      ?:  (lien `(list @t)`~['artifact' 'revision' 'revisions' 'artifact-save' 'artifact-archive' 'preview' 'publish' 'unpublish'] |=(a=@t =(a action)))  'd'
+      ?:  |(=('proposal' action) =('review' action))  'v'
+      ''
+    ?:  =('' kind)  args
+    =/  ids  ?:(=('p' kind) ~(tap in ~(key by projects.workspace)) ?:(=('t' kind) ~(tap in ~(key by tasks.workspace)) ?:(=('d' kind) ~(tap in ~(key by artifacts.workspace)) ~(tap in ~(key by proposals.workspace)))))
+    [%o (~(put by p.args) 'id' [%s (resolve:work-copy kind u.id ids)])]
+  =/  project  (optional:workspace-json args 'project')
+  =?  args  ?=(^ project)
+    [%o (~(put by p.args) 'project' [%s (resolve:work-copy 'p' u.project ~(tap in ~(key by projects.workspace)))])]
+  =/  artifact  (optional:workspace-json args 'artifact')
+  =?  args  ?=(^ artifact)
+    [%o (~(put by p.args) 'artifact' [%s (resolve:work-copy 'd' u.artifact ~(tap in ~(key by artifacts.workspace)))])]
+  args
+++  work-command
+  |=  [sid=session-id:h arg=@t]
+  ^-  [result=(each json @t) cards=(list card) new=_state]
+  ?:  =('' arg)
+    [[%& [%s overview:work-help]] ~ state]
+  =/  cmd  (parse:command (cat 3 '/' arg))
+  ?~  cmd  [[%| 'That work command was not recognized. Send /work for examples.'] ~ state]
+  ?:  =('help' name.u.cmd)
+    [[%& [%s (topic:work-help arg.u.cmd)]] ~ state]
+  ?:  (lien `(list @t)`~['finish' 'more' 'accept' 'decline'] |=(a=@t =(a name.u.cmd)))
+    =/  review  |(=('accept' name.u.cmd) =('decline' name.u.cmd))
+    =/  args  (mole |.((work-arguments ?:(review 'proposal' 'task') (need (arguments:work-view 'task' arg.u.cmd)))))
+    ?~  args  [[%| 'That work reference is unavailable or ambiguous. Open /work tasks to choose it again.'] ~ state]
+    ?:  review
+      ?>  ?=(%o -.u.args)
+      =/  out  (work-prepare sid 'review' [%o (~(put by p.u.args) 'accept' [%b =('accept' name.u.cmd)])])
+      [result.out ~ new.out]
+    =/  read  (work-prepare sid 'task' u.args)
+    ?:  ?=(%| -.result.read)  [result.read ~ new.read]
+    =/  task  p.result.read
+    ?:  =('more' name.u.cmd)
+      [[%& [%s (rap 3 ~[(summary:work-view 'task' u.args task) '\0a' (footer:work-copy (all-actions:work-view 'task' u.args task))])]] ~ new.read]
+    =/  action  'task-update'
+    =/  fields=(list [p=@t q=json])  ~[['id' (need (get:workspace-json task 'id'))] ['version' (need (get:workspace-json task 'version'))]]
+    =?  fields  =('finish' name.u.cmd)
+      (weld fields ^-((list [p=@t q=json]) ~[['status' %s 'done'] ['outcome' (need (get:workspace-json task 'outcome'))] ['artifact' (need (get:workspace-json task 'artifact'))]]))
+    =/  out  (work-prepare sid action (pairs:enjs:format fields))
+    [result.out ~ new.out]
+  ?:  =('task-send' name.u.cmd)
+    =/  resolved
+      %-  mole  |.
+      =/  input  (need (work-origin sid))
+      ?>  ?=(%hand -.source.input)
+      =/  who  (need (work-authority sid input))
+      ?>  owner.who
+      =/  args  (work-arguments 'task' (need (arguments:work-view 'task' arg.u.cmd)))
+      =/  current  (refresh:~(. reader:notes-lib bowl) workspace workspace-notes)
+      =/  task  (~(got by tasks.current) (string:workspace-json args 'id'))
+      =/  artifact  (need artifact.task)
+      =/  art  (~(got by artifacts.current) artifact)
+      :-  current
+      (pairs:enjs:format ~[['id' %s (string:workspace-json args 'id')] ['version' (numb:enjs:format version.task)] ['artifact' %s artifact] ['revision' (numb:enjs:format head.art)] ['binding' %s binding.source.input] ['actor' %s actor.source.input]])
+    ?~  resolved  [[%| 'To send here, use an owner hand conversation and a task with a saved result. Nothing was sent.'] ~ state]
+    =.  workspace  -.u.resolved
+    =/  out  (work-prepare sid 'task-reply' +.u.resolved)
+    [result.out ~ new.out]
+  ?:  |(=('project-new' name.u.cmd) =('task-new' name.u.cmd))
+    =/  draft  (creation:work-view name.u.cmd arg.u.cmd)
+    ?~  draft  [[%& [%s (creation-help:work-view name.u.cmd arg.u.cmd)]] ~ state]
+    =/  args  (mole |.((work-arguments action.u.draft args.u.draft)))
+    ?~  args  [[%| 'Choose the project again with /work projects.'] ~ state]
+    =/  out  (work-prepare sid action.u.draft u.args)
+    [result.out ~ new.out]
+  ?.  (lien `(list @t)`~['confirm' 'reject' 'result' 'details'] |=(a=@t =(a name.u.cmd)))
+    =/  human-view  (handles:work-view name.u.cmd)
+    =/  args=(unit json)
+      ?:  human-view  (arguments:work-view name.u.cmd arg.u.cmd)
+      ?:(=('' arg.u.cmd) `[%o ~] (de:json:html arg.u.cmd))
+    ?~  args  [[%| 'The command details could not be read. Use double quotes around field names and text, as shown in /work help tasks. Nothing was changed.'] ~ state]
+    =/  resolved  (mole |.((work-arguments name.u.cmd u.args)))
+    ?~  resolved  [[%| 'That work reference is unavailable or ambiguous. Open /work tasks or /work projects to choose it again.'] ~ state]
+    =/  out  (work-prepare sid name.u.cmd u.resolved)
+    ?:  &(human-view ?=(%& -.result.out))
+      [[%& [%s (render:work-view name.u.cmd u.resolved p.result.out)]] ~ new.out]
+    [result.out ~ new.out]
+  =/  id  (mole |.((resolve:work-control work-controls arg.u.cmd)))
+  =/  input  (work-origin sid)
+  ?.  &(?=(^ id) ?=(^ input))  [[%| 'Invalid work request or human origin.'] ~ state]
+  =/  who  (work-authority sid u.input)
+  =/  request  (~(get by requests.work-controls) u.id)
+  ?.  &(?=(^ who) ?=(^ request))  [[%| 'Work request unavailable or permission revoked.'] ~ state]
+  ?.  (matches:work-control u.request sid scope.by.u.who source.u.input actor.u.input)
+    [[%| 'Use the same sender and conversation that prepared this request.'] ~ state]
+  ?.  (visible:work-control workspace u.who u.request)
+    [[%| 'The current project permissions do not allow access to this request.'] ~ state]
+  ?:  =('details' name.u.cmd)
+    [[%& [%s (en:json:html (work-receipt u.id u.request))]] ~ state]
+  ?:  &(=('result' name.u.cmd) !=(%pending status.u.request))
+    [[%& (work-receipt u.id u.request)] ~ state]
+  ?:  =('reject' name.u.cmd)
+    =/  rejected  (reject:work-control work-controls u.id sid scope.by.u.who source.u.input actor.u.input)
+    ?:  ?=(%| -.rejected)  [[%| p.rejected] ~ state]
+    [[%& [%s 'Request rejected.']] ~ state(work-controls p.rejected)]
+  =/  refreshed
+    %-  mule  |.
+    ?.  (needs-notes:notes-lib action.u.request)  workspace
+    (refresh:~(. reader:notes-lib bowl) workspace workspace-notes)
+  ?.  ?=(%& -.refreshed)  [[%| 'Native Notes is unavailable. Nothing was submitted.'] ~ state]
+  =.  workspace  p.refreshed
+  ?:  =('result' name.u.cmd)
+    ?:  (gte now.bowl expires.u.request)
+      [[%| 'This approval expired. Open the task or project and choose the change again.'] ~ state]
+    ?.  =(fence.u.request (work-fence action.u.request args.u.request))
+      [[%| 'Work changed. Prepare a new request to inspect and confirm the current content.'] ~ state]
+    [[%& (work-preview u.id u.request u.who)] ~ state]
+  ?.  (permitted:work-control action.u.request)  [[%| 'This action is unavailable. Ask in the conversation for the work you need.'] ~ state]
+  =/  confirmed  (confirm:work-control work-controls u.id sid scope.by.u.who source.u.input actor.u.input (work-fence action.u.request args.u.request) now.bowl)
+  ?:  ?=(%| -.confirmed)  [[%| p.confirmed] ~ state]
+  ?.  (previewed:work-control log:(need-session sid) u.id (work-preview u.id u.request u.who))
+    [[%| (cat 3 'Review the change first: /work result ' (key:work-copy (encode:work-control u.id u.request)))] ~ state]
+  =/  checked  (work-check u.who u.id action.u.request args.u.request)
+  ?:  ?=(%| -.checked)  [checked ~ state]
+  =.  work-controls  p.confirmed
+  ?:  =('task-reply' action.u.request)
+    =/  args  args.u.request
+    =/  reply  (work-reply-preview args)
+    =/  out  (hand-call [%notify (string:workspace-json args 'binding') (cat 3 'work-reply/' (scot %uv u.id)) (string:workspace-json args 'actor') (string:workspace-json reply 'text')])
+    =.  state  new.out
+    =.  work-controls  (complete:work-control work-controls u.id result.out)
+    [[%& (work-receipt u.id (~(got by requests.work-controls) u.id))] cards.out state]
+  ?:  =('hand-access' action.u.request)
+    =/  key  [(string:workspace-json args.u.request 'binding') (string:workspace-json args.u.request 'actor')]
+    =.  owners.work-controls
+      ?:  (boolean:workspace-json args.u.request 'owner' |)  (~(put in owners.work-controls) key)
+      (~(del in owners.work-controls) key)
+    =.  workspace  (record:workspace-lib workspace u.who 'hand-access' -.key now.bowl)
+    =.  work-controls  (complete:work-control work-controls u.id [%& args.u.request])
+    [[%& (work-receipt u.id (~(got by requests.work-controls) u.id))] ~ state]
+  ?:  owner.u.who
+    =^  cards  state  (workspace-owner [%work u.id] action.u.request args.u.request (cat 3 'w-' (crip (a-co:co u.id))))
+    [[%& (work-receipt u.id (~(got by requests.work-controls) u.id))] cards state]
+  =/  applied  (workspace-request u.who action.u.request args.u.request (cat 3 'w-' (crip (a-co:co u.id))))
+  =.  state  new.applied
+  =.  work-controls  (complete:work-control work-controls u.id result.applied)
+  [[%& (work-receipt u.id (~(got by requests.work-controls) u.id))] ~ state]
 ++  workspace-tool
   |=  req=tool-request:adapter
   ^-  (quip card _state)
@@ -1069,6 +1535,12 @@
       =/  args  (need (de:json:html args.call.req))
       [(string:workspace-json args 'action') (need (de:json:html (string:workspace-json args 'args')))]
     ?.  ?=(%& -.decoded)  [[%| 'Expected action and args as a JSON object string'] state]
+    ?:  =('manage' -.p.decoded)
+      =/  nested
+        %-  mule  |.
+        [(string:workspace-json +.p.decoded 'action') (fall (get:workspace-json +.p.decoded 'args') [%o ~])]
+      ?.  ?=(%& -.nested)  [[%| 'Manage expects an action and args object.'] state]
+      (work-prepare sid.req -.p.nested +.p.nested)
     =/  fallback  (cat 3 'w-' (crip (a-co:co (sham req))))
     (workspace-request u.who -.p.decoded +.p.decoded fallback)
   =/  body=@t
@@ -1089,7 +1561,7 @@
   =/  parsed
     %-  mule  |.
     ^-  action:cr
-    ?:  |(=('harness/cron' method) =('harness/tlon/cron' method))
+    ?:  =('harness/cron' method)
       [%list (acp-param-string:wire-codec params 'binding')]
     =/  fields  (need params)
     ?:  =('harness/cron/add' method)
@@ -1098,8 +1570,8 @@
       ?>  |(=('prompt' kind.f) =('reminder' kind.f))
       [%add (slav %uv id.f) binding.f actor.f ?:(=('prompt' kind.f) %prompt %reminder) args.f]
     =/  key  (slav %uv ((ot:dejs:format ~[id+so:dejs:format]) fields))
-    ?:  |(=('harness/cron/cancel' method) =('harness/tlon/cron/cancel' method))  [%cancel key]
-    ?>  |(=('harness/cron/clear' method) =('harness/tlon/cron/clear' method))
+    ?:  =('harness/cron/cancel' method)  [%cancel key]
+    ?>  =('harness/cron/clear' method)
     [%clear key]
   ?.  ?=(%& -.parsed)
     [~[(acp-error-card:wire-codec connection id '-32602' 'Invalid schedule request')] state]
@@ -1392,9 +1864,7 @@
   ?:  =('harness/workspace' p.u.method)
     ?~  id  `state
     (workspace-acp connection u.id params)
-  ::  Shared schedules precede the legacy adapter namespace. Old clients
-  ::  retain their URLs, but no Tlon scheduler continues to own these jobs.
-  ?:  |(=('harness/cron' p.u.method) =('harness/cron/' (end [3 13] p.u.method)) =('harness/tlon/cron' p.u.method) =('harness/tlon/cron/' (end [3 18] p.u.method)))
+  ?:  |(=('harness/cron' p.u.method) =('harness/cron/' (end [3 13] p.u.method)))
     ?~  id  `state
     (schedule-acp connection u.id p.u.method params)
   ::  The hand, not the head, owns its method vocabulary. Keep one
@@ -1427,6 +1897,8 @@
   ::
       %'harness/hand'
     ?~  id  `state
+    ?^  (decode:admin connection)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Hand ingress and delivery receipts belong to authenticated transports, not model administration.')] state]
     ?~  params
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Expected a hand action')] state]
     =/  parsed  (mule |.((json-action:hd u.params)))
@@ -1930,6 +2402,8 @@
       %retry  (~(get by outbox.hands) effect.act)
     ==
   =/  scheduled  ?~(publication ~ (for-session:schedule-lib schedules sid.u.publication))
+  ?:  ?&(?=(^ publication) !(work-publication-live u.publication))
+    [[%| 'Reviewed task reply no longer has its approved content or authority. Inspect receipts; prepare a new reply without resending uncertain effects.'] ~ state]
   ?:  ?&(?=(^ scheduled) !(schedule-live u.scheduled))
     [[%| 'Scheduled publication no longer has source authority; reconcile existing receipts without resending'] ~ state]
   =/  cfg=(unit binding:hh)
@@ -1989,6 +2463,15 @@
   ?>  ?=(%input-received -.event)
   ?>  ?=(%user -.item.input.event)
   =/  cmd  (parse:command body.item.input.event)
+  ?:  &(?=(^ cmd) =('work' name.u.cmd))
+    =^  recorded  ses  (record-all sid ses ~[event])
+    =.  sessions  (~(put by sessions) sid ses)
+    =/  out  (work-command sid arg.u.cmd)
+    =.  state  new.out
+    =/  body  (reply:work-help result.out)
+    =^  completed  ses  (record-all sid (need-session sid) ~[[%command-completed id.input.event 'work' body]])
+    =^  driven  state  (drive-put sid ses)
+    [:(weld recorded cards.out completed driven) state]
   ?:  =(`['compact' ''] cmd)
     =^  recorded  ses  (record-all sid ses ~[event])
     =^  started  ses  (start-compaction sid ses `id.input.event)
@@ -3120,7 +3603,7 @@
     (skim granted |=(g=tool-grant:h &(!=(g %subagents) (lien ceiling |=(c=tool-grant:h =(g c))))))
   =/  tlon
     (lien ~(val by bindings.hands) |=(b=binding:hh &(=(sid sid.b) =('tlon' hand.b))))
-  ::  Saved legacy flags never grant Tlon authority to an unbound session.
+  ::  Tlon authority requires a live hand binding.
   =.  granted  ?:(tlon (with-tlon:ht granted) (without-tlon:ht granted))
   =/  authority=hand-authority:adapter
     ?.  tlon  [& ~]
@@ -3836,6 +4319,61 @@
   =/  siblings  siblings.trust
   ?:  &(?=(~ owner) !siblings)  revision
   (scot %uv (sham [revision owner siblings effective]))
+::  A separate read-only client binding; no cookie promotion, session creation,
+::  ACP queue, or effect dispatch. The registry stores a digest; inbound events
+::  may still retain secrets in ship logs/backups and need operator protection.
+::
+++  serve-project-read
+  |=  [eyre-id=@ta req=inbound-request:eyre]
+  ^-  (quip card _state)
+  =/  reply
+    |=  [code=@ud value=json]
+    ^-  (quip card _state)
+    :_  state
+    %^  give-http:effects  eyre-id
+      [code ~[['content-type' 'application/json'] ['cache-control' 'no-store'] ['referrer-policy' 'no-referrer'] ['x-content-type-options' 'nosniff']]]
+    `(as-octs:mimes:html (en:json:html value))
+  =/  bad
+    |=  [code=@ud message=@t]
+    (reply code (pairs:enjs:format ~[['error' %s message]]))
+  ?.  =('/harness-project/read' url.request.req)  (bad 404 'Not found')
+  ?.  =(%'POST' method.request.req)  (bad 405 'POST only; this endpoint performs reads')
+  ?.  (local-or-secure:project-client req)  (bad 403 'Use HTTPS or a loopback connection')
+  =/  key  (header-key:project-client header-list.request.req)
+  ?~  key  (bad 401 'A valid project bearer key is required')
+  =/  access  (authenticate:project-client project-clients workspace u.key now.bowl)
+  ?~  access  (bad 401 'Project key unavailable, expired, revoked, or suspended')
+  ?~  body.request.req  (bad 400 'Expected a JSON read request')
+  ?.  &((lte p.u.body.request.req 8.192) (lte (met 3 q.u.body.request.req) 8.192))
+    (bad 413 'Read request exceeds 8192 bytes')
+  =/  request
+    %-  mole  |.
+    =/  value  (need (de:json:html q.u.body.request.req))
+    =/  action  (string:workspace-json value 'action')
+    =/  args  (fall (get:workspace-json value 'args') [%o ~])
+    ?>  &((lte (met 3 action) 32) ?=(%o -.args))
+    [action args]
+  ?~  request  (bad 400 'Expected action and a JSON args object')
+  =/  [action=@t args=json]  u.request
+  ?.  (read-action:project-client action)  (bad 403 'This project key permits reads only')
+  =/  project  project.credential.u.access
+  =/  refreshed
+    %-  mule  |.
+    =/  scoped  (view:project-client workspace project)
+    ?.  (needs-notes:notes-lib action)  scoped
+    ::  Narrow native identities before refreshing, not just the final JSON.
+    =/  native  workspace-notes
+    =.  links.native
+      %-  my
+      %+  skim  ~(tap by links.native)
+      |=  [id=@t link=link:hn]
+      (~(has by artifacts.scoped) id)
+    (refresh-scoped:~(. reader:notes-lib bowl) scoped native)
+  ?.  ?=(%& -.refreshed)  (bad 503 'Native Notes unavailable; no cached document was returned')
+  =/  out  (read:project-client p.refreshed project action args)
+  ?:  ?=(%| -.out)  (bad 404 p.out)
+  (reply 200 (decorate:notes-lib workspace-notes p.out))
+::
 ::  eyre: webhooks admit input from the outside world
 ::
 ++  serve
@@ -3850,10 +4388,6 @@
     ;~(plug apat:de-purl:html yque:de-purl:html)
   ?~  parsed  (bad 400 'bad url')
   =/  site=(list @t)  site.u.parsed
-  ?:  ?=([%'harness-pages' @ ~] site)
-    ::  Retired route stays bound only to prevent accidentally serving old
-    ::  snapshots. Native Notes exclusively owns publication and its URL.
-    (bad 404 'Page not found')
   ?>  =(src.bowl our.bowl)
   ?.  =(%'POST' method.request.req)  (bad 405 'POST only')
   ?.  ?=([%'harness-api' %webhook @ ~] site)

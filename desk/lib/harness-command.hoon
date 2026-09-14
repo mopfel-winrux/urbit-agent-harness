@@ -51,6 +51,7 @@
       '/memory — list this conversation\'s pinned notes\0a'
       '/remember <name> <text> — save or replace a pinned note\0a'
       '/forget <name> — unpin a note (does not erase history)\0a'
+      '/work — manage projects, tasks and artifact review in this conversation\0a'
       '/stop — cancel current and queued work\0a\0a'
       'Only /compact calls a model (to summarize history). '
       'Only /stop interrupts active work. '
@@ -149,6 +150,7 @@
             ['memory' 'List this conversation\'s pinned notes' '']
             ['remember' 'Save or replace a conversation note' 'name text']
             ['forget' 'Unpin a note without erasing history' 'name']
+            ['work' 'Read work or prepare a human-confirmed change' 'action JSON | confirm id | reject id | result id']
             ['stop' 'Cancel current and queued work' '']
         ==
       |=  [name=@t description=@t hint=@t]

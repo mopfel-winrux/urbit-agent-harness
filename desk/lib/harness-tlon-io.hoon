@@ -5,9 +5,9 @@
 |_  bowl=bowl:gall
 +$  card  card:agent:gall
 ++  publish
-  |=  [wire=wire to=destination:t text=@t sent=@da]
+  |=  [wire=wire to=destination:t text=@t sent=@da blob=(unit @t)]
   ^-  card
-  =/  blob=(unit @t)  ~
+  =?  blob  ?=(%channel -.to)  ~
   =/  memo=memo:v9:dv  [(text-to-story:story text) our.bowl sent]
   ?-  -.to
       %dm

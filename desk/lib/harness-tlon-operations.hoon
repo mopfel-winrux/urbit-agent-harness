@@ -174,7 +174,7 @@
     ?:  |(=('send_dm' action) =('send_channel' action))
       =/  to  (destination:spec args)
       ?>  =(=('send_dm' action) ?=(%dm -.to))
-      (publish:~(. io bowl) wire to (required:spec args 'text' 16.384) sent)
+      (publish:~(. io bowl) wire to (required:spec args 'text' 16.384) sent ~)
     =/  flag  (flag:spec (required:spec args 'group' 256))
     ?:  |(=('update_group' action) =('update_channel' action))
       =/  group  (~(got by groups) flag)

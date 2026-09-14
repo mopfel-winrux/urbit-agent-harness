@@ -29,7 +29,7 @@ inspect durable state before retrying it.
 ### Conversation commands
 
 Send commands as ordinary `session/prompt` text. Harness advertises `/help`,
-`/status`, `/model`, `/context`, `/compact`, `/memory`, `/remember`, `/forget`, and
+`/status`, `/model`, `/context`, `/compact`, `/memory`, `/remember`, `/forget`, `/work`, and
 `/stop` using ACP's `available_commands_update` on
 session creation, load, and resume. React, native `%send`, and all conversation
 hands use the same command interpreter; adapters do not implement command logic.
@@ -46,9 +46,11 @@ hands use the same command interpreter; adapters do not implement command logic.
 | `/memory` | List the current conversation's pinned notes. |
 | `/remember <name> <text>` | Save or replace a note, retained verbatim across compaction. |
 | `/forget <name>` | Unpin a note; earlier messages and checkpoints are not erased. |
+| `/work` | Read work or prepare a human-confirmed project, task, or artifact operation. See [conversation work management](work-control.md). |
 | `/stop` | Cancel the current turn and queued hand work; acknowledge locally. |
 
-Only `/compact` calls a model; none requires a tool grant. Model changes retain
+Only `/compact` calls a model. Work management requires current owner or scoped
+workspace authority; the other commands require no tool grant. Model changes retain
 the conversation's instructions, history and tool permissions. A typed model
 name is not an access check; the provider may reject it on the next real prompt.
 Changing to an uncatalogued model uses the same 80,000-token context fallback as
@@ -162,7 +164,7 @@ read bodies; **Search content** uses the separate indexed corpus methods below.
 - `harness/cron/clear` — `{id}`; removes settled schedule records, retaining evidence.
 
 See [shared scheduling](scheduling.md) for the native equivalent, authority,
-limits and legacy Tlon aliases.
+and limits.
 
 `harness/hand` is the bidirectional conversation-adapter extension. It projects
 the same native binding, observation, publication, and receipt contract—not a

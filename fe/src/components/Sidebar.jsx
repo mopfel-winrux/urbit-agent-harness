@@ -1,4 +1,4 @@
-import { DocumentIcon, InboxIcon, ProjectIcon, MenuIcon, PlusIcon, RenameIcon, SearchIcon, SettingsIcon, TrashIcon } from './Icons'
+import { InboxIcon, MenuIcon, PlusIcon, RenameIcon, SearchIcon, SettingsIcon, TrashIcon } from './Icons'
 import TlonIcon from './TlonIcon'
 import { useEffect, useRef, useState } from 'react'
 import { CONVERSATION_PAGE_SIZE, conversationPage } from '../conversations'
@@ -16,6 +16,7 @@ export default function Sidebar({ chats, current, onSelect, onNew, onRename, onD
   }, [])
   const act = (callback, ...args) => { drawer.current?.close(); callback?.(...args) }
   const { visible, remaining } = conversationPage(chats, search, limit)
+  const workActive = ['inbox', 'tasks', 'artifacts', 'projects'].includes(work)
   const navigation = (
     <aside className="sidebar">
       <div className="brand"><img className="brand-logo" src={`${import.meta.env.BASE_URL}harness-logo.png`} alt="Harness" width="32" height="32" /><span aria-hidden="true">Harness</span>{mobile && <button className="close-button" aria-label="Close navigation" onClick={() => drawer.current.close()}>×</button>}</div>
@@ -39,11 +40,9 @@ export default function Sidebar({ chats, current, onSelect, onNew, onRename, onD
         {remaining > 0 && <button className="conversation-load-more text-button" onClick={() => setLimit((value) => value + CONVERSATION_PAGE_SIZE)} aria-label={`Load more conversations (${remaining} remaining)`}>Load more</button>}
       </nav>
       <div className="sidebar-spacer" />
-      <button className={work === 'inbox' ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onWorkspace, 'inbox')} aria-current={work === 'inbox' ? 'page' : undefined}><InboxIcon /><span>Work inbox</span></button>
-      <button className={work === 'artifacts' ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onWorkspace, 'artifacts')} aria-current={work === 'artifacts' ? 'page' : undefined}><DocumentIcon /><span>Artifacts</span></button>
-      <button className={work === 'projects' ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onWorkspace, 'projects')} aria-current={work === 'projects' ? 'page' : undefined}><ProjectIcon /><span>Projects</span></button>
-      <button className={corpus ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onCorpus)} aria-current={corpus ? 'page' : undefined}><SearchIcon /><span>Search content</span></button>
+      <button className={workActive ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onWorkspace, 'inbox')} aria-current={workActive ? 'page' : undefined}><InboxIcon /><span>Work</span></button>
       <button className={tlon ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onTlon)} title="Tlon" aria-label="Tlon" aria-current={tlon ? 'page' : undefined}><TlonIcon /><span>Tlon</span></button>
+      <button className={corpus ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onCorpus)} aria-current={corpus ? 'page' : undefined}><SearchIcon /><span>Search</span></button>
       <button className={settings ? 'sidebar-action active' : 'sidebar-action'} onClick={() => act(onSettings)} title="Settings" aria-label="Settings" aria-current={settings ? 'page' : undefined}><SettingsIcon /><span>Settings</span></button>
     </aside>
   )

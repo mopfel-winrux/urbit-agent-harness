@@ -173,11 +173,15 @@ Native tests exercise production hierarchy, index, corpus, JSON and persistence
 helpers. `scripts/lcm-conformance.mjs` uses a local model server through real
 ACP/Iris to create leaves and parents, expand evidence, paginate search, check
 model recall grants, and test rename/delete/recreation.
+It also verifies generic hand indexing and prevents a hand conversation's
+`corpus` grant from exposing owner conversation evidence.
 `scripts/compaction-conformance.mjs` covers frozen spans, cancellation, failures,
 model-window changes, concurrent input and independent Grubbery replay.
 Both temporarily select local summary overrides and restore the saved values;
 run them alone on a development ship, never concurrently with each other.
 Neither requires a paid provider request.
+Cleanup verifies the restored settings and reports failures to remove unbound
+fixture sessions or disable retained hand-bound audit fixtures.
 
 `desk/tests-integration/harness-corpus-benchmark.hoon` builds 32,768 fixture documents and
 times production rare-AND, common, scoped and prefix queries independently of

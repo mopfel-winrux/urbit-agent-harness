@@ -1453,5 +1453,10 @@
   =.  last-sent  (next-message-stamp:p now.bowl last-sent)
   =/  external=@t  (rap 3 (scot %p our.bowl) '/' (scot %da last-sent) ~)
   =.  deliveries  (~(put by deliveries) id [attempt %send %uncertain external])
-  (emit (publish:messenger /publish/(scot %uv id)/(scot %ud attempt) to.u.lane body.pub last-sent))
+  =/  blob=(unit @t)
+    ?.  ?=(%dm -.to.u.lane)  ~
+    ::  Optional presentation cannot prevent delivery of the ordinary reply.
+    %-  mole  |.
+    (need .^((unit @t) %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/work-card/(scot %uv id)/noun))
+  (emit (publish:messenger /publish/(scot %uv id)/(scot %ud attempt) to.u.lane body.pub last-sent blob))
 --

@@ -6,6 +6,7 @@ import GlobalSettings from '../src/components/GlobalSettings'
 import AgentSettings from '../src/components/AgentSettings'
 import ProviderSettings from '../src/components/ProviderSettings'
 import SearchSettings from '../src/components/SearchSettings'
+import MemorySettings from '../src/components/MemorySettings'
 import McpSettings from '../src/components/McpSettings'
 import SkillSettings from '../src/components/SkillSettings'
 import PeerSettings from '../src/components/PeerSettings'
@@ -24,6 +25,7 @@ let device = params.has('device') || sessionStorage.getItem('settings-fixture-de
 let apiKey = false
 let braveKey = sessionStorage.getItem('settings-fixture-brave') === 'true'
 let search = JSON.parse(sessionStorage.getItem('settings-fixture-search') || 'null') || { provider: 'brave', 'instance-url': '' }
+let summaryModels = JSON.parse(sessionStorage.getItem('settings-fixture-summary-models') || 'null') || { compaction: null, lcm: null }
 let skills = JSON.parse(sessionStorage.getItem('settings-fixture-skills') || '[]')
 let peerSettings = JSON.parse(sessionStorage.getItem('settings-fixture-peers') || 'null') || { ...emptyPeers(), ship: '~zod', revision: '1', usage: [{ ship: '~nec', used: 1234, total: 1234 }] }
 let tlonPolicy = JSON.parse(sessionStorage.getItem('settings-fixture-tlon') || 'null') || { enabled: false, owner: '~bud', mentions: true, trusted: [{ ship: '~nec', tools: ['web'] }] }
@@ -44,6 +46,11 @@ acp.call = async (method) => {
 }
 api.read = async (path) => {
   window.settingsFixture.reads.push(path)
+  if (path === 'summary-models') {
+    if (params.has('hold-memory')) await new Promise((resolve) => { window.settingsFixture.releaseMemory = resolve })
+    if (window.settingsFixture.failMemoryRead) throw new Error('Memory settings unavailable in fixture')
+    return summaryModels
+  }
   if (path === 'peers') {
     if (window.settingsFixture.failPeerRead) throw new Error('Peer settings unavailable in fixture')
     return peerSnapshot()
@@ -88,6 +95,12 @@ api.action = async (action) => {
     return { 'has-key': true }
   }
   if (window.settingsFixture.failSave) throw new Error('Configuration save failed in fixture')
+  if (action.summaryModels) {
+    summaryModels = action.summaryModels
+    window.settingsFixture.saves.push(action)
+    sessionStorage.setItem('settings-fixture-summary-models', JSON.stringify(summaryModels))
+    return summaryModels
+  }
   if (action.owner) {
     if (action.owner.expectedOwner !== tlonPolicy.owner || action.owner.expectedSiblingMoonOwners !== siblingMoonOwners) throw new Error('Owner changed; reload before saving')
     siblingMoonOwners = action.owner.siblingMoonOwners
@@ -155,7 +168,7 @@ api.action = async (action) => {
 function SettingsFixture() {
   const [theme, setTheme] = useState('system')
   const changeTheme = (next) => { document.documentElement.dataset.theme = next; setTheme(next) }
-  const component = params.get('page') === 'peers' ? <PeerSettings /> : params.get('page') === 'tlon' ? <TlonSettings onBack={() => {}} /> : params.get('page') === 'skills' ? <SkillSettings /> : params.get('page') === 'mcp' ? <McpSettings resources={resourcesFor('')} /> : params.get('page') === 'search' ? <SearchSettings /> : params.get('page') === 'provider'
+  const component = params.get('page') === 'memory' ? <MemorySettings /> : params.get('page') === 'peers' ? <PeerSettings /> : params.get('page') === 'tlon' ? <TlonSettings onBack={() => {}} /> : params.get('page') === 'skills' ? <SkillSettings /> : params.get('page') === 'mcp' ? <McpSettings resources={resourcesFor('')} /> : params.get('page') === 'search' ? <SearchSettings /> : params.get('page') === 'provider'
   ? <ProviderSettings provider="openai" resources={resourcesFor('')} />
   : params.get('page') === 'conversation'
     ? <AgentSettings resources={resourcesFor('fixture')} theme={theme} onThemeChange={changeTheme} />

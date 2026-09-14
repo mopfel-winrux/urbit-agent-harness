@@ -88,22 +88,13 @@ The JavaScript `HandClient` supplies `schedule(binding, options)`,
 `schedules(binding)`, `cancelSchedule(id)` and `clearSchedule(id)`. It adds no
 timer, model loop or separate delivery queue.
 
-## Upgrade from Tlon-owned schedules
-
-The upgraded Tlon adapter relinquishes its schedule wake and transfers its
-retained records to the head once. Existing ids, run conversations, budgets,
-last-input identities and publication receipts are retained. Missing source
-authority or unfinished initialization is paused for inspection rather than
-silently rebuilt. Legacy `harness/tlon/cron`, `/cancel` and `/clear` methods are
-compatibility aliases to the shared head, not a second scheduler.
-
 ## Verification
 
 `desk/tests/harness-cron.hoon` tests strict calendar parsing;
 `desk/tests/harness-schedule.hoon` tests shared validation, isolation, evidence
-gates, bounded advancement and store migration. The opt-in
+gates and bounded advancement. The opt-in
 `desk/tests-integration/harness-schedule.hoon` exercises full-agent reload,
-single-timer replacement and the once-only legacy handoff. Run
+single-timer replacement and durable schedule ownership. Run
 `scripts/cron-conformance.mjs` with `SHIP_URL` and `SHIP_COOKIE` on a development
 ship to exercise a non-Tlon hand, native/ACP parity, model-created schedules,
 literal delivery, recursive-call denial and source revocation. It uses a local

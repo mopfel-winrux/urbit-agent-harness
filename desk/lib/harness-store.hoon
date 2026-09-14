@@ -4,9 +4,23 @@
 /-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, corpus=harness-corpus, work=harness-workspace, *harness-store
 /-  hn=harness-notes
 /-  ws=harness-workspace-search
+/-  pc=harness-project-client
+/-  wc=harness-work-control
 /+  hl=harness, ht=harness-tools, hd=harness-hand, policy=harness-defaults, index=harness-session-index
 |%
 ++  load
+  |=  old-vase=vase
+  ^-  state-25
+  =/  current  (mule |.(!<(state-25 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  [%25 *state:wc (load-24 old-vase)]
+++  load-24
+  |=  old-vase=vase
+  ^-  state-24
+  =/  current  (mule |.(!<(state-24 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  [%24 *state:pc (load-23 old-vase)]
+++  load-23
   |=  old-vase=vase
   ^-  state-23
   =/  current  (mule |.(!<(state-23 old-vase)))

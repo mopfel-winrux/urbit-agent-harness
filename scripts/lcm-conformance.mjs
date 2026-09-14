@@ -1,13 +1,17 @@
 // Real head/ACP/Iris/index integration. No paid provider requests. Run alone:
 // this temporarily selects local summary overrides and restores them on exit.
+// Generic-hand replies use a synthetic sink; disabled bound fixtures retain
+// their audit records. No Tlon adapter or real social destination is used.
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { Client } from './lib/ship-client.mjs'
+import { HandClient } from '../acp/hand-client.mjs'
 
 const client = new Client(), names = [], requests = []
 const tag = `lcmcheck${randomUUID().replaceAll('-', '').slice(0, 10)}`
+const hand = new HandClient(client, { hand: tag, worker: 'fixture' }), bindings = []
 let savedModels, leafCount = 0, branchCount = 0, recall = false
 const server = createServer(async (req, res) => {
   let raw = ''
@@ -29,9 +33,9 @@ const server = createServer(async (req, res) => {
   res.writeHead(200, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ choices: [{ message, finish_reason: message.tool_calls ? 'tool_calls' : 'stop' }], usage: { prompt_tokens: 100, completion_tokens: 20 } }))
 })
-async function until(check) {
+async function until(check, label = 'corpus indexing') {
   for (let i = 0; i < 200; i++) { const value = await check(); if (value) return value; await sleep(100) }
-  throw new Error('Index did not settle within 20 seconds')
+  throw new Error(`${label} did not settle within 20 seconds`)
 }
 const prompt = (sessionId, text) => client.call('session/prompt', { sessionId, prompt: [{ type: 'text', text }] })
 const snapshot = (sessionId) => client.call('harness/session/snapshot', { sessionId })
@@ -89,7 +93,21 @@ try {
   await prompt(reader, 'Recall with explicit owner authority.')
   answer = (await snapshot(reader)).entries.at(-1).body
   assert.ok(answer.includes(sid), 'the explicit corpus grant enables global owner recall')
+
+  const social = await make('hand')
+  await client.call('harness/session/configure', { sessionId: social, config: { ...config, tools: ['corpus'] } })
+  await hand.bind(social, { address: 'fixture-only:recall', sessionId: social, actors: ['participant'] })
+  bindings.push(social)
+  await hand.observe(social, { event: 'recall', actor: 'participant', text: 'Recall the stored evidence.' })
+  const scopedReply = await until(async () => (await hand.outbox()).find((row) => row.sessionId === social), 'social recall reply')
+  assert.match(scopedReply.text, /"hits":\[\]/, 'A corpus grant cannot widen social recall to owner conversations')
+  await hand.deliver(scopedReply.effectId, async () => 'fixture-local-recall')
   recall = false
+  await hand.observe(social, { event: 'evidence', actor: 'participant', text: `${tag} handneedle: source evidence from a non-Tlon hand.` })
+  const handReply = await until(async () => (await hand.outbox()).find((row) => row.sessionId === social), 'generic hand evidence reply')
+  await hand.deliver(handReply.effectId, async () => 'fixture-local-evidence')
+  await drain()
+  assert.ok((await search(`${tag} handneedle`)).hits.some((row) => row.sessionId === social), 'Generic hand input enters the shared corpus')
   const renamed = `${tag}-renamed`
   await client.call('harness/session/rename', { sessionId: sid, name: renamed })
   names[names.indexOf(sid)] = renamed
@@ -100,11 +118,22 @@ try {
   await assert.rejects(client.call('harness/corpus/read', source), /not available|no longer/)
   await client.call('session/new', { name: renamed }); names.push(renamed)
   await assert.rejects(client.call('harness/corpus/read', source), /not available|no longer/)
-  console.log(JSON.stringify({ ok: true, leafCount, branchCount, checks: ['separate routes', 'real hierarchical condensation', 'source expansion', 'retained raw text', 'indexed pagination', 'cursor fences', 'model recall scopes', 'rename identity', 'delete/recreate isolation'] }))
+  console.log(JSON.stringify({ ok: true, leafCount, branchCount, checks: ['separate routes', 'real hierarchical condensation', 'source expansion', 'retained raw text', 'indexed pagination', 'cursor fences', 'model recall scopes', 'social recall stays local despite corpus grant', 'non-Tlon hand indexing', 'rename identity', 'delete/recreate isolation'] }))
 } finally {
-  if (savedModels) await client.call('harness/summary-models/configure', { models: savedModels })
-  for (const sessionId of names) await client.call('session/delete', { sessionId }).catch(() => {})
-  await client.close()
+  const cleanupErrors = []
+  const clean = async (label, action) => {
+    try { await action() }
+    catch (error) { cleanupErrors.push(new Error(`${label}: ${error.message}`)) }
+  }
+  if (savedModels) await clean('restore summary settings', async () => {
+    await client.call('harness/summary-models/configure', { models: savedModels })
+    assert.deepEqual(await client.call('harness/summary-models'), savedModels)
+  })
+  for (const id of bindings) await clean(`disable fixture binding ${id}`, () => hand.enable(id, false))
+  for (const sessionId of names.filter((id) => !bindings.includes(id))) await clean(`delete fixture session ${sessionId}`, () => client.call('session/delete', { sessionId }))
+  await clean('close client', () => client.close())
   server.closeAllConnections()
   await new Promise((resolve) => server.close(resolve))
+  if (cleanupErrors.length) throw new AggregateError(cleanupErrors, `LCM fixture ${tag} cleanup is incomplete`)
+  console.log('PASS summary settings restored; unbound LCM fixtures removed and bound audit fixtures disabled')
 }

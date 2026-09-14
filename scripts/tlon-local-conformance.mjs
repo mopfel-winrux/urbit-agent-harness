@@ -61,12 +61,12 @@ try {
   })
   assert.equal(reply.essay.blob, null)
   assert.ok(job?.id)
-  const cancelled = (await client.call('harness/tlon/cron/cancel', { id: job.id })).find((row) => row.id === job.id)
+  const cancelled = (await client.call('harness/cron/cancel', { id: job.id })).find((row) => row.id === job.id)
   assert.equal(cancelled.state, 'cancelled'); assert.equal(cancelled.remaining, 1)
   assert.equal(cancelled.lastInput, null); assert.equal(cancelled.clearable, true)
   await until('cancelled authority removed', async () => (await client.call('harness/session/config', { sessionId: job.runSessionId })).tools.length === 0)
   const before = await client.call('harness/session/snapshot', { sessionId: job.runSessionId })
-  assert.ok(!(await client.call('harness/tlon/cron/clear', { id: job.id })).some((row) => row.id === job.id))
+  assert.ok(!(await client.call('harness/cron/clear', { id: job.id })).some((row) => row.id === job.id))
   assert.deepEqual(await client.call('harness/session/snapshot', { sessionId: job.runSessionId }), before)
   const beforeCalls = modelCalls
   const requestId = `0v${BigInt(`0x${randomUUID().replaceAll('-', '')}`).toString(32).replace(/\B(?=(.{5})+$)/g, '.')}`
@@ -85,7 +85,7 @@ try {
   await client.call('harness/cron/clear', { id: firedJob.id }); firedJob = null
   console.log('PASS native DM reply, cancelled unused reminder reclaimed, preserved conversation evidence, shared-head reminder delivered through Tlon without inference')
 } finally {
-  if (job?.id) await client.call('harness/tlon/cron/cancel', { id: job.id }).catch(() => {})
+  if (job?.id) await client.call('harness/cron/cancel', { id: job.id }).catch(() => {})
   if (firedJob?.id) await client.call('harness/cron/cancel', { id: firedJob.id }).catch(() => {})
   if (originals) {
     await client.call('harness/tlon/configure', originals.policy)

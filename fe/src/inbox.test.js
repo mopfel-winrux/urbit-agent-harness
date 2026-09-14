@@ -10,7 +10,7 @@ test('counts distinguish unknown evidence, no records, and attention records', (
 })
 
 test('status labels preserve claim, execution, and delivery distinctions', () => {
-  assert.match(recordStatus({ kind: 'task', status: 'claimed' }), /not execution evidence/)
+  assert.equal(recordStatus({ kind: 'task', status: 'claimed' }), 'Assigned')
   assert.equal(recordStatus({ kind: 'input', execution: 'completed', delivery: 'uncertain' }), 'Delivery uncertain')
   assert.equal(recordStatus({ kind: 'input', execution: 'completed', delivery: null }), 'Execution complete · no delivery record')
   assert.equal(recordStatus({ kind: 'input', execution: 'failed', delivery: 'delivered' }), 'Execution failed')
@@ -22,10 +22,10 @@ test('status labels preserve claim, execution, and delivery distinctions', () =>
 
 test('record links encode identities and refer to existing source surfaces', () => {
   assert.deepEqual(recordLinks({ kind: 'proposal', id: 'proposal?&/☀', artifact: 'a/b', status: 'pending' }), [{ label: 'Review proposal', href: '#/artifacts/a%2Fb?proposal=proposal%3F%26%2F%E2%98%80' }])
-  assert.deepEqual(recordLinks({ kind: 'task', id: 'later task', project: 'p?q' }), [{ label: 'Open task', href: '#/projects/p%3Fq?task=later%20task' }])
+  assert.deepEqual(recordLinks({ kind: 'task', id: 'later task', project: 'p?q' }), [{ label: 'Open task', href: '#/tasks/later%20task' }])
   assert.equal(recordLinks({ kind: 'input', sessionId: 'a/b', hand: 'tlon' })[0].href, '#/a%2Fb')
   assert.equal(recordLinks({ kind: 'input', hand: 'custom' }).length, 0)
-  assert.match(recordContext({ kind: 'task', project: 'p', claimant: { label: 'worker' } }), /Claimed by worker/)
+  assert.match(recordContext({ kind: 'task', project: 'p', claimant: { label: 'worker' } }), /Assigned to worker/)
 })
 
 test('inbox polling coalesces focus and stops completely while hidden or unmounted', async () => {

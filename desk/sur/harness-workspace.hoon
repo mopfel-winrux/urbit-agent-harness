@@ -17,7 +17,7 @@
       exposure=@ud
       archived=?
   ==
-+$  role  ?(%reader %contributor)
++$  role  ?(%reader %contributor %maintainer)
 +$  project
   $:  title=@t
       description=@t
@@ -39,6 +39,7 @@
       revision=(unit @ud)
   ==
 +$  task
+  ::  An empty project is ungrouped work. Assignment never grants authority.
   $:  project=id
       title=@t
       description=@t
@@ -77,7 +78,9 @@
       [%unpublish id=id exposure=@ud]
       [%task-create id=id project=id title=@t description=@t]
       [%task-claim id=id version=@ud]
-      [%task-update id=id version=@ud status=?(%open %claimed %blocked %done) outcome=@t artifact=(unit id)]
+      [%task-assign id=id version=@ud assignee=(unit actor)]
+      [%task-update id=id version=@ud status=?(%open %claimed %blocked %done) outcome=@t artifact=(unit id) details=(unit [title=@t description=@t project=id])]
+      [%task-delete id=id version=@ud]
   ==
 +$  request  [id=@t action=@t args=json]
 --

@@ -52,14 +52,14 @@ export function WorkDialog({ title, children, onClose, busy = false, className =
   </dialog>
 }
 
-export function ProjectSelect({ value, onChange, disabled }) {
+export function ProjectSelect({ value, onChange, disabled, emptyLabel = 'Private artifact · no project' }) {
   const [offset, setOffset] = useState(0)
   const query = useWorkspace('projects', { offset, limit: 24 })
   const [retained, setRetained] = useState([])
   const projects = [...new Map([...retained, ...(query.value?.items || [])].map((item) => [item.id, item])).values()].filter((item) => !item.archived)
   return <>
     <label><span>Project</span><select value={value || ''} disabled={disabled} onChange={(event) => onChange(event.target.value || null)}>
-      <option value="">Private artifact · no project</option>
+      <option value="">{emptyLabel}</option>
       {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
       {value && !projects.some((project) => project.id === value) && <option value={value}>{value}</option>}
     </select></label>

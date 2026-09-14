@@ -15,6 +15,7 @@
 ++  needs-notes
   |=  action=@t
   ^-  ?
+  ?:  =('task-reply' action)  &
   (lien `(list @t)`~['artifacts' 'artifact' 'revisions' 'revision' 'proposals' 'proposal' 'preview' 'artifact-create' 'artifact-save' 'artifact-archive' 'artifact-rename' 'propose' 'review' 'publish' 'unpublish'] |=(item=@t =(action item)))
 ++  public-path
   |=  [book=flag:n note=@ud]
@@ -185,6 +186,31 @@
   ++  visible
     |=  [book=flag:n id=@ud]
     (lien published |=(item=published-record:n &(=(book flag.item) =(id note-id.item))))
+  ::  Capability readers supply a prefiltered workspace and native link map.
+  ::  Read exact native note identities, never the notebook-wide body listing.
+  ::  A missing/unavailable note fails the enclosing read instead of serving a
+  ::  cached private body. This projection is not persisted by client requests.
+  ++  refresh-scoped
+    |=  [db=state:w native=state:hn]
+    ^-  state:w
+    ?~  book.native  db
+    ?:  =(~ links.native)  db
+    =/  book  u.book.native
+    =/  pages  published
+    %+  roll  ~(tap by links.native)
+    |=  [[id=@t link=link:hn] out=_db]
+    =/  art  (~(get by artifacts.out) id)
+    ?~  art  out
+    =/  current  (note book note.link)
+    =/  public  (lien pages |=(item=published-record:n &(=(book flag.item) =(note.link note-id.item))))
+    =?  art  !=(public ?=(^ publication.u.art))
+      `u.art(publication ?:(public `[0 (public-path book note.link) '' now.bowl] ~), exposure +(exposure.u.art))
+    =.  artifacts.out  (~(put by artifacts.out) id u.art)
+    =/  last  (~(get by revisions.u.art) +(revision.current))
+    ?:  ?&(?=(^ last) =(head.u.art +(revision.current)) =(title.current label.u.art) =(body-md.current body.value.u.last))
+      out
+    =/  next  (project-note u.art link current (history book note.link))
+    out(artifacts (~(put by artifacts.out) id next))
   ++  refresh
     |=  [db=state:w native=state:hn]
     ^-  state:w

@@ -2,7 +2,7 @@
 ::  bodies and public HTML belong to %notes, never to these records.
 /-  n=tlon-notes, w=harness-workspace
 |%
-+$  reply  $%([%acp connection=@t id=json] [%native id=@t])
++$  reply  $%([%acp connection=@t id=json] [%native id=@t] [%work id=@uv])
 +$  link
   $:  note=@ud
       sources=(map @ud (list source:w))

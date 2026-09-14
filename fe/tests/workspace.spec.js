@@ -19,6 +19,44 @@ test('uncertain Notes recovery observes without replay and requires an explicit 
 const open = (page, hash = 'artifacts/guide') => page.goto(`/apps/harness/tests/workspace-fixture.html#/${hash}`)
 const writes = (page, action) => page.evaluate((name) => window.workFixture.calls.filter((call) => call.action === name), action)
 
+test('projects can be created, edited, archived, and restored', async ({ page }) => {
+  await open(page, 'projects')
+  await page.getByRole('button', { name: 'New project', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Project name', exact: true }).fill('Weekend plans')
+  await page.getByRole('button', { name: 'Create project', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Weekend plans', exact: true })).toBeVisible()
+  await page.getByRole('navigation', { name: 'Project sections' }).getByRole('button', { name: 'Settings', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Project name', exact: true }).fill('A quiet weekend')
+  await page.getByRole('textbox', { name: 'Purpose', exact: true }).fill('Keep the plan simple.')
+  await page.getByRole('button', { name: 'Save project', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'A quiet weekend', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Archive project…', exact: true }).click()
+  await page.getByRole('button', { name: 'Archive project', exact: true }).click()
+  await expect(page.getByText('This project is archived.', { exact: false })).toBeVisible()
+  await page.getByRole('button', { name: 'Restore project…', exact: true }).click()
+  await page.getByRole('button', { name: 'Restore project', exact: true }).click()
+  await expect(page.getByText('This project is archived.', { exact: false })).toHaveCount(0)
+  await expect(page.getByRole('textbox', { name: 'Purpose', exact: true })).toHaveValue('Keep the plan simple.')
+})
+
+test('artifacts can be created, archived, and restored with saved content intact', async ({ page }) => {
+  await open(page, 'artifacts')
+  await page.getByRole('button', { name: 'New artifact', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Title', exact: true }).fill('Packing list')
+  await page.getByRole('button', { name: 'Create artifact', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Packing list', exact: true })).toBeVisible()
+  await page.getByLabel('Document body · Markdown').fill('Bring a raincoat.')
+  await page.getByRole('button', { name: 'Save revision', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Save revision', exact: true })).toBeDisabled()
+  await page.getByRole('button', { name: 'Archive artifact…', exact: true }).click()
+  await page.getByRole('button', { name: 'Archive artifact', exact: true }).click()
+  await expect(page.getByLabel('Document body · Markdown')).toBeDisabled()
+  await page.getByRole('button', { name: 'Restore artifact…', exact: true }).click()
+  await page.getByRole('button', { name: 'Restore artifact', exact: true }).click()
+  await expect(page.getByLabel('Document body · Markdown')).toBeEnabled()
+  await expect(page.getByLabel('Document body · Markdown')).toHaveValue('Bring a raincoat.')
+})
+
 test('artifact edits save immutable revisions and preserve drafts on conflicts', async ({ page }) => {
   await open(page)
   const body = page.getByLabel('Document body · Markdown')
@@ -127,7 +165,7 @@ test('sharing copies one saved revision, with an explicit project confirmation',
 
 test('project access uses conversation identity and never modifies resource grants', async ({ page }) => {
   await open(page, 'projects/neighborhood')
-  await page.getByRole('button', { name: 'Access', exact: true }).click()
+  await page.getByRole('button', { name: 'Sharing', exact: true }).click()
   await page.getByRole('combobox', { name: 'Conversation', exact: true }).selectOption('0v2')
   await page.getByRole('combobox', { name: 'Access level', exact: true }).selectOption('contributor')
   await page.getByRole('button', { name: 'Review access…' }).click()
@@ -137,19 +175,18 @@ test('project access uses conversation identity and never modifies resource gran
   await expect(page.getByText('contributor · Workspace tools not enabled', { exact: true })).toBeVisible()
 })
 
-test('project task claims and updates carry the current version', async ({ page }) => {
+test('shared task notes update directly with the current version', async ({ page }) => {
   await open(page, 'projects/neighborhood')
   await page.getByRole('button', { name: 'Tasks', exact: true }).click()
-  await page.getByRole('button', { name: 'Claim for myself', exact: true }).click()
-  await expect(page.getByText('Claimed by Owner', { exact: false })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Claim for myself', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Update task', exact: true }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('combobox', { name: 'Status', exact: true }).selectOption('done')
   await dialog.getByLabel('Outcome or next step').fill('Prepared the guide.')
   await dialog.getByLabel('Result artifact ID (optional)').fill('guide')
   await dialog.getByRole('button', { name: 'Save task' }).click()
-  expect((await writes(page, 'task-claim'))[0].args.version).toBe(1)
-  expect((await writes(page, 'task-update'))[0].args).toMatchObject({ version: 2, status: 'done', artifact: 'guide' })
+  expect(await writes(page, 'task-claim')).toHaveLength(0)
+  expect((await writes(page, 'task-update'))[0].args).toMatchObject({ version: 1, status: 'done', artifact: 'guide' })
   await expect(page.getByRole('link', { name: 'Open result artifact' })).toHaveAttribute('href', '#/artifacts/guide')
 })
 

@@ -1,5 +1,5 @@
 ::  First GUI open seeds ordinary durable chat, without inference or credentials.
-::  The ship-wide marker survives deletion and upgrades; existing users keep
+::  The ship-wide marker survives deletion and reload; existing users keep
 ::  their conversations untouched. Gall serializes simultaneous first opens.
 /-  h=harness, *harness-store
 |%
@@ -34,8 +34,8 @@
       'Keep this chat as a reference, or delete it and start a new one whenever you like.'
   ==
 ++  ensure
-  |=  saved=state-23
-  ^-  [(unit session-id:h) state-23]
+  |=  saved=state-25
+  ^-  [(unit session-id:h) state-25]
   ?:  !=(0 welcome-seen.saved)  [~ saved]
   =.  welcome-seen.saved  1
   ?:  !=(~ sessions.saved)  [~ saved]

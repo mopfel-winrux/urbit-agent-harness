@@ -62,6 +62,8 @@ Urbit's event loop; this is asynchronous progress, not parallel CPU execution.
   through native Notes; unified search groups matching artifact revisions.
 - [Work inbox](docs-refs/inbox.md): an attention-first, read-only view of retained
   tasks, proposals, schedules and hand receipts, with explicit delivery uncertainty.
+- [Project access](docs-refs/project-access.md): bounded maintainer coordination
+  and expiring, revocable, project-only read keys without sharing the ship login.
 - Clients: a React web app, a dependency-free ACP stdio adapter, native
   poke/watch/scry interfaces, webhooks and a durable conversation-hand protocol.
 
@@ -150,6 +152,7 @@ See the [adapter setup](acp/README.md) and [integration guide](docs-refs/integra
 | [Conversation hands](docs-refs/hands.md) | Bindings, deduplication, publication receipts and retirement |
 | [Shared scheduling](docs-refs/scheduling.md) | Tasks and reminders from any hand; Settings → Schedules |
 | [Artifacts and projects](docs-refs/workspaces.md) | Editing, agent coordination, proposal review and public pages |
+| [Conversation work management](docs-refs/work-control.md) | Text-first project, task, and artifact controls with human confirmation |
 | [Tlon reference](docs-refs/tlon.md) | Social tools, Notes, hooks, publishing and media |
 | [Peers](docs-refs/peers.md) | Ship-to-ship requests, tool RPC and administrative authority |
 | [Context and memory](docs-refs/context-and-memory.md) | Summaries, pinned notes, corpus search and provenance |

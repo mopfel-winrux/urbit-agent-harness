@@ -3,7 +3,7 @@ import { useWorkspace } from '../useWorkspace'
 import { workId } from '../workspace'
 import { BackIcon, PlusIcon } from './Icons'
 import ArtifactEditor from './ArtifactEditor'
-import ProjectWorkspace from './ProjectWorkspace'
+import ProjectWorkspace, { Tasks } from './ProjectWorkspace'
 import WorkInbox from './WorkInbox'
 import { ArtifactRows, ProjectSelect, WorkDialog, WorkFeedback, WorkPager, artifactHref, projectHref, useWorkMutation } from './WorkspaceCommon'
 import './workspace.css'
@@ -32,7 +32,7 @@ function NewProject({ onCancel }) {
     <h2>New project</h2>
     <label><span>Project name</span><input autoFocus required maxLength={256} value={title} disabled={mutation.busy} onChange={(event) => setTitle(event.target.value)} /></label>
     <label><span>Purpose</span><textarea rows={3} maxLength={4096} value={description} disabled={mutation.busy} onChange={(event) => setDescription(event.target.value)} placeholder="The shared work and what a good outcome looks like" /></label>
-    <p className="field-note">Projects start private. Add conversations explicitly to share documents and task records—not their transcripts or extra tools.</p>
+    <p className="field-note">Projects group tasks. Document sharing is managed separately.</p>
     <WorkFeedback query={mutation} />
     <div className="form-actions"><button type="button" className="button ghost" disabled={mutation.busy} onClick={onCancel}>Cancel</button><button className="button primary" disabled={mutation.busy || !title.trim()}>{mutation.busy ? 'Creating…' : 'Create project'}</button></div>
   </form>
@@ -44,11 +44,11 @@ function Directory({ kind }) {
   const query = useWorkspace(kind, { offset, limit: 24 })
   const artifacts = kind === 'artifacts'
   return <div className="work-content">
-    <div className="work-heading"><div className="page-header"><h1>{artifacts ? 'Artifacts' : 'Projects'}</h1><p>{artifacts ? 'Documents that outlive the conversation. Edit, review, and publish a saved revision.' : 'Shared documents and tasks, with explicit access for each conversation.'}</p></div><button className="button primary" onClick={() => setCreate(true)} disabled={create}><PlusIcon />{artifacts ? 'New artifact' : 'New project'}</button></div>
+    <div className="work-heading"><div className="page-header"><h1>{artifacts ? 'Artifacts' : 'Projects'}</h1><p>{artifacts ? 'Documents that outlive the conversation. Edit, review, and publish a saved revision.' : 'Collections of related tasks, with separately shared documents.'}</p></div><button className="button primary" onClick={() => setCreate(true)} disabled={create}><PlusIcon />{artifacts ? 'New artifact' : 'New project'}</button></div>
     {create && (artifacts ? <NewArtifact onCancel={() => setCreate(false)} onCreated={(artifact) => { location.hash = artifactHref(artifact.id) }} /> : <NewProject onCancel={() => setCreate(false)} />)}
     <WorkFeedback query={query} />
-    {!query.loading && !query.error && !query.value?.items?.length && <div className="work-empty"><h2>{artifacts ? 'A place for the work itself' : 'Bring a few conversations together'}</h2><p>{artifacts ? 'Start a document here, or ask an agent with Workspace tools to prepare a draft. Agent drafts wait for your review before becoming accepted revisions.' : 'Create a project, add the conversations that should participate, and give each one a clear task. Their private transcripts stay separate.'}</p></div>}
-    {artifacts ? <ArtifactRows items={query.value?.items} /> : <div className="work-records">{query.value?.items?.map((project) => <a className="work-record" key={project.id} href={projectHref(project.id)}><div><strong>{project.title}</strong><span className="work-record-meta">{project.description || 'No purpose added yet'}</span></div><span className="work-label">{project.archived ? 'Archived' : `${project.members?.length || 0} conversations`}</span></a>)}</div>}
+    {!query.loading && !query.error && !query.value?.items?.length && <div className="work-empty"><h2>{artifacts ? 'A place for the work itself' : 'Group related work'}</h2><p>{artifacts ? 'Start a document here, or ask an agent with Workspace tools to prepare a draft. Agent drafts wait for your review before becoming accepted revisions.' : 'Projects collect related tasks. Agents can also work on tasks without a project. Sharing documents is a separate choice.'}</p></div>}
+    {artifacts ? <ArtifactRows items={query.value?.items} /> : <div className="work-records">{query.value?.items?.map((project) => <a className="work-record" key={project.id} href={projectHref(project.id)}><div><strong>{project.title}</strong><span className="work-record-meta">{project.description || 'No purpose added yet'}</span></div><span className="work-label">{project.archived ? 'Archived' : 'Project'}</span></a>)}</div>}
     <WorkPager query={query} offset={offset} onOffset={setOffset} />
   </div>
 }
@@ -74,7 +74,7 @@ function NotesOperation() {
 
 export default function Workspace({ kind, id, proposal, task, onBack }) {
   return <main className="workspace work-workspace">
-    <header className="topbar"><button className="back-button" onClick={onBack}><BackIcon />Conversations</button><nav className="work-topnav" aria-label="Workspace"><a href="#/inbox" aria-current={kind === 'inbox' ? 'page' : undefined}>Inbox</a><a href="#/artifacts" aria-current={kind === 'artifacts' ? 'page' : undefined}>Artifacts</a><a href="#/projects" aria-current={kind === 'projects' ? 'page' : undefined}>Projects</a></nav></header>
-    {kind === 'inbox' ? <WorkInbox /> : <><NotesOperation />{id ? kind === 'artifacts' ? <ArtifactEditor key={id} id={id} initialProposal={proposal} /> : <ProjectWorkspace key={id} id={id} initialTask={task} /> : <Directory key={kind} kind={kind} />}</>}
+    <header className="topbar"><button className="back-button" onClick={onBack}><BackIcon />Conversations</button><nav className="work-topnav" aria-label="Workspace"><a href="#/inbox" aria-current={kind === 'inbox' ? 'page' : undefined}>Inbox</a><a href="#/tasks" aria-current={kind === 'tasks' ? 'page' : undefined}>Tasks</a><a href="#/artifacts" aria-current={kind === 'artifacts' ? 'page' : undefined}>Artifacts</a><a href="#/projects" aria-current={kind === 'projects' ? 'page' : undefined}>Projects</a></nav></header>
+    {kind === 'tasks' ? <div className="work-content"><Tasks key={id || 'all'} initialTask={id} /></div> : kind === 'inbox' ? <WorkInbox /> : <><NotesOperation />{id ? kind === 'artifacts' ? <ArtifactEditor key={id} id={id} initialProposal={proposal} /> : <ProjectWorkspace key={id} id={id} initialTask={task} /> : <Directory key={kind} kind={kind} />}</>}
   </main>
 }

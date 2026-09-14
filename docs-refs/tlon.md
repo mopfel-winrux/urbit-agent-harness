@@ -23,6 +23,12 @@ Use [ship-wide tools](#ship-wide-tlon-tool) for messaging and administration,
 
 ## Setup and public identity
 
+Owner DMs support [conversation work management](work-control.md) through `/work`,
+without opening the Harness GUI. Exact previews can include optional native A2UI
+confirmation and inspection buttons. These send ordinary commands; the complete
+text preview and command path remain available. Channels do not receive work
+buttons or acquire owner management authority.
+
 Open **Tlon** above Settings in the sidebar. Select an owner, add trusted ships,
 choose their tools, then enable the hand. Nicknames search the Contacts directory;
 every selection shows and saves the actual `@p`. Suggestions search known ships,
@@ -323,6 +329,11 @@ shortcuts, and work for the owner and trusted actors without tool grants.
 Channel mention policy still applies. `/stop` interrupts current work and clears
 that session's queued inputs; other commands wait for the current turn to settle.
 See [conversation commands](acp.md#conversation-commands) for semantics.
+
+`/work` also reads projects and tasks or prepares exact changes for confirmation
+in the same conversation. Owner operations require the live owner DM policy;
+other actors retain their scoped project permissions. These controls are plain
+text and do not require the Harness GUI. See [conversation work management](work-control.md).
 
 ### Explicit conversation notes
 
@@ -716,13 +727,11 @@ Scheduling is a shared head capability, available to every authorized hand.
 Tlon conversations use the same `cron_add`, `cron_list`, `cron_remove` and
 `reminder_add` tools, retaining their exact DM/channel/thread destination and
 live source authority. Tlon delivers their output through its normal publication
-worker; it no longer stores or fires new schedules.
+worker; the head stores and fires schedules.
 
 Open **Settings → Schedules** for jobs from all hands. The Tlon page links there.
 See [shared scheduling](scheduling.md) for UTC expressions, literal reminders,
-run limits, permission changes, native/ACP methods and the legacy-record handoff.
-The old `harness/tlon/cron`, `/cancel` and `/clear` URLs remain aliases to the
-head-owned service.
+run limits, permission changes and native/ACP methods.
 
 ## Testing
 

@@ -47,7 +47,7 @@ try {
   await until('ACP command advertisement', () => client.updates.some((u) =>
     u.params?.sessionId === sid && u.params.update.sessionUpdate === 'available_commands_update'))
   const ad = client.updates.find((u) => u.params?.update?.sessionUpdate === 'available_commands_update')
-  assert.deepEqual(ad.params.update.availableCommands.map((c) => c.name), ['help', 'status', 'model', 'context', 'compact', 'memory', 'remember', 'forget', 'stop'])
+  assert.deepEqual(ad.params.update.availableCommands.map((c) => c.name), ['help', 'status', 'model', 'context', 'compact', 'memory', 'remember', 'forget', 'work', 'stop'])
   for (const [text, reply] of [
     ['/help', /\/model default/], ['/status', /Recorded tokens: 0 input, 0 output/],
     ['/model', /fixture-model/], ['/model vendor\/other', /Model set to:.*vendor\/other/],

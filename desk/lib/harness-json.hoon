@@ -259,6 +259,9 @@
   |=  source=input-source:h
   ^-  json
   ?-  -.source
+      %work
+    (pairs:enjs:format ~[['kind' %s 'work'] ['request' %s (scot %uv request.source)]])
+  ::
       %hand
     (pairs:enjs:format ~[['kind' %s 'hand'] ['binding' %s binding.source] ['hand' %s hand.source] ['address' %s address.source] ['event' %s event.source] ['actor' %s actor.source]])
   ::

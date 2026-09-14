@@ -151,3 +151,12 @@ not establish 24-hour stability or replace the boundaries above.
 
 The runner and reload checks are the first increment of item 1, not completion
 of this roadmap.
+
+Item 2 provides the [read-only work inbox](inbox.md). The first increment of item 3
+provides [project maintainers and read-only client keys](project-access.md), with an
+explicit audit of equivalent native/tool authority. It adds no delegated
+approval/publication or client execution. Item 4 has an owner-directed
+[request-to-reviewed-reply procedure and local end-to-end check](social-workflow.md).
+Its social transport and delivery sink are synthetic; real social transport,
+integrated workflow controls and typed request/task relationships remain open.
+Sourced project knowledge is item 5.

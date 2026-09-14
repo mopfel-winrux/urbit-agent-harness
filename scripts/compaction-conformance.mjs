@@ -276,13 +276,23 @@ try {
   ] }, null, 2))
 } finally {
   for (const res of held) res.destroy()
-  if (savedModels) await client.call('harness/summary-models/configure', { models: savedModels })
-  for (const id of bindings) await hand.enable(id, false).catch(() => {})
+  const cleanupErrors = []
+  const clean = async (label, action) => {
+    try { await action() }
+    catch (error) { cleanupErrors.push(new Error(`${label}: ${error.message}`)) }
+  }
+  if (savedModels) await clean('restore summary settings', async () => {
+    await client.call('harness/summary-models/configure', { models: savedModels })
+    assert.deepEqual(await client.call('harness/summary-models'), savedModels)
+  })
+  for (const id of bindings) await clean(`disable fixture binding ${id}`, () => hand.enable(id, false))
   // Hand-bound sessions retain their audit records; unbound fixtures are removed.
   for (const sessionId of sessions.filter((id) => !bindings.includes(id))) {
-    await client.call('session/delete', { sessionId }).catch(() => {})
+    await clean(`delete fixture session ${sessionId}`, () => client.call('session/delete', { sessionId }))
   }
-  await Promise.allSettled([client.close(), observer.close()])
+  await Promise.all([clean('close client', () => client.close()), clean('close observer', () => observer.close())])
   server.closeAllConnections()
   await new Promise((resolve) => server.close(resolve))
+  if (cleanupErrors.length) throw new AggregateError(cleanupErrors, `Compaction fixture ${tag} cleanup is incomplete`)
+  console.log('PASS summary settings restored; unbound fixtures removed and bound audit fixtures disabled')
 }

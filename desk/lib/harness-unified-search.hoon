@@ -57,9 +57,9 @@
       =/  art  (~(get by artifacts.db) id.key)
       ?~(art | (can-read:work db who u.art))
     ?:  =(%project kind.key)
-      &((~(has by projects.db) id.key) |(owner.who ?=(^ (project-role:work db who id.key))))
+      &((~(has by projects.db) id.key) |(owner.who !=(0 access.who)))
     =/  task  (~(get by tasks.db) id.key)
-    ?~(task | |(owner.who ?=(^ (project-role:work db who project.u.task))))
+    ?~(task | |(owner.who !=(0 access.who)))
   ?.  permitted  ~
   %-  silt
   %+  skim  ~(tap in matches)

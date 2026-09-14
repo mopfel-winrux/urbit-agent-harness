@@ -124,6 +124,7 @@
       [%peer =ship ask=ask-id]
       [%subagent parent=session-id call-id=@t]
       [%rehearsal parent=session-id call-id=@t skill=@t]
+      [%work request=@uv]
       [%hand binding=@t hand=@t address=@t event=@t actor=@t]
   ==
 +$  reply-target

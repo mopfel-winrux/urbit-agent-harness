@@ -334,8 +334,8 @@ Scheduled sessions inherit no parent transcript and cannot recursively schedule
 or delegate. Due occurrences
 become idempotent hand observations; normal head settlement produces publication
 evidence. Schedules persist in the head store, while concrete tool invocation
-receipts remain with their executor. Tlon transfers legacy records once and
-continues to handle addressed delivery. See [shared scheduling](scheduling.md)
+receipts remain with their executor. Tlon handles addressed delivery.
+See [shared scheduling](scheduling.md)
 for limits, native/ACP methods and Settings → Schedules controls.
 
 Experimental skill authoring can stage, rehearse, publish or discard instructions.
@@ -402,12 +402,8 @@ Arvo and durable ACP queues; there is no direct executor-to-client stream.
 
 ## Durable workspace records
 
-The head persists workspace metadata, native Notes links and a disposable search
-index alongside conversations in storage version 23. Version 22 introduced Notes;
-version 23 preserves those links and seeds the derived index. The pre-Notes
-workspace is intentionally not imported: old Harness documents/publication records
-remain in a recovery-only envelope, excluded from active reads, search and public
-serving, without changing conversation records or saved tool grants.
+The head persists workspace metadata, native Notes links, project client
+credentials and a disposable search index alongside conversations.
 `harness-workspace` supplies pure metadata/proposal/task transitions;
 `harness-notes` maps native Notes into bounded read projections. Notes owns body
 history, titles and published HTML; Harness owns projects, grants, proposals,

@@ -132,7 +132,7 @@
       :~  ['title' %s title.task]
           ['detail' %s (clipped ?:(=('' outcome.task) description.task outcome.task))]
           ['status' %s status.task]
-          ['project' %s project.task]
+          ['project' ?:(=('' project.task) ~ [%s project.task])]
           ['projectTitle' %s (project-title db project.task)]
           ['artifact' (nullable:j artifact.task)]
           ['claimant' ?~(claimant.task ~ (actor-json:j u.claimant.task))]

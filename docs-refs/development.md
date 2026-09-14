@@ -107,6 +107,9 @@ existed.
 | --- | --- |
 | ACP and sessions | `conformance.mjs`, `conversations-conformance.mjs`, `session-history-conformance.mjs` |
 | Work inbox | Read-only `inbox-conformance.mjs`; native `/tests/harness-inbox` and `/tests-integration/harness-inbox`; browser `fe/tests/inbox.spec.js` (see [inbox](inbox.md)) |
+| Project access | `project-client-conformance.mjs`; native `/tests/harness-workspace-maintainer`, `/tests/harness-project-client`, `/tests-integration/harness-project-client`; browser `fe/tests/project-access.spec.js` (see [project access](project-access.md)) |
+| Request to reviewed reply | `social-workflow-conformance.mjs`: owner-directed local workflow with synthetic model and delivery sink (see [workflow and limits](social-workflow.md)) |
+| Human work controls | `work-control-conformance.mjs`: text-only hand authority, exact previews, task creation, native Notes review, and model-text non-execution (see [conversation work management](work-control.md)) |
 | Commands and settlement | `command-conformance.mjs`, `cancellation-conformance.mjs`, `settlement-conformance.mjs` |
 | Conversation hands | `hand-conformance.mjs`, `hand-operations-conformance.mjs` |
 | Grubbery verification | `shadow-conformance.mjs` |

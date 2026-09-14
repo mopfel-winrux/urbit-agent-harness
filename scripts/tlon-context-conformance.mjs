@@ -177,10 +177,10 @@ try {
     await until('schedule acknowledgement', async () => (await replies(channel)).some((p) => p.author === ship && JSON.stringify(p.content).includes(`${marker}-armed:${scenario}`)))
     return reminders.get(scenario)
   }
-  const beforeSchedules = (await client.call('harness/tlon/cron')).length
+  const beforeSchedules = (await client.call('harness/cron')).length
   await schedule('invalid-destination', { destination: 'dm/~zod' })
   await schedule('invalid-timezone', { at: new Date(Date.now() + 60000).toISOString().slice(0, 19) })
-  assert.equal((await client.call('harness/tlon/cron')).length, beforeSchedules)
+  assert.equal((await client.call('harness/cron')).length, beforeSchedules)
   const delivered = await schedule('deliver')
   const afterArmed = requests
   if (process.env.TEST_PANE) {
@@ -194,7 +194,7 @@ try {
     adapterStopped = false
   }
   await until('literal reminder delivery', async () => (await replies(channel)).some((p) => p.author === ship && JSON.stringify(p.content).includes(`${marker}-literal:deliver`)))
-  const record = await until('actual reminder receipt', async () => (await client.call('harness/tlon/cron')).find((job) => job.id === delivered.id && job.delivery === 'delivered'))
+  const record = await until('actual reminder receipt', async () => (await client.call('harness/cron')).find((job) => job.id === delivered.id && job.delivery === 'delivered'))
   assert.equal(record.execution, 'completed'); assert.equal(record.remaining, 0)
   assert.equal(requests, afterArmed, 'delivery never requests a model')
   const scheduledEvents = await scry(`harness/events/${record.runSessionId}`)
@@ -206,7 +206,7 @@ try {
   await schedule('cancel')
   const revoked = await schedule('revoked')
   await client.call('harness/tlon/configure', { enabled: false, owner: peer, trusted: [], mentions: true })
-  assert.equal((await client.call('harness/tlon/cron')).find((job) => job.id === revoked.id).state, 'paused')
+  assert.equal((await client.call('harness/cron')).find((job) => job.id === revoked.id).state, 'paused')
   await sleep(Math.max(1000, reminderSpecs.get('revoked').due - Date.now() + 1000))
   assert.ok(!(await replies(channel)).some((p) => p.author === ship && /literal:(?:cancel|revoked)/.test(JSON.stringify(p.content))))
   assert.equal((await replies(channel)).filter((p) => p.author === ship && JSON.stringify(p.content).includes(`${marker}-literal:deliver`)).length, 1)
@@ -218,7 +218,7 @@ try {
     await run('tmux', ['send-keys', '-t', process.env.TEST_PANE, 'Enter']); await sleep(1000)
   }
   if (originals) {
-    for (const job of reminders.values()) await client.call('harness/tlon/cron/cancel', { id: job.id }).catch(() => {})
+    for (const job of reminders.values()) await client.call('harness/cron/cancel', { id: job.id }).catch(() => {})
     for (const ctx of contexts) if (ctx.sid) await client.call('session/cancel', { sessionId: ctx.sid }).catch(() => {})
     await client.call('harness/tlon/configure', originals.policy)
     await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '' } })

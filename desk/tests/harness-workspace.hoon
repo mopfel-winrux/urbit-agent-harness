@@ -68,8 +68,12 @@
   =/  db  (step db owner [%task-create 'task' 'project' 'Research costs' 'Return evidence'])
   =/  claimed  (step db agent [%task-claim 'task' 1])
   =/  refused  (apply:work claimed other [%task-claim 'task' 1] ~2026.9.11)
-  =/  forged  (apply:work claimed other [%task-update 'task' 2 %done 'I did it' ~] ~2026.9.11)
-  (expect !>(&(?=(%| -.refused) ?=(%| -.forged))))
+  =/  updated  (step claimed other [%task-update 'task' 2 %done 'Verified by the coordinator' ~ ~])
+  ;:  weld
+    (expect !>(?=(%| -.refused)))
+    (expect-eq !>(`(unit actor:w)`[~ [0v1 'researcher']]) !>(claimant:(~(got by tasks.updated) 'task')))
+    (expect-eq !>(`actor:w`[0v2 'writer']) !>(by:(snag 0 history.updated)))
+  ==
 ++  test-public-renderer-keeps-markup-inert
   =/  html  (page:document '<script>title</script>' '# Heading\0a\0a**Bold** and [friend](https://example.com).\0a\0a<script>alert(1)</script>\0a\0a```\0a<private>\0a```')
   ;:  weld
@@ -88,7 +92,7 @@
   (expect !>(?=(%| -.refused)))
 ++  test-owner-task-update-retains-an-explicit-claimant
   =/  db  (step project owner [%task-create 'task' 'project' 'Write' ''])
-  =/  db  (step db owner [%task-update 'task' 1 %claimed '' ~])
+  =/  db  (step db owner [%task-update 'task' 1 %claimed '' ~ ~])
   (expect-eq !>(`(unit actor:w)`[~ [0v0 'Owner']]) !>(claimant:(~(got by tasks.db) 'task')))
 ++  test-json-offsets-use-ungrouped-decimal
   =/  args=json  [%o (my ~[['offset' [%n '8000']]])]

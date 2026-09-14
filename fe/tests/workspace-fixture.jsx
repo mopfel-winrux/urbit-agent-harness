@@ -15,6 +15,7 @@ const body = '## A Saturday with the neighbors\n\nBring a dish, meet someone new
 const revised = body.replace('Share lunch at noon.', 'Share lunch at noon. Label dishes with their ingredients.')
 const revisions = (title, text) => ({ 1: { revision: 1, at, by: owner, title, body: text, sources: [{ label: 'Private planning reference', url: 'https://example.com/private-reference' }] } })
 const db = {
+  clients: {},
   projects: { neighborhood: { id: 'neighborhood', title: 'A good day together', description: 'A small community gathering, planned together. Synthetic example project.', version: 1, archived: false, role: 'owner', members: [{ scope: '0v1', role: 'contributor' }] } },
   artifacts: {
     guide: { id: 'guide', title: 'A Saturday with the neighbors', project: 'neighborhood', head: 1, archived: false, exposure: 0, publication: null, revisions: revisions('A Saturday with the neighbors', body) },
@@ -38,7 +39,7 @@ EyreSubscription.prototype.run = async function () { watches.add(this); this.onU
 EyreSubscription.prototype.close = function () { watches.delete(this); this.connected = false }
 acp.start = async () => {}
 acp.ship = () => 'lux'
-const writes = new Set(['artifact-create', 'artifact-save', 'artifact-rename', 'artifact-archive', 'project-create', 'project-edit', 'member', 'publish', 'unpublish', 'review', 'task-create', 'task-claim', 'task-update'])
+const writes = new Set(['artifact-create', 'artifact-save', 'artifact-rename', 'artifact-archive', 'project-create', 'project-edit', 'member', 'publish', 'unpublish', 'review', 'task-create', 'task-claim', 'task-update', 'client-create', 'client-revoke'])
 window.workFixture = { db, calls: [], failNext: null, changed, watchCount: () => watches.size, externalEdit: () => { const artifact = db.artifacts.guide; artifact.head++; artifact.revisions[artifact.head] = { ...artifact.revisions[1], revision: artifact.head, body: 'A newer revision from another browser.' }; changed() } }
 const extraInboxRecords = [
   { kind: 'input', id: '0v123', state: 'uncertain', at: at + 3000, title: 'Confirm the courtyard reservation', detail: 'Synthetic example: the reply was prepared, but its delivery is uncertain. Check the native conversation before another attempt.', execution: 'completed', delivery: 'uncertain', actor: '~sampel', hand: 'tlon', destination: 'dm/~sampel', sessionId: 'neighborhood-research', attempt: 1, binding: 'synthetic-dm', current: true, externalId: '' },
@@ -102,6 +103,7 @@ acp.call = async (method, params = {}) => {
   const { action, args = {} } = params
   if (method !== 'harness/workspace') throw new Error(`Unexpected method ${method}`)
   window.workFixture.calls.push({ action, args: clone(args) })
+  if (window.workFixture.holdClientCreate && action === 'client-create') await new Promise((resolve) => { window.workFixture.releaseClientCreate = resolve })
   if (window.workFixture.failNext === action) { window.workFixture.failNext = null; throw new Error('Synthetic save failure. Your draft was not saved.') }
   const artifact = db.artifacts[args.id], project = db.projects[args.id]
   let result
@@ -115,13 +117,26 @@ acp.call = async (method, params = {}) => {
   if (action === 'projects') return page(Object.values(db.projects), args)
   if (action === 'project') return clone(project)
   if (action === 'sessions') return page(db.sessions, args)
+  if (action === 'clients') return page(Object.values(db.clients).filter((item) => item.project === args.project).sort((a, b) => b.created - a.created), args)
   if (action === 'tasks') return page(Object.values(db.tasks).filter((item) => !args.project || item.project === args.project), args)
   if (action === 'task') { if (!db.tasks[args.id]) throw new Error('Task not found'); return clone(db.tasks[args.id]) }
   if (action === 'revisions') return page(Object.values(artifact.revisions).reverse(), args)
   if (action === 'proposals') return page(Object.values(db.proposals).filter((item) => !args.artifact || item.artifact === args.artifact).map(({ content, ...rest }) => rest), args)
   if (action === 'proposal') { const { content, ...proposal } = db.proposals[args.id]; return { proposal: clone(proposal), content: clone(content) } }
   if (action === 'preview') return { revision: args.revision, head: artifact.head, previewToken: `preview-${args.id}-${args.revision}`, html: '<!doctype html><html><head><meta charset="utf-8"><style>body{font:17px/1.7 system-ui;margin:32px;color:#171917;background:#fff}h1{line-height:1.25}p{max-width:70ch}</style></head><body><h1>A Saturday with the neighbors</h1><p>Bring a dish, meet someone new, and help us make the courtyard a welcoming place.</p><h2>The plan</h2><ul><li>Meet at the courtyard at 11:00.</li><li>Share lunch at noon.</li></ul><p>Synthetic public preview.</p></body></html>' }
-  if (action === 'artifact-create') {
+  if (action === 'client-create') {
+    const selected = db.projects[args.project], existing = db.clients[args.id]
+    if (selected.archived) throw new Error('Restore the project before issuing a client key')
+    if (!/^hpr_[0-9a-f]{64}$/.test(args.key)) throw new Error('Invalid project key')
+    if (existing) { if (existing.status !== 'active') throw new Error('Credential identity already used'); return clone(existing) }
+    if (args.version !== selected.version) throw new Error('Project changed; review access again')
+    result = db.clients[args.id] = { id: args.id, project: args.project, label: args.label, access: 'read-only', status: 'active', created: at, expires: at + args.days * 86_400_000, revoked: null }
+    if (window.workFixture.loseClientConfirmation) { window.workFixture.loseClientConfirmation = false; changed(); throw new Error('Synthetic lost confirmation') }
+  } else if (action === 'client-revoke') {
+    const existing = db.clients[args.id]
+    if (!existing || existing.project !== args.project) throw new Error('Client credential not found')
+    existing.status = 'revoked'; existing.revoked = at; result = existing
+  } else if (action === 'artifact-create') {
     const created = { id: args.id, title: args.title, project: args.project, head: 1, archived: false, exposure: 0, publication: null, revisions: { 1: { ...args, revision: 1, by: owner, at } } }
     db.artifacts[args.id] = created; result = { artifact: metadata(created) }
   } else if (action === 'artifact-save') {
@@ -149,10 +164,13 @@ acp.call = async (method, params = {}) => {
     if (args.accept) { target.head++; target.title = proposal.content.title; target.revisions[target.head] = { ...proposal.content, revision: target.head }; proposal.revision = target.head }
     result = clone(proposal)
   } else if (action === 'task-create') { result = db.tasks[args.id] = { ...args, version: 1, status: 'open', claimant: null, outcome: '', artifact: null, updated: at } }
-  else if (action === 'task-claim' || action === 'task-update') {
+  else if (action === 'task-delete') {
+    if (args.version !== db.tasks[args.id]?.version) throw new Error('Task changed; read it again before deleting.')
+    delete db.tasks[args.id]; changed(); result = 'Task deleted.'
+  } else if (action === 'task-claim' || action === 'task-update') {
     const task = db.tasks[args.id]
     if (args.version !== task.version) throw new Error('Task changed; inspect its current claim.')
-    Object.assign(task, { ...args, version: task.version + 1, status: action === 'task-claim' ? 'claimed' : args.status, claimant: args.status === 'open' ? null : task.claimant || owner }); result = clone(task)
+    Object.assign(task, { ...args, version: task.version + 1, status: action === 'task-claim' ? 'claimed' : args.status || task.status, claimant: action === 'task-claim' ? owner : !args.status || args.status === task.status ? task.claimant : args.status === 'open' ? null : task.claimant || owner }); result = clone(task)
   } else throw new Error(`Unexpected workspace operation ${action}`)
   if (writes.has(action)) changed()
   return clone(result)

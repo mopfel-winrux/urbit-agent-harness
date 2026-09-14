@@ -1,0 +1,12 @@
+.project-client-section { margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--line); }
+.project-client-id { display: block; margin-top: 4px; overflow-wrap: anywhere; color: var(--muted); font-size: 12px; }
+.project-key-value { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.work-dialog label.project-key-confirm { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; margin: 20px 0; font-weight: 400; }
+.work-dialog .project-key-confirm input { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 2px; }
+.project-key-actions { margin-bottom: 20px; }
+.project-read-example { padding: 14px; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--code); border-radius: 7px; }
+@media (max-width: 760px) {
+  .project-client-section { margin-top: 28px; padding-top: 20px; }
+  .project-client-section > .section-title { align-items: stretch; }
+  .project-key-confirm { min-height: 44px; }
+}

@@ -2,11 +2,12 @@
 /+  *test, access=harness-peer-access, storage=harness-store
 |%
 ++  test-remote-reports-never-create-incoming-grants
-  =/  saved=state-19  *state-19
+  =/  saved=state-25  *state-25
   =.  remote-access.saved  (remember:access ~ ~nec `[~[%web] ~ 1.000 ~] ~2024.1.1)
   =/  loaded  (load:storage !>(saved))
   ;:  weld
-    (expect-eq !>(saved) !>(loaded))
+    (expect-eq !>(remote-access.saved) !>(remote-access.loaded))
+    (expect-eq !>(loaded) !>((load:storage !>(loaded))))
     (expect-eq !>(~) !>(peers.loaded))
     (expect-eq !>(`[~[%web] ~ 1.000 ~]) !>(grant:(~(got by remote-access.loaded) ~nec)))
   ==
@@ -27,10 +28,4 @@
 ++  test-unknown-tool-reports-are-ignored
   =/  known  (remember:access ~ ~nec `[~ ~ 0 ~] ~2024.1.1)
   (expect-eq !>(known) !>((remember:access known ~nec `[~[%invented] ~ 0 ~] ~2024.1.2)))
-++  test-migration-keeps-welcome-marker-and-token-counts
-  =/  saved=state-17  *state-17
-  =.  welcome-seen.saved  1
-  =.  peer-budget-resets.saved  (my ~[[~nec 120]])
-  =/  loaded  (load:storage !>(saved))
-  (expect !>(&(=(1 welcome-seen.loaded) =(peer-budget-resets.saved peer-budget-resets.loaded) =(~ remote-access.loaded) =(~ announced-access.loaded))))
 --

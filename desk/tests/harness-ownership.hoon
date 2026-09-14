@@ -53,6 +53,7 @@
     (expect-eq !>(`%tlon) !>((origin [%hand 'b' 'tlon' 'dm/~nec' 'e' '~nec'])))
     (expect-eq !>(~) !>((origin [%hand 'b' 'tlon' 'group/~nec/channel' 'e' '~nec'])))
     (expect-eq !>(~) !>((origin [%timer %cron])))
+    (expect-eq !>(~) !>((origin [%work 0v1])))
   ==
 ++  test-administrative-correlation-roundtrips-and-rejects-other-clients
   =/  ticket=ticket:admin  ['session' 3 'call']

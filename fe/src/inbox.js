@@ -3,7 +3,7 @@ export const inboxStates = [
   ['finished', 'Finished'], ['all', 'All records'],
 ]
 export const inboxKinds = [
-  ['all', 'All sources'], ['proposal', 'Artifact proposals'], ['task', 'Project tasks'],
+  ['all', 'All sources'], ['proposal', 'Artifact proposals'], ['task', 'Tasks'],
   ['input', 'Hand work'], ['schedule', 'Schedules'], ['notes', 'Notes operations'],
 ]
 export const sourceLabels = Object.fromEntries(inboxKinds.slice(1))
@@ -16,7 +16,7 @@ export function recordCount(counts, state) {
 }
 
 export function recordStatus(row) {
-  if (row.kind === 'task') return { open: 'Available to claim', claimed: 'Claimed · not execution evidence', blocked: 'Task blocked', done: 'Task marked done' }[row.status] || 'Task status unavailable'
+  if (row.kind === 'task') return { open: 'Open', claimed: 'Assigned', blocked: 'Needs attention', done: 'Complete' }[row.status] || 'Task status unavailable'
   if (row.kind === 'proposal') return { pending: 'Awaiting approval', accepted: 'Proposal accepted', rejected: 'Proposal rejected' }[row.status] || 'Proposal status unavailable'
   if (row.kind === 'schedule') return { active: 'Scheduled', paused: 'Schedule paused', complete: 'Schedule ended', cancelled: 'Schedule cancelled' }[row.status] || 'Schedule status unavailable'
   if (row.kind === 'notes') return row.uncertain ? 'Notes result uncertain' : 'Waiting for Notes'
@@ -34,7 +34,7 @@ export function recordStatus(row) {
 }
 
 export function recordContext(row) {
-  if (row.kind === 'task') return `${row.projectTitle || row.project} · ${row.claimant ? `Claimed by ${row.claimant.label}` : 'Unclaimed'}`
+  if (row.kind === 'task') return [row.projectTitle || row.project, row.claimant ? `Assigned to ${row.claimant.label}` : ''].filter(Boolean).join(' · ')
   if (row.kind === 'proposal') return `${row.by?.label || 'Unknown source'} · Base revision ${row.base}`
   if (row.kind === 'schedule') return `${row.hand || 'Hand'} · ${row.scheduleKind === 'reminder' ? 'Literal reminder' : 'Recurring model task'} · ${row.remaining} runs remaining`
   if (row.kind === 'input') return [row.hand || 'Hand', row.actor, row.destination].filter(Boolean).join(' · ')
@@ -43,7 +43,7 @@ export function recordContext(row) {
 
 export function recordLinks(row) {
   const id = encodeURIComponent(row.id)
-  if (row.kind === 'task') return [{ label: 'Open task', href: `#/projects/${encodeURIComponent(row.project)}?task=${id}` }]
+  if (row.kind === 'task') return [{ label: 'Open task', href: `#/tasks/${id}` }]
   if (row.kind === 'proposal') return [{ label: row.status === 'pending' ? 'Review proposal' : 'Open proposal', href: `#/artifacts/${encodeURIComponent(row.artifact)}?proposal=${id}` }]
   if (row.kind === 'schedule') return [{ label: 'Open schedules', href: '#/settings?tab=schedules' }]
   if (row.kind === 'notes') return [{ label: 'Inspect Notes operation', href: `#/artifacts/${encodeURIComponent(row.artifact)}` }]
