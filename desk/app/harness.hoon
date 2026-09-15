@@ -104,7 +104,7 @@
 ::
 ++  on-load
   |=  old-vase=vase
-  =/  new=state-27  (load:storage old-vase)
+  =/  new=state-27  (restore-local-mcp:storage (load:storage old-vase) our.bowl)
   =.  state  new(corpus-wake ~, schedule-wake ~)
   %-  flush-auth
   ^-  (quip card _this)
@@ -3495,7 +3495,7 @@
     %+  turn  native
     |=  [[s=@t c=@t] p=local-mcp-progress:h]
     ^-  card
-    [%pass /local-mcp/[s]/(scot %ud generation.p)/[c] %agent [our.bowl %mcp-server] %leave ~]
+    [%pass /local-mcp/[s]/(scot %ud generation.p)/[c] %agent [our.bowl %mcp-proxy] %leave ~]
   =.  local-mcp
     (malt (skip ~(tap by local-mcp) |=([[s=@t c=@t] p=local-mcp-progress:h] =(s sid))))
   [cards state]
@@ -3749,25 +3749,25 @@
   =/  configured  ?~(server ~ (~(get by mcp-servers) u.server))
   ?.  ?&(?=(^ server) ?=(^ configured) enabled.u.configured =((url:local-mcp-lib our.bowl) url.u.configured))
     (finish-local-mcp sid generation call-id 'error: local MCP server is unavailable')
-  ?.  .^(? %gu /(scot %p our.bowl)/mcp-server/(scot %da now.bowl)/$)
+  ?.  .^(? %gu /(scot %p our.bowl)/mcp-proxy/(scot %da now.bowl)/$)
     (finish-local-mcp sid generation call-id 'error: the local MCP desk is not running')
   ?:  (gte ~(wyt by local-mcp) 32)
     (finish-local-mcp sid generation call-id 'error: local MCP request capacity reached')
   =/  payload  (mcp-payload:effects u.call)
   ?~  payload  (finish-local-mcp sid generation call-id 'error: invalid MCP arguments')
+  ::  The proxy owns both upstream routing and authentication. Read its key
+  ::  per dispatch; never retain it in the registry, call arguments or log.
+  =/  token  (mole |.(.^(@t %gx /(scot %p our.bowl)/mcp-proxy/(scot %da now.bowl)/client-key/noun)))
+  ?~  token  (finish-local-mcp sid generation call-id 'error: local MCP authentication is unavailable')
+  =/  inbound  (request:local-mcp-lib u.token u.payload)
+  ?~  inbound  (finish-local-mcp sid generation call-id 'error: local MCP authentication is not configured')
   =.  local-mcp
     (~(put by local-mcp) [sid call-id] [generation u.server (sham u.configured) 0 ''])
   =/  wire=wire  /local-mcp/[sid]/(scot %ud generation)/[call-id]
   =/  request-id=@ta  (cat 3 'harness-' (scot %uv (sham [sid generation call-id])))
-  =/  request=request:http
-    :*  %'POST'  '/mcp'
-        ~[['host' 'localhost'] ['content-type' 'application/json'] ['accept' 'application/json, text/event-stream']]
-        `(as-octs:mimes:html (en:json:html u.payload))
-    ==
-  =/  inbound=inbound-request:eyre  [& | [%ipv4 .127.0.0.1] request]
   :_  state
-  :~  [%pass wire %agent [our.bowl %mcp-server] %watch /http-response/[request-id]]
-      [%pass wire %agent [our.bowl %mcp-server] %poke %handle-http-request !>([request-id inbound])]
+  :~  [%pass wire %agent [our.bowl %mcp-proxy] %watch /http-response/[request-id]]
+      [%pass wire %agent [our.bowl %mcp-proxy] %poke %handle-http-request !>([request-id u.inbound])]
       [%pass /local-mcp-timeout/[sid]/(scot %ud generation)/[call-id] %arvo %b %wait (add now.bowl ~m1)]
   ==
 ++  local-mcp-sign
@@ -3797,7 +3797,7 @@
   ?:  ?&(?=(^ pending) !=(generation generation.u.pending))  `state
   =/  cleanup=(list card)
     ?~  pending  ~
-    ~[[%pass /local-mcp/[sid]/(scot %ud generation)/[call-id] %agent [our.bowl %mcp-server] %leave ~]]
+    ~[[%pass /local-mcp/[sid]/(scot %ud generation)/[call-id] %agent [our.bowl %mcp-proxy] %leave ~]]
   =?  local-mcp  ?&(?=(^ pending) =(generation generation.u.pending))
     (~(del by local-mcp) [sid call-id])
   =/  maybe  (~(get by sessions) sid)
@@ -4242,7 +4242,7 @@
   ::  Retry absent optional agents on lifecycle refresh or explicit listing,
   ::  not every transport callback. Dispatch still checks live availability.
   ?:  !=(0 local-mcp-seen)  state
-  =/  present  .^(? %gu /(scot %p our.bowl)/mcp-server/(scot %da now.bowl)/$)
+  =/  present  .^(? %gu /(scot %p our.bowl)/mcp-proxy/(scot %da now.bowl)/$)
   =/  discovery  (ensure:local-mcp-lib mcp-servers local-mcp-seen our.bowl present)
   state(local-mcp-seen seen.discovery, mcp-servers registry.discovery)
 ++  is-owner
