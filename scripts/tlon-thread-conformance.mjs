@@ -1,6 +1,7 @@
 // Native Harness settings and exact-thread history/reaction fixtures.
 // Restores test-ship settings and original native trust memberships.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -41,7 +42,7 @@ const server = createServer(async (req, res) => {
     res.end(JSON.stringify({ choices: [{ finish_reason: name ? 'tool_calls' : 'stop', message }] }))
   }
   try {
-    let raw = ''; for await (const part of req) raw += part
+    const raw = await readText(req)
     const body = JSON.parse(raw), last = body.messages.findLastIndex((m) => m.role === 'user')
     const done = body.messages.slice(last + 1).filter((m) => m.role === 'tool')
     res.writeHead(200, { 'content-type': 'application/json' })

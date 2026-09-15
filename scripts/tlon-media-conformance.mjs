@@ -2,6 +2,7 @@
 // a local independently-verifying S3 endpoint and a deterministic model.
 // Temporarily replaces TEST SHIP storage/defaults/policy; restores all fields.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto'
@@ -60,7 +61,7 @@ const storage = createServer(async (req, res) => {
 const answer = (res, content, calls) => res.end(JSON.stringify({ choices: [{ finish_reason: calls ? 'tool_calls' : 'stop', message: { role: 'assistant', content, ...(calls ? { tool_calls: calls } : {}) } }] }))
 const model = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const part of req) raw += part
+    const raw = await readText(req)
     assert.ok(!raw.includes(secret), 'Storage secrets must not reach the model')
     const body = JSON.parse(raw), last = body.messages.findLastIndex((m) => m.role === 'user')
     const current = body.messages.slice(last + 1).filter((m) => m.role === 'tool')

@@ -3,6 +3,7 @@
 // Requires SHIP_COOKIE, PEER_COOKIE, PEER_URL, TEST_NEST, and a configured model.
 // Temporarily changes Tlon policy, restoring it even if an assertion fails.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
@@ -60,7 +61,7 @@ try {
   if (process.env.CONTROLLED_MODEL === '1') {
     originalDefaults = await client.call('harness/defaults')
     fixtureServer = createServer(async (req, res) => {
-      let raw = ''; for await (const chunk of req) raw += chunk
+      const raw = await readText(req)
       const words = [...raw.matchAll(/grove-\d+-[a-z-]+/g)]
       res.setHeader('content-type', 'application/json')
       res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: words.at(-1)?.[0] || 'missing-fixture-prompt' } }] }))

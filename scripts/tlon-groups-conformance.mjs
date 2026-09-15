@@ -1,6 +1,7 @@
 // Two local fake ships: ownership setup, real roles, invitations and join flows.
 // Uses a deterministic model; deletes only unique fixture groups and restores policy.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
@@ -18,7 +19,7 @@ let policy, sessionCreated = false, localCreated = false, foreignCreated = false
 let args, result
 const server = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const chunk of req) raw += chunk
+    const raw = await readText(req)
     const body = JSON.parse(raw); requests++
     const after = body.messages.findLastIndex((message) => message.role === 'user')
     const reply = body.messages.slice(after + 1).find((message) => message.role === 'tool')

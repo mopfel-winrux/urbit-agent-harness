@@ -1,6 +1,7 @@
 // Disposable two-ship test: real Messenger, controlled inference, actual Gall
 // suspension/revival. Restores policy/defaults and leaves delivery evidence.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
@@ -23,7 +24,7 @@ const hand = new HandClient(client, { hand: 'tlon', worker: marker })
 let event = 0, defaults, policy, suspended = false, hostSuspended = false, sessionId
 const requests = []
 const server = createServer(async (req, res) => {
-  let raw = ''; for await (const chunk of req) raw += chunk
+  const raw = await readText(req)
   requests.push({ body: JSON.parse(raw), res })
 })
 const finish = (index, suffix) => requests[index].res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: `${marker}-${suffix}` } }] }))

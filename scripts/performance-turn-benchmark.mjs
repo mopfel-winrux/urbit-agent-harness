@@ -3,6 +3,7 @@
 // only uniquely named fixture sessions; run separately from native compilation.
 // SHIP_URL=http://ship SHIP_COOKIE=/path/to/cookie node scripts/performance-turn-benchmark.mjs
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { base, cookie } from './lib/ship-client.mjs'
@@ -34,7 +35,7 @@ const server = createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'text/plain' }); res.end('LOCAL_TOOL_OK')
       return
     }
-    let raw = ''; for await (const chunk of req) raw += chunk
+    const raw = await readText(req)
     const body = JSON.parse(raw)
     const after = body.messages.slice(body.messages.findLastIndex((m) => m.role === 'user') + 1)
     const finished = after.some((m) => m.role === 'tool')

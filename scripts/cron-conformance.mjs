@@ -2,6 +2,7 @@
 // Uses only a local deterministic model. Leaves uniquely named conversation
 // and delivery evidence, cancels fixture schedules, never edits global policy.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -18,10 +19,10 @@ const future = (ms) => new Date(Date.now() + ms).toISOString().replace(/\.\d{3}Z
 const answer = (res, text, tools = []) => res.end(JSON.stringify({ choices: [{ finish_reason: tools.length ? 'tool_calls' : 'stop', message: {
   role: 'assistant', content: text, ...(tools.length ? { tool_calls: tools } : {}),
 } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }))
-const tool = (name, args) => ({ id: `${marker}-${name}`, type: 'function', function: { name, arguments: JSON.stringify(args) } })
+const tool = (name, args) => ({ id: `${marker}-${name}-${randomUUID()}`, type: 'function', function: { name, arguments: JSON.stringify(args) } })
 const server = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const chunk of req) raw += chunk
+    const raw = await readText(req)
     const body = JSON.parse(raw); calls.push(body)
     res.writeHead(200, { 'content-type': 'application/json' })
     const receipts = body.messages.slice(body.messages.findLastIndex((message) => message.role === 'user') + 1).filter((message) => message.role === 'tool')
@@ -34,7 +35,15 @@ const server = createServer(async (req, res) => {
       return answer(res, `${marker}-run-finished`)
     }
     assert.ok(body.tools.some((entry) => entry.function.name === 'cron_add'), 'any active hand receives shared scheduling tools')
-    if (!receipts.length) return answer(res, '', [tool('cron_add', { schedule: '* * * * *', timezone: 'UTC', prompt: `${marker}-run`, runs: '2' })])
+    if (!receipts.length) return answer(res, '', [
+      tool('schedule_once', { schedule: '* * * * *', timezone: 'UTC', prompt: 'Must not recur', runs: '2' }),
+      tool('cron_add', { at: future(86_400_000), prompt: 'Wrong scheduling tool' }),
+    ])
+    if (receipts.length === 2) {
+      assert.ok(receipts.some(receipt => /schedule_once requires at and prompt/.test(receipt.content)))
+      assert.ok(receipts.some(receipt => /cron_add requires a recurring schedule/.test(receipt.content)))
+      return answer(res, '', [tool('cron_add', { schedule: '* * * * *', timezone: 'UTC', prompt: `${marker}-run`, runs: '2' })])
+    }
     modelJob = JSON.parse(receipts.at(-1).content)
     assert.equal(modelJob.hand, hand.hand)
     schedules.add(modelJob.id)
@@ -69,6 +78,7 @@ try {
   await hand.observe(source, { event: `${marker}-create`, actor: 'alice', text: 'Schedule the requested bounded task. PRIVATE_SCHEDULING_CONTEXT' })
   await until('model creates schedule through non-Tlon hand', () => modelJob)
   assert.equal(modelJob.sourceBinding, source); assert.equal(modelJob.state, 'active')
+  assert.equal((await hand.schedules(source)).length, 1, 'Malformed one-time and recurring requests create no jobs')
   bindings.push(modelJob.runSessionId)
   const sourceOutput = await until('source reply', async () => (await hand.outbox()).find((effect) => effect.sessionId === source))
   await hand.deliver(sourceOutput.effectId, async () => 'fixture-source-delivered')
@@ -76,7 +86,7 @@ try {
   const upcoming = await add({ text: 'Cancelled before firing' })
   assert.deepEqual(await hand.schedule(source, upcoming.request), upcoming.job, 'idempotent create')
   await assert.rejects(hand.schedule(source, { ...upcoming.request, text: 'Conflicting payload' }), /different request/)
-  await assert.rejects(hand.schedule(source, { ...upcoming.request, id: id(), destination: 'wrong-room' }), /exact-destination/)
+  await assert.rejects(hand.schedule(source, { ...upcoming.request, id: id(), destination: 'wrong-room' }), /exact destination/)
   await assert.rejects(hand.schedule(source, { ...upcoming.request, id: id(), actor: 'mallory' }), /authorized actor/)
   await native({ cancel: { id: upcoming.job.id } })
   const cancelled = await until('native cancel visible in shared ACP list', async () => (await hand.schedules(source)).find((job) => job.id === upcoming.job.id && job.state === 'cancelled'))

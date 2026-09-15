@@ -1,6 +1,7 @@
 // Human-maintained memory through native Tlon, with no model/tool write path.
 // Leaves marked test messages/audit records; restores defaults, policy and trust.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -76,7 +77,7 @@ async function command(ctx, text, expected, memory, mutation = false) {
   return after
 }
 const server = createServer(async (req, res) => {
-  let raw = ''; for await (const part of req) raw += part
+  const raw = await readText(req)
   res.writeHead(200, { 'content-type': 'application/json' })
   if (responses.has(raw)) return res.end(responses.get(raw))
   try {

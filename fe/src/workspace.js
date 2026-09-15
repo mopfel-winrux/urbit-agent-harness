@@ -12,7 +12,10 @@ export async function workspaceCall(action, args = {}) {
 export function createWorkspaceReads(call, watch) {
   const entries = new Map()
   let stop
-  const publish = (entry, result) => { for (const listener of entry.listeners) listener(result) }
+  const publish = (entry, result) => {
+    entry.result = result
+    for (const listener of [...entry.listeners]) listener(result)
+  }
   async function refresh(key) {
     const entry = entries.get(key)
     if (!entry) return
@@ -37,6 +40,7 @@ export function createWorkspaceReads(call, watch) {
       let entry = entries.get(key)
       if (!entry) { entry = { listeners: new Set(), pending: null, again: false }; entries.set(key, entry) }
       entry.listeners.add(listener)
+      if (entry.result) listener(entry.result)
       if (!stop) stop = watch(invalidate)
       if (!entry.pending) void refresh(key)
       return () => {

@@ -1,6 +1,7 @@
 // Exercise shared tool execution through ACP with a deterministic provider.
 // Does not change the MCP registry, credentials, defaults, or hand permissions.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { Client } from './lib/ship-client.mjs'
@@ -8,8 +9,7 @@ import { Client } from './lib/ship-client.mjs'
 const client = new Client(), sessions = [], observed = []
 let tool = 'list_mcp_servers', expectedGrant = true
 const server = createServer(async (req, res) => {
-  let raw = ''
-  for await (const part of req) raw += part
+  const raw = await readText(req)
   const body = JSON.parse(raw)
   observed.push(body)
   const reply = body.messages.find((message) => message.role === 'tool')

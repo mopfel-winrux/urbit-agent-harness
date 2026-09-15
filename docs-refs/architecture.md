@@ -411,8 +411,11 @@ source references and task claims. `harness-workspace-json` supplies bounded
 projections and decoding, while `harness-document` renders inert public Markdown.
 
 The head derives live access from immutable corpus scope IDs and active
-delegations, never model-supplied identity. Models can propose revisions and
-claim tasks; owner-only approval, membership and publication remain separate.
+delegations, never model-supplied identity. Agents with Workspace access share
+task tracking and project metadata; document access uses project roles.
+Task records describe work without dispatching execution or granting authority.
+Models can propose document revisions; owner-only approval, membership and
+publication remain separate.
 Read execution and receipt settlement occur in one Gall event. Native writes
 persist their intent, watch the request result before sending, and settle only
 on the typed Notes result, never merely on poke acknowledgement. Uncertain writes

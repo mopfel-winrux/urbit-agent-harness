@@ -6,12 +6,17 @@ Agent requests and direct tool calls have separate versioned marks.
 
 ## Asking side
 
-`ask_peer(ship, prompt)` behaves like a child-agent tool. It creates a durable
+`ask_peer(ship, prompt, task?)` behaves like a child-agent tool. It creates a durable
 request id, sends typed cargo to the peer's `%harness` agent, waits with
 a Behn deadline, and materializes the answer or error as a tool result. The
 calling chat never treats an Ames poke as trusted instructions.
 
 The request id is path-safe. Replies must come from the addressed ship.
+Delegation requires current incoming trust for the destination on the asking
+ship, and the receiver independently requires its own current grant for the
+caller. Discovery remains available without this reciprocal grant. Removing
+local trust prevents further dispatch and rejects subsequent work results;
+it cannot undo work already accepted by the other ship.
 
 ## Serving side
 
@@ -99,10 +104,49 @@ recipient's incoming grants. Receivers enforce current access on every call.
 
 `list_peer_tools(ship)` discovers a permitted ship's tool schema and
 `call_peer_tool(ship, name, arguments)` invokes one granted tool. `arguments`
-is a JSON-object string. There is no serving-model turn around the invocation;
+is a JSON object. There is no serving-model turn around the invocation;
 an explicitly requested cognitive tool such as a subagent may itself use a
 model. The same resource-specific checks and executors serve local and remote
 calls, including per-server MCP grants and per-desk Clay grants.
+Invocations require mutual trust. Workspace calls additionally require the
+Workspace grant in both directions. Each endpoint checks its own live grant;
+dated remote permission reports never authorize a call. Ownership uses the
+same live sponsor, explicit-owner, and enabled sibling-moon checks described
+above; task coordination does not confer new administrative authority.
+
+## Coordinating work across ships
+
+Keep each task on one home ship. A coordinating agent creates a concrete task
+there and passes its ID as the optional `task` argument to `ask_peer`. Harness
+attaches the reference with this ship as home; the argument grants no access.
+The bounded prompt contains the deliverable, completion check, dependencies,
+and only authorized context. Untracked questions omit `task`.
+The receiving agent reads, claims, and updates that home task using
+`call_peer_tool` with the home ship's `workspace` tool. Claims are attributed
+to the authenticated peer's local audit identity and display its ship. The
+coordinator incorporates and verifies the answer; it does not create a second
+task record merely to mirror the first. The same flow works in either direction.
+
+The Workspace tool's `args` and the peer call's `arguments` are JSON objects,
+not encoded strings. Discover the current schema before calling.
+Task bookkeeping runs without serving-model inference; `ask_peer` invokes
+the other agent. Creating or assigning a task alone never starts execution.
+If a call times out, inspect the task before further action and never resend
+an uncertain mutation automatically. Do not grant trust or tools to bypass a
+failed delegation. Missing access requires an owner decision.
+
+Each requesting ship has one active peer conversation. An additional request
+is refused while that conversation is running, so its prompt and result cannot
+be mixed with another assignment. A repeated in-flight request ID adds no
+second input. A caller timeout does not cancel remote execution; inspect the
+home task instead of resending or reassigning the work.
+
+Agents use tasks for complex goals, ongoing work, and coordination. They break
+down the next useful pieces rather than generating speculative task trees,
+delegate independent work to capable agents, record blockers and outcomes,
+and reassess the remaining work. Quick answers need no task. Users normally
+receive results and meaningful progress, not internal IDs or lifecycle steps;
+the Work view remains available for inspection.
 
 The `%harness-rpc-0` mark carries:
 

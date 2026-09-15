@@ -1,6 +1,7 @@
 // Real ACP/head/Iris, local fake SearXNG. Restores shared provider selection;
 // never reads or changes Brave credentials and never calls a real search API.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { Client } from './lib/ship-client.mjs'
@@ -10,7 +11,7 @@ const query = 'site:example.org a & + % café 日本'
 let original, url, mode, receipt, searches = 0
 const server = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const part of req) raw += part
+    const raw = await readText(req)
     if (req.url === '/prefix/search') {
       searches++
       assert.equal(req.method, 'POST')

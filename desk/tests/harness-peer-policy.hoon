@@ -1,6 +1,16 @@
 /-  h=harness, t=harness-tlon
 /+  *test, peers=harness-peer-policy, tlon=harness-tlon-policy, defaults=harness-defaults, hj=harness-json
 |%
+++  test-outgoing-collaboration-requires-current-incoming-trust
+  =/  trusted=peer-grant:h  [~[%web] ~ 0 ~]
+  =/  work  trusted(tools ~[%workspace])
+  ;:  weld
+    (expect !>(!(can-send:peers ~ ~)))
+    (expect !>((can-send:peers `trusted ~)))
+    (expect !>(!(can-send:peers `trusted `'workspace')))
+    (expect !>((can-send:peers `work `'workspace')))
+    (expect !>(!(can-send:peers ~ `'workspace')))
+  ==
 ++  test-token-count-starts-at-lifetime-and-reset-only-changes-baseline
   ;:  weld
     (expect-eq !>(1.234) !>((used:peers 1.234 0)))

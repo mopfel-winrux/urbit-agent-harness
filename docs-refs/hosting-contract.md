@@ -59,7 +59,12 @@ restore piers. Code rollback is not state rollback: once a migration changes
 persisted nouns, only a compatible release may load them. Harness deployment
 changes only the Harness desk; native integrations use existing interfaces.
 
-## Measure before changing runtime ownership
+## Verification and operational measurements
+
+Continuous verification maintains native session and check grubs and the
+browser's verification view. It runs the same reducer as the head: it can reveal
+divergence, stale inputs, and reconstruction failures, but cannot independently
+certify the reducer's semantics or the correctness of external effects.
 
 Measure admission acknowledgement and stop acknowledgement separately from
 provider latency and destination delivery. For empty, active and long-lived
@@ -68,16 +73,3 @@ allocated/live loom, durable state growth and incremental per-conversation
 cost. Record release identity, workload size and host resource allocation with
 the measurements. Medians alone hide interruption and long-history tails;
 include distributions and failure cases.
-
-Continuous verification currently maintains native session and check grubs as
-well as the browser's verification view. Removing it would change those
-consumers' freshness contract. On-demand verification would reduce update work
-but require an explicit request and revision/digest check before treating a
-mirror as current. In either mode it runs the same reducer: it can reveal
-divergence, stale inputs and reconstruction failures, not independently certify
-the reducer's semantics or the correctness of external effects.
-
-Keep the existing continuous behavior until representative measurements justify
-the compatibility change. Do not introduce supervised per-session ownership,
-another scheduler, or a configuration reconciler merely to make the diagram
-look modular.

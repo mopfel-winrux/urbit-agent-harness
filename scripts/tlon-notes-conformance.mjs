@@ -1,6 +1,7 @@
 // End-to-end native Notes checks on fake ~lux, using an unpaid local model.
 // All writes are restricted to unique fixture notebooks/channels/groups.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -13,7 +14,7 @@ const client = new Client(), errors = [], books = new Set()
 let args, result, calls = 0, policy, session = false, createdGroup = false
 const model = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const part of req) raw += part
+    const raw = await readText(req)
     const body = JSON.parse(raw), last = body.messages.findLastIndex((m) => m.role === 'user')
     const reply = body.messages.slice(last + 1).find((m) => m.role === 'tool')
     if (reply) result = reply.content

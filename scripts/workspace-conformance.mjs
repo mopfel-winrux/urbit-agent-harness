@@ -2,6 +2,7 @@
 // local model. No global configuration changes, remote providers, or deployment.
 // Unique private fixture records remain as evidence; all pages are unpublished.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -18,7 +19,7 @@ const response = (res, text, tools = []) => res.end(JSON.stringify({ choices: [{
 const tool = (id, name, args) => ({ id, type: 'function', function: { name, arguments: JSON.stringify(args) } })
 const server = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const chunk of req) raw += chunk
+    const raw = await readText(req)
     const body = JSON.parse(raw)
     const last = body.messages.findLastIndex((message) => message.role === 'user')
     const message = body.messages[last].content
@@ -30,7 +31,7 @@ const server = createServer(async (req, res) => {
     if (command.mode === 'delegate') return response(res, '', [tool(command.token, 'run_subagent', { prompt: JSON.stringify(command.child) })])
     if (command.mode === 'admin') return response(res, '', [tool(command.token, 'harness_admin', { method: 'harness/workspace', params: JSON.stringify({ action: command.action, args: command.args }) })])
     assert.ok(body.tools.some((entry) => entry.function.name === 'workspace'), 'Workspace tool is advertised to the active authorized worker')
-    response(res, '', [tool(command.token, 'workspace', { action: command.action, args: JSON.stringify(command.args) })])
+    response(res, '', [tool(command.token, 'workspace', { action: command.action, args: command.args })])
   } catch (error) { errors.push(error); if (!res.headersSent) res.writeHead(500); res.end('Synthetic model failure') }
 })
 const work = (action, args = {}) => client.call('harness/workspace', { action, args })
@@ -112,13 +113,13 @@ try {
   const childProposal = JSON.parse(replies.get(delegated.token))
   assert.equal(childProposal.status, 'pending')
   assert.notEqual(childProposal.by.scope, firstScope, 'Proposal retains actual worker identity, not parent attribution')
-  assert.match(await agent(second, 'task-create', { project, title: 'Reader cannot create' }), /contributor access/)
-  await member(project, secondScope, 'contributor')
-  await work('task-create', { id: task, project, title: 'One task, one worker', description: 'Synthetic coordination' })
-  const [claimA, claimB] = await Promise.all([agent(first, 'task-claim', { id: task, version: 1 }), agent(second, 'task-claim', { id: task, version: 1 }, {}, workerClient)])
+  const createdTask = await agent(second, 'task-create', { id: task, project, title: 'Shared task tracking', description: 'Synthetic coordination' })
+  assert.equal(createdTask.id, task, 'Document membership does not gate shared task tracking')
+  const [claimA, claimB] = await Promise.all([agent(first, 'task-claim', { id: task, version: createdTask.version }), agent(second, 'task-claim', { id: task, version: createdTask.version }, {}, workerClient)])
   assert.equal([claimA, claimB].filter((result) => typeof result !== 'string').length, 1, 'Exactly one worker wins the claim')
   const loser = typeof claimA === 'string' ? first : second
-  assert.match(await agent(loser, 'task-update', { id: task, version: 2, status: 'done' }), /claiming agent/)
+  const claimedTask = await work('task', { id: task })
+  assert.equal((await agent(loser, 'task-update', { id: task, version: claimedTask.version, status: 'done' })).status, 'done', 'Agents can coordinate shared tracking without becoming the claimant')
 
   const token = randomUUID(), pending = prompt(first, { token, mode: 'tool', action: 'artifact', args: { id: doc }, hold: true })
   await until('held model dispatch', () => held.has(token))
@@ -155,6 +156,10 @@ try {
   assert.equal(firstPage.content.nextOffset, 8_000)
   const secondPage = await agent(first, 'revision', { id: long, revision: 1, offset: firstPage.content.nextOffset })
   assert.equal(Buffer.byteLength(secondPage.content.body), 8_000)
+  assert.equal(secondPage.content.nextOffset, 16_000)
+  const finalPage = await agent(first, 'revision', { id: long, revision: 1, offset: secondPage.content.nextOffset })
+  assert.equal(finalPage.content.nextOffset, null)
+  assert.equal(firstPage.content.body + secondPage.content.body + finalPage.content.body, longBody, 'Paged agent reads reconstruct the exact Unicode document')
   assert.match(await agent(first, 'revision', { id: long, revision: 1, offset: 1 }), /invalid read parameters/)
 
   // Rename preserves membership, while deleting/recreating does not.

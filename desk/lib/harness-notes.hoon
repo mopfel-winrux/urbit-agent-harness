@@ -16,7 +16,8 @@
   |=  action=@t
   ^-  ?
   ?:  =('task-reply' action)  &
-  (lien `(list @t)`~['artifacts' 'artifact' 'revisions' 'revision' 'proposals' 'proposal' 'preview' 'artifact-create' 'artifact-save' 'artifact-archive' 'artifact-rename' 'propose' 'review' 'publish' 'unpublish'] |=(item=@t =(action item)))
+  ::  Lists use the watched metadata projection; opening content refreshes Notes.
+  (lien `(list @t)`~['artifact' 'revisions' 'revision' 'proposal' 'preview' 'artifact-create' 'artifact-save' 'artifact-archive' 'artifact-rename' 'propose' 'review' 'publish' 'unpublish'] |=(item=@t =(action item)))
 ++  public-path
   |=  [book=flag:n note=@ud]
   ^-  @t
@@ -68,11 +69,11 @@
   =/  art  (~(get by artifacts.out) id)
   ?~  art  out
   =/  note  (~(get by notes.book) note.link)
-  ?~  note  out(artifacts (~(del by artifacts.out) id), writes +(writes.out))
+  ?~  note  out(artifacts (~(del by artifacts.out) id), recency (~(del by recency.out) [%artifact id]), writes +(writes.out))
   =/  history  (fall (~(get by history.book) note.link) ~)
   =/  next  (project-note u.art link u.note history)
   ?:  =(next u.art)  out
-  out(artifacts (~(put by artifacts.out) id next), writes +(writes.out))
+  (touch:work out(artifacts (~(put by artifacts.out) id next), writes +(writes.out)) [%artifact id] updated-at.u.note)
 ++  project-update
   |=  [db=state:w native=state:hn update=u-notebook:n]
   ^-  state:w
@@ -83,7 +84,7 @@
   =/  art  (~(get by artifacts.out) id)
   ?~  art  out
   ?:  ?=(%deleted -.u-note.update)
-    out(artifacts (~(del by artifacts.out) id), writes +(writes.out))
+    out(artifacts (~(del by artifacts.out) id), recency (~(del by recency.out) [%artifact id]), writes +(writes.out))
   =/  next=artifact:w
     ?:  ?=(%updated -.u-note.update)
       =/  note  note.u-note.update
@@ -94,7 +95,9 @@
       u.art(revisions (~(put by revisions.u.art) +(rev.old) (revision link +(rev.old) at.old author.old title.old body-md.old)))
     u.art
   ?:  =(next u.art)  out
-  out(artifacts (~(put by artifacts.out) id next), writes +(writes.out))
+  =/  latest  (~(get by revisions.next) head.next)
+  =/  at=@da  ?~(latest `@da`0 at.u.latest)
+  (touch:work out(artifacts (~(put by artifacts.out) id next), writes +(writes.out)) [%artifact id] at)
 ++  prepare
   |=  [db=state:w native=state:hn reply=reply:hn action=@t args=json fallback=@t now=@da request=@uv]
   ^-  (each pending:hn @t)
@@ -167,6 +170,7 @@
     (~(put by proposals.db) pid old(status %accepted, decided `now, decision (fall (optional:codec args.pending 'reason') ''), revision `number))
   =.  db
     db(artifacts (~(put by artifacts.db) id art), writes +(writes.db), history [[now by.pending action.pending id] (scag 2.047 history.db)])
+  =.  db  (touch:work db [%artifact id] now)
   =?  bytes.db  |(=('artifact-create' action.pending) =('artifact-save' action.pending))
     (add bytes.db (content-size:work value.pending))
   [db native(links (~(put by links.native) id link), pending ~)]
@@ -205,12 +209,13 @@
     =/  public  (lien pages |=(item=published-record:n &(=(book flag.item) =(note.link note-id.item))))
     =?  art  !=(public ?=(^ publication.u.art))
       `u.art(publication ?:(public `[0 (public-path book note.link) '' now.bowl] ~), exposure +(exposure.u.art))
+    =?  out  !=(art (~(get by artifacts.out) id))  (touch:work out [%artifact id] now.bowl)
     =.  artifacts.out  (~(put by artifacts.out) id u.art)
     =/  last  (~(get by revisions.u.art) +(revision.current))
     ?:  ?&(?=(^ last) =(head.u.art +(revision.current)) =(title.current label.u.art) =(body-md.current body.value.u.last))
       out
     =/  next  (project-note u.art link current (history book note.link))
-    out(artifacts (~(put by artifacts.out) id next))
+    (touch:work out(artifacts (~(put by artifacts.out) id next)) [%artifact id] updated-at.current)
   ++  refresh
     |=  [db=state:w native=state:hn]
     ^-  state:w
@@ -227,15 +232,16 @@
     =?  art  !=(public ?=(^ publication.u.art))
       `u.art(publication ?:(public `[0 (public-path book note.link) '' now.bowl] ~), exposure +(exposure.u.art))
     =?  writes.out  !=(art (~(get by artifacts.out) id))  +(writes.out)
+    =?  out  !=(art (~(get by artifacts.out) id))  (touch:work out [%artifact id] now.bowl)
     =.  artifacts.out  (~(put by artifacts.out) id u.art)
     =/  found  (skim rows |=(item=note:n =(id.item note.link)))
-    ?~  found  out(artifacts (~(del by artifacts.out) id), writes +(writes.out))
+    ?~  found  out(artifacts (~(del by artifacts.out) id), recency (~(del by recency.out) [%artifact id]), writes +(writes.out))
     =/  current  i.found
     =/  last  (~(get by revisions.u.art) +(revision.current))
     ::  Only changed notes require a history scry and projection rebuild.
     ?:  ?&(?=(^ last) =(head.u.art +(revision.current)) =(title.current label.u.art) =(body-md.current body.value.u.last))
       out
     =/  next  (project-note u.art link current (history book note.link))
-    out(artifacts (~(put by artifacts.out) id next), writes +(writes.out))
+    (touch:work out(artifacts (~(put by artifacts.out) id next), writes +(writes.out)) [%artifact id] updated-at.current)
   --
 --

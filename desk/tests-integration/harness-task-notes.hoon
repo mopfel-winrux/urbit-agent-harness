@@ -12,21 +12,21 @@
   %-  isolated  |=  ignored=*
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.14)
-  =/  saved=state-25  *state-25
+  =/  saved=state-27  *state-27
   =.  saved  saved(tlon-cron-imported &, welcome-seen 1, defaults builtin-config:policy)
   =/  loaded  (~(on-load head bowl) !>(saved))
   =/  created  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%new 'owner' defaults.saved]))
-  =/  before  !<(state-25 ~(on-save +.created bowl))
+  =/  before  !<(state-27 ~(on-save +.created bowl))
   =/  noted  (~(on-poke +.created bowl) %harness-action !>(`action:h`[%send 'owner' '/work task-create {"id":"note","title":"Check the forecast"}']))
-  =/  recorded  !<(state-25 ~(on-save +.noted bowl))
+  =/  recorded  !<(state-27 ~(on-save +.noted bowl))
   =/  updated  (~(on-poke +.noted bowl) %harness-action !>(`action:h`[%send 'owner' '/work task-update {"id":"note","version":1,"status":"done","outcome":"Answered in the conversation."}']))
-  =/  after  !<(state-25 ~(on-save +.updated bowl))
+  =/  after  !<(state-27 ~(on-save +.updated bowl))
   =/  stale  (~(on-poke +.updated bowl) %harness-action !>(`action:h`[%send 'owner' '/work task-update {"id":"note","version":1,"status":"open"}']))
-  =/  final  !<(state-25 ~(on-save +.stale bowl))
+  =/  final  !<(state-27 ~(on-save +.stale bowl))
   =/  edited  (~(on-poke +.stale bowl) %harness-action !>(`action:h`[%send 'owner' '/work task-update {"id":"note","version":2,"title":"Forecast answered","description":"A completed request"}']))
-  =/  changed  !<(state-25 ~(on-save +.edited bowl))
+  =/  changed  !<(state-27 ~(on-save +.edited bowl))
   =/  deleted  (~(on-poke +.edited bowl) %harness-action !>(`action:h`[%send 'owner' '/work task-delete {"id":"note","version":3}']))
-  =/  removed  !<(state-25 ~(on-save +.deleted bowl))
+  =/  removed  !<(state-27 ~(on-save +.deleted bowl))
   =/  replies  (murn log:(~(got by sessions.after) 'owner') |=(e=event:h ?:(?=(%command-completed -.e) `body.e ~)))
   ?>  ?=(^ replies)
   ;:  weld

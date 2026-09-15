@@ -1,8 +1,8 @@
 # Sustained operation and recovery
 
-The next development milestone is dependable unattended operation before broader
-agent responsibility. This acceptance workload builds on the existing focused
-conformance tests; it is not a new runtime, scheduler or health authority.
+The acceptance workload measures sustained operation and fault recovery through
+the real client transport and ship-owned head. Focused conformance tests cover
+individual boundaries; a soak checks their behavior under concurrent activity.
 
 ## Local acceptance runner
 
@@ -135,28 +135,3 @@ Keep these checks distinct:
 
 A short passing run establishes the exercised cases and duration only. It does
 not establish 24-hour stability or replace the boundaries above.
-
-## Development sequence
-
-1. Establish sustained-operation, fault-recovery and cold-start baselines;
-   fix measured failures and bound replay/storage growth.
-2. Project existing receipts into a practical work inbox: running, blocked,
-   awaiting approval, finished and uncertain delivery, each with evidence.
-3. Add narrowly delegable project-maintainer authority and scoped client access,
-   auditing equivalent effects through Workspace and native tools.
-4. Complete one explicit social request → accepted task → worker conversation →
-   reviewed artifact → reply workflow, using the existing head and scheduler.
-5. Add sourced project decisions, constraints and open questions with explicit
-   correction/supersession, without mixing private conversation histories.
-
-The runner and reload checks are the first increment of item 1, not completion
-of this roadmap.
-
-Item 2 provides the [read-only work inbox](inbox.md). The first increment of item 3
-provides [project maintainers and read-only client keys](project-access.md), with an
-explicit audit of equivalent native/tool authority. It adds no delegated
-approval/publication or client execution. Item 4 has an owner-directed
-[request-to-reviewed-reply procedure and local end-to-end check](social-workflow.md).
-Its social transport and delivery sink are synthetic; real social transport,
-integrated workflow controls and typed request/task relationships remain open.
-Sourced project knowledge is item 5.

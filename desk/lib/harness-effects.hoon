@@ -4,7 +4,7 @@
 ::  result handlers in the agent fence late receipts before appending events.
 ::  Sync reads return a result noun; async helpers describe cards, not a loop.
 /-  h=harness, spider
-/+  ht=harness-tools, tbjs=thread-builder-js, local-mcp=harness-local-mcp
+/+  ht=harness-tools, tbjs=thread-builder-js, local-mcp=harness-local-mcp, calculator=harness-calculate
 |_  [=bowl:gall mcp-servers=(map mcp-server-id:h mcp-server:h)]
 +$  card  card:agent:gall
 ::  +run-js-poke: a run_js tool call becomes a poke to ourselves
@@ -56,6 +56,8 @@
   ?.  (call-granted:ht c tools)
     [%tool-completed id.c name.c 'rejected: tool or path is not granted for this session']
   =/  out=@t
+    ?:  =(name.c 'calculate')
+      (evaluate:calculator args.c)
     ?:  =(name.c 'current_time')
       (current-time now.bowl)
     ?:  =(name.c 'list_desk_scopes')
@@ -250,10 +252,20 @@
     %+  slaw  %p
     ?:(=('~' (end [3 1] u.shp)) u.shp (cat 3 '~' u.shp))
   ?~  who  ~
+  =/  fields  (de:json:html args.c)
+  ?.  ?=([~ %o *] fields)  ~
+  =/  task  (~(get by p.u.fields) 'task')
+  =/  prompt=@t
+    ?~  task  u.prm
+    ?.  ?=([%s *] u.task)  ''
+    ?.  &((gth (met 3 p.u.task) 0) (lte (met 3 p.u.task) 200))  ''
+    =/  reference  (en:json:html (pairs:enjs:format ~[['home' %s (scot %p our.bowl)] ['id' %s p.u.task]]))
+    (rap 3 'Internal work reference: ' reference '\0aRead, claim, and update this task on its home ship through call_peer_tool(workspace). Do not create a duplicate. This reference grants no access; current mutual grants still apply.\0a\0aWork brief:\0a' u.prm ~)
+  ?:  =('' prompt)  ~
   :-  ~
   :*  %pass  `wire`[%aski `@ta`sid `@ta`id.c ~]
       %agent  [our.bowl dap.bowl]  %poke
-      %harness-effect  !>(`effect:h`[generation [%ask-peer sid id.c u.who u.prm]])
+      %harness-effect  !>(`effect:h`[generation [%ask-peer sid id.c u.who prompt]])
   ==
 ++  check-peer-card
   |=  [sid=session-id:h generation=@ud c=tool-call:h]
@@ -276,11 +288,19 @@
   ?~  who  ~
   =/  name  (tool-str args.c 'name')
   ?:  &(=('call_peer_tool' name.c) ?=(~ name))  ~
-  =/  args  (fall (tool-str args.c 'arguments') '{}')
+  =/  args
+    ^-  (unit @t)
+    ?:  =('list_peer_tools' name.c)  `'{}'
+    =/  jon  (de:json:html args.c)
+    ?.  ?=([~ %o *] jon)  ~
+    =/  value  (~(get by p.u.jon) 'arguments')
+    ?.  ?=([~ %o *] value)  ~
+    `(en:json:html u.value)
+  ?~  args  ~
   :-  ~
   :*  %pass  /peer-rpc-request/[sid]/(scot %ud generation)/[id.c]
       %agent  [our.bowl dap.bowl]  %poke  %harness-effect
-      !>(`effect:h`[generation [%peer-rpc sid id.c u.who ?:(=('list_peer_tools' name.c) ~ name) args]])
+      !>(`effect:h`[generation [%peer-rpc sid id.c u.who ?:(=('list_peer_tools' name.c) ~ name) u.args]])
   ==
 ++  admin-card
   |=  [sid=session-id:h generation=@ud c=tool-call:h]

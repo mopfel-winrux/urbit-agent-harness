@@ -25,7 +25,6 @@
 ++  before
   |=  [a=position b=position]
   ^-  ?
-  ?:  !=(state.a state.b)  (lth (rank state.a) (rank state.b))
   ?:  !=(at.a at.b)  (gth at.a at.b)
   ?:  !=(kind.a kind.b)  (aor kind.a kind.b)
   &(!=(id.a id.b) (aor id.a id.b))
@@ -93,7 +92,7 @@
     (turn ~(tap by jobs) |=([id=@uv job=schedule:cr] [id state.job next.job remaining.job last.job]))
   =/  pending
     ?~(pending.native ~ `[id.u.pending.native sent.u.pending.native uncertain.u.pending.native stage.u.pending.native])
-  (scot %uv (sham [writes.db observations publications controls bindings schedules pending]))
+  (scot %uv (sham [%recent-first writes.db observations publications controls bindings schedules pending]))
 ++  encode
   |=  [token=@t state=@t kind=@t row=position]
   ^-  @t

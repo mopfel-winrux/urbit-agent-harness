@@ -3,6 +3,14 @@
 /-  h=harness
 /+  hj=harness-json, ht=harness-tools
 |%
+++  can-send
+  |=  [incoming=(unit peer-grant:h) tool=(unit @t)]
+  ^-  ?
+  ::  The sender trusts its destination; the receiver checks the other half
+  ::  against its own live grant. Remote discovery reports grant no authority.
+  ?~  incoming  |
+  ?.  =(`'workspace' tool)  &
+  (tool-granted:ht 'workspace' tools.u.incoming)
 ++  used
   |=  [total=@ud baseline=@ud]
   ^-  @ud

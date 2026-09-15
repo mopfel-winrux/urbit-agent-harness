@@ -7,12 +7,19 @@ isolated run conversation, remaining runs, execution and delivery evidence.
 
 Any authorized [conversation hand](hands.md) can use the scheduler. Tlon is one
 such hand; it is not required for another hand's schedules. An active bound
-conversation receives `cron_add`, `cron_list`, `cron_remove` and `reminder_add`.
+conversation receives `schedule_once`, `cron_add`, `cron_list`, `cron_remove`
+and `reminder_add`.
 These are implicit conversation capabilities, not configurable resource grants.
 Unbound browser conversations, delegated work and scheduled runs cannot acquire
 them merely by saving a `cron` flag in their configuration.
 
 ## Tasks and literal reminders
+
+`schedule_once` takes a future RFC3339 `at` within 365 days, with `Z` or an
+explicit UTC offset, and a self-contained `prompt` (1–4,096 UTF-8 bytes).
+It runs inference once at that exact time. Include the necessary brief and
+authorized sources: the isolated agent does not receive the source transcript.
+Use this for one-time work and `cron_add` for recurring work.
 
 `cron_add` requires `schedule`, `timezone: "UTC"`, `prompt` (1–4,096 UTF-8 bytes),
 and `runs` (a decimal string, 1–100). Five-field expressions support wildcards,
@@ -31,6 +38,9 @@ remains text. Provider availability and credits are not needed at delivery time.
 A model task receives its source configuration and a bounded snapshot of its
 effective tool grants, but no source transcript. Scheduled runs cannot create
 more schedules, delegate, execute JavaScript, or acquire administrative tools.
+With an inherited Workspace grant they can read and update task records,
+including recording the outcome of a future job. Their fresh identity grants
+no document membership, source transcript, or human management authority.
 Editing a run's configuration cannot expand this ceiling. The head checks the
 source binding and grants before admission and effect dispatch; a Tlon source
 also retains its live actor and conversation authority checks.

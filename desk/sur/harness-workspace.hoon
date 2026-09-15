@@ -51,7 +51,9 @@
       updated=@da
   ==
 +$  audit  [at=@da by=actor action=@t target=id]
-+$  state
++$  record-key  [kind=?(%artifact %project) id=id]
++$  state  [%1 recency=(map record-key @da) state-0]
++$  state-0
   $:  %0
       artifacts=(map id artifact)
       projects=(map id project)

@@ -3,6 +3,7 @@
 // Generic-hand replies use a synthetic sink; disabled bound fixtures retain
 // their audit records. No Tlon adapter or real social destination is used.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -14,8 +15,7 @@ const tag = `lcmcheck${randomUUID().replaceAll('-', '').slice(0, 10)}`
 const hand = new HandClient(client, { hand: tag, worker: 'fixture' }), bindings = []
 let savedModels, leafCount = 0, branchCount = 0, recall = false
 const server = createServer(async (req, res) => {
-  let raw = ''
-  for await (const part of req) raw += part
+  const raw = await readText(req)
   const body = JSON.parse(raw)
   requests.push(body)
   let message

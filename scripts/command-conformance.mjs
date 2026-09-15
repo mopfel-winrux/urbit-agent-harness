@@ -1,6 +1,7 @@
 // Real ACP, native ingress, hand ledger and Iris; only a local model fixture.
 // The test owns its named sessions. Hand audit records are retained on ship.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -13,8 +14,7 @@ const hand = new HandClient(observer, { hand: tag, worker: 'fixture' })
 const requests = [], sessions = []
 let binding, url
 const server = createServer(async (req, res) => {
-  let body = ''
-  for await (const chunk of req) body += chunk
+  const body = await readText(req)
   requests.push({ res, body: JSON.parse(body) }) // Held until stopped/released.
 })
 const snapshot = (sessionId) => observer.call('harness/session/snapshot', { sessionId })

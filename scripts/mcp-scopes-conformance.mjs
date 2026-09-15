@@ -1,6 +1,7 @@
 // Local deterministic provider/MCP fixtures. Only temporary sessions and server
 // registrations are changed; the original registry is restored in finally.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { Client } from './lib/ship-client.mjs'
@@ -12,7 +13,7 @@ const tool = (id, name, args) => ({ id, type: 'function', function: { name, argu
 const configure = (servers) => client.call('harness/mcp/configure', { servers })
 const server = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const part of req) raw += part
+    const raw = await readText(req)
     const body = JSON.parse(raw)
     if (req.url.startsWith('/mcp/')) {
       mcpCalls.push({ url: req.url, method: body.method, name: body.params?.name })

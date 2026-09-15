@@ -1,6 +1,7 @@
 // Exercise both RPC protocol directions through the real tool driver, using
 // a deterministic local provider and a temporary self-peer grant. No paid AI.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { Client, cookie } from './lib/ship-client.mjs'
@@ -11,14 +12,14 @@ let before, sessionId, changed = false, requests = 0, receipts = []
 const tool = (id, name, args) => ({ id, type: 'function', function: { name, arguments: JSON.stringify(args) } })
 const server = createServer(async (request, response) => {
   try {
-    let text = ''; for await (const part of request) text += part
+    const text = await readText(request)
     const payload = JSON.parse(text)
     requests++
     receipts = payload.messages.filter((entry) => entry.role === 'tool')
     const calls = receipts.length ? [] : [
       tool('catalog', 'list_peer_tools', { ship }),
-      tool('clock', 'call_peer_tool', { ship, name: 'current_time', arguments: '{}' }),
-      tool('denied-admin', 'call_peer_tool', { ship, name: 'harness_admin', arguments: '{"method":"harness/peers/remote","params":"{}"}' }),
+      tool('clock', 'call_peer_tool', { ship, name: 'current_time', arguments: {} }),
+      tool('denied-admin', 'call_peer_tool', { ship, name: 'harness_admin', arguments: { method: 'harness/peers/remote', params: '{}' } }),
     ]
     response.writeHead(200, { 'content-type': 'application/json' })
     response.end(JSON.stringify({ choices: [{ finish_reason: calls.length ? 'tool_calls' : 'stop', message: {

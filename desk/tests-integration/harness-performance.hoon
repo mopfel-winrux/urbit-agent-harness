@@ -1,8 +1,40 @@
 ::  Pure production hot-path timings. No prompts, network or agent evaluation.
 ::  -test /=harness=/tests-integration/harness-performance
-/-  h=harness, hh=harness-hand, c=harness-corpus, *harness-store
-/+  *test, hl=harness, hs=harness-session, hd=harness-hand, ci=harness-corpus, si=harness-session-index, defaults=harness-defaults
+/-  h=harness, hh=harness-hand, c=harness-corpus, w=harness-workspace, *harness-store
+/+  *test, hl=harness, hs=harness-session, hd=harness-hand, ci=harness-corpus, si=harness-session-index, defaults=harness-defaults, j=harness-workspace-json
 |%
+++  work-fixture
+  ^-  state:w
+  =/  db=state:w  *state:w
+  =/  count=@ud  2.048
+  =/  body  (rap 3 (reap 32.768 'x'))
+  |-  ^-  state:w
+  ?:  =(0 count)  db
+  =/  id  (cat 3 'record-' (scot %ud count))
+  =/  at=@da  (add ~2026.9.10 (mul count ~s1))
+  =.  tasks.db  (~(put by tasks.db) id ['' 'Task' '' 1 %open ~ '' ~ at])
+  =?  db  (lte count 512)
+    db(artifacts (~(put by artifacts.db) id [0v0 ~ 'Document' 1 (my ~[[1 [at [0v0 'Owner'] ['Document' body ~]]]]) ~ 0 |]), recency (~(put by recency.db) [%artifact id] at))
+  $(count (dec count))
+++  test-work-first-page-costs-at-record-capacity
+  =/  db  work-fixture
+  =/  owner=authority:w  [& [0v0 'Owner'] 0v0]
+  =/  tasks
+    ~>  %bout.[1 'perf-recent-task-page-2048']
+    (read:j db owner 'tasks' [%o ~])
+  =/  artifacts
+    ~>  %bout.[1 'perf-recent-artifact-page-512-with-16MiB-bodies']
+    (read:j db owner 'artifacts' [%o ~])
+  =/  task-rows  (need (get:j tasks 'items'))
+  =/  artifact-rows  (need (get:j artifacts 'items'))
+  ?>  &(?=(%a -.task-rows) ?=(%a -.artifact-rows))
+  ;:  weld
+    (expect-eq !>(24) !>((lent p.task-rows)))
+    (expect-eq !>(24) !>((lent p.artifact-rows)))
+    (expect-eq !>('record-2.048') !>((string:j (snag 0 p.task-rows) 'id')))
+    (expect-eq !>('record-512') !>((string:j (snag 0 p.artifact-rows) 'id')))
+    (expect !>((lth (met 3 (en:json:html artifacts)) 16.384)))
+  ==
 ++  history
   |=  turns=@ud
   ^-  (list event:h)
@@ -21,12 +53,12 @@
   =/  sid  (cat 3 'benchmark-' (scot %ud count))
   $(count (dec count), sessions (~(put by sessions) sid [log 1]))
 ++  test-hot-path-costs
-  =/  saved=state-25  *state-25
+  =/  saved=state-27  *state-27
   =.  sessions.saved  (fleet 128)
   =/  packed=vase  !>(saved)
   =/  validated
     ~>  %bout.[1 'perf-validate-full-store-128x513']
-    !<(state-25 packed)
+    !<(state-27 packed)
   =/  log  (history 4.096)
   =/  view
     ~>  %bout.[1 'perf-replay-8193-events']

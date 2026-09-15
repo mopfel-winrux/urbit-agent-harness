@@ -1,5 +1,6 @@
 // Actual head/Iris effects against a local fixture, with no paid inference.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { Client } from './lib/ship-client.mjs'
@@ -8,7 +9,7 @@ const client = new Client(), effects = [], failures = []
 const sessionId = `curl-test-${randomUUID().slice(0, 8)}`
 let url, created = false
 const server = createServer(async (req, res) => {
-  let raw = ''; for await (const part of req) raw += part
+  const raw = await readText(req)
   if (req.url !== '/model') {
     effects.push({ path: req.url, method: req.method, auth: req.headers.authorization, custom: req.headers['x-explicit'], body: raw })
     if (req.url === '/redirect') { res.writeHead(307, { location: `${url}/sentinel` }); return res.end() }

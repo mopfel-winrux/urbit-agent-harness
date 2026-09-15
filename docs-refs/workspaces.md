@@ -12,7 +12,8 @@ For text-first control from ACP or a hand, start with `/work help {}`. Read work
 prepare changes, and review exact proposals without opening the Harness GUI;
 see [conversation work management](work-control.md).
 
-Open **Artifacts** in the sidebar to create a Markdown document. Save a revision,
+Open **Work** in the sidebar, then **Artifacts** in the top-right navigation
+to create a Markdown document. Save a revision,
 inspect History, and use **Publish…** to choose a saved revision.
 Review the exact public preview and confirm publication. The public address is
 `https://your-ship-domain/notes/pub/~host/notebook/note-id`; Notes assigns this
@@ -25,10 +26,10 @@ Agents handle creation, assignment, progress, and outcomes when tracking helps;
 the human forms are optional. `#/tasks` opens the list and `#/tasks/TASK_ID` opens
 a task. The global list hides tasks in archived projects; standalone tasks remain
 visible. Open **Projects** to collect related tasks and documents.
-In **Sharing**, the **Document access** panel adds conversations as readers,
+In **Sharing**, add conversations as document readers,
 contributors or maintainers.
 Maintainers may edit project details, but cannot manage access, approve, or publish
-through Workspace. Document access also offers expiring, revocable, read-only project
+through Workspace. Sharing also offers expiring, revocable, read-only project
 keys for scripts and apps; see [project access](project-access.md).
 Separately enable **Workspace** in each participating
 conversation's tool settings. Project membership does not expand tool grants.
@@ -89,8 +90,8 @@ edited. Public reads return only the published title and rendered body, never
 project membership, proposals, task records, provenance or private revisions.
 Unpublishing removes the Notes HTML snapshot; Notes may return its app shell at
 the address instead of a 404. It cannot erase copies held by other people.
-Rendered HTML is inert, with escaped raw HTML and a restrictive meta CSP. Notes
-owns HTTP headers; Harness cannot add its previous response-header sandbox.
+Rendered HTML is inert, with escaped raw HTML and a restrictive meta CSP.
+Notes owns the HTTP response headers; Harness supplies the rendered document.
 
 Native writes wait for the Notes result, not just transport acknowledgement.
 An uncertain result blocks further document mutations. Use **Check result again**
@@ -117,16 +118,31 @@ the model's workspace permissions or conversation-only corpus recall.
 
 The task is the unit of work. A project is an optional collection: `task-create`
 accepts a title, description, and optional project. Ungrouped tasks persist with
-an empty project string and appear as `project: null` in JSON. Existing records
-and sessions persist without a state reset.
+an empty project string and appear as `project: null` in JSON.
 
 Agents maintain tasks when pursuing goals or coordinating independent work.
+For complex or open-ended goals, they identify the outcome and constraints,
+record concrete deliverables and completion checks, and break down only the
+next useful pieces. Independent work can be delegated; coupled steps stay
+together. The coordinating agent verifies results and reassesses what remains.
+Simple questions need no task, and internal coordination stays out of ordinary
+human replies unless the user asks to inspect it. Meaningful blockers and
+decisions still surface to the user.
+
+For [cross-ship work](peers.md#coordinating-work-across-ships), keep a task on
+one home ship. Mutually workspace-trusted peers claim and update it through
+peer tools, and `ask_peer` provides execution. No mirrored task list or new
+administrative grant is required.
 Any agent with the Workspace tool can create projects and create, assign, or
 update tasks immediately. Task tracking has no per-task or project-membership
-permission gate. Task updates, claims, and assignments check the current version. An outcome,
+permission gate. Task updates, claims, assignments, and deletion check the current
+version. Use the returned version, not an assumed starting value: a recreated ID
+receives a version above its deleted incarnation, so stale commands cannot alter
+the replacement. Unrelated writes leave an existing task's version unchanged. An outcome,
 blocker, or completion requires neither a prior claim nor a result artifact.
-A linked result document must be readable by the agent linking it; the link
-does not grant document access.
+A new or replacement result-document link must be readable by the agent linking
+it. Keeping or clearing an existing link does not require document access, so a
+private or archived result cannot block task bookkeeping. A link grants no access.
 
 `task-assign {id,version,assignee}` records an existing agent's session name, or
 clears the assignment when `assignee` is null. The head resolves its identity and
@@ -165,13 +181,6 @@ separates ordinary answers from proposal review and a selected literal reply.
 It retains source identities and delivery evidence without treating task
 completion as approval or publication.
 
-## Initial scope
-
-Markdown editing, source references, revision inspection, proposal review,
-explicit document membership, task coordination, and publish/unpublish through a
-ship-relative public endpoint. No automatic memory extraction, autonomous
-maintenance, arbitrary JavaScript pages, or production deployment is implied.
-
 ## Interfaces and bounds
 
 The owner [work inbox](inbox.md) collects task and proposal metadata alongside
@@ -183,9 +192,16 @@ pokes use mark `harness-workspace` with `{id, action, args}` and replies on
 `/workspace/<id>`; subscribe before poking. `/workspace-events` emits a revision
 invalidation, not private document contents. Owner `/x/workspace` scry retains
 the typed workspace state. Models use `workspace` with `{action, args}`, where
-`args` is a JSON-encoded string. The `help` action lists supported operations.
+`args` is a JSON object. The `help` action lists supported operations.
 Models cannot use approval, publication or membership actions, including through
-the administration tool. Scheduled and rehearsal runs do not receive Workspace.
+the administration tool. Scheduled work can inherit Workspace for task
+bookkeeping; rehearsal runs do not receive it.
+
+Work directories are most-recently-updated first, with stable identity ordering
+for equal timestamps. Filtering and ordering precede pagination. Artifact and
+project recency is saved independently of the bounded audit history. Metadata
+lists use the watched Notes projection without fetching document bodies; opening
+document content refreshes Notes and fails closed if it is unavailable.
 
 Read lists are paginated. Models receive at most four entries and 8,000 UTF-8
 body bytes per page; follow `nextOffset` using `revision` with the returned

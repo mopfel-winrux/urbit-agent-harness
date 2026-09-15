@@ -15,6 +15,7 @@ export async function fixture() {
   }
   const server = createServer(async (req, res) => {
     try {
+      req.setEncoding('utf8')
       let raw = ''
       for await (const chunk of req) {
         raw += chunk

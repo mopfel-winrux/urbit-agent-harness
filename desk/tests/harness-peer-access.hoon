@@ -2,7 +2,7 @@
 /+  *test, access=harness-peer-access, storage=harness-store
 |%
 ++  test-remote-reports-never-create-incoming-grants
-  =/  saved=state-25  *state-25
+  =/  saved=state-27  *state-27
   =.  remote-access.saved  (remember:access ~ ~nec `[~[%web] ~ 1.000 ~] ~2024.1.1)
   =/  loaded  (load:storage !>(saved))
   ;:  weld

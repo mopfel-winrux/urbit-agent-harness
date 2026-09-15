@@ -2,6 +2,7 @@
 // Owns named fixtures. Temporarily selects a local summary route and restores
 // the prior summary overrides; never changes defaults or credential keys.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -22,8 +23,7 @@ function respond(res, content, finish = 'stop') {
   usage: { prompt_tokens: 100, completion_tokens: 20 } }))
 }
 const server = createServer(async (req, res) => {
-  let raw = ''
-  for await (const chunk of req) raw += chunk
+  const raw = await readText(req)
   const body = JSON.parse(raw)
   const compact = body.messages?.[0]?.content?.startsWith('Produce a concise historical checkpoint')
   requests.push({ body, compact })

@@ -250,6 +250,12 @@
 ::  including content, fragmented tool calls, stop reason, and usage.
 ::
 +$  stream-call  [id=@t name=@t args=@t]
+++  parse-chat-body
+  |=  body=@t
+  ^-  (each [stop=stop-reason:h u=usage:h it=item:h] @t)
+  =/  jon  (de:json:html body)
+  ?^  jon  (parse-response u.jon)
+  (parse-chat-sse body)
 ++  parse-chat-sse
   |=  body=@t
   ^-  (each [stop=stop-reason:h u=usage:h it=item:h] @t)
@@ -259,6 +265,8 @@
     ^-  (unit json)
     ?.  =("data: " (scag 6 line))  ~
     (de:json:html (crip (slag 6 line)))
+  =/  errors  (murn events wire-error:failure)
+  ?^  errors  [%| i.errors]
   =/  acc
     %+  roll  events
     |=  [ev=json acc=[text=@t calls=(map @ud stream-call) finish=(unit @t) u=usage:h]]
@@ -319,7 +327,7 @@
     [id.call name.call args.call]
   ?~  finish.acc  [%| 'provider stream ended before completion']
   ?:  (lien calls |=([id=@t name=@t args=@t] |(=(id '') =(name '') =(~ (de:json:html args)))))
-    [%| 'incomplete tool call in provider stream']
+    [%| ?:(=('length' u.finish.acc) 'provider response reached its output limit during a tool call' 'incomplete tool call in provider stream')]
   ?:  ?&  =(0 text.acc)
           ?=(~ calls)
       ==

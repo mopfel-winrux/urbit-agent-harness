@@ -50,7 +50,7 @@
   =/  counts  (need (get:j result 'counts'))
   ;:  weld
     (expect-eq !>(1) !>((lent listed)))
-    (expect-eq !>('blocked') !>((string:j (snag 0 listed) 'id')))
+    (expect-eq !>('proposal') !>((string:j (snag 0 listed) 'id')))
     (expect-eq !>(1) !>((number:j counts 'blocked' 0)))
     (expect-eq !>(1) !>((number:j counts 'approval' 0)))
     (expect-eq !>(2) !>((number:j counts 'waiting' 0)))
@@ -65,7 +65,7 @@
   =/  stale  (read:inbox changed *state:hh *(map @uv schedule:cr) *state:hn (args 'attention' 'all' 1 cursor) ~2026.9.12)
   =/  other  (read:inbox fixture *state:hh *(map @uv schedule:cr) *state:hn (args 'all' 'all' 1 cursor) ~2026.9.12)
   ;:  weld
-    (expect-eq !>('proposal') !>((string:j (snag 0 second) 'id')))
+    (expect-eq !>('blocked') !>((string:j (snag 0 second) 'id')))
     (expect !>(?=(%| -.stale)))
     (expect !>(?=(%| -.other)))
   ==

@@ -1,5 +1,16 @@
 import { clientId } from './clientId.js'
 
+// HTTP connections are shared by every tab on the origin. Keep room for RPC
+// sends and queue reads; tabs without a stream continue using durable polling.
+async function withStreamSlot(run, signal, slot = 0) {
+  const locks = globalThis.navigator?.locks
+  if (!locks || slot === 2) throw new Error('Using queue reads while event streams are busy')
+  return locks.request(`harness-event-stream-${slot}`, { ifAvailable: true }, (lock) => {
+    signal.throwIfAborted()
+    return lock ? run() : withStreamSlot(run, signal, slot + 1)
+  })
+}
+
 // A separate, disposable Eyre channel contains only this watch's events, not
 // the command channel's poke acknowledgements. ACP remains the durable queue.
 export class EyreSubscription {
@@ -20,6 +31,7 @@ export class EyreSubscription {
     this.ackFlight = null
     this.ackTimer = null
     this.heartbeatTimer = null
+    this.started = false
   }
 
   async send(actions) {
@@ -31,7 +43,23 @@ export class EyreSubscription {
   }
 
   async run() {
+    const hidden = () => {
+      if (document.hidden) this.fail(new Error('Event stream paused in a background tab'))
+    }
     try {
+      if (globalThis.document?.hidden) throw new Error('Event stream paused in a background tab')
+      globalThis.document?.addEventListener('visibilitychange', hidden)
+      await withStreamSlot(() => this.readStream(), this.controller.signal)
+    } catch (error) {
+      if (!this.controller.signal.aborted) this.fail(error)
+    } finally {
+      globalThis.document?.removeEventListener('visibilitychange', hidden)
+    }
+  }
+
+  async readStream() {
+    try {
+      this.started = true
       await this.send([{ id: 1, action: 'subscribe', ship: this.ship, app: this.app, path: this.path }])
       if (this.controller.signal.aborted) return
       const response = await fetch(`/~/channel/${this.channel}`, {
@@ -102,6 +130,7 @@ export class EyreSubscription {
   }
 
   fail(error) {
+    if (this.controller.signal.aborted) return
     this.close()
     this.onDisconnect(error)
   }
@@ -113,6 +142,7 @@ export class EyreSubscription {
     clearTimeout(this.heartbeatTimer)
     this.controller.abort()
     void this.reader?.cancel().catch(() => {})
+    if (!this.started) return
     // Delete only this disposable watch channel, never the ACP connection.
     void fetch(`/~/channel/${this.channel}`, {
       method: 'PUT', credentials: 'same-origin', keepalive: true,

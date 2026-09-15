@@ -78,6 +78,30 @@
     (expect-eq !>(%complete) !>(state.done))
     (expect-eq !>(0) !>(remaining.done))
   ==
+++  test-one-time-work-uses-exact-time-and-completes-once
+  =/  action  action
+  =/  args  (pairs:enjs:format ~[['at' %s '2026-09-10T10:02:17-05:00'] ['prompt' %s 'Fetch the confirmed quote and finish the home task.']])
+  =/  once  (create:schedule action(args args) source ~[%workspace %curl] ~2026.9.9)
+  =/  done  (advance:schedule once 0v3 ~2026.9.10..15.02.18)
+  =/  repeat  (mule |.((advance:schedule done 0v4 ~2026.9.11)))
+  ;:  weld
+    (expect-eq !>(%prompt) !>(kind.once))
+    (expect-eq !>(~2026.9.10..15.02.17) !>(next.once))
+    (expect-eq !>('UTC-05:00') !>(timezone.once))
+    (expect-eq !>(1) !>(remaining.once))
+    (expect-eq !>(%complete) !>(state.done))
+    (expect-eq !>(0) !>(remaining.done))
+    (expect !>(?=(%| -.repeat)))
+    (expect-eq !>(`%harness) !>((tool-hand:ht 'schedule_once')))
+  ==
+++  test-one-time-work-rejects-invalid-or-past-time
+  =/  action  action
+  %-  zing
+  %+  turn  ~['2026-09-08T10:00:00Z' '2026-09-10T10:00:00' '2026-09-31T10:00:00Z' '2028-09-10T10:00:00Z']
+  |=  at=@t
+  =/  args  (pairs:enjs:format ~[['at' %s at] ['prompt' %s 'Work']])
+  =/  invalid  (mule |.((create:schedule action(args args) source ~ ~2026.9.9)))
+  (expect !>(?=(%| -.invalid)))
 ++  test-pending-and-uncertain-work-prevent-overlap-and-clear
   =/  job  job
   =/  db=state:hh  *state:hh
@@ -99,7 +123,7 @@
   ?>  ?=(%a -.result)
   (expect-eq !>(1) !>((lent p.result)))
 ++  test-schedules-strip-recursion-delegation-and-administration
-  (expect-eq !>(`(list tool-grant:h)`~[%web]) !>((scheduled-tools:ht ~[%cron %subagents %code %admin %web])))
+  (expect-eq !>(`(list tool-grant:h)`~[%web %workspace]) !>((scheduled-tools:ht ~[%cron %subagents %code %admin %web %workspace])))
 ++  test-store-upgrade-preserves-prior-state-and-starts-one-empty-scheduler
   =/  old=state-19  *state-19
   =.  sessions.old  (my ~[['source' [~ 7]]])

@@ -6,9 +6,71 @@
 /-  ws=harness-workspace-search
 /-  pc=harness-project-client
 /-  wc=harness-work-control
-/+  hl=harness, ht=harness-tools, hd=harness-hand, policy=harness-defaults, index=harness-session-index
+/+  hl=harness, ht=harness-tools, hd=harness-hand, policy=harness-defaults, index=harness-session-index, control=harness-work-control, j=harness-workspace-json, workspace=harness-workspace
 |%
 ++  load
+  |=  old-vase=vase
+  ^-  state-27
+  =/  current  (mule |.(!<(state-27 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  =/  prior  (load-26 old-vase)
+  =/  [%26 * %24 * %23 * %22 * * %21 * runtime=state-20]  prior
+  [%27 (restore-workspace workspace.prior) work-controls.prior project-clients.prior workspace-search.prior workspace-notes.prior legacy-workspace.prior runtime]
+++  restore-workspace
+  |=  old=state-0:work
+  ^-  state:work
+  =/  db=state:work  [%1 ~ old]
+  =.  db
+    %+  roll  history.old
+    |=  [event=audit:work out=_db]
+    ::  Recover known dates once; never invent dates for undated records.
+    out(recency recency:(record:workspace out [& by.event 0v0] action.event target.event at.event))
+  =.  db
+    %+  roll  ~(tap by artifacts.old)
+    |=  [[id=@t art=artifact:work] out=_db]
+    =/  at=@da  (roll ~(tap by revisions.art) |=([[rev=@ud value=revision:work] at=@da] ^-(@da (max at at.value))))
+    =?  at  ?=(^ publication.art)  (max at at.u.publication.art)
+    (touch:workspace out [%artifact id] at)
+  %+  roll  ~(tap by proposals.old)
+  |=  [[id=@t proposal=proposal:work] out=_db]
+  (touch:workspace out [%artifact artifact.proposal] (fall decided.proposal at.proposal))
+++  load-26
+  |=  old-vase=vase
+  ^-  state-26
+  =/  current  (mule |.(!<(state-26 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  =/  prior  (load-25 old-vase)
+  =/  controls=state:wc  work-controls.prior
+  =.  requests.controls
+    %-  ~(gas by *(map @uv request:wc))
+    %+  turn  ~(tap by requests.controls)
+    |=  [id=@uv r=request:wc]
+    ^-  [@uv request:wc]
+    ::  Translate only a still-valid v25 witness. Never refresh a stale
+    ::  approval merely because the dependency representation changes.
+    =/  translated
+      %-  mole  |.
+      ^-  request:wc
+      =/  old  (fence-25 prior action.r args.r)
+      ?:  |(!=(fence.r old) =('hand-access' action.r))  r
+      r(fence (fence:control (restore-workspace workspace.prior) hands.prior names.corpus.prior owners.controls action.r args.r))
+    [id (fall translated r)]
+  [%26 controls +>.prior]
+++  fence-25
+  |=  [db=state-25 action=@t args=json]
+  ^-  @uvH
+  =/  id  (fall (optional:j args 'id') '')
+  =/  art-id  (fall (optional:j args 'artifact') id)
+  =/  proposal  (~(get by proposals.workspace.db) id)
+  =?  art-id  &(=('review' action) ?=(^ proposal))  artifact.u.proposal
+  =/  base  (sham [writes.workspace.db action args (~(get by artifacts.workspace.db) art-id) proposal])
+  ?.  =('task-reply' action)  base
+  =/  target
+    %-  mule  |.
+    =/  binding  (~(got by bindings.hands.db) (string:j args 'binding'))
+    [binding (~(get by names.corpus.db) sid.binding)]
+  (sham [base target])
+++  load-25
   |=  old-vase=vase
   ^-  state-25
   =/  current  (mule |.(!<(state-25 old-vase)))
@@ -34,13 +96,13 @@
   =/  prior  (load-21 old-vase)
   ::  The retired artifact store is retained only for recovery. It is not
   ::  imported, indexed, served publicly, or presented as native Notes.
-  [%22 *state:hn workspace.prior prior(workspace *state:work)]
+  [%22 *state:hn workspace.prior prior(workspace *state-0:work)]
 ++  load-21
   |=  old-vase=vase
   ^-  state-21
   =/  current  (mule |.(!<(state-21 old-vase)))
   ?:  ?=(%& -.current)  p.current
-  [%21 *state:work (load-20 old-vase)]
+  [%21 *state-0:work (load-20 old-vase)]
 ++  load-20
   |=  old-vase=vase
   ^-  state-20

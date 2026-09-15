@@ -1,6 +1,7 @@
 // Real head/ACP/Iris with a local provider: cancelling a child must settle its
 // parent's tool, without cancelling the parent or reviving it on a late reply.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -10,8 +11,7 @@ const client = new Client(), observer = new Client()
 const held = [], requests = []
 let sessionId, childId
 const server = createServer(async (req, res) => {
-  let body = ''
-  for await (const chunk of req) body += chunk
+  const body = await readText(req)
   const request = JSON.parse(body)
   requests.push(request)
   if (request.messages.some((m) => m.role === 'user' && m.content === 'CHILD_WORK')) {

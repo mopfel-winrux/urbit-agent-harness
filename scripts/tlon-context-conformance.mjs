@@ -1,6 +1,7 @@
 // Admission-time public reference, private-note isolation and shared-library ceiling.
 // Uses uniquely marked native threads; restores Harness settings.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -59,7 +60,7 @@ async function command(ctx, text, expected) {
 }
 const server = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const part of req) raw += part
+    const raw = await readText(req)
     const body = JSON.parse(raw); requests++
     res.writeHead(200, { 'content-type': 'application/json' })
     assert.ok(!raw.includes(secret), 'private DM notes never enter a channel request')

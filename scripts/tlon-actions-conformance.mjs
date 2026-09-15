@@ -2,6 +2,7 @@
 // Creates a uniquely named secret group/channel and sends fixture messages to
 // a local fake peer. Restores Tlon policy and deletes only its own fixtures.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -18,7 +19,7 @@ let channelRoot, dmRoot, channelReply, dmReply, profileChanged = false, contactA
 let contactShip, originalGroup, originalChannel
 const server = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const part of req) raw += part
+    const raw = await readText(req)
     requests++
     const body = JSON.parse(raw), last = body.messages.findLastIndex((m) => m.role === 'user')
     const result = body.messages.slice(last + 1).find((m) => m.role === 'tool')

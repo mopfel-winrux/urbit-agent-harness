@@ -57,12 +57,13 @@ Urbit's event loop; this is asynchronous progress, not parallel CPU execution.
   The reply hand and the ship-wide Tlon tool are independently configurable.
 - Scheduled work: destination-bound UTC cron runs and literal one-shot reminders,
   with separate execution and delivery status.
-- Artifacts and projects: Notes-backed Markdown and history, reviewed agent
-  proposals, shared documents and atomic task claims. Publish saved snapshots
+- Tasks, projects, and artifacts: shared task tracking, optional project grouping,
+  and Notes-backed documents with reviewed agent proposals. Publish saved snapshots
   through native Notes; unified search groups matching artifact revisions.
-- [Work inbox](docs-refs/inbox.md): an attention-first, read-only view of retained
-  tasks, proposals, schedules and hand receipts, with explicit delivery uncertainty.
-- [Project access](docs-refs/project-access.md): bounded maintainer coordination
+- [Work inbox](docs-refs/inbox.md): a read-only view of retained tasks, proposals,
+  schedules and hand receipts, newest first, with a default Needs attention filter
+  and explicit delivery uncertainty.
+- [Project access](docs-refs/project-access.md): shared document roles
   and expiring, revocable, project-only read keys without sharing the ship login.
 - Clients: a React web app, a dependency-free ACP stdio adapter, native
   poke/watch/scry interfaces, webhooks and a durable conversation-hand protocol.
@@ -152,10 +153,10 @@ See the [adapter setup](acp/README.md) and [integration guide](docs-refs/integra
 | [Conversation hands](docs-refs/hands.md) | Bindings, deduplication, publication receipts and retirement |
 | [Shared scheduling](docs-refs/scheduling.md) | Tasks and reminders from any hand; Settings → Schedules |
 | [Artifacts and projects](docs-refs/workspaces.md) | Editing, agent coordination, proposal review and public pages |
-| [Conversation work management](docs-refs/work-control.md) | Text-first project, task, and artifact controls with human confirmation |
+| [Conversation work management](docs-refs/work-control.md) | Text-first work controls; human confirmation for protected changes |
 | [Tlon reference](docs-refs/tlon.md) | Social tools, Notes, hooks, publishing and media |
 | [Peers](docs-refs/peers.md) | Ship-to-ship requests, tool RPC and administrative authority |
 | [Context and memory](docs-refs/context-and-memory.md) | Summaries, pinned notes, corpus search and provenance |
 | [JavaScript execution](docs-refs/execution.md) | Opt-in executor, host APIs and resource limits |
 | [Development](docs-refs/development.md) | Build layout, test selection and safe live verification |
-| [Reliability](docs-refs/reliability.md) | Sustained local operation, fault recovery, bounded reports and development sequence |
+| [Reliability](docs-refs/reliability.md) | Sustained local operation, fault recovery, evidence and coverage limits |

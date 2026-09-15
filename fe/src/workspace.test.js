@@ -39,6 +39,20 @@ test('unmounted or replaced workspace reads cannot deliver old data', async () =
   off()
 })
 
+test('a subscriber joining a completed read receives its result before the flight settles', async () => {
+  const flight = deferred(), seen = []
+  let offB, calls = 0
+  const reads = createWorkspaceReads(() => { calls++; return flight.promise }, () => () => {})
+  const key = JSON.stringify(['projects', { limit: 24 }])
+  const offA = reads.subscribe(key, () => {
+    offB ||= reads.subscribe(key, (result) => seen.push(result.value))
+  })
+  flight.resolve({ items: [] }); await settle()
+  assert.deepEqual(seen, [{ items: [] }])
+  assert.equal(calls, 1, 'the new component need not wait for a focus event or another request')
+  offA(); offB()
+})
+
 test('draft storage preserves the revision fence and reports quota failure', () => {
   const values = new Map()
   const storage = { getItem: (key) => values.get(key), setItem: (key, value) => values.set(key, value) }

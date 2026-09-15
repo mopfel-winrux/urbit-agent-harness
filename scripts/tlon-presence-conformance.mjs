@@ -2,6 +2,7 @@
 // Exercises provider failure and repair without needing a paid credential.
 // Restores policy/defaults; test messages and their audit sessions remain.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -18,8 +19,7 @@ let event = 0, defaults, policy, sessionId, url
 const requests = [], tools = []
 const server = createServer(async (req, res) => {
   if (req.url === '/slow-tool') { tools.push(res); return }
-  let body = ''
-  for await (const chunk of req) body += chunk
+  const body = await readText(req)
   requests.push({ url: req.url, body: JSON.parse(body), header: req.headers['x-fixture'], res })
 })
 async function scry(path) {

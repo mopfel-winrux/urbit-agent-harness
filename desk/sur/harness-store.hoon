@@ -7,11 +7,22 @@
 /-  pc=harness-project-client
 /-  wc=harness-work-control
 |%
++$  state-27
+  $:  %27
+      workspace=state:work
+      work-controls=state:wc
+      project-clients=state:pc
+      workspace-search=state:ws
+      workspace-notes=state:hn
+      legacy-workspace=state-0:work
+      state-20
+  ==
++$  state-26  [%26 work-controls=state:wc state-24]
 +$  state-25  [%25 work-controls=state:wc state-24]
 +$  state-24  [%24 project-clients=state:pc state-23]
 +$  state-23  [%23 workspace-search=state:ws state-22]
-+$  state-22  [%22 workspace-notes=state:hn legacy-workspace=state:work state-21]
-+$  state-21  [%21 workspace=state:work state-20]
++$  state-22  [%22 workspace-notes=state:hn legacy-workspace=state-0:work state-21]
++$  state-21  [%21 workspace=state-0:work state-20]
 +$  state-20
   [%20 schedules=(map @uv schedule:cron) schedule-wake=(unit @da) tlon-cron-imported=? state-19]
 +$  stream-progress  [body=@t sent=@ud]

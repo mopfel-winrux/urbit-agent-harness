@@ -1,6 +1,7 @@
 // Bounded native pagination/search on DMs, channels and their exact threads.
 // Seeds only the designated test conversations; restores policy/defaults/trust.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -73,7 +74,7 @@ const server = createServer(async (req, res) => {
     complete?.(result); res.end(result)
   }
   try {
-    let raw = ''; for await (const part of req) raw += part
+    const raw = await readText(req)
     res.writeHead(200, { 'content-type': 'application/json' })
     // Replayed provider requests must get the same call ID and must not rerun
     // assertions against the next fixture conversation's mutable context.

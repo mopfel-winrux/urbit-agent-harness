@@ -1,5 +1,6 @@
 // Real head/Iris dispatch to an isolated fixture. No global settings change.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { Client } from './lib/ship-client.mjs'
@@ -15,7 +16,7 @@ const server = createServer(async (req, res) => {
     return res.end('GET_RECEIPT')
   }
   try {
-    let raw = ''; for await (const part of req) raw += part
+    const raw = await readText(req)
     const body = JSON.parse(raw), last = body.messages.findLastIndex((m) => m.role === 'user')
     const mode = body.messages[last].content.trim(), result = body.messages.slice(last + 1).find((m) => m.role === 'tool')
     assert.ok(['post', 'body', 'get', 'redirect', 'failed'].includes(mode))

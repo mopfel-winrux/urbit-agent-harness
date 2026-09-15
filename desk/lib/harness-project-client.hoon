@@ -123,7 +123,12 @@
     %+  skim  ~(tap by tasks.db)
     |=  [id=@t task=task:w]
     =(project project.task)
-  :*  %0
+  :*  %1
+      %-  my
+      %+  skim  ~(tap by recency.db)
+      |=  [key=record-key:w at=@da]
+      ?:(=(%project kind.key) =(project id.key) (~(has by artifacts) id.key))
+      %0
       artifacts
       (my ~[[project record(members (my ~[[0v1 %reader]]))]])
       proposals

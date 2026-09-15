@@ -79,6 +79,26 @@
   =/  result  (parse-chat-sse:hp wire)
   ?>  ?=(%& -.result)
   (expect-eq !>(`item:h`[%assistant '' ~[['call' 'list_desk_files' '{}']]]) !>(it.p.result))
+++  test-response-format-selection-preserves-stream-errors
+  =/  partial  'data: {"choices":[{"delta":{"content":"partial"},"finish_reason":null}]}\0a\0a'
+  =/  rejected  (cat 3 partial 'data: {"error":{"code":"rate_limit","message":"Rate limit reached"}}\0a\0a')
+  =/  err  (parse-chat-body:hp rejected)
+  ?>  ?=(%| -.err)
+  =/  plain  (parse-chat-body:hp '{"error":{"code":"rate_limit","message":"Rate limit reached"}}')
+  ?>  ?=(%| -.plain)
+  ;:  weld
+    (expect-eq !>((parse-chat-sse:hp partial)) !>((parse-chat-body:hp partial)))
+    (expect-eq !>(p.plain) !>(p.err))
+  ==
+++  test-response-format-selection-accepts-completed-json-and-streams
+  =/  json  '{"choices":[{"message":{"content":"checked"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2}}'
+  =/  stream  'data: {"choices":[{"delta":{"content":"checked"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2}}\0a\0a'
+  (expect-eq !>((parse-chat-body:hp json)) !>((parse-chat-body:hp stream)))
+++  test-incomplete-tool-response-reports-output-exhaustion
+  =/  stream  'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call","function":{"name":"workspace","arguments":"{"}}]},"finish_reason":"length"}]}\0a\0a'
+  =/  result  (parse-chat-body:hp stream)
+  ?>  ?=(%| -.result)
+  (expect-eq !>('provider response reached its output limit during a tool call') !>(p.result))
 ++  interrupted-tools
   ^-  (list event:h)
   %-  flop

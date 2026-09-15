@@ -1,6 +1,7 @@
 // Real DM/channel threads and native permission edits, with a local provider.
 // Keeps marked test evidence; restores Harness policy/defaults.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -88,7 +89,7 @@ function hold(kind, key, res, body) {
 }
 const server = createServer(async (req, res) => {
   if (req.url.startsWith('/slow?')) return hold('http', req.url, res)
-  let raw = ''; for await (const chunk of req) raw += chunk
+  const raw = await readText(req)
   res.writeHead(200, { 'content-type': 'application/json' })
   if (responses.has(raw)) return res.end(responses.get(raw))
   try {

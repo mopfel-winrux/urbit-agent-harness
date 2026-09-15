@@ -67,11 +67,22 @@
       !=('-' (end [3 1] slug))
       !=('-' (rsh [3 (dec (met 3 slug))] slug))
   ==
+++  touch
+  |=  [db=state:w key=record-key:w now=@da]
+  ^-  state:w
+  db(recency (~(put by recency.db) key (max now (fall (~(get by recency.db) key) 0))))
 ++  record
   |=  [db=state:w who=authority:w action=@t target=id:w now=@da]
   ^-  state:w
   ::  Keep recent operational evidence bounded without ever exhausting the
   ::  ability to revoke access or unpublish. Accepted revisions stay immutable.
+  =?  db  (lien `(list @t)`~['project-create' 'project-edit' 'member'] |=(name=@t =(action name)))
+    (touch db [%project target] now)
+  =?  db  (lien `(list @t)`~['artifact-create' 'artifact-save' 'artifact-archive' 'artifact-rename' 'publish' 'unpublish'] |=(name=@t =(action name)))
+    (touch db [%artifact target] now)
+  =?  db  |(=('propose' action) =('review' action))
+    =/  proposal  (~(get by proposals.db) target)
+    ?~(proposal db (touch db [%artifact artifact.u.proposal] now))
   db(writes +(writes.db), history [[now by.who action target] (scag 2.047 history.db)])
 ++  revise
   |=  [art=artifact:w value=content:w who=authority:w now=@da]
@@ -193,7 +204,9 @@
     ?:  (~(has by tasks.db) id.act)  [%| 'Task ID already exists']
     ?.  ?&((gth (met 3 title.act) 0) (lte (met 3 title.act) 256) (lte (met 3 description.act) 4.096) (lth ~(wyt by tasks.db) 2.048))
       [%| 'Task title, description or capacity limit exceeded']
-    (done db(tasks (~(put by tasks.db) id.act [project.act title.act description.act 1 %open ~ '' ~ now])))
+    ::  Seed from the durable write sequence so deleting and recreating an ID
+    ::  cannot revive an earlier version token. Other records do not change it.
+    (done db(tasks (~(put by tasks.db) id.act [project.act title.act description.act +(writes.db) %open ~ '' ~ now])))
   =/  task  (~(get by tasks.db) id.act)
   ?~  task  [%| 'Task not found or unavailable']
   ?.  |(owner.who !=(0 access.who))  [%| 'An agent with the workspace tool is required']
@@ -206,7 +219,7 @@
     ==
   ?.  =(expected version.u.task)  [%| 'Task changed; read it again before updating']
   ?:  ?=(%task-delete -.act)
-    (done db(tasks (~(del by tasks.db) id.act)))
+    (done db(tasks (~(del by tasks.db) id.act), writes (max writes.db version.u.task)))
   ?:  ?=(%task-assign -.act)
     (done db(tasks (~(put by tasks.db) id.act u.task(version +(version.u.task), claimant assignee.act, updated now))))
   ?:  ?=(%task-claim -.act)
@@ -214,7 +227,7 @@
     (done db(tasks (~(put by tasks.db) id.act u.task(version +(version.u.task), status %claimed, claimant `by.who, updated now))))
   ?.  (lte (met 3 outcome.act) 4.096)  [%| 'Task outcome exceeds limit']
   =/  linked  ?~(artifact.act ~ (~(get by artifacts.db) u.artifact.act))
-  ?.  ?~(artifact.act & &(?=(^ linked) (can-read db who u.linked)))
+  ?.  |(=(artifact.act artifact.u.task) ?~(artifact.act & &(?=(^ linked) (can-read db who u.linked))))
     [%| 'Task result document must be accessible to this agent']
   =/  edited  u.task
   =?  edited  ?=(^ details.act)

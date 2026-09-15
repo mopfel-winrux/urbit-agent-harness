@@ -2,6 +2,7 @@
 // Restores defaults/policy, cancels fixture schedules. Test messages and their
 // delivery evidence remain. No paid providers or Groups code/config changes.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -21,7 +22,7 @@ const answer = (res, content, calls = []) => res.end(JSON.stringify({ choices: [
 } }], usage: { prompt_tokens: 20, completion_tokens: 10 } }))
 const server = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const chunk of req) raw += chunk
+    const raw = await readText(req)
     const body = JSON.parse(raw), lastUser = body.messages.findLastIndex((m) => m.role === 'user')
     const current = body.messages.slice(lastUser + 1).filter((m) => m.role === 'tool')
     receipts.push(...current)

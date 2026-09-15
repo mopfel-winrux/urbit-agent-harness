@@ -1,6 +1,7 @@
 // Native DM delivery without inspector exports, plus cancellation before a
 // reminder's first run. Restores Harness settings; never changes another desk.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -16,7 +17,7 @@ const client = new Client(), errors = []
 let originals, job, firedJob, modelCalls = 0
 const server = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const chunk of req) raw += chunk
+    const raw = await readText(req)
     const body = JSON.parse(raw), last = body.messages.findLastIndex((m) => m.role === 'user')
     modelCalls++
     const receipt = body.messages.slice(last + 1).find((m) => m.role === 'tool')

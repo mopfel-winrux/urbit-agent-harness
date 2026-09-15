@@ -1,6 +1,7 @@
 // Original QuickJS/WASM executor through the real head and Spider, with a
 // local deterministic model. No paid inference or unbounded compute loops.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -26,7 +27,7 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, { 'content-type': 'text/plain' }); res.end('JS_HTTP_FIXTURE'); return
   }
   try {
-    let raw = ''; for await (const part of req) raw += part
+    const raw = await readText(req)
     const body = JSON.parse(raw), last = body.messages.findLastIndex(m => m.role === 'user')
     const mode = body.messages[last].content.trim()
     const result = body.messages.slice(last + 1).find(m => m.role === 'tool')

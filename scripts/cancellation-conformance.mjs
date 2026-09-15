@@ -1,6 +1,7 @@
 // Deterministic live race test: real ACP/head/Iris, local provider + slow tool.
 // No provider credentials, external writes, or modifications to user sessions.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -19,8 +20,7 @@ const server = createServer(async (req, res) => {
   if (req.url === '/fast') {
     toolRequests.push(req.url); res.end('ALREADY_DONE'); return
   }
-  let body = ''
-  for await (const chunk of req) body += chunk
+  const body = await readText(req)
   requests.push(JSON.parse(body))
   const first = requests.length === 1
   const reuse = requests.length === 3

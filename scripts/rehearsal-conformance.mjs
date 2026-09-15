@@ -1,6 +1,7 @@
 // Real ACP/head/Iris with a deterministic local provider. Creates only uniquely
 // named test sessions/proposals; does not change credentials, defaults or MCP.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { Client, base, cookie } from './lib/ship-client.mjs'
@@ -17,8 +18,7 @@ const read = async (path) => {
 const server = createServer(async (req, res) => {
   try {
     if (req.url !== '/completions') { effects++; res.end('UNEXPECTED_EFFECT'); return }
-    let raw = ''
-    for await (const part of req) raw += part
+    const raw = await readText(req)
     const body = JSON.parse(raw)
     const child = body.messages.some((m) => m.role === 'system' && m.content.includes('read-only rehearsal'))
     const receipts = body.messages.filter((m) => m.role === 'tool')

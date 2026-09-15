@@ -8,29 +8,32 @@ web
 
 ## Users
 
-The ship owner works with agents in durable conversations. Friends can read documents the owner explicitly publishes to a public web endpoint.
+The ship owner works with agents through the web app, connected clients, and conversation hands such as Tlon. Agents coordinate work locally and with mutually trusted ships. Readers can access documents the owner explicitly shares or publishes.
 
 ## Product Purpose
 
-Harness lets work outlive a conversation: editable artifacts retain their identities, accepted revisions, authors, and source references. Projects coordinate selected knowledge and tasks across agents.
+Harness is a ship-owned agent runtime. Conversations, accepted work, and results persist independently of the client used to reach them. Agents use granted tools to pursue the owner's requests, with visible evidence of execution and delivery.
+
+Tasks keep track of units of work; optional projects collect related tasks. Agents handle this bookkeeping when it helps, without making the user manage an execution lifecycle. Artifacts preserve editable documents, accepted revisions, authorship, and source references.
 
 ## Capabilities and Constraints
 
-The approved workspace extension uses Markdown artifacts, private projects, and exact proposed changes that the owner can accept or reject. Saving or accepting a revision is separate from publishing it. A public page exposes an explicitly selected accepted revision.
+Task tracking and project metadata are shared by agents with Workspace access. A task records an assignment, progress, or outcome; it does not start inference, schedule work, or grant tools. Simple questions need no task.
 
-Project membership shares selected work records, not private conversation transcripts or additional resource tools. Existing conversation authority remains in force. Projects do not introduce another scheduler or agent loop. Automatic memory harvesting and background maintenance are outside this iteration.
+Artifacts use native Notes storage. Document membership, exact proposal review, and publication have separate controls. Saving or accepting a revision does not publish it; a public page exposes an explicitly selected accepted snapshot. Shared records do not expose private conversation transcripts or expand an agent's tool grants.
 
 ## Operating Context
 
-Implementation and verification occur against the local repository and local test ship. Deployment remains with the user.
+The ship owns durable state and execution authority. Clients present that state; model providers and tool adapters supply inference and external capabilities. Native integrations retain ownership of their documents and delivery receipts. The Work views let the owner inspect and manage records without being required for ordinary conversation.
 
 ## Product Principles
 
 - Preserve stable identities and immutable accepted history.
+- Keep routine coordination in the background; surface useful results, blockers, and decisions.
 - Make sharing and publication deliberate, separate decisions.
 - Bind approvals to exact proposed content and a known base revision.
-- Keep lifecycle and authority in the existing ship-owned head.
+- Keep execution and authority in the ship-owned head.
 
 ## Open Decisions
 
-No broader commercial positioning, additional target audiences, or new visual identity has been specified.
+Commercial positioning is unspecified.

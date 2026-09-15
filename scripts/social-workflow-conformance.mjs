@@ -3,6 +3,7 @@
 // no Tlon adapter route, public page, remote provider or external send exists.
 // Retain audit records; cancel schedules, disable bindings and archive fixtures.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -37,7 +38,7 @@ const answer = (res, text, tools = []) => res.end(JSON.stringify({
 }))
 const server = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const chunk of req) raw += chunk
+    const raw = await readText(req)
     const body = JSON.parse(raw); calls.push(body)
     res.writeHead(200, { 'content-type': 'application/json' })
     if (body.model === 'social-request-fixture') return answer(res, 'Request recorded. Artifact work requires owner acceptance and review.')
@@ -49,7 +50,7 @@ const server = createServer(async (req, res) => {
     const step = steps[workerReceipts.length]
     if (!step) return answer(res, 'Proposal ready; owner review is required. No reply is scheduled.')
     answer(res, '', [{ id: `${marker}-step-${workerReceipts.length}`, type: 'function', function: {
-      name: 'workspace', arguments: JSON.stringify({ action: step.action, args: JSON.stringify(step.args) }),
+      name: 'workspace', arguments: JSON.stringify({ action: step.action, args: step.args }),
     } }])
   } catch (error) {
     errors.push(error)
@@ -116,15 +117,15 @@ try {
   const workerScope = await scope(worker)
   await work('member', { id: project, version: 1, scope: workerScope, role: 'contributor' })
   const provenance = `Accepted request: binding ${source}; input ${admitted.inputId}; event ${request.event}; actor ${request.actor}.`
-  await work('task-create', { id: task, project, title: 'Prepare a meeting checklist', description: provenance }); taskCreated = true
+  const createdTask = await work('task-create', { id: task, project, title: 'Prepare a meeting checklist', description: provenance }); taskCreated = true
   assert.equal((await inbox('task', task, 'waiting')).status, 'open')
   const sources = [{ label: `Request input ${admitted.inputId}`, url: `${base}/~/scry/harness/hands/${source}.json` }]
   steps = [
-    { action: 'task-claim', args: { id: task, version: 1 } },
+    { action: 'task-claim', args: { id: task, version: createdTask.version } },
     { action: 'artifact-create', args: { id: artifact, project, title: 'Meeting checklist', body: approvedText, sources } },
     { action: 'review', args: { id: artifact, accept: true } },
     { action: 'publish', args: { id: artifact } },
-    { action: 'task-update', args: { id: task, version: 2, status: 'blocked', artifact, outcome: 'Awaiting owner review of the proposed checklist; no result reply is authorized.' } },
+    { action: 'task-update', args: { id: task, version: createdTask.version + 1, status: 'blocked', artifact, outcome: 'Awaiting owner review of the proposed checklist; no result reply is authorized.' } },
   ]
   await owner.call('session/prompt', { sessionId: worker, prompt: [{ type: 'text', text: `${provenance} Claim ${task}, propose the checklist in ${artifact}, and wait for owner review. No source transcript is supplied.` }] })
   if (errors.length) throw new AggregateError(errors)
@@ -151,7 +152,7 @@ try {
   assert.equal(accepted.content.body, approvedText)
   assert.deepEqual(accepted.content.sources, sources)
   assert.equal((await inbox('proposal', proposalId, 'finished')).revision, 1)
-  await work('task-update', { id: task, version: 3, status: 'done', artifact,
+  await work('task-update', { id: task, version: (await work('task', { id: task })).version, status: 'done', artifact,
     outcome: `Owner accepts proposal ${proposalId}, artifact ${artifact}@1. Reply delivery is tracked separately.` })
   assert.equal((await inbox('task', task, 'finished')).artifact, artifact)
   assert.deepEqual(await hand.outbox(), [], 'Task completion does not send a reply')
@@ -161,7 +162,7 @@ try {
   const scheduleId = `0v${BigInt(`0x${randomUUID().replaceAll('-', '')}`).toString(32).replace(/\B(?=(.{5})+$)/g, '.')}`
   const parameters = { id: scheduleId, actor: 'requester', kind: 'reminder',
     at: new Date(Date.now() + 7000).toISOString().replace(/\.\d{3}Z$/, 'Z'), destination: address, text: accepted.content.body }
-  await assert.rejects(hand.schedule(source, { ...parameters, destination: 'fixture-only:wrong-thread' }), /exact-destination/)
+  await assert.rejects(hand.schedule(source, { ...parameters, destination: 'fixture-only:wrong-thread' }), /exact destination/)
   const job = await hand.schedule(source, parameters); schedules.add(job.id); bindings.add(job.runSessionId)
   assert.deepEqual(await hand.schedule(source, parameters), job, 'Explicit schedule identity deduplicates creation')
   await work('artifact-save', { id: artifact, base: 1, project, title: 'Meeting checklist',

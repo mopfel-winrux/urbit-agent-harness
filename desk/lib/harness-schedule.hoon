@@ -35,6 +35,13 @@
       ?>  &((gth (met 3 text.f) 0) (lte (met 3 text.f) 4.096))
       =/  time  (parse:reminder at.f now)
       [%reminder timezone.time address.source sid.source '' at.f *pattern:c text.f tools at.time 1 %active '' ~]
+    ?>  ?=(%o -.args.act)
+    ?:  (~(has by p.args.act) 'at')
+      =/  f=[at=@t prompt=@t]
+        ((ot:dejs:format ~[at+so:dejs:format prompt+so:dejs:format]) args.act)
+      ?>  &((gth (met 3 prompt.f) 0) (lte (met 3 prompt.f) 4.096))
+      =/  time  (parse:reminder at.f now)
+      [%prompt timezone.time address.source sid.source '' at.f *pattern:c prompt.f tools at.time 1 %active '' ~]
     =/  f=[schedule=@t timezone=@t prompt=@t runs=@t]
       ((ot:dejs:format ~[schedule+so:dejs:format timezone+so:dejs:format prompt+so:dejs:format runs+so:dejs:format]) args.act)
     ?>  =('UTC' timezone.f)
@@ -67,9 +74,10 @@
   |=  [job=schedule:c input=@uv now=@da]
   ^-  schedule:c
   ?>  &(=(%active state.job) (gth remaining.job 0))
-  =/  next  ?:(=(%reminder kind.job) ~ (next:calendar pattern.job now))
   =.  job  job(remaining (dec remaining.job), last `input)
-  ?:  |(=(0 remaining.job) =(~ next))  job(state %complete)
+  ?:  =(0 remaining.job)  job(state %complete)
+  =/  next  (next:calendar pattern.job now)
+  ?~  next  job(state %complete)
   job(next (need next))
 ++  for-session
   |=  [jobs=(map @uv schedule:c) sid=@t]

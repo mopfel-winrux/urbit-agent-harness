@@ -95,7 +95,7 @@
     (expect !>(?=(%| -.prepared)))
     (expect !>(?=(%| -.confirmed)))
   ==
-++  test-native-document-changes-fence-review-even-with-the-same-metadata-epoch
+++  test-native-document-changes-invalidate-document-approval
   =/  db  *state:w
   =/  art  *artifact:w
   =.  artifacts.db  (my ~[['doc' art]])

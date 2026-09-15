@@ -66,9 +66,10 @@
 ++  test-two-agents-cannot-claim-one-task
   =/  db  (step project owner [%member 'project' 2 0v2 `%contributor])
   =/  db  (step db owner [%task-create 'task' 'project' 'Research costs' 'Return evidence'])
-  =/  claimed  (step db agent [%task-claim 'task' 1])
-  =/  refused  (apply:work claimed other [%task-claim 'task' 1] ~2026.9.11)
-  =/  updated  (step claimed other [%task-update 'task' 2 %done 'Verified by the coordinator' ~ ~])
+  =/  version  version:(~(got by tasks.db) 'task')
+  =/  claimed  (step db agent [%task-claim 'task' version])
+  =/  refused  (apply:work claimed other [%task-claim 'task' version] ~2026.9.11)
+  =/  updated  (step claimed other [%task-update 'task' version:(~(got by tasks.claimed) 'task') %done 'Verified by the coordinator' ~ ~])
   ;:  weld
     (expect !>(?=(%| -.refused)))
     (expect-eq !>(`(unit actor:w)`[~ [0v1 'researcher']]) !>(claimant:(~(got by tasks.updated) 'task')))
@@ -92,7 +93,7 @@
   (expect !>(?=(%| -.refused)))
 ++  test-owner-task-update-retains-an-explicit-claimant
   =/  db  (step project owner [%task-create 'task' 'project' 'Write' ''])
-  =/  db  (step db owner [%task-update 'task' 1 %claimed '' ~ ~])
+  =/  db  (step db owner [%task-update 'task' version:(~(got by tasks.db) 'task') %claimed '' ~ ~])
   (expect-eq !>(`(unit actor:w)`[~ [0v0 'Owner']]) !>(claimant:(~(got by tasks.db) 'task')))
 ++  test-json-offsets-use-ungrouped-decimal
   =/  args=json  [%o (my ~[['offset' [%n '8000']]])]

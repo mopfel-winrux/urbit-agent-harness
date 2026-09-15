@@ -1,9 +1,13 @@
 ::  Bounded confirmation policy shared by all human conversation ingress.
 ::  The head supplies authenticated provenance and checks current authority.
-/-  h=harness, c=harness-work-control, w=harness-workspace
+/-  h=harness, c=harness-work-control, w=harness-workspace, hh=harness-hand
 /+  j=harness-workspace-json, workspace=harness-workspace, view=harness-work-view, copy=harness-work-copy
 |%
 ++  capacity  2.048
+++  active
+  |=  [r=request:c now=@da]
+  ^-  ?
+  |(=(%running status.r) &(=(%pending status.r) (lth now expires.r)))
 ++  same-origin
   |=  [a=input-source:h b=input-source:h]
   ^-  ?
@@ -46,7 +50,10 @@
   ?.  &(?=(%o -.args.r) (lte (met 3 (en:json:html args.r)) 32.768))
     [%| 'Work arguments must be an object of at most 32768 encoded bytes.']
   ?:  (~(has by requests.db) id)  [%| 'This work request identity is already used.']
-  ?:  (gte ~(wyt by requests.db) capacity)  [%| 'Work confirmation capacity reached; retained receipts are not discarded.']
+  ::  Admission bounds outstanding work, not the lifetime of the ledger.
+  ::  Retained receipts remain available for inspection and delivery deduplication.
+  =/  outstanding  (skim ~(tap by requests.db) |=([id=@uv r=request:c] (active r now)))
+  ?:  (gte (lent outstanding) capacity)  [%| 'Too many active work approvals. Settle pending work before preparing another change.']
   [%& db(requests (~(put by requests.db) id r(expires (add now ~m15), status %pending, result ~)))]
 ++  confirm
   |=  [db=state:c id=@uv sid=@t scope=@uv source=input-source:h actor=(unit @p) fence=@uvH now=@da]
@@ -77,13 +84,38 @@
 ++  snapshot
   |=  [db=state:w action=@t args=json]
   ^-  @uvH
-  ::  A small metadata epoch fences concurrent work changes. Exact document
-  ::  content also fences native Notes edits reflected by the head's reader.
+  ::  Bind only the operation's read set. The write sequence allocates versions;
+  ::  it is not an authority or a dependency on unrelated bookkeeping.
   =/  id  (fall (optional:j args 'id') '')
-  =/  art-id  (fall (optional:j args 'artifact') id)
-  =/  proposal  (~(get by proposals.db) id)
+  ?:  |(=('project-edit' action) =('member' action))
+    (sham [action args (~(get by projects.db) id)])
+  ?:  =('hand-access' action)  (sham [action args])
+  =/  proposal
+    ?:  (lien `(list @t)`~['review' 'propose' 'artifact-create'] |=(name=@t =(name action)))
+      (~(get by proposals.db) id)
+    ~
+  =/  art-id
+    ?:  |(=('propose' action) =('task-reply' action))  (fall (optional:j args 'artifact') '')
+    id
   =?  art-id  &(=('review' action) ?=(^ proposal))  artifact.u.proposal
-  (sham [writes.db action args (~(get by artifacts.db) art-id) proposal])
+  =/  art  (~(get by artifacts.db) art-id)
+  =/  project
+    ?:  =('artifact-create' action)  (optional:j args 'project')
+    ?~(art ~ project.u.art)
+  =/  group  ?~(project ~ (~(get by projects.db) u.project))
+  =/  task  ?:(=('task-reply' action) (~(get by tasks.db) id) ~)
+  (sham [action args art proposal group task])
+++  fence
+  |=  [db=state:w hands=state:hh names=(map @t @uv) owners=(set [binding=@t actor=@t]) action=@t args=json]
+  ^-  @uvH
+  =/  base  (snapshot db action args)
+  ?.  |(=('task-reply' action) =('hand-access' action))  base
+  =/  target
+    %-  mule  |.
+    =/  key  (string:j args 'binding')
+    =/  binding  (~(got by bindings.hands) key)
+    [binding (~(get by names) sid.binding) ?:(=('hand-access' action) `(~(has in owners) [key (string:j args 'actor')]) ~)]
+  (sham [base target])
 ++  visible
   |=  [db=state:w who=authority:w r=request:c]
   ^-  ?

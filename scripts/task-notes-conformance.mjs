@@ -1,5 +1,6 @@
 // Local delegation keeps useful tools and returns to the caller without work records.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { Client, base, cookie } from './lib/ship-client.mjs'
@@ -14,7 +15,7 @@ let started = false, calls = 0, childCalls = 0, failure
 const server = createServer(async (req, res) => {
   try {
     calls++
-    let raw = ''; for await (const chunk of req) raw += chunk
+    const raw = await readText(req)
     const body = JSON.parse(raw)
     const child = body.messages.some(m => m.role === 'system' && m.content.includes('You are a subagent'))
     let message

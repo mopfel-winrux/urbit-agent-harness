@@ -1,5 +1,6 @@
 // Local provider only; temporary session, no credentials or defaults changed.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { Client } from './lib/ship-client.mjs'
 
@@ -15,7 +16,7 @@ const cases = [
 ]
 const server = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const part of req) raw += part
+    const raw = await readText(req)
     const body = JSON.parse(raw)
     receipts = body.messages.filter((m) => m.role === 'tool')
     const calls = receipts.length ? [] : cases.map(([id, name, args]) => ({

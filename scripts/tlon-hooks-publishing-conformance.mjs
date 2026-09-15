@@ -1,6 +1,7 @@
 // Deterministic, native hook and public-page tests on fake ~lux only.
 // Publishes only unique fixtures; removes hooks, schedules, pages and fixtures.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -13,7 +14,7 @@ const client = new Client(), errors = [], hooks = new Set(), publications = new 
 let args, result, calls = 0, policy, session = false, createdGroup = false, notebook
 const model = createServer(async (req, res) => {
   try {
-    let raw = ''; for await (const part of req) raw += part
+    const raw = await readText(req)
     const body = JSON.parse(raw), last = body.messages.findLastIndex((m) => m.role === 'user')
     const reply = body.messages.slice(last + 1).find((m) => m.role === 'tool')
     if (reply) result = reply.content

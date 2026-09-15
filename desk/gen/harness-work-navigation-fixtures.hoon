@@ -18,8 +18,9 @@
 =/  db  (step db [%project-create 'travel' 'A long project name for planning a trip with friends' ''])
 =/  db  (step db [%artifact-create 'checklist' `'weekend' ['Weekend checklist' 'Bring raincoats and a spare pair of socks.' ~]])
 =/  db  (step db [%propose 'draft-checklist' 'checklist' 1 ['Weekend checklist' 'Bring raincoats, spare socks, and a shared first-aid kit.' ~] 'Complete the packing list.'])
-=/  done-db  (step db [%task-update 'packing' 1 %done 'The packing list is ready.' `'checklist' ~])
-=/  blocked-db  (step db [%task-update 'packing' 1 %blocked 'Waiting for the trip dates before finishing the list.' ~ ~])
+=/  version  version:(~(got by tasks.db) 'packing')
+=/  done-db  (step db [%task-update 'packing' version %done 'The packing list is ready.' `'checklist' ~])
+=/  blocked-db  (step db [%task-update 'packing' version %blocked 'Waiting for the trip dates before finishing the list.' ~ ~])
 =/  row
   |=  [db=state:w action=@t argument=@t]
   ^-  json

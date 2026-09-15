@@ -12,6 +12,21 @@ const code = (name) => sources.get(name).split('\n').filter((line) => !line.trim
 const dependencies = (name) => [...code(name).matchAll(/^\/\+\s+(.+)$/gm)]
   .flatMap((match) => match[1].split(',').map((entry) => entry.trim().split('=').at(-1).replace(/^\*/, '')))
 
+test('work guidance teaches bounded decomposition and quiet cross-ship coordination', () => {
+  const tools = code('harness-tools')
+  const workspace = tools.split('\n').find(line => line.includes("(fun 'workspace'"))
+  for (const instruction of ['completion check', 'dependencies', 'Keep tightly coupled steps together',
+    'capable agents', 'reassess', 'one home record', 'mutual Workspace grants',
+    'Never change trust', 'Keep coordination in the background', 'actual blockers',
+    'Ordinary questions need neither', 'not promise later follow-up',
+    'set status done with a concise verified outcome before replying', 'Never leave completed work open']) {
+    assert.ok(workspace.includes(instruction), `Missing work guidance: ${instruction}`)
+  }
+  assert.ok(workspace.length < 2600, 'Keep work guidance focused; action details belong in help')
+  assert.match(tools, /mutually trusted ship/)
+  assert.match(tools, /inspect the home task and never resend automatically/)
+})
+
 test('permission synchronization is change-driven and trust reads stay small', async () => {
   const agent = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
   assert.match(agent, /before-access\s+access-inputs:hc/)

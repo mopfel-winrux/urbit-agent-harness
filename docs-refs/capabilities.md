@@ -23,14 +23,19 @@ late completion, but is not external rollback.
 
 See [ACP](acp.md) and [architecture](architecture.md#session-ownership).
 
-## Artifacts and projects
+## Tasks, projects, and artifacts
+
+Tasks track units of work; optional projects collect related tasks. Agents with
+the Workspace tool share task tracking and project metadata. They record
+assignments, progress, and outcomes without a human-managed launch cycle.
+Task records do not dispatch work, schedule execution, or grant tools.
 
 Artifacts are native Notes Markdown documents with accepted body history and
 reviewable agent proposals. Titles are separate, unversioned Notes metadata.
-Projects explicitly share documents and versioned
-tasks with selected conversation identities; claims belong to individual workers.
-Project access does not share transcripts or grant additional tools. Live
-delegated workers may participate within their parent's current authority.
+Project document roles share documents with selected conversation identities,
+independently of task coordination. Project access does not share transcripts or
+grant additional tools. Live delegated workers may participate within their
+parent's current authority.
 
 Owners can publish a reviewed saved snapshot through Notes at
 `/notes/pub/~host/notebook/note-id` for readers

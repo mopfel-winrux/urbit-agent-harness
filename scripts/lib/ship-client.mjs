@@ -6,14 +6,19 @@ import { setTimeout as sleep } from 'node:timers/promises'
 export const base = process.env.SHIP_URL || 'http://127.0.0.1'
 const cookiePath = process.env.SHIP_COOKIE
 if (!cookiePath) throw new Error('Set SHIP_COOKIE to an authenticated Netscape cookie file.')
-const line = (await readFile(cookiePath, 'utf8')).split('\n').find((row) => /\turbauth-~/.test(row))
-if (!line) throw new Error('Ship authentication cookie not found.')
-const fields = line.split('\t')
-export const cookie = `${fields[5]}=${fields[6]}`
-const ship = fields[5].slice('urbauth-~'.length)
+export async function readCookie(path) {
+  const line = (await readFile(path, 'utf8')).split('\n').find((row) => /\turbauth-~/.test(row))
+  if (!line) throw new Error('Ship authentication cookie not found.')
+  const fields = line.split('\t')
+  return `${fields[5]}=${fields[6]}`
+}
+export const cookie = await readCookie(cookiePath)
 
 export class Client {
-  constructor() {
+  constructor({ url = base, auth = cookie } = {}) {
+    this.base = url
+    this.cookie = auth
+    this.ship = auth.split('=')[0].slice('urbauth-~'.length)
     this.connection = `conformance-${randomUUID()}`
     this.channel = this.connection
     this.event = 0; this.rpc = 0; this.through = 0
@@ -23,9 +28,9 @@ export class Client {
     return this.pokeAgent('acp', 'acp-action-1', json)
   }
   async pokeAgent(app, mark, json) {
-    const response = await fetch(`${base}/~/channel/${this.channel}`, {
-      method: 'PUT', headers: { cookie, 'content-type': 'application/json' },
-      body: JSON.stringify([{ id: ++this.event, action: 'poke', ship, app, mark, json }]),
+    const response = await fetch(`${this.base}/~/channel/${this.channel}`, {
+      method: 'PUT', headers: { cookie: this.cookie, 'content-type': 'application/json' },
+      body: JSON.stringify([{ id: ++this.event, action: 'poke', ship: this.ship, app, mark, json }]),
       signal: AbortSignal.timeout(15_000),
     })
     assert.ok(response.ok, `poke HTTP ${response.status}`)
@@ -54,8 +59,8 @@ export class Client {
   }
   async poll() {
     while (this.running) {
-      const response = await fetch(`${base}/~/scry/acp/v1/${this.connection}/client.json?_=${Date.now()}`, {
-        headers: { cookie, 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15_000),
+      const response = await fetch(`${this.base}/~/scry/acp/v1/${this.connection}/client.json?_=${Date.now()}`, {
+        headers: { cookie: this.cookie, 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15_000),
       })
       assert.ok(response.ok, `queue HTTP ${response.status}`)
       for (const message of (await response.json()).messages || []) {

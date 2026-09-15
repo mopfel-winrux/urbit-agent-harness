@@ -18,13 +18,41 @@
   =.  writes.db  37
   =/  native=state:hn  *state:hn
   =.  links.native  (~(put by links.native) 'doc' [42 ~ ~])
-  =/  expected  db(artifacts ~, writes 38)
+  =/  expected  db(artifacts ~, recency ~, writes 38)
   ;:  weld
     (expect-eq !>(expected) !>((project-book:notes db native *notebook-state:n)))
     (expect-eq !>(expected) !>((project-update:notes db native [%note 42 %deleted ~])))
   ==
 ++  test-native-public-path
   (expect-eq !>('/notes/pub/~zod/harness/42') !>((public-path:notes [~zod %harness] 42)))
+++  test-native-updates-maintain-recency-without-read-time-replay
+  =/  native=state:hn  *state:hn
+  =.  links.native  (my ~[['doc' [42 ~ ~]]])
+  =/  note=note:n  *note:n
+  =.  id.note  42
+  =.  title.note  'Renamed'
+  =.  body-md.note  'Body'
+  =.  updated-at.note  ~2026.9.14
+  =/  update=u-notebook:n  [%note 42 %updated note]
+  =/  db  (project-update:notes fixture native update)
+  =/  book=notebook-state:n  *notebook-state:n
+  =.  notes.book  (my ~[[42 note]])
+  ;:  weld
+    (expect-eq !>(`~2026.9.14) !>((~(get by recency.db) [%artifact 'doc'])))
+    (expect-eq !>(db) !>((project-update:notes db native update)))
+    (expect-eq !>(recency.db) !>(recency:(project-book:notes fixture native book)))
+  ==
+++  test-metadata-lists-do-not-read-native-document-bodies
+  ;:  weld
+    (expect !>(!(needs-notes:notes 'artifacts')))
+    (expect !>(!(needs-notes:notes 'proposals')))
+    (expect !>(!(needs-notes:notes 'projects')))
+    (expect !>(!(needs-notes:notes 'tasks')))
+    (expect !>((needs-notes:notes 'artifact')))
+    (expect !>((needs-notes:notes 'revision')))
+    (expect !>((needs-notes:notes 'proposal')))
+    (expect !>((needs-notes:notes 'task-reply')))
+  ==
 ++  test-decorating-empty-pages-preserves-json-null
   =/  page=json  (pairs:enjs:format ~[['items' %a ~] ['nextOffset' ~] ['referenceOnly' %b &]])
   =/  nested=json  [%a ~[~ page [%s 'unchanged']]]

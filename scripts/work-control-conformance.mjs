@@ -1,6 +1,7 @@
 // Loopback-only human command flow. No provider calls or social delivery.
 // Fixtures retain task, confirmation, and hand audit records.
 import assert from 'node:assert/strict'
+import { text as readText } from 'node:stream/consumers'
 import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -21,16 +22,16 @@ let modelPrepare = false, modelRequest, modelChange
 const server = createServer(async (req, res) => {
   providerCalls++
   if (!modelPrepare) { res.writeHead(500); res.end('Unexpected inference'); return }
-  let raw = ''; for await (const chunk of req) raw += chunk
+  const raw = await readText(req)
   const body = JSON.parse(raw)
   const turn = body.messages.slice(body.messages.findLastIndex((item) => item.role === 'user'))
   const receipt = turn.findLast((item) => item.role === 'tool')
   if (receipt) modelRequest = JSON.parse(receipt.content)
   const message = receipt ? { role: 'assistant', content: modelPrepare === 'note' ? 'I noted the outstanding work.' : modelRequest.confirm }
     : { role: 'assistant', content: '', tool_calls: [{ id: 'prepare-work-fixture', type: 'function', function: {
-      name: 'workspace', arguments: JSON.stringify({ action: modelPrepare === 'note' ? 'task-create' : 'manage', args: JSON.stringify(modelPrepare === 'note' ? modelChange : {
+      name: 'workspace', arguments: JSON.stringify({ action: modelPrepare === 'note' ? 'task-create' : 'manage', args: modelPrepare === 'note' ? modelChange : {
         action: 'project-edit', args: modelChange,
-      }) }),
+      } }),
     } }] }
   res.writeHead(200, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ choices: [{ finish_reason: receipt ? 'stop' : 'tool_calls', message }],
@@ -124,13 +125,13 @@ try {
   assert.doesNotMatch(note, /confirm|Saving changes|request ID/i)
   assert.equal((await work('task', { id: task })).title, 'Check the forecast')
   assert.equal((await work('task', { id: task })).project, project)
-  const assigned = await command(owner, `/work task-assign ${JSON.stringify({ id: task, version: 1, assignee: social, scope: '0v0' })}`)
+  const assigned = await command(owner, `/work task-assign ${JSON.stringify({ id: task, version: (await work('task', { id: task })).version, assignee: social, scope: '0v0' })}`)
   assert.doesNotMatch(assigned, /error:|confirm/i)
   const assignment = await work('task', { id: task })
   assert.equal(assignment.claimant.label, social)
   assert.notEqual(assignment.claimant.scope, '0v0', 'The head resolves the actual agent; supplied scope cannot impersonate the owner')
   assert.deepEqual((await work('project', { id: project })).members, [], 'Assignment does not grant document membership')
-  const completed = await command(owner, `/work task-update ${JSON.stringify({ id: task, version: 2, status: 'done', outcome: 'Answered here.' })}`)
+  const completed = await command(owner, `/work task-update ${JSON.stringify({ id: task, version: assignment.version, status: 'done', outcome: 'Answered here.' })}`)
   assert.match(completed, /Answered here/)
   assert.equal((await work('task', { id: task })).artifact, null)
   results.push('protected workspace fence; direct task bookkeeping without confirmation, claim, artifact, or inference')
@@ -196,6 +197,8 @@ try {
   assert.ok(handReply.text.includes(`Conversation: fixture-only:${tag}`))
   assert.ok(handReply.text.includes('Recipient: alice'))
   assert.ok(!handReply.text.includes('binding:'), 'Routing records are not normal conversation copy')
+  const independent = await work('task', { id: `${tag}-agent-note` })
+  await work('task-update', { id: independent.id, version: independent.version, outcome: 'Independent progress during another task’s approval.' })
   const queued = parse(await handCommand(binding, 'alice', handReply.confirm))
   assert.equal(queued.status, 'done')
   assert.equal(queued.delivery.status, 'pending', 'Queueing is not delivery')
@@ -209,6 +212,8 @@ try {
   results.push('exact accepted reply preview, disabled destination fence, queue/delivery distinction, duplicate suppression, source revocation before claim')
   const failedRequest = await confirmed(owner, 'task-reply', replyArgs)
   const failed = parse(await command(owner, `/work result ${failedRequest.id}`)).delivery
+  const nextIndependent = await work('task', { id: independent.id })
+  await work('task-update', { id: nextIndependent.id, version: nextIndependent.version, status: 'done', outcome: 'Independent work finishes while a reply waits.' })
   await hand.claim(failed.effectId)
   await hand.receipt(failed.effectId, 'failed')
   const uncertainRequest = await confirmed(owner, 'task-reply', replyArgs)
@@ -231,7 +236,7 @@ try {
   assert.match(await command(owner, deliveredRequest.confirm), /already settled or submitted/)
   assert.match(await command(owner, `/work task-reply ${JSON.stringify(replyArgs)}`), /already has a reply receipt/)
   assert.equal(providerCalls, 4, 'Reviewed replies never ask a model to send them')
-  results.push('exclusive delivery claim, uncertain receipt without retry, explicit abandonment, actual delivery status, no duplicate delivered reply')
+  results.push('unrelated task changes preserve approval and queued delivery; exclusive claim, uncertain receipt without retry, explicit abandonment, actual delivery status, no duplicate delivered reply')
 } finally {
   if (started) {
     for (const binding of bindings) {

@@ -103,6 +103,67 @@ the same settings concurrently. Cleanup restores selected configuration; it
 does not imply remote messages, public identity updates or audit evidence never
 existed.
 
+### Practical goal acceptance
+
+`scripts/work-goal-practical.mjs` gives one supply-planning request to a real
+agent through a file-backed hand. Two local development ships use their
+configured HTTPS model providers and real HTTP tools. The runner serves input
+data, not model responses: confirmed prices remain unavailable until a future
+time. Agents must create and complete the home project's jobs, get a mutually
+trusted peer to independently check the work, and arrange a one-time scheduled
+agent to deliver the final recommendation without another user prompt.
+
+```sh
+SHIP_URL=http://127.0.0.1:8092 SHIP_COOKIE=/private/home.cookie \
+WORK_GOAL_REAL_MODELS=1 \
+WORK_GOAL_PEER_URL=http://127.0.0.1:8093 \
+WORK_GOAL_PEER_COOKIE=/private/peer.cookie \
+WORK_GOAL_HOME_SHIP='~home-ship' WORK_GOAL_PEER_SHIP='~peer-ship' \
+  node scripts/work-goal-practical.mjs
+```
+
+Use the actual ship names and a pair without an existing peer conversation.
+To reuse this test's peer history, set `WORK_GOAL_PREVIOUS_REPORT` to its retained
+report. The runner requires matching ships and unchanged recorded input history;
+it does not clear conversation state. Fresh remote inference and tool events are
+measured against the recorded starting point.
+The peer admission allowance includes retained test usage, so repeating the test
+does not require erasing history or resetting token accounting.
+For a controlled model comparison, `WORK_GOAL_HOME_MODEL` selects a model through
+the home's configured provider for the test coordinator and its scheduled worker
+only. It does not change ship defaults or the peer model. The report records the
+selected models, and acceptance checks the actual coordinator and scheduled model.
+Keep baseline failures alongside comparison results; another model's pass does
+not establish that the baseline model reliably completes the task.
+The test makes paid model calls and temporarily installs reciprocal Workspace,
+Peers and Curl grants; it does not promote either ship to owner. Cleanup restores
+those grants, disables its hand and cancels its schedules and executions. Work
+records, conversations and private evidence files remain available for inspection.
+Do not run concurrent trust edits on this pair.
+Before starting model work, both ships must return fresh peer-discovery reports.
+Matching grants alone do not prove network reachability; cached reports cannot
+satisfy this preflight.
+
+The quote opens ten minutes after setup, leaving time for real model latency;
+`WORK_GOAL_QUOTE_DELAY_MS` accepts 60,000–600,000 milliseconds. The request gives
+an explicit follow-up window, and the runner stops after eight further minutes.
+Signals cancel the fixture's work and preserve its evidence. The independent
+oracle checks the initial total, final quantities, shipping and budget shortfall.
+Acceptance also requires one delegation without an uncertain resend,
+authenticated peer task ownership, a future worker starting within the requested
+two-minute window, completed future work, a real delivered message and no
+internal task IDs in human replies. The
+runner does not create or advance tasks, synthesize agent answers, or trigger
+scheduled work manually. Native and scripted conformance tests supplement this
+test; they do not establish practical goal completion. A passing report applies
+to its recorded model pair and workflow, not to arbitrary models. Retain failed
+runs when evaluating reliability, including incorrect arithmetic, tool-argument
+loops, late scheduling and incomplete cross-ship bookkeeping.
+
+Inspect both delivered messages against the source data as part of acceptance.
+The deterministic oracle checks required quantities and totals, not every prose
+claim; correct totals do not excuse invented comparisons or contradictory advice.
+
 | Boundary | Fixtures |
 | --- | --- |
 | ACP and sessions | `conformance.mjs`, `conversations-conformance.mjs`, `session-history-conformance.mjs` |
