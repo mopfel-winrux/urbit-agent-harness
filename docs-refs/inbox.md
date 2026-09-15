@@ -1,62 +1,48 @@
 # Work inbox
 
-Open **Work** in the sidebar to inspect work recorded by the head.
-The default **Needs attention** view includes uncertain results, blocked work,
-and artifact proposals awaiting review. Running, Waiting, Finished and All
-records are separate filters. A source selector narrows the records and counts.
+Open **Work** in the sidebar. The default **Needs attention** view shows blocked
+work, uncertain results, and document proposals awaiting review. Other filters
+show Running, Waiting, Finished, or All records. A source selector narrows the list.
 
-This is a read-only projection, not another task engine. It cannot approve a
-proposal, start a conversation, claim a task, cancel work, or retry a send.
-Open the existing source surface to inspect the current evidence and act there.
+The inbox is read-only. Open a record to review it or take action.
 
 ## What the states mean
 
-| Source | Evidence and interpretation |
+| Source | Meaning |
 | --- | --- |
-| Task | Open and claimed tasks are **Waiting**, not proof of running execution. Blocked tasks need attention. Done means an outcome was recorded, not that external effects were verified. |
-| Artifact proposal | Pending proposals need approval. Open the exact proposal to inspect its base, content, current access and review conditions. Accepted and rejected proposals appear under Finished; acceptance is not publication. |
-| Admitted hand input | Execution and delivery are independent. Running requires a running execution record. Completed execution with pending, claimed or absent delivery stays Waiting. Failed execution or delivery is Blocked; uncertain delivery remains Uncertain even after cancellation. |
-| Schedule | A schedule is a plan, not its execution. Active schedules are Waiting, paused schedules are Blocked, and ended/cancelled schedules are Finished. Admitted runs appear separately as hand inputs. |
-| Pending Notes operation | Waiting or Uncertain, according to the retained native-operation record. Inspect its result; a missing result never authorizes another mutation. |
+| Task | Open and claimed tasks are Waiting; assigned does not mean running. Blocked tasks need attention. Done records an outcome, not proof of an external action. |
+| Artifact proposal | Pending proposals need review. Accepted and rejected proposals are Finished. Accepting does not publish. |
+| Hand input | Running requires active execution. Completed execution waits for delivery. Execution or delivery failure is Blocked; uncertain delivery stays Uncertain even after cancellation. |
+| Schedule | Active schedules are Waiting, paused ones Blocked, and ended/cancelled ones Finished. Individual runs appear as hand inputs. |
+| Notes operation | Waiting or Uncertain according to its saved result. Check that result before repeating a write. |
 
-“Reply recorded delivered” means the hand recorded delivery. For Tlon DMs this
-can be local Messenger acceptance, not remote arrival. Inspect the native
-conversation and the existing delivery diagnostics before deciding to retry.
-The inbox does not infer current tool authority from a binding's enabled flag.
+“Reply recorded delivered” means the hand recorded delivery. In a Tlon DM,
+that may mean local Messenger acceptance rather than remote arrival. Check
+the conversation and delivery diagnostics before deciding to retry.
 
-Expand **Recorded evidence** for the stable record identity and applicable
-execution, delivery, attempt, native reference, version or revision fields.
-Task and proposal links open that exact record, even when it is beyond the
-first page of its source directory. Delivery diagnostics still owns hand recovery.
+Expand **Recorded evidence** for IDs, versions, and execution or delivery details.
+Task and proposal links open the selected record.
 
-Counts are **retained records, not unique tasks**: a task, its proposed
-artifact, a schedule and a delivery receipt can describe related work. There is
-no dismiss/read marker or inferred relationship store. Existing source retention
-and explicit archive/retirement operations determine what remains available.
+Counts are records, not unique jobs: a task, proposal, schedule, and delivery
+receipt may describe the same work. There is no dismiss or read marker; source
+retention and archive/retirement operations determine what stays visible.
 
 ## Scope and freshness
 
-The inbox includes tasks, proposals, admitted hand inputs,
-schedules and pending Notes operations. It does not enumerate ordinary unbound
-browser conversations, peer/subagent turns without a hand record, or adapter
-work awaiting admission. Those remain in their existing conversation and Tlon
-diagnostic surfaces. A zero count is not a whole-ship health certificate.
+The inbox excludes ordinary browser conversations, peer/subagent turns without
+a hand record, and adapter work not yet admitted. Inspect those in their
+conversation or Tlon diagnostics. An empty inbox does not mean the ship is idle.
 
-The mounted inbox refreshes on entry, focus and every 30 seconds while visible.
-Hidden tabs and other routes do not run its safety poll. Focus overlaps share
-one outstanding read. No document bodies or conversation transcripts are loaded
-to populate the list. Row text is an excerpt of the retained work record, not a
-fresh native-document read; proposal review rechecks the actual artifact.
+The inbox refreshes on entry, focus, and every 30 seconds while visible.
+Overlapping refreshes share one read. Rows use stored metadata and excerpts,
+not document or transcript fetches; proposal review checks the actual artifact.
 
-Counts cover the selected source across the retained data, before state filtering
-and pagination. Rows are ordered by descending source
-evidence time and deterministic source/identity ties. Schedules and pending
-Notes operations do not invent timestamps that their original records lack.
+Counts cover the selected source before state filtering and pagination.
+Rows sort by descending source timestamp, then source/identity for ties.
+Records without timestamps do not get invented ones.
 
-Cursor pages are fenced against changed work metadata and filter changes. If
-the work changes, **Refresh from first page** starts a fresh view. A failed read
-shows an error and marks any retained rows as stale; it never reports an all-clear
-or presents old counts as current status. No cursor grants permission to act.
+Changed work or filters invalidate pagination. **Refresh from first page** starts
+a fresh view. Read failures show an error and mark retained rows as stale.
 
 ## API and implementation
 
@@ -70,19 +56,16 @@ Owner ACP method: `harness/inbox`.
   `running`, `waiting`, or `finished`.
 - `kind`: `all` (default), `task`, `proposal`, `input`, `schedule`, or `notes`.
 - `limit`: 1–32; defaults to 24.
-- `cursor`: an opaque continuation from the preceding page, or null.
+- `cursor`: the preceding page's opaque continuation, or null.
 
 The response contains `items`, source-scoped `counts`, the next `cursor` or null,
-`observedAt` and `referenceOnly: true`. Row-specific fields refer to their
-existing typed records. Administrative model dispatch is explicitly rejected;
-models continue using their scoped work tools, not the owner aggregate.
+`observedAt`, and `referenceOnly: true`. Row fields refer to their source records.
+Models cannot call this owner aggregate through administration; they use their
+scoped work tools.
 
-`lib/harness-inbox` scans compact retained metadata and holds at most one page
-plus a continuation candidate. Rows are most-recent-activity first across kinds
-and states, with stable kind/identity ties. Only selected rows become JSON. It does not
-replay session logs, read Notes, hash proposal bodies, mutate saved state, emit
-effects or introduce a new persisted inbox/index. Read cost still scales with
-the number of retained metadata records; a response bound is not an O(1) query.
+`lib/harness-inbox` scans metadata and retains one page plus a continuation
+candidate. Only selected rows become JSON. It uses no persisted inbox index,
+session replay, Notes reads, or writes. Read cost grows with retained record count.
 
 ## Verification
 
@@ -98,20 +81,18 @@ From the local test ship's Dojo:
 -test /=harness=/tests-integration/harness-inbox
 ```
 
-The native unit tests exercise classification, filtered pagination, stale and
-cross-filter cursors, counts, timestamp provenance and excerpt-only projection.
-The integration fixture inspects owner/model ACP handling in an isolated
-evaluation without executing emitted cards. Browser fixtures cover source
-links, errors, page recovery, hidden/unmounted polling and absence of inbox
-mutations. Synthetic UI data is not evidence of native authority enforcement.
+Native tests cover classification, counts, timestamps, excerpts, and pagination.
+The isolated integration fixture checks owner/model access without executing
+emitted cards. Browser fixtures cover links, errors, page recovery, and polling.
 
-`scripts/inbox-conformance.mjs` reads the installed endpoint on a loopback ship
-with `SHIP_URL`, `SHIP_COOKIE`, and `SOAK_EXPECT_SHIP` set. It validates bounded
-state/source reads and parameter rejection without creating or changing work.
-Its coverage depends on the existing retained data; empty sources are reported
-honestly, not filled by making real external effects.
+`scripts/inbox-conformance.mjs` reads a loopback ship with `SHIP_URL`,
+`SHIP_COOKIE`, and `SOAK_EXPECT_SHIP` set. It checks reads and parameter
+rejection without changing work; coverage depends on the retained data.
 
-Opt-in visual evidence lives in `fe/tests/inbox.visual.spec.js`; run from `fe`
-with `INBOX_VISUAL=1 PLAYWRIGHT_CHANNEL=chrome npx playwright test inbox.visual.spec.js`.
-The [reliability runner](reliability.md) remains a separate sustained-operation
-baseline, not a certification of every inbox source or cold restart.
+For visual captures, run from `fe`:
+
+```sh
+INBOX_VISUAL=1 PLAYWRIGHT_CHANNEL=chrome npx playwright test inbox.visual.spec.js
+```
+
+For sustained-operation checks, see [reliability](reliability.md).

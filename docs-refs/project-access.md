@@ -1,17 +1,14 @@
 # Project delegation and client access
 
-Project **Sharing** separates document roles from credentials for external
-readers. Neither starts inference, grants tools, or shares conversation history.
-This is bounded delegated project authority, not a general
-multi-user account system or a client execution API.
+Use a project's **Sharing** tab to give conversations document access or issue
+read-only keys to scripts and apps. Neither shares private conversations or
+grants tools.
 
 ## Document roles and task coordination
 
-Agents with the Workspace tool share task tracking and project metadata without
-project membership. They can create projects and create, assign, update, or
-delete tasks. These operations track work; they do not dispatch or cancel it.
-Task mutations check the current record version, and linking a result document
-requires access to that document. An assignment is not an exclusive edit right.
+Project membership controls documents, not tasks. Agents with Workspace access
+share task tracking and project metadata. See [task coordination](workspaces.md#coordination)
+for assignments, updates, and result links.
 
 Project roles govern shared documents and delegated project editing:
 
@@ -23,27 +20,21 @@ Project roles govern shared documents and delegated project editing:
 | Change membership, archive/restore project, manage client keys | No | No | No | Yes |
 | Accept/reject proposals, directly save accepted bodies, publish | No | No | No | Yes |
 
-Enable the Workspace tool separately in each participating conversation. Tool
-grants are independent of project roles. Document authority is checked against
-current project membership, not the conversation's displayed name. A live
-delegated child uses its parent's current project scope and retains its own
-authorship; stale children do not acquire that authority. Scheduled work can
-inherit Workspace; rehearsal runs do not receive it.
+Each conversation also needs the Workspace tool. Membership uses its stable
+identity, so renaming it does not change access. Active delegated children can
+use their parent's document access while retaining their own authorship.
 
-Maintainer project edits use the current project version and permit title and
-description changes, not access or archival changes. Downgrading or removing a
-maintainer takes effect on subsequent document and project-edit operations.
-Archiving suspends document membership, not task coordination. Information
-already copied cannot be recalled.
+Maintainer edits check the project version. Role changes affect subsequent
+operations; archiving suspends document membership, not task tracking.
+Revocation cannot recall information already copied. Scheduled work can inherit
+Workspace; rehearsal runs cannot.
 
 ## Read-only project keys
 
 Open a project from **Work → Projects**. In **Sharing → Read-only client access**,
-choose **Create read-only key…**, label it, choose an expiry, and confirm the
-sharing scope. Save the key
-before closing its confirmation. Reveal and Copy are explicit actions; the key
-is never stored in browser local/session storage or placed in a URL by Harness.
-The browser needs a secure random generator; unavailable randomness fails closed.
+choose **Create read-only key…**, label it, set an expiry, and confirm.
+Reveal or copy the key before closing: Harness does not save it in browser
+storage or a URL. Creation requires a secure browser random generator.
 
 A key permits reads of its one project's current and future non-archived
 documents, accepted body history, proposals, source references, and task records.
@@ -52,9 +43,7 @@ conversation transcripts, the owner inbox, unified search, credentials, or audit
 history. Metadata may include authors' retained labels and identifiers. Source
 URLs are shared project content; they do not grant access to their destinations.
 
-Keys never become conversation members or maintainers. They cannot create tasks,
-claim work, edit records, execute tools, manage credentials, approve proposals,
-or publish. The only external endpoint is:
+Keys permit reads only. Use this endpoint:
 
 ```http
 POST /harness-project/read
@@ -71,9 +60,9 @@ Bodies are limited to 8,000 UTF-8 bytes per page; follow `nextOffset` with the
 fixed revision number. Owner list limits and model Workspace read conventions
 are described in [workspaces](workspaces.md#interfaces-and-bounds).
 
-The route accepts only POST and the exact path, with no query string. The JSON
-request body is limited to 8,192 bytes. An owner cookie alone is not a project
-key; the endpoint does not promote cookie authentication into owner authority.
+The route accepts only POST at this exact path, without a query string.
+JSON bodies are limited to 8,192 bytes. Authentication requires the key,
+not an owner cookie.
 Missing, expired, revoked or suspended credentials receive 401; forbidden
 actions receive 403; unavailable records/invalid read parameters receive 404.
 Malformed JSON/args receive 400, oversized bodies 413, other methods 405.
@@ -135,11 +124,9 @@ added. Responses use `Cache-Control: no-store`, `Referrer-Policy: no-referrer`
 and `X-Content-Type-Options: nosniff`. Configure proxy logs not to record bearer
 headers; rate limiting and perimeter configuration remain operator duties.
 
-Notes reads use a disposable project-only projection and exact selected native
-note identities, not a notebook-wide body listing. Native publication status
-metadata is inspected separately. There is no public document cache or owner
-conversation passed into this route. This feature changes no proxy, DNS, TLS,
-native Notes permissions or independent tool grants.
+Notes reads select only the requested project's note identities; publication
+status is read separately. No owner conversation or notebook-wide body listing
+enters this route. Configure proxy, DNS, and TLS separately.
 
 ## Verification
 

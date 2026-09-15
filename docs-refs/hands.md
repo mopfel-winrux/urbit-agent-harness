@@ -1,13 +1,12 @@
 # Conversation hands
 
-A hand translates between a surface and a ship-owned session. It does not own
-the model loop, transcript, tool policy, or inference credentials. A Tlon chat,
-mailbox, editor, or service can use the same protocol through native Gall nouns
-or the `harness/hand` ACP extension. No social desk is required by Harness.
+A hand connects a chat or service to a Harness conversation. It submits inputs
+and delivers answers through native Gall nouns or the `harness/hand` ACP method.
+The head runs the conversation; the hand authenticates external actors and
+handles delivery.
 
-The `publish` capability admits text, runs the head and delivers its terminal
-answer. Provider and tool execution use separate dispatch paths; this protocol
-governs conversation input and publication, not every effect in the system.
+The `publish` capability covers text input and terminal replies. Provider and
+tool execution use separate protocols.
 
 ```text
 surface event → binding → durable observation queue → session head
@@ -18,9 +17,7 @@ surface message ← hand ← claim + receipt ← publication outbox
 Acceptance, inference, and publication are separate facts. Losing a connection
 does not cancel the work; failing to publish does not run the model again.
 
-All hands can use [shared scheduled work](scheduling.md). The head owns jobs and
-their timer; the same hand receives each run's addressed publication. Inspect
-tasks and literal reminders from every hand in Settings → Schedules.
+Hands also support [scheduled work](scheduling.md), managed in Settings → Schedules.
 
 ## Binding and authority
 
@@ -30,18 +27,13 @@ session first. Its model, instructions, and execution-time tool grants govern
 the work. New sessions inherit global defaults, **including enabled tools**:
 narrow these before accepting input from an external channel.
 
-Use one session per conversation unless sharing memory is deliberate. Binding
-two surfaces to the same session shares their model context, not just their
-provider configuration. An answer to one surface can draw on the other. A
-binding is not an information-flow sandbox.
+Use one session per conversation. Binding two surfaces to one session shares
+their model context: an answer on either can draw on the other's history.
 
-These are **owner-side adapters**. Native operations require the same ship;
-ACP connections authenticated with the ship login code have owner authority.
-Hand and worker strings route work and correlate claims; they are not scoped
-credentials. The adapter must authenticate external actors before asserting
-their opaque ids, filter out its own published messages, and enforce source
-membership and mention policy. Never give a ship login code to an untrusted
-channel participant. Remote Urbits use the separately grant-gated peer port.
+Adapters have owner authority through same-ship native calls or authenticated ACP.
+Hand and worker IDs are labels, not credentials. The adapter must authenticate
+actors, exclude its own messages, and enforce membership and mention rules.
+Keep ship login codes private; remote ships use the [peer interface](peers.md).
 
 Binding identity and actor grants are immutable; use a new binding id to change
 them. Enable/disable is separate. Disabling stops new observations, queued
@@ -50,9 +42,7 @@ a publication already claimed. Receipts can still reconcile it.
 
 ## ACP
 
-The hand API runs on the ship. Call `harness/hand` directly through an ACP
-connection; no adapter script is required. The JavaScript helper below only
-packages those calls and delivery-recovery rules for an external connector.
+Call `harness/hand` over ACP directly or use the JavaScript helper below.
 
 Initialize an ordinary ACP connection. The response advertises
 `_meta["harness/hand"] = {version: 2, capabilities: ["publish"]}`.
@@ -153,13 +143,11 @@ No client connection owns the run. `session/cancel` cancels both the active turn
 and queued observations for that session. Queued cancellations appear in status
 without creating a reply; active cancellations produce a cancellation publication.
 
-Native local hands can watch `%harness` at `/hand-events`. The initial fact and
-subsequent ledger/session invalidations are `%noun` `%changed`, with no transcript
-or provider data. Read the authoritative ledger on each invalidation; do not
-interpret the notification as permission to send or as a second event log.
-Read-only status requests emit no invalidation. Re-subscribe after a kick; the
-initial fact reconciles work completed while disconnected. `%harness-tlon` uses
-this path, not a publication polling timer.
+Native hands watch `%harness` at `/hand-events` for `%noun` `%changed` facts.
+Read the ledger on each notification; facts contain no transcript or provider
+data. Subscription sends an initial fact, allowing recovery after disconnection.
+Re-subscribe after a kick. Status reads emit no notification. Tlon uses this
+watch rather than polling publications.
 
 Publications carry `version`, `effectId`, `inputId`, `binding`, `hand`, `address`,
 `sessionId`, `capability`, `kind`, `text`, `status`, `worker`, `externalId`, and
@@ -167,11 +155,9 @@ Publications carry `version`, `effectId`, `inputId`, `binding`, `hand`, `address
 observation, with `effectId = inputId`. Kinds are `reply`, `failure`, or
 `cancelled`. Failures expose a generic message, not internal diagnostics.
 
-The outbox is a set, **not a presentation-ordered feed**. For chat surfaces
-requiring ordered delivery, correlate `inputId` with the session snapshot's
-chronological user entries and serialize publication per destination. Do not
-assume array order or publish all entries concurrently. Cross-surface ordering
-and edit/reaction semantics belong to the adapter.
+The outbox is unordered. For chat delivery, match `inputId` to chronological
+session entries and send one publication at a time per destination. Adapters
+handle cross-surface ordering, edits, and reactions.
 
 ## Claims and receipts
 
@@ -181,10 +167,9 @@ pending → claimed → delivered
                   → uncertain → reconcile → delivered or failed
 ```
 
-Only the first claim returns `acquired: true`. A repeat by the same worker
-returns false; another worker is rejected. Repeating a claim is not permission
-to repeat the external operation. Workers need stable, distinct identities and
-must reconcile abandoned claims after a restart.
+Only the first claim returns `acquired: true`; the same worker's repeat returns
+false, and another worker is rejected. Send only after acquiring a claim.
+Use stable worker IDs and reconcile abandoned claims after restart.
 Keep the attempt returned by that particular claim through its entire external
 operation. The helper does this even if another operation updates its cache.
 After reconnecting, inspect `effect` and pass its attempt explicitly to
@@ -222,12 +207,10 @@ its bindings, and 128 globally. One stalled conversation cannot consume the
 whole waiting queue. Duplicate admissions are checked before capacity limits,
 so retrying an already admitted event still recovers its identity.
 
-The operational ledger admits at most 256 observations per binding and 2,048
-globally, with at most 256 active bindings. These are backpressure limits, not
-silent deletion rules.
-Text is limited to 65,536 bytes and source ids to 512 bytes; binding metadata,
-receipt fields, retries and recovery histories have bounded admission too.
-The semantic session log is separate and is not pruned by these limits.
+The ledger allows 256 observations per binding, 2,048 globally, and 256 active
+bindings. Text is limited to 65,536 bytes and source IDs to 512 bytes; metadata
+and recovery histories also have admission limits. Full capacity rejects work
+without deleting records or pruning session history.
 
 Rotate a binding epoch before it fills:
 
@@ -295,8 +278,6 @@ The [Tlon hand](tlon.md) maps authenticated activity to `observe`, encodes the
 channel/thread as an opaque address, and implements `publish`. Its DM/channel
 protocols and social permissions stay in `%harness-tlon`, outside the head.
 
-Binding/queue/outbox state belongs to `%harness` and survives agent reloads.
-Grubbery can host an adapter as a supervised process; losing that process need
-not lose its inputs or claims. The protocol does not provide automatic adapter supervision,
-per-worker credentials or per-binding model budgets. Its publication payload
-is text; provider and tool execution have separate contracts.
+The head retains bindings, queues, and outboxes across reloads. Adapters may run
+under Grubbery supervision, but the hand protocol supplies neither supervision,
+per-worker credentials, nor per-binding model budgets.

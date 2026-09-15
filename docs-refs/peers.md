@@ -1,22 +1,17 @@
 # Peers: agent requests and direct tools
 
-Remote agent work uses typed Gall pokes over Ames. The receiver uses Gall's
-authenticated source ship, never an identity supplied inside the payload.
-Agent requests and direct tool calls have separate versioned marks.
+Agents can ask another ship to do work or call its tools directly. Both use
+Ames-authenticated ship identity and require permission from both ships.
 
 ## Asking side
 
-`ask_peer(ship, prompt, task?)` behaves like a child-agent tool. It creates a durable
-request id, sends typed cargo to the peer's `%harness` agent, waits with
-a Behn deadline, and materializes the answer or error as a tool result. The
-calling chat never treats an Ames poke as trusted instructions.
+`ask_peer(ship, prompt, task?)` sends a request to the peer's `%harness` agent
+and returns its answer or error as a tool result. Requests have durable IDs and
+a Behn deadline; replies must come from the addressed ship.
 
-The request id is path-safe. Replies must come from the addressed ship.
-Delegation requires current incoming trust for the destination on the asking
-ship, and the receiver independently requires its own current grant for the
-caller. Discovery remains available without this reciprocal grant. Removing
-local trust prevents further dispatch and rejects subsequent work results;
-it cannot undo work already accepted by the other ship.
+Both ships check their current grants. Removing local trust stops further
+dispatch and rejects later results, but cannot undo accepted remote work.
+Permission discovery does not require reciprocal trust.
 
 ## Serving side
 
@@ -42,9 +37,8 @@ Peer requests use the current global provider/model defaults unless a
 an override. Provider credentials are managed in Settings → Providers;
 peer grants do not include keys.
 
-Each allowed peer lands in a private child-agent subtree. Peer text is
-untrusted model input and never enters an owner's interactive chat. A grant
-selects the child's model, token budget, visible context, and tools:
+Each peer has a private working conversation, separate from the owner's chat.
+Its grant selects tools, model, token budget, and shared skills:
 
 ```hoon
 +$  peer-grant
@@ -55,12 +49,9 @@ selects the child's model, token budget, visible context, and tools:
   ==
 ```
 
-An explicit map or live Tlon trust maps ships to grants. An unlisted non-owner
-is refused. Empty tools and inflows are the low-trust default.
-
-Grant changes apply to new requests. Tool dispatch and asynchronous results
-also intersect saved grants with live authority, so revocation cannot leave
-queued effects authorized and an existing turn cannot gain newly added tools.
+Unlisted non-owners are refused. Explicit grants and live Tlon trust determine
+access. New requests use current grants; running requests can lose access but
+cannot gain newly added tools.
 
 ## Full-admin ownership
 
@@ -141,12 +132,8 @@ be mixed with another assignment. A repeated in-flight request ID adds no
 second input. A caller timeout does not cancel remote execution; inspect the
 home task instead of resending or reassigning the work.
 
-Agents use tasks for complex goals, ongoing work, and coordination. They break
-down the next useful pieces rather than generating speculative task trees,
-delegate independent work to capable agents, record blockers and outcomes,
-and reassess the remaining work. Quick answers need no task. Users normally
-receive results and meaningful progress, not internal IDs or lifecycle steps;
-the Work view remains available for inspection.
+See [task coordination](workspaces.md#coordination) for when agents use tasks
+and how they record outcomes.
 
 The `%harness-rpc-0` mark carries:
 
@@ -185,10 +172,8 @@ The `%harness-a2a-0` mark carries the typed ask/answer payload:
 +$  response  [%answer id=ask-id result=(each @t @t)]
 ```
 
-The receiving agent keeps the source ship supplied by Ames and authorizes it
-before creating a child. It does not accept a ship name from inside the
-payload as identity. Replies are correlated to the pending request and
-must come from the addressed peer.
+The receiver authorizes Ames' source ship before admitting the request.
+Replies match the pending request ID and addressed peer.
 
 ## Published surface
 
@@ -203,6 +188,5 @@ administrative authority; ordinary grants never become owner identities.
 direct calls and request handling. Use disposable ships and read each fixture's
 setup requirements before running it.
 
-Verify the serving grant, returned native state and receipt identity—not just
-the model's answer. Timeout cannot prove that an external action did not happen.
-See [development](development.md) for shared test precautions.
+Check grants, native results, and receipt IDs. See [development](development.md)
+for test precautions.

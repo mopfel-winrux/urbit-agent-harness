@@ -1,12 +1,8 @@
 # Companion workflows
 
-A Harness companion is an agent on a ship, available through multiple interfaces.
-Its durable identity is the ship; its model, public nickname and interfaces can
-change without moving conversation ownership.
-
-Conversations are separate working contexts, not one shared private memory.
-That makes it possible to serve an owner, collaborators and public channels
-without automatically mixing their transcripts.
+A companion is an agent you can reach through the web app, Tlon, or another
+client. Each conversation has its own history, so private chats stay separate
+from community conversations.
 
 ## Set up a companion
 
@@ -17,12 +13,9 @@ without automatically mixing their transcripts.
    each participant needs. Enable the reply hand and review mention policy.
 4. Edit the ship's public nickname/avatar through the Tlon page if desired.
    Contacts remains the source of that profile.
-5. Test a conversation, a relevant tool and its actual result. A plausible
-   model answer is not proof that an external action succeeded.
+5. Try a conversation and a tool, then check the result.
 
-Fresh-install defaults include broad tools. A companion connected to other
-people needs deliberate permission choices. Incoming channel content remains
-untrusted input, even when a permitted actor sends it.
+Defaults include broad tools. Review permissions before connecting other people.
 
 ## Research with recoverable evidence
 
@@ -30,21 +23,18 @@ Use web search, authorized files or configured MCP servers to collect evidence.
 The conversation retains tool arguments, results and answers. Pin explicit
 requirements with `/remember`; use `/context` to inspect the working budget.
 
-As the conversation grows, summaries preserve source links and the recent tail
-remains available to the model. Search content finds retained records; model
-recall stays local unless an owner conversation has the cross-conversation
-corpus grant. A summary is a lossy account, not a substitute for reading its
-sources before making an exact claim.
+Long conversations are summarized with links to their sources. Search finds
+retained records; agents need a separate owner-only grant to search other
+conversations. For exact claims, read the source rather than relying on its summary.
 
 Fork a completed reply to explore another approach. The branch inherits that
 history boundary without rerunning prior effects; subsequent changes are independent.
 
 ## Work with a Tlon community
 
-The agent can answer DMs, mentions and replies to its own posts. Each actor and
-destination/thread has a distinct conversation. Public thread context includes
-an attributed, bounded snapshot of the native parent and recent replies; it
-does not import anyone's private Harness conversation.
+The agent can answer DMs, mentions, and replies to its posts. Each person and
+destination/thread has a distinct conversation. Thread context includes the
+parent post and recent replies, not private Harness chats.
 
 With the ship-wide Tlon grant, an authorized task can create a group, invite
 members, organize channels, edit Notes or manage roles. Discover arguments with
@@ -58,9 +48,8 @@ incoming group-DM messages do not start automatic replies.
 
 ## Schedule a report or reminder
 
-Use cron for a model task that runs a bounded number of times at the original
-conversation destination. A scheduled session receives selected instructions and
-grants, not the parent's transcript. Cron expressions use UTC.
+Ask for a one-time follow-up or a recurring report. Scheduled agents receive a
+brief and permitted tools, not the original transcript. Recurring schedules use UTC.
 
 Use a literal reminder when the desired output is already known. It needs an
 explicit time offset and destination, but no model or provider credits when due.
@@ -94,10 +83,8 @@ not automatically retry failed work. A known-unsent publication can be explicitl
 retried without rerunning inference. An uncertain send needs destination
 evidence before a retry decision.
 
-Operational ledgers can be exported and retired after settlement. That preserves
-the session and its notes; it is not primary-history deletion or proof of
-remote archival durability. See [hand recovery](hands.md#claims-and-receipts)
-and [Tlon operation](tlon.md#delivery-and-operation).
+See [hand recovery](hands.md#claims-and-receipts) and
+[Tlon operation](tlon.md#delivery-and-operation) for delivery and record retention.
 
 ## Connect more surfaces
 
@@ -105,7 +92,4 @@ An editor uses ACP; another Urbit app uses native nouns; a mailbox or chat
 connector implements the hand protocol. Remote ships can ask the agent or call
 granted tools directly under authenticated Urbit identity.
 
-These are integration possibilities around existing contracts, not bundled
-mailbox connectors, hosting infrastructure or an extra agent loop.
-[Architecture](architecture.md) describes the ownership model, and
-[integrations](integrations.md) helps select the right boundary.
+See [integrations](integrations.md) to choose a connection method.

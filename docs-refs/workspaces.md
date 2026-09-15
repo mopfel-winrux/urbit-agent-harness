@@ -36,25 +36,18 @@ sharing its source references requires confirmation.
 
 ## Ownership
 
-Notes owns artifact bodies, body revision history, current titles and published
-HTML. Harness keeps native note identities, projects, proposals, source references
-and task assignments. Notes content is projected for reads, not maintained as a second
-canonical document store. Changes made directly in Notes appear in Harness.
-An artifact is a Markdown document, whether used privately, in a project, or as
-a public page. A project collects related tasks and can separately share documents;
-it does not own a conversation or confer execution authority.
-Conversation membership uses immutable corpus scope identities, not mutable names.
-Membership never shares the conversation's transcript or adds resource tools.
-Notes notebook permissions are independent: changing Harness project membership
-does not grant or revoke native notebook access. New artifacts use a private
-Harness notebook; sharing that notebook in Notes can expose its other documents.
+Notes stores document bodies, revision history, titles, and published HTML.
+Harness stores their Notes identities, projects, proposals, source references,
+and tasks. Direct Notes edits appear in Harness.
 
-Models with the workspace tool grant share task records and project metadata
-without task or project membership checks. They may read their own artifacts and
-documents in projects to which their conversation belongs. Project contributors
-may propose document changes. A live delegated child may use its parent's document
-scope within the parent's current tool ceiling; it does not acquire approval or
-publication authority. Removing document membership fences subsequent document access.
+Workspace-enabled agents share task tracking and project metadata. Documents
+have separate access: agents can read their own artifacts and project documents
+shared with them. Contributors can propose changes; active delegated children
+can use their parent's document access. Membership uses stable conversation
+identities and never shares transcripts or grants tools. See [project access](project-access.md).
+
+Native Notes permissions are independent. New artifacts use a private Harness
+notebook; sharing that notebook in Notes can expose its other documents.
 
 ## Revisions, review and publication
 
@@ -68,7 +61,7 @@ author and base revision. Accepting a proposal checks that base and live access;
 stale proposals cannot overwrite newer work. Existing-note proposals must retain
 the current title; title changes use the explicit owner rename action. Rejection
 preserves the proposal.
-Shared accepted documents are knowledge, not system instructions.
+Shared documents are reference material, not agent instructions.
 
 Publication through Workspace is a separate owner action selecting and previewing a saved snapshot.
 Notes gives it a fixed public address:
@@ -77,11 +70,9 @@ Readers do not sign in. Your reverse proxy must forward this path to the ship;
 Harness does not configure DNS, TLS, or the proxy.
 Independently granted native Notes/Tlon permissions can permit equivalent edits
 or publication outside Workspace; project roles do not restrict those grants.
-The preview token fences the exact title/body/HTML, including native title changes.
-Harness submits that HTML through Notes' existing publish action; it does not
-serve a parallel public endpoint. The published snapshot does not change when the document is
-edited. Public reads return only the published title and rendered body, never
-project membership, proposals, task records, provenance or private revisions.
+The preview token binds the exact title, body, and HTML. Notes serves only that
+published title and body; later edits leave the snapshot unchanged. Private
+history, proposals, project records, and source metadata are excluded.
 Unpublishing removes the Notes HTML snapshot; Notes may return its app shell at
 the address instead of a 404. It cannot erase copies held by other people.
 Rendered HTML is inert, with escaped raw HTML and a restrictive meta CSP.
@@ -114,29 +105,22 @@ The task is the unit of work. A project is an optional collection: `task-create`
 accepts a title, description, and optional project. Ungrouped tasks persist with
 an empty project string and appear as `project: null` in JSON.
 
-Agents maintain tasks when pursuing goals or coordinating independent work.
-For complex or open-ended goals, they identify the outcome and constraints,
-record concrete deliverables and completion checks, and break down only the
-next useful pieces. Independent work can be delegated; coupled steps stay
-together. The coordinating agent verifies results and reassesses what remains.
-Simple questions need no task, and internal coordination stays out of ordinary
-human replies unless the user asks to inspect it. Meaningful blockers and
-decisions still surface to the user.
+Agents use tasks for larger jobs and coordination. Their instructions call for
+concrete deliverables and completion checks, delegation of independent pieces,
+and verification of results. Routine bookkeeping stays out of replies; useful
+results, blockers, and decisions come back to the user.
 
-For [cross-ship work](peers.md#coordinating-work-across-ships), keep a task on
-one home ship. Mutually workspace-trusted peers claim and update it through
-peer tools, and `ask_peer` provides execution. No mirrored task list or new
-administrative grant is required.
-Any agent with the Workspace tool can create projects and create, assign, or
-update tasks immediately. Task tracking has no per-task or project-membership
-permission gate. Task updates, claims, assignments, and deletion check the current
-version. Use the returned version, not an assumed starting value: a recreated ID
-receives a version above its deleted incarnation, so stale commands cannot alter
-the replacement. Unrelated writes leave an existing task's version unchanged. An outcome,
-blocker, or completion requires neither a prior claim nor a result artifact.
-A new or replacement result-document link must be readable by the agent linking
-it. Keeping or clearing an existing link does not require document access, so a
-private or archived result cannot block task bookkeeping. A link grants no access.
+For [cross-ship work](peers.md#coordinating-work-across-ships), keep one task on
+a home ship. Mutually Workspace-trusted peers update it through peer tools;
+`ask_peer` dispatches the work.
+
+Workspace-enabled agents can create projects and manage tasks without document
+membership. Updates, claims, assignments, and deletion require the current
+version. Recreated IDs have higher versions than their deleted records; unrelated
+writes leave versions unchanged. Recording an outcome needs no claim or artifact.
+
+Adding or replacing a result-document link requires read access. Keeping or
+clearing one does not. The link itself grants no document access.
 
 `task-assign {id,version,assignee}` records an existing agent's session name, or
 clears the assignment when `assignee` is null. The head resolves its identity and
@@ -157,29 +141,17 @@ projects support editing and archive/restore; archiving preserves their history.
 The task list hides tasks in archived projects; standalone tasks remain visible.
 `#/tasks` opens the list and `#/tasks/TASK_ID` opens a task.
 
-Execution belongs to the agent runtime. Agents do work with their granted tools,
-or use granted `run_subagent` delegation and incorporate the returned answer.
-Ordinary requests require no human task administration, project, or saved result.
-Task records do not start or cancel inference, schedule an idle agent, or prove
-external effects. A later update requires an active execution or delivery path.
+Tasks do not start or cancel inference, wake idle agents, or prove external
+actions. Work runs in a conversation or through delegation; later updates need
+an active worker or [schedule](scheduling.md).
 
-[Conversation work controls](work-control.md) perform task bookkeeping and project
-creation directly through current authority. Document membership, acceptance,
-publication, and explicitly selected reviewed delivery retain their own checks.
-Project editing and archival retain their protected management path because
-projects also contain shared documents; the maintainer's document role permits
-only its scoped metadata edits.
-
-The [conversation work and selected delivery workflow](social-workflow.md)
-separates ordinary answers from proposal review and a selected literal reply.
-It retains source identities and delivery evidence without treating task
-completion as approval or publication.
+[Work commands](work-control.md) handle task tracking directly. Document access,
+review, publication, project editing/archival, and [selected document delivery](social-workflow.md)
+retain their own approval rules. Maintainers can edit project metadata only.
 
 ## Interfaces and bounds
 
-The owner [work inbox](inbox.md) collects task and proposal metadata alongside
-scheduled and admitted hand work. It links to exact source records without
-starting inference or approving changes; a claimed task is not shown as running.
+The [inbox](inbox.md) combines work metadata and links to source records.
 
 Owner ACP calls use `harness/workspace` with `{action, args}`. Native local-owner
 pokes use mark `harness-workspace` with `{id, action, args}` and replies on
@@ -216,8 +188,7 @@ access cannot recall copies.
 Public Markdown supports headings, paragraphs, lists, quotes, code fences,
 simple tables and limited inline formatting. Raw HTML is escaped, remote images
 are not embedded, and scripts/forms/external resources are blocked by document
-policy. It is intentionally not a general-purpose HTML host. Links written in
-the document body are public content; separate source references stay private.
+policy. Links in the document body are public; separate source references stay private.
 Inspect the publication preview rather than assuming full editor/GFM parity.
 
 ## Local verification

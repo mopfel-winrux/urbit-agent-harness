@@ -1,9 +1,8 @@
 # Tlon hand
 
-Tlon is one client surface for the harness. `%harness-tlon` consumes the local
-Groups desk's activity feed, authenticates the source actor against its social
-policy, and uses the same conversation-hand ledger available through ACP.
-It does not run an inference loop or hold provider credentials.
+The Tlon hand connects DMs, channels, and threads to Harness. It reads Groups'
+Activity feed, checks who may use the bot, and delivers replies. The head runs
+the conversations and holds provider credentials.
 
 There are two independent surfaces:
 
@@ -23,47 +22,32 @@ Use [ship-wide tools](#ship-wide-tlon-tool) for messaging and administration,
 
 ## Setup and public identity
 
-Owner DMs support [conversation work management](work-control.md) through `/work`,
-without opening the Harness GUI. Exact previews can include optional native A2UI
-confirmation and inspection buttons. These send ordinary commands; the complete
-text preview and command path remain available. Channels do not receive work
-buttons or acquire owner management authority.
+Owner DMs support [work commands](work-control.md) and optional A2UI buttons.
+Both let you manage work without opening Harness. Channels do not receive
+owner-management controls.
 
-Open **Tlon** above Settings in the sidebar. Select an owner, add trusted ships,
-choose their tools, then enable the hand. Nicknames search the Contacts directory;
-every selection shows and saves the actual `@p`. Suggestions search known ships,
-with contacts before other peers. An exact valid ship name takes precedence and
-can be entered without a contact. `urbit-ob` validates it; incomplete names never
-generate invented ship identities or fuzzy matches at the permission boundary.
+Open **Tlon** in the sidebar. Select an owner, add trusted ships, choose their
+tools, and enable the hand. Search by nickname or enter a full ship name.
+Suggestions prefer Contacts; selections show and save the validated `@p`,
+not a nickname or fuzzy match.
 
-**Bot profile** edits this ship's public nickname and avatar URL in Contacts.
-It reads the existing profile, including changes made in Tlon, and refreshes while
-idle without overwriting an unsaved draft. Saving waits for Contacts to acknowledge
-the edit. Empty fields clear the corresponding attributes; other profile fields
-are untouched. Identity edits are independent of social policy and do not revoke
-grants or restart conversations.
+**Bot profile** edits the ship's Contacts nickname and avatar. It refreshes
+external changes without overwriting drafts, and waits for Contacts to confirm
+saves. Empty fields clear those attributes; other fields, permissions, and
+conversations stay unchanged.
 
 ## Ship-wide Tlon tool
 
-The default-enabled **Tlon** grant exposes one model function, `tlon`, with an
-`action` argument. It works from Harness conversations even while the Tlon
-reply hand is disabled. It can send DMs and channel posts, list contacts and
-groups, inspect a group's channels, create groups/channels, invite a ship,
-and join or leave a group. It also reads and searches other conversations and
-threads, lists DMs and group members, adds/removes reactions, manages contacts,
-reads/updates this ship's profile, and updates group/channel names and descriptions.
-`{"action":"help"}` describes the arguments.
-These are native Tlon operations as this ship, subject to Tlon's own permissions.
+The default-enabled **Tlon** grant exposes `tlon` with an `action` argument.
+It works even when automatic replies are disabled. Actions cover messages,
+contacts, groups, channels, roles, Notes, uploads, hooks, and publishing.
+Call `{"action":"help"}` for arguments.
 
-This is a broad, separately removable grant extending beyond the current
-conversation. Trusted ships receive only explicitly granted tools. Their
-implicit current-conversation tools do not grant ship-wide access.
+This grants access beyond the current chat, subject to native Tlon permissions.
+Trusted ships need an explicit grant; current-chat tools do not imply it.
 
-Normal final replies are delivered to the DM/channel/thread that prompted the
-agent automatically. `send_dm` and `send_channel` are for separate messages to
-other DMs or parallel channels, not for answering the current prompt. An optional
-`parent` targets a thread in that other conversation.
-This rule is included in both the tool description and its sending-field help.
+Final answers return to the originating chat automatically. Use `send_dm` or
+`send_channel` for separate messages elsewhere; optional `parent` selects a thread.
 
 New groups default to secret (unlisted and invite-only), with no channels.
 Create channels afterward; they are readable and writable by all group members.
@@ -110,11 +94,9 @@ Group role and membership workflows use the same broad `tlon` grant:
   `request_group_invite`, `accept_group_invite`, `decline_group_invite`, and
   `cancel_group_join` operate on that foreign-group state.
 
-Administration requires the acting ship to be the host or a member with actual
-admin privileges in the current native group snapshot. A stale snapshot may
-reject a newly granted privilege; reread state before trying a fresh request.
-Native acknowledgements still mean local acceptance, not remote completion.
-These operations never modify Harness ownership or trusted-ship permissions.
+Group administration requires native host or admin privileges. Refresh stale
+state before a fresh request. Group changes do not change Harness ownership
+or trusted-ship permissions.
 
 The same grant also covers:
 
@@ -162,8 +144,7 @@ The same grant also covers:
 `create_notebook(title, group?, readers?)` creates either a private standalone
 notebook or a native group-linked Notes channel. Group creation requires live
 group-admin authority. `readers` is a JSON-array string of existing group role
-IDs; `[]` means all group members. Native Notes assigns the notebook flag and
-registers the channel; Harness does not manufacture a second listing.
+IDs; `[]` means all group members. Native Notes assigns the notebook flag and registers the channel.
 `create_channel(group, title, kind="notes", readers?)` is an alias; omit `name`
 and `description`, then use `update_channel` for listing metadata. Check the
 returned `group_listing_verified`; if false, creation did happen, but inspect
@@ -193,13 +174,11 @@ required. Group-mode visibility changes are rejected; use group readers.
 ```
 
 Then `import_notes` takes the same arguments plus the returned `revision` and
-`confirm`. A plan is bound to the exact tree, folder, and current destination
-notes/folders. Any destination change invalidates it, including a successful
-previous import. Imports add new items; they never overwrite existing items.
+`confirm`. Plans bind the tree, folder, and destination contents. Any destination change
+invalidates them. Imports add items without overwriting existing ones.
 The entire payload is validated before the native action: at most 65,536 JSON
 bytes, 100 total nodes, eight folder levels, 128-byte titles and 16,384-byte
-Markdown bodies. The destination folder must exist. This is a native tree
-import, not permission to read desktop files or arbitrary Clay paths.
+Markdown bodies. The destination folder must exist. The tree supplies content directly; import does not read desktop or Clay files.
 
 Diary migration is an explicit copy workflow:
 
@@ -260,15 +239,13 @@ is an 8 KiB JSON-object string with at most 64 string-valued entries. Hook lists
 are paged; source reads are UTF-8-safe chunks. Oversized native configuration
 reads fail explicitly instead of returning truncated JSON.
 
-The adapter subscribes before dispatch, rechecks authority, and waits for the
-matching native result. Only one Harness hook mutation is in flight at a time.
-A successful transport acknowledgement is not proof of compilation. Failed
-edits can store new source while leaving the old compiled program running;
-inspect the hook before retrying. Missing results remain uncertain and are never
-retried automatically. Hooks run natively and can continue messaging or changing
-Tlon state after the conversation ends or its Harness grant is revoked. Remove
-hooks/stop jobs explicitly. Native Hoon programs can also stall the ship;
-the limited effect vocabulary is not a CPU sandbox.
+Only one Harness hook mutation runs at a time. The adapter subscribes before
+dispatch and waits for the native result. Failed compilation can save source
+without replacing the running program; inspect before retrying. Missing results
+stay uncertain.
+
+Hooks continue after the conversation ends or its grant is revoked. Stop jobs
+or remove hooks explicitly. Native Hoon can stall the ship; hooks have no CPU sandbox.
 
 ### Public web publishing
 
@@ -305,44 +282,28 @@ Tlon uses the same providers and credentials as every other Harness client.
 New conversations snapshot **Settings → Defaults**. Changing defaults does not
 retroactively change an existing DM or thread.
 
-The Tlon page shows the current default provider/model, links to each active
-conversation's settings, and offers **Apply defaults to Tlon conversations**.
-This explicitly copies the default endpoint, model, provider headers and reported
-context limit. It preserves instructions, transcripts and tool grants. Each
-conversation can also choose its own provider/model through its settings.
-Configuration changes affect subsequent requests; they do not interrupt an
-in-flight request or restart failed work. Send another message after correcting
-a failure. No provider configuration is duplicated in the adapter.
+**Apply defaults to Tlon conversations** copies the default endpoint, model,
+headers, and context limit while preserving instructions, history, and tools.
+You can also edit each conversation's settings. Changes affect subsequent
+requests, not active or failed work. Send another message after fixing a failure.
 
-Failures have safe public explanations for authentication, credits, rate limits
-and other provider problems. Open the session in Harness for the raw error;
-provider bodies are not forwarded into a public channel.
-An HTTP `401` is an inference authentication failure, not an Activity or Story
-mark error. Check the conversation's endpoint and its matching saved credential,
-not just the defaults for new conversations. Refreshing the page does not retry
-the provider request.
+Replies describe provider failures without exposing raw errors publicly.
+Open the Harness conversation for details. For a `401`, check that conversation's
+endpoint and credential. Refreshing the page does not retry inference.
 
-Send `/help`, `/status`, `/context`, `/compact`, `/model`, `/model <id>`,
-`/model default`, `/memory`, `/remember <name> <text>`, `/forget <name>`, or `/stop`
-directly in the DM or thread. These are shared Harness commands, not Tlon bot
-shortcuts, and work for the owner and trusted actors without tool grants.
-Channel mention policy still applies. `/stop` interrupts current work and clears
-that session's queued inputs; other commands wait for the current turn to settle.
-See [conversation commands](acp.md#conversation-commands) for semantics.
+Send `/help` for the shared [conversation commands](acp.md#conversation-commands).
+Mention rules still apply. `/stop` interrupts work and clears queued inputs;
+other commands wait for the turn to finish.
 
-`/work` also reads projects and tasks or prepares exact changes for confirmation
-in the same conversation. Owner operations require the live owner DM policy;
-other actors retain their scoped project permissions. These controls are plain
-text and do not require the Harness GUI. See [conversation work management](work-control.md).
+`/work` manages tasks and documents in chat. Protected owner operations require
+an owner DM; other actors use their Workspace and document permissions.
+See [work commands](work-control.md).
 
 ### Explicit conversation notes
 
-Use `/remember preference Keep replies short.` to save or replace a pinned note,
-`/memory` to list notes, and `/forget preference` to unpin one. These are human
-commands, not model tools: ordinary prose and a model reply containing `/remember`
-cannot update memory. Successful saves record the note and acknowledgement in the
-same head admission; Tlon sends that acknowledgement through its normal delivery
-ledger. It is not a remote read receipt.
+Use `/remember preference Keep replies short.` to pin a note, `/memory` to list
+notes, and `/forget preference` to unpin one. Only human commands update notes;
+model replies containing these commands do not execute them.
 
 In mention-only channels, select the bot's native mention first, then type the
 plain slash command in the same paragraph—for example, **@Bot /memory**. The
@@ -351,21 +312,14 @@ not bypass sender or mention authorization. Plain-text ship spellings, other
 ships' mentions, formatted command text and multi-paragraph messages do not use
 this shortcut. DMs and replies to the bot's own channel posts do not need it.
 
-Notes belong to the current sender/conversation: private DM notes are not injected
-into channel or thread requests. They remain verbatim across compaction and head
-reloads. Limits are 16 notes, 1,024 UTF-8 bytes per body and 8,192 bytes total,
-including names; overflow is rejected, never silently evicted. Unpinning does not
-erase earlier messages, note events or checkpoints. Conversation identity and
-notes survive permission edits, revocation/regrant, and disable/re-enable. An
-affected conversation must establish fresh authorization before new input runs;
-retaining a note never retains a revoked capability.
+Notes belong to this sender/conversation, not other DMs or channels. They survive
+compaction, reloads, and permission changes, but do not preserve revoked access.
+Unpinning leaves historical copies. See [note limits](context-and-memory.md#pinned-conversation-notes).
 
 ### One companion, scoped conversations
 
-The companion's stable social identity is the ship, not a model, nickname,
-provider, permission revision or shared transcript. Contacts owns its public
-name and avatar. Defaults supply initial behavior; existing conversations retain
-their chosen instructions and model. There is no second personality database.
+The ship is the companion's identity. Contacts supplies its name and avatar;
+each conversation keeps its own instructions, model, and notes.
 
 Preferences are explicit pinned notes in one sender/destination conversation.
 Saving a preference in a DM does not authorize publishing it into a channel.
@@ -400,27 +354,19 @@ and clear settled or revoked work. A lease deadline renews active presence every
 ten seconds. Leases expire after thirty seconds if the adapter stops. Presence
 is presentation only: it neither admits work nor determines settlement.
 
-Run inspection stays on the ship in Harness. Replies carry no external inspector
-pointers, and saving Harness policy does not configure another agent's trust.
-
 ## Images and storage
 
-Final replies support standalone `![description](https://image-url)` lines as
-native Story image blocks in DMs, channels and both thread types. Fenced examples
-remain literal code. Images use the existing publication ledger; there is no
-separate image-message send path.
+Standalone `![description](https://image-url)` lines become Story images in
+DMs, channels, and threads. Fenced examples stay literal. Images travel through
+the normal reply ledger.
 
-`tlon_upload_image` is an implicit in-conversation Tlon write tool. It downloads
-a public image and uploads it using the ship's existing Tlon storage selection.
-It returns a URL without publishing a message. The final reply chooses whether
-to include that URL as an image. No separate media grant or S3 credential form is
-needed in Harness. Both custom S3 credentials and Tlon-hosted presigned URLs are
-supported; the `service` toggle in Tlon chooses the path.
+`tlon_upload_image` downloads a public image and uploads it using Tlon's storage
+settings. It returns a URL; the final reply can include it as an image.
 
-Configure custom S3 credentials, bucket, region and optional public URL base in
-Tlon's storage settings, or select presigned-URL hosting on a hosted ship.
-Public readability of custom storage is the operator's responsibility.
-There is no separate Harness storage setup, download worker, token or service.
+Configure custom S3 credentials, bucket, region, and optional public URL base in
+Tlon, or select hosted presigned-URL storage with its `service` toggle. Harness
+needs no separate media setup. Custom storage's public readability is the
+operator's responsibility.
 
 The ship downloads PNG, JPEG, GIF and WebP directly through Iris, checks their
 file signatures and MIME types, and limits them to 8 MiB. Source URLs must be
@@ -557,11 +503,9 @@ These owner-authenticated extensions work from any initialized ACP client:
 }
 ```
 
-An activity notification has `sequence`, `kind`, `actor`, `address`, and `event`.
-Message, invitation, and relevant group/contact notifications share this envelope;
-notifications do not themselves grant tools or instruct the model. Recent activity
-is a bounded 128-entry diagnostic feed, not a second transcript. Use session
-snapshots and the [hand ledger](hands.md) for admitted work and delivery audit.
+Activity notifications contain `sequence`, `kind`, `actor`, `address`, and `event`.
+The feed retains 128 diagnostic entries. Use session snapshots and the
+[hand ledger](hands.md) for conversation history and delivery records.
 
 The head forwards the authenticated `harness/tlon` namespace through
 `harness-adapter`'s tiny request envelope; the adapter owns its method vocabulary.
@@ -594,14 +538,12 @@ failure, and an unknown outcome never authorizes a resend.
 Timeouts or restarts never authorize automatic resending of uncertain sends.
 Reconcile them using `harness/hand` health, effect, and resolve operations.
 
-The owner-facing Work panel projects received, working, completed, sending,
-uncertain and terminal states from that same ledger. It includes failed
-pre-admission work and retains old-binding evidence. Recovery requires a reason,
-explicit evidence confirmation and the observed attempt number. A stale attempt
-is rejected without discarding the draft. Marking an action failed does not
-resend it: retry is a separate, explicit operation, available only for current
-authority and a known-unsent failed publication. Uncertain sends never get an
-automatic retry. Closing the panel stops its inspection polling.
+The Tlon Work panel shows admission, execution, and delivery, including setup
+failures and retired-binding records. Recovery requires a reason, evidence
+confirmation, and the observed attempt number. Stale attempts are rejected
+without discarding the draft. Marking Failed does not resend: retry is a separate
+action requiring current authority and confirmed non-delivery. Closing the panel
+stops polling.
 
 Reload recovery distinguishes an unprocessed claim, an emitted send with unknown
 outcome, and a recorded receipt. It can finish a provably undispatched claim or
@@ -657,13 +599,7 @@ are not implemented. Do not present a ledger archive as an export of the full
 conversation or as proof that external storage is durable.
 
 Only one publication per destination is sent at a time; unrelated conversations
-proceed independently. Pending admission is capped at 64 adapter jobs; the stable
-conversation directory retains up to 128 identities, including inactive ones.
-Schedules have their own 64-entry cap, in addition to the head's ledger limits.
-Capacity errors are reported, not solved by deleting history. Binding
-export/retirement and conversation-directory capacity need explicit operational
-care. History pruning is not automatic; activity catch-up is limited to
-events retained by native Activity and eligible under the admission cutoff.
+proceed independently.
 
 ## Source boundaries
 
@@ -682,9 +618,8 @@ frontend or ACP agent. The dependency revision is defined in that script.
 
 ## Conversation tools and scheduled work
 
-Tlon reads and writes are implicit within an authorized Tlon conversation.
-These Tlon tools require a current lane and a matching outstanding head request. They do not
-work in an unrelated browser session or a child without a Tlon binding.
+Current-chat tools require a live Tlon binding and an outstanding head request.
+They are unavailable to unrelated browser sessions or unbound children.
 
 `tlon_read_history` returns at most 20 messages with durable IDs, authors and
 clipped text. Top-level conversations return recent top-level messages. A bound
@@ -723,15 +658,9 @@ remote delivery. Missing acknowledgements become uncertain after a minute and
 are not automatically retried. Ordinary final replies still use the publication
 ledger; there is no arbitrary cross-chat send or group-management grant here.
 
-Scheduling is a shared head capability, available to every authorized hand.
-Tlon conversations use the same `cron_add`, `cron_list`, `cron_remove` and
-`reminder_add` tools, retaining their exact DM/channel/thread destination and
-live source authority. Tlon delivers their output through its normal publication
-worker; the head stores and fires schedules.
-
-Open **Settings → Schedules** for jobs from all hands. The Tlon page links there.
-See [shared scheduling](scheduling.md) for UTC expressions, literal reminders,
-run limits, permission changes and native/ACP methods.
+Tlon uses the [shared scheduler](scheduling.md) for one-time follow-ups, recurring
+work, and reminders. Results return to the same DM/channel/thread through normal
+delivery. Open **Settings → Schedules** to inspect jobs.
 
 ## Testing
 

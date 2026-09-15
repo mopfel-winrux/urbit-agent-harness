@@ -1,56 +1,31 @@
 # Conversation work management
 
-`/work` manages projects, tasks, and artifact review through human conversation
-ingress: ACP, native sends, and hands. The Harness GUI is optional for these
-operations. `/work` and `/work help` show a short introduction. Use
-`/work help projects`, `/work help tasks`, or `/work help review` for focused
-examples. `/work projects` and `/work tasks` work without an empty JSON object.
-Human help, reads, and approval receipts use ordinary language. Replies name the
-task and the relevant outcome, then offer a useful next action. Approval previews
-show the meaningful change, full draft or reply body, and destination. Canonical
-arguments and execution records are available through Details; Workspace tool
-results retain structured JSON.
+Use `/work` to inspect and manage work in chat without opening the web app.
+Start with `/work help`, or ask for `/work help projects`, `/work help tasks`,
+or `/work help review`. Replies show names and outcomes; **Details** shows
+the underlying arguments and records.
 
-In an owner Tlon DM, these replies also carry native A2UI navigation: project
-and task selection, pagination, archive filters, task creation entry points,
-task outcomes, draft review, saved documents, and explicitly selected
-send actions. Buttons send the same `/work` commands into the DM.
-Use `/work project-new Weekend plans` to name a project, or
-`/work task-new Draft a packing list` to name a standalone task without JSON.
-The entire text after `task-new` is the title. Use `task-create` with an optional
-`project` field to group a task. Project creation and task bookkeeping execute
-immediately. The merged Tlon
-catalog provides buttons, not a general text-entry form; naming happens in chat.
-The human reply precedes its controls inside the card. Verified cards use the
-merged renderer's `storyMode: "fallback"` so supporting clients show one reply,
-not a card followed by duplicate command text. Other clients and text-only hands
-receive the ordinary reply with short command references. An uninspected model
-preparation never hides the model's message and only offers Review change.
+Owner Tlon DMs also show navigation buttons. Other clients show text commands.
+Both use the same permissions and command handling; see [Tlon controls](#optional-tlon-controls).
 
-Native headings identify the task or outcome. Project and task names use wrapping
-choice rows; short utility actions share a wrapping button row. Task views show
-the title, status, description, and outcome, then Refresh task or Read result
-and More actions. Refresh task is a wrapping choice row. A standalone task has
-no Open project action. Technical fields are not ordinary chat copy. Native
-styling comes from Tlon's merged components.
+Create records without JSON:
 
-Navigation cards require a matching head command result and current owner
-authority. If the displayed read changes before delivery, the card offers
-refreshing instead of actions against mismatched content. Button clicks recheck
-current permissions and versions through normal command admission. Read cards
-do not depend on a pending approval request and cannot confer approval authority.
+```text
+/work project-new Weekend plans
+/work task-new Draft a packing list
+```
 
-Project and task lists, and individual project/task reads, use readable chat
-responses with inspection and pagination commands. `/work projects` excludes
-archived projects; `/work tasks` includes standalone tasks and excludes tasks
-whose project is archived.
-Use `/work projects all` or `/work tasks all` to include them. Completed tasks
-in active projects remain visible. No records are deleted by these view filters.
-Filtering precedes pagination and uses current permissions. JSON arguments support
-`includeArchived`, `project` (tasks), `offset`, and `limit`; next-page commands retain
-the supplied filters. `/work project PROJECT_ID` and `/work task TASK_ID` open
-details without requiring JSON. Workspace tool/API reads remain structured and
-include archived records unless `includeArchived: false` is supplied.
+Everything after `task-new` is the title. To choose a project, use `task-create`
+with its optional `project` field. Creation and task updates run immediately.
+
+`/work projects` and `/work tasks` list active work, including standalone and
+completed tasks but excluding archived projects and their tasks. Add `all`
+to include archived records. `/work project PROJECT_ID` and `/work task TASK_ID`
+open details.
+
+JSON filters support `includeArchived`, `project` (tasks), `offset`, and `limit`.
+Filtering precedes pagination; next-page commands retain filters. Tool/API reads
+return JSON and include archived records unless `includeArchived: false`.
 
 Reads, project creation, and task bookkeeping run immediately with current
 agent or human authority. Task tracking and project metadata do not require
@@ -70,13 +45,10 @@ without executing it. Neither rejection nor cancellation undoes a submitted
 external operation. Confirmations expire after fifteen minutes. Changed work
 requires a new preview and confirmation.
 
-Human navigation uses short references for projects, tasks, documents, and drafts.
-Approval tokens retain the full content digest. Canonical IDs remain accepted.
-A reference must resolve uniquely;
-collisions fail closed. References do not grant authority. Approval references
-bind the canonical request ID, action, and arguments; the retained request,
-same-person/conversation checks, current permissions, expiry, and state fence
-remain authoritative. Details explicitly reads the canonical JSON record.
+Navigation accepts short references or canonical IDs; ambiguous references are
+rejected. Approval tokens retain the full content digest and bind the request,
+action, and arguments. Permissions and same-person/conversation checks still
+apply. Details reads the canonical JSON record.
 
 For example:
 
@@ -87,27 +59,16 @@ For example:
 /work task-assign {"id":"agenda","version":1,"assignee":"researcher"}
 ```
 
-Task creation records a unit of work immediately, with an optional project.
-It creates no agent, membership grant, or confirmation request. Agents with
-the Workspace tool can update tasks directly, regardless of assignment or
-document membership; claiming is optional coordination. Task updates, claims,
-and assignments check the current version. Assignment names an existing agent with the Workspace
-tool; `assignee: null` clears it. The head resolves the agent identity. Assignment
-changes neither task status nor tools and does not dispatch execution.
-
+Use the version returned by a read for updates and assignments.
 `task-update {id,version,title?,description?,project?,status?,outcome?,artifact?}`
-changes only supplied fields. Use `project: null` for ungrouped work.
-`task-delete {id,version}` permanently removes only the task record; it does
-not cancel execution or delete documents. These operations execute immediately
-under Workspace authority, without a protected-change confirmation request.
+changes supplied fields; `project: null` ungroups a task.
+`task-delete {id,version}` removes only the record.
+See [coordination](workspaces.md#coordination) for assignment and permission rules.
 
 ## Conversation execution and reviewed replies
 
-Do the requested work in the current conversation, using its granted tools.
-Ordinary questions need no workspace record. For independent work, a granted
-`run_subagent` call returns the child's answer to its caller. The calling agent
-reports results and blockers in the conversation. Task records do not provision
-sessions, start inference, grant tools, or arrange future delivery.
+Agents answer in the current conversation using their tools and delegation.
+Tasks track progress; they do not launch agents or arrange later delivery.
 
 For a separately selected accepted document, owner conversations can prepare
 an exact reviewed send through `/work` or the `manage` path:
@@ -153,15 +114,14 @@ and current management authority. Reading a receipt does not send anything.
 
 ## Natural-language requests
 
-The `workspace` tool accepts `action: "manage"` with an encoded arguments object
-such as `{"action":"task-create","args":{"project":"meeting","title":"Draft the agenda"}}`.
-It uses the human origin's current work permissions. Reads, project creation,
-and task bookkeeping run immediately. Other changes prepare a request. The human sends the returned `inspect` command
-to obtain the head-generated exact preview before confirmation is accepted.
-Model prose and tool results do not count as that preview, and model-generated
-slash commands are never executed as human input.
-The model administration path cannot submit hand observations or delivery
-receipts. It cannot use an administrative ACP prompt as human work authority.
+Agents call Workspace read and task-tracking actions directly. For protected
+human-requested changes, `action: "manage"` takes an `args` object containing
+`{action, args}` and uses the human's current permissions.
+
+The human opens the returned `inspect` command to see the head's exact preview
+before confirming. Model prose, tool results, and printed slash commands cannot
+supply that confirmation. Administration cannot manufacture human input, hand
+observations, or delivery receipts.
 
 Normal agent Workspace operations share task tracking and project metadata
 under their tool grant. Document operations retain their scoped membership and
@@ -180,17 +140,19 @@ an appropriate next action and Details. Changed or expired inspected requests
 offer Tasks and Projects recovery navigation. Buttons send the same literal `/work` commands
 into the conversation, subject to all current server-side checks.
 
-The payload uses the `tlon.a2ui.basic.v1` catalog's `Text`, `Column`, `Row`,
-`Divider`, `Choice`, and `Button` components and `tlon.sendMessage`. It uses the renderer merged into
-`tlon-apps/develop`; it does not require a client patch. The ordinary message
-remains in the post; supporting clients use the complete card's fallback mode
-to show its human content once. Channels and other hands remain text-only, and an
-unavailable optional projection cannot block reply delivery. Posted cards are
-snapshots, not live status: inspect again for a current receipt.
+Navigation requires a matching head result and current owner authority. If the
+read changes before delivery, the card offers refresh instead of stale actions.
 
-The merged web renderer's buttons do not expose keyboard-button semantics.
-Visible text commands provide the complete keyboard-accessible management path;
-the optional controls are not required to prepare, inspect, confirm, or reject.
+Cards use `tlon.a2ui.basic.v1`'s `Text`, `Column`, `Row`, `Divider`, `Choice`, and
+`Button`, with `tlon.sendMessage`. These components are available in
+`tlon-apps/develop`. Names use wrapping Choice rows; short actions share button
+rows. `storyMode: "fallback"` shows the card's message once on supporting clients.
+Uninspected preparations leave model text visible and offer Review only.
+Channels and other hands receive text. Missing cards do not block delivery.
+Cards are snapshots; inspect again for current status.
+
+The web renderer's buttons lack keyboard-button semantics. Text commands provide
+the complete keyboard-accessible path.
 
 ## Authority and persistence
 

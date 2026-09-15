@@ -19,8 +19,6 @@ desk; JavaScript and artifact tests also run without a ship.
 | `docs-refs` | Architecture, usage guides and protocol references |
 
 [Architecture](architecture.md#code-boundaries) maps the main libraries.
-New integrations should use an existing typed boundary before adding a new
-lifecycle event.
 
 ## Assemble and install
 
@@ -98,10 +96,8 @@ SHIP_URL=http://localhost:8081 SHIP_COOKIE=/path/to/auth-cookie.txt \
   node scripts/conformance.mjs
 ```
 
-Keep cookie files private. Use unique fixtures and do not run tests that mutate
-the same settings concurrently. Cleanup restores selected configuration; it
-does not imply remote messages, public identity updates or audit evidence never
-existed.
+Keep cookie files private, use unique fixtures, and run conflicting settings
+tests separately. Cleanup cannot erase remote messages or retained audit records.
 
 ### Practical goal acceptance
 
@@ -122,47 +118,35 @@ WORK_GOAL_HOME_SHIP='~home-ship' WORK_GOAL_PEER_SHIP='~peer-ship' \
   node scripts/work-goal-practical.mjs
 ```
 
-Use the actual ship names and a pair without an existing peer conversation.
-To reuse this test's peer history, set `WORK_GOAL_PREVIOUS_REPORT` to its retained
-report. The runner requires matching ships and unchanged recorded input history;
-it does not clear conversation state. Fresh remote inference and tool events are
-measured against the recorded starting point.
-The peer admission allowance includes retained test usage, so repeating the test
-does not require erasing history or resetting token accounting.
-For a controlled model comparison, `WORK_GOAL_HOME_MODEL` selects a model through
-the home's configured provider for the test coordinator and its scheduled worker
-only. It does not change ship defaults or the peer model. The report records the
-selected models, and acceptance checks the actual coordinator and scheduled model.
-Keep baseline failures alongside comparison results; another model's pass does
-not establish that the baseline model reliably completes the task.
-The test makes paid model calls and temporarily installs reciprocal Workspace,
-Peers and Curl grants; it does not promote either ship to owner. Cleanup restores
-those grants, disables its hand and cancels its schedules and executions. Work
-records, conversations and private evidence files remain available for inspection.
-Do not run concurrent trust edits on this pair.
-Before starting model work, both ships must return fresh peer-discovery reports.
-Matching grants alone do not prove network reachability; cached reports cannot
-satisfy this preflight.
+Use actual ship names and a pair without an existing peer conversation.
+To reuse test-owned history, set `WORK_GOAL_PREVIOUS_REPORT`; the runner checks
+matching ships and unchanged inputs, then measures new work against that baseline.
+It preserves history and token accounting.
+
+`WORK_GOAL_HOME_MODEL` selects a model for the coordinator and scheduled worker,
+leaving defaults and the peer model unchanged. Reports identify the models;
+keep failed runs alongside successful comparisons.
+
+This test makes paid calls and temporarily grants Workspace, Peers, and Curl in
+both directions. It requires fresh discovery responses before starting. Do not
+edit trust concurrently. Cleanup restores grants, disables the hand, and cancels
+test schedules and executions; conversations, work records, and evidence remain.
 
 The quote opens ten minutes after setup, leaving time for real model latency;
 `WORK_GOAL_QUOTE_DELAY_MS` accepts 60,000–600,000 milliseconds. The request gives
 an explicit follow-up window, and the runner stops after eight further minutes.
 Signals cancel the fixture's work and preserve its evidence. The independent
 oracle checks the initial total, final quantities, shipping and budget shortfall.
-Acceptance also requires one delegation without an uncertain resend,
-authenticated peer task ownership, a future worker starting within the requested
-two-minute window, completed future work, a real delivered message and no
-internal task IDs in human replies. The
-runner does not create or advance tasks, synthesize agent answers, or trigger
-scheduled work manually. Native and scripted conformance tests supplement this
-test; they do not establish practical goal completion. A passing report applies
-to its recorded model pair and workflow, not to arbitrary models. Retain failed
-runs when evaluating reliability, including incorrect arithmetic, tool-argument
-loops, late scheduling and incomplete cross-ship bookkeeping.
+Acceptance requires one delegation without resending, authenticated peer task
+ownership, a scheduled worker starting within two minutes of quote release,
+completed tasks, delivered output, and no internal IDs in human replies.
+The runner supplies no task updates, model answers, or manual schedule triggers.
 
-Inspect both delivered messages against the source data as part of acceptance.
-The deterministic oracle checks required quantities and totals, not every prose
-claim; correct totals do not excuse invented comparisons or contradictory advice.
+The request names the peer, specifies three deliverables, and asks for a timed
+follow-up. This tests executing that plan, not discovering collaborators or
+decomposing a vague goal. A pass applies to the recorded model pair and workflow.
+Inspect both messages against the sources: the numeric oracle does not check
+every prose claim.
 
 | Boundary | Fixtures |
 | --- | --- |
@@ -216,7 +200,6 @@ browser transport, including idle request counts. Supply `SHIP_URL` and
 client with the worktree in both execution orders. It sends no prompts or
 configuration writes and closes temporary ACP connections.
 
-The native corpus benchmark measures synthetic index construction and queries
-separately. Record hardware, runtime, dataset and warm/cold conditions with
-results. Neither a synthetic query timing nor a matching replay digest proves
-end-to-end production responsiveness or correct external effects.
+Record hardware, runtime, dataset, and warm/cold conditions. The native corpus
+benchmark measures index construction and queries separately; use live tests
+for end-to-end responsiveness and external results.

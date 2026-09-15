@@ -1,15 +1,11 @@
 # Architecture
 
-Harness has one authoritative conversation service and multiple ways to use it.
-The ship stores accepted inputs, configuration, tool requests, results and
-answers. A model provider produces responses; a client displays and controls
-work; neither owns the conversation.
+Harness keeps conversations on the ship. The **head**, `%harness`, records
+inputs and results, replays history, and decides what runs next. Clients display
+and control that work. Model providers generate responses.
 
-The **head** is `%harness`: it admits work, replays session history, decides the
-next step and accepts results. **Hands** are adapters at its boundaries.
-A conversation hand connects an external surface to an input queue and
-publication ledger. Provider and tool executors use their own dispatch paths;
-a single generic effect-run protocol is not the execution boundary.
+**Hands** connect chat surfaces to the head's input queue and delivery ledger.
+Providers and tools have separate execution paths.
 
 ## Mental model
 
@@ -24,9 +20,8 @@ a single generic effect-run protocol is not the execution boundary.
 | Grant | Permission to use a tool family or named resource |
 | Receipt | Evidence of a particular result or delivery attempt, not universal proof of remote completion |
 
-One history supports several views: a human transcript, bounded provider input,
-a search index and replay checks. The separation keeps continuity independent
-of browser lifetime and makes execution and delivery failures inspectable.
+The same history supplies the human transcript, model context, search index,
+and replay checks.
 
 ## Desk shape
 
@@ -40,12 +35,10 @@ One `%harness` desk declares five Gall agents:
 | `%harness-fileserver` | Authenticated static React application |
 | `%harness-tlon` | Optional Groups/DM hand: actor grants, routing, Story delivery |
 
-`desk/lib/root.hoon` loads only the Grubbery services needed for Fibers and
-effects: Eyre, Iris, Behn, Clay, and scry. It does not seed a desktop, example
-applications, or a competing agent tree.
-Runtime startup retains its code/Clay watch, process clock, HTTP bindings and
-recovery of explicitly opened Gall/Lick resources. It does not initialize terminal,
-keyring, peer-directory or browser-push services, or implicitly mirror `%base`.
+`desk/lib/root.hoon` loads Grubbery's Eyre, Iris, Behn, Clay, and scry services.
+Startup restores code watches, the process clock, HTTP bindings, and explicitly
+opened Gall/Lick resources. Desktop, terminal, keyring, peer-directory,
+browser-push services, and implicit `%base` mirroring are excluded.
 
 ## Code boundaries
 
@@ -63,9 +56,8 @@ cancellation. Both completion and cancellation run the same settlement path,
 so cancelling a child answers its parent's waiting tool instead of stranding it.
 An empty assistant reply is valid; absence of a final reply is not success.
 
-`harness-session` composes those semantics with the provider boundary's request
-byte estimate and client snapshot projection. This is a pure service boundary,
-shared by Gall and the supervised verifier, not another execution owner.
+`harness-session` combines the core with request-size estimates and snapshots.
+Gall and the verifier use the same pure functions.
 
 The arrows below mean **code dependencies**, not message delivery:
 
@@ -83,28 +75,24 @@ flowchart TD
   Effects --> Tools
 ```
 
-Supporting modules have narrow responsibilities:
+| Module | Responsibility |
+| --- | --- |
+| `harness-provider` | Provider formats, streaming, model metadata |
+| `harness-json` | Client views and command decoding |
+| `harness-tools` | Tool schemas, grant mapping, executor safeguards |
+| `harness-effects` | Ship reads and HTTP/MCP/timer/peer dispatch |
+| `harness-curl` | HTTP validation, requests, and response formatting |
+| `harness-acp` | ACP frames, terminal updates, transport |
+| `harness-defaults` | Initial instructions and policy |
+| `harness-lcm` / `harness-lcm-context` | Summary hierarchy, planning, validation |
+| `harness-corpus` / `harness-corpus-index` | Incremental source projection and search index |
+| `harness-corpus-json` | Search, source reads, summary expansion |
+| `sur/harness-store` / `lib/harness-store` | Saved-state types and loading |
 
-| Module | Owns | Does not own |
-|---|---|---|
-| `harness-provider` | Request/response formats, streaming parse, model metadata | Credentials, accepted results, scheduling |
-| `harness-json` | Client projections and command decoding | Persisted state or provider wire formats |
-| `harness-tools` | Schemas, function-to-family grants, executor safeguards | Tool execution |
-| `harness-effects` | Concrete ship reads and HTTP/MCP/timer/peer cards | Session store or continuation |
-| `harness-curl` | General HTTP schema, validated request cards and bounded response rendering | Grants, credentials, retry ownership or session state |
-| `harness-acp` | ACP frames, terminal updates and transport cards | Prompt ownership or admission |
-| `harness-defaults` | Bootstrap instructions and policy | Existing conversation configuration |
-| `harness-lcm` / `harness-lcm-context` | Immutable summary forest, addressed planning and validation | Provider dispatch or credentials |
-| `harness-corpus` / `harness-corpus-index` | Disposable incremental source projection and segmented lexical index | New input, external-app reads or inference |
-| `harness-corpus-json` | Authorized search/read/expansion projections | Authority decisions or scheduling |
-| `sur/harness-store` / `lib/harness-store` | Saved-state envelopes and loading | The running decision loop |
-
-Gall keeps admission, authorization, request identities, event appends and
-settlement together because its state and emitted cards commit in one event.
-The effect door receives only the bowl and MCP registry; the ACP door receives
-only our ship identity. Neither receives the session store. These are trusted
-code boundaries, not substitutes for the Grubbery weirs that sandbox processes.
-Persistence loading is separate from the running decision loop.
+Gall commits state changes and emitted cards in one event, keeping authorization,
+recording, dispatch, and settlement atomic. The effect door receives the bowl
+and MCP registry; the ACP door receives the ship identity. Neither receives
+session storage. Process isolation is supplied separately by Grubbery weirs.
 
 To extend Harness, choose the boundary before adding a special case:
 
@@ -183,7 +171,7 @@ items by prepending and reverses once, avoiding repeated prefix copying.
 reply. The child shares the immutable log tail and appends provenance; it does
 not rerun inherited effects. Unfinished tool exchanges and invalid boundaries
 are rejected. Gall's `%fork-at` action and ACP's `harness/session/fork` call use
-this same gate. The gates are a reusable head boundary, not a second scheduler.
+this same gate.
 
 ## Grubbery's role
 
@@ -233,12 +221,10 @@ the inspector validates locally so malformed diagnostics cannot fail an ACP
 update. ACP `harness/session/recheck` republishes the current authoritative
 source without adding a semantic event or running inference.
 
-This is a separately executed replay/current-decision checkpoint, **not a second
-executor** and not proof that every actual dispatched effect was correct.
-It uses the same reducer, so agreement is not an independent semantic oracle.
-Snapshots can include an already-pending effect, so the next decision can
-be empty. The check does not compare the full dispatched intent/receipt sequence.
-`%harness` remains authoritative; native apps and ACP clients share its head.
+Verification checks replay and the current decision using the same reducer.
+It does not independently prove the reducer correct or check the full sequence
+of dispatched effects and receipts. A snapshot with a pending effect may have
+no next decision. Only the head executes work.
 
 ## Providers
 
@@ -263,38 +249,24 @@ connection. When a provider publishes context-window metadata, selecting that
 model updates the session budget automatically. Catalog failure or absent
 metadata never prevents a manually entered model name.
 
-The [context and memory service](context-and-memory.md) separates authoritative
-history from model context and the derived lexical corpus index. Hierarchical
-compaction uses frozen source plans, separately selected summary models,
-accounted usage and shared `/context` and `/compact` commands. Corpus scope
-identities survive renaming, and bounded reads expand summaries back to evidence.
-Compaction does not bound full-log replay.
+See [context and memory](context-and-memory.md) for compaction, summary models,
+source-linked recall, and request budgets.
 
 ## Tools and authority
 
-Tool families are granted per conversation. Fresh-install defaults enable all
-standard local families, including broad Clay reads, general HTTP, shared
-skill writing, authoring, subagents, peers and corpus recall. MCP servers still
-need named grants. The ship-wide Tlon family is included in bootstrap defaults;
-destination-scoped Tlon tools derive from live hands. New owner Tlon conversations
-inherit configured defaults too. Saved defaults and existing conversations keep
-their explicit grants; changing bootstrap policy never rewrites their history.
-Remote, scheduled, delegated, and rehearsal
-sessions receive purpose-built grants. Provider-visible schemas
-are discovery only: execution resolves every function name to a family and
-checks the current grant again; internal self-pokes must also correspond to a
-durable outstanding call.
+Tool grants belong to each conversation. Defaults include broad Clay, HTTP,
+skills, subagents, peers, corpus, and ship-wide Tlon access; MCP needs named
+server grants. Destination-scoped Tlon tools come from live hands. New owner
+conversations inherit defaults; saved conversations keep their settings.
 
-The experimental `%code` family is discoverable but excluded from bootstrap
-defaults. Its `run_js` tool uses the QuickJS/WASM Spider executor.
-It exposes broad host APIs rather than inheriting Clay, network or Tlon tool
-scopes. Tlon conversations may use an explicit grant, subject to the live
-sender-permission ceiling; non-owner senders also need `%code` in their Tlon
-grants. Schedules and rehearsals cannot execute it.
-Owner-session subagents can inherit it only within their parent's live grants.
-The 64 KiB source bound, common-loop rejection and 30-second yielding watchdog
-are resource safeguards, not hard CPU isolation. Cancellation fences results
-and stops the Spider thread where possible; it cannot undo completed I/O.
+Remote, scheduled, delegated, and rehearsal sessions have additional restrictions.
+Dispatch rechecks each function's grant, and internal self-pokes must match a
+recorded outstanding call. A visible schema alone does not authorize execution.
+
+The opt-in `%code` grant runs QuickJS/WASM through Spider with broad host APIs.
+It has a 64 KiB source limit, common-loop checks, and a 30-second yielding
+watchdog, but no hard CPU isolation. See [JavaScript execution](execution.md)
+for inheritance, cancellation, and host permissions.
 
 MCP is granted per server, not per tool: JSON grants use `{"mcp":"server-id"}`
 alongside ordinary family strings. Discovery filters the enabled registry by
@@ -326,17 +298,11 @@ acknowledgement is distinct from remote delivery. Old invocation IDs cannot sett
 new calls with a reused provider call ID. Optional hand authority is rechecked at
 dispatch and receipt admission, including scheduled sessions' source grants.
 
-`harness-cron` provides pure strict UTC calendar logic and schedule data;
-`harness-schedule` validates jobs and projects their evidence. The head owns
-schedule persistence, the Behn wake and admission for every hand. There is no
-separate scheduling inference agent.
-Scheduled sessions inherit no parent transcript and cannot recursively schedule
-or delegate. Due occurrences
-become idempotent hand observations; normal head settlement produces publication
-evidence. Schedules persist in the head store, while concrete tool invocation
-receipts remain with their executor. Tlon handles addressed delivery.
-See [shared scheduling](scheduling.md)
-for limits, native/ACP methods and Settings → Schedules controls.
+`harness-cron` supplies UTC calendar logic; `harness-schedule` validates jobs.
+The head stores schedules, owns the Behn wake, and admits due runs as idempotent
+hand observations. Scheduled agents receive no parent transcript and cannot
+create schedules or local subagents. Executors retain tool receipts; hands
+deliver results. See [scheduling](scheduling.md).
 
 Experimental skill authoring can stage, rehearse, publish or discard instructions.
 It is enabled by bootstrap defaults. Rehearsals only retain inherited Clay

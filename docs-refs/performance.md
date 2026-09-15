@@ -1,13 +1,8 @@
 # Performance
 
-For multi-client sustained operation and fault recovery, see the
-[local reliability runner](reliability.md). It records full-run maxima and
-bounded recent percentiles, and keeps HTTP/RPC latency distinct from event CPU
-time, process RSS and live loom measurements.
-
-Harness performance involves session processing, runtime verification, delivery
-reconciliation and client transport. The benchmark fixtures isolate these costs
-from external model latency.
+Benchmarks separate Harness processing from model and network latency.
+Measure client wall time, event CPU time, process RSS, and live loom separately.
+For sustained operation and recovery, use the [reliability runner](reliability.md).
 
 ## Runtime mark dispatch
 
@@ -68,9 +63,8 @@ health check, never an RPC deadline. Reconnecting a watch does not replay RPCs.
 A genuinely missing or closed ACP queue uses a fresh connection identity and
 rejects unresolved calls with the existing check-before-repeating guidance.
 
-The watch covers this ACP connection's updates, not every native hand's state
-changes. Idle snapshot polling remains necessary for changes without a matching
-notification. Native hand execution and delivery authorization are unchanged.
+The watch covers this ACP connection, not every hand. Idle snapshot polls catch
+changes without matching notifications.
 
 ## Performance regression checks
 
@@ -84,7 +78,7 @@ Use `PLAYWRIGHT_CHANNEL=chrome` when testing with an installed Chrome. The suite
 covers idle/active snapshot budgets with 95 and 4,096 retained messages,
 10,000-entry unchanged-history reuse, notification races, stream framing,
 ACK coalescing, replay/gap handling, and catalog/conversation-list read budgets.
-These checks constrain work and preserve behavior without fragile CPU timings.
+These checks use request counts rather than CPU timing thresholds.
 
 For the real subscription/recovery boundary on a local development ship:
 
@@ -130,18 +124,14 @@ SHIP_URL=http://127.0.0.1 SHIP_COOKIE=/path/to/private-cookie \
   node scripts/performance-turn-benchmark.mjs
 ```
 
-Use `BENCH_TURNS=0,64,256`, `BENCH_REPEATS=5`, and `BENCH_RAW=1` to select
-history sizes, repetitions and per-turn samples. Re-run after cold compilation
-has settled when comparing steady-state performance. Keep outliers visible.
-Measure cold-start behavior separately, and use enough repetitions to assess
-tail latency. Synthetic history and local endpoints do not represent external
-model, network or Tlon publication costs.
+Use `BENCH_TURNS=0,64,256`, `BENCH_REPEATS=5`, and `BENCH_RAW=1` for history
+sizes, repetitions, and raw samples. Measure cold starts separately from steady
+state, retain outliers, and repeat enough to assess tail latency. Local endpoints
+exclude external model, network, and Tlon delivery costs.
 
-Optional `BENCH_MAX_P95_MS` and `BENCH_MAX_GROWTH` fail the full-turn fixture when
-any workload exceeds an absolute p95 budget or its median exceeds the first
-workload by the given factor. Calibrate these on the same development machine;
-they are not production latency promises. Budget failures still clean up the
-fixture sessions. Keep the first workload at zero prior turns for growth checks.
+`BENCH_MAX_P95_MS` sets a p95 limit; `BENCH_MAX_GROWTH` limits median growth
+relative to the first workload. Start with zero prior turns and calibrate on
+the same machine. Failed budgets still clean up test sessions.
 
 The read-only transport fixture is `scripts/performance-read-benchmark.mjs`.
 It reports initialization, the parallel Settings read batch, subsequent RPCs

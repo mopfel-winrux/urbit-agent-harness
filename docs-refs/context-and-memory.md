@@ -1,9 +1,8 @@
 # Sessions, context and memory
 
-Harness implements source-linked hierarchical compaction, bounded explicit
-notes, and a hand-independent lexical corpus index. One event log remains the
-authority; summaries and the searchable projection are derived from it. No
-memory daemon, embedding service, or fact-extraction loop is required.
+Harness keeps full conversation history, summarizes older exchanges for the
+model, and lets you pin notes that stay in context. Search and summaries link
+back to the event log.
 
 ## Hierarchy and model settings
 
@@ -59,11 +58,9 @@ Cursors bind query, permitted scopes and index epoch; IDs/cursors grant no
 authority. Read chunks preserve UTF-8 boundaries at 12,000 bytes; expansion
 returns at most 16 immediate edges, not an unbounded recursive traversal.
 
-Limits are explicit: query text ≤512 bytes, pages 1–64 results, bounded fuzzy
-candidate work. Common queries can still visit every candidate segment, and
-global status/synchronization visit the scope/session directory. These are not
-constant-time whole-corpus guarantees. No claim is made about physical erasure
-from backups, bounded primary-log growth, or constant-cost full replay.
+Queries allow up to 512 bytes and 1–64 results per page. Common queries can
+visit every candidate segment; status and synchronization visit the scope/session
+directory. Search limits do not bound stored history, replay time, or backups.
 
 ## Compaction planning and acceptance
 
@@ -75,29 +72,20 @@ the source log boundary, active-prefix count/digest, original context length,
 model/endpoint, estimated input, output reserve and optional command identity.
 Replay recovers the exact source prefix or selected child summaries.
 
-The current policy reserves `min(4096, window / 4)` output tokens plus a 10%
-estimation margin. These are explicit conservative policy constants, not
-provider metadata or benchmark-derived optimal values. Chat Completions requests
-send the matching output cap; the Codex subscription route uses provider-managed
-output behavior. All size estimates are rounded bytes/4,
-not exact tokenization. `/context` labels that uncertainty and the configured
-window as catalog-or-fallback; this label does not distinguish a specific
-catalog source from fallback configuration.
+The request budget reserves `min(4096, window / 4)` output tokens and a 10%
+margin. Estimates use rounded bytes/4, not exact tokenization. Chat Completions
+receives the output cap; the Codex subscription route manages its own output.
+`/context` labels the estimate and window as catalog-or-fallback without
+identifying a specific catalog source.
 
-Compaction responds to the active model's capacity, not an absolute working-set
-cap. Before eligible inference, compare the encoded-request estimate with
-`window - output-budget - floor(window / 10)`. Below that threshold, proceed
-without summarizing; above it, plan compaction before dispatch. A larger model
-can use its larger window. Switching to a smaller model immediately changes the
-next decision; there is no cached threshold to invalidate. The window comes
-from the session's catalog-derived configuration or its declared fallback.
+Before inference, compaction compares the encoded request estimate with
+`window - output-budget - floor(window / 10)`. Requests above this threshold
+are summarized first. The window follows the session's model configuration,
+so switching models changes the next decision.
 
-Source selection aims to leave one third of that input budget as raw recent
-exchanges, plus the checkpoint and other prompt material. This proportional
-target provides room to grow; it is not an exact final-context bound. The next
-request is measured again. Neither the trigger nor the tail has a separate
-fixed token cap, and there is no UI context-size knob. The percentage margin,
-tail ratio and output reservation are explicit policy, not provider metadata.
+Selection aims to retain recent exchanges using one third of the input budget,
+alongside summaries and other prompt material. The resulting request is measured
+again. There is no separate fixed context cap or UI context-size control.
 
 Selection keeps the latest completed exchange and unanswered input. It chooses
 complete historical exchanges using a recent-tail budget target and chunks the
@@ -157,15 +145,9 @@ boundary; pinned notes require no global memory grant. Clients inspect notes in 
 snapshots/views as `memory: [{name, body}]`. A `memory-set` event records each
 edit alongside the identified command input and acknowledgement.
 
-There are no model-side note-writing tools or automatic fact extraction.
-Printing a memory command does not execute it. Shared skills are a separate
-instruction library, not private memory. Notes complement lossy hierarchical
-summaries rather than replacing source history.
-
-Compaction bounds neither the primary transcript nor replay time. Every note
-edit is another audit event and searchable evidence. There is no embedding
-store or per-turn extraction request, automatic primary-history retention policy
-or large-artifact projection.
+Only human commands write pinned notes; printing a command does not execute it.
+Shared skills are an instruction library, not private memory. Note edits stay
+in the event history and search index even after unpinning.
 
 ## Verification
 
@@ -204,7 +186,5 @@ temporary, tools-disabled session and makes four real requests, including a
 summary. Optional `SMOKE_URL` and `SMOKE_MODEL` select that session's provider.
 It does not change global defaults or credentials.
 
-Measure index construction separately from queries, and record workload,
-hardware and runtime with results. Synthetic corpus timings do not establish
-production latency, rich-message ingestion cost or maximum event-loop stalls.
-See [development](development.md) for test safety.
+Measure index construction separately from queries, recording workload,
+hardware, and runtime. See [development](development.md) for test safety.

@@ -1,9 +1,7 @@
 # Connecting systems to Harness
 
-Harness is a ship-resident agent substrate, not a browser backend. External
-systems submit work through a narrow boundary; the resulting inputs, tool
-effects, and answers belong to the same durable session records regardless of
-which interface is present later.
+Clients connect to conversations on the ship. Choose an interface based on
+whether you need a full client, a chat connector, a tool, or a single input.
 
 ## Choose a boundary
 
@@ -17,20 +15,13 @@ which interface is present later.
 | Another Urbit | `%harness-a2a-0` | Typed asks tied to ship identity and an explicit peer grant |
 | Remote tool service | MCP | Global endpoint registry plus per-conversation capability grant |
 
-ACP is the broad client boundary. Prefer a smaller typed boundary when the
-caller needs only one operation.
-
-For a chat channel or other bidirectional surface, use [conversation hands](hands.md).
-An ordinary prompt can return a reply, but a hand also preserves the external
-source identity and delivery outcome. Retrying a failed publication never
-reruns inference. The transport and destination remain adapter choices.
+Use ACP for a full client and [hands](hands.md) for chat connectors that need
+source identity and delivery tracking. Other interfaces serve narrower needs.
 
 ## ACP over authenticated Eyre
 
-The ACP API is served by the ship. HTTP-capable clients, including the bundled
-browser, use it directly; neither `acp/harness-acp.mjs` nor `acp/hand-client.mjs`
-is required. `harness/hand` is an ACP method on that API, not an off-ship service
-or a standalone HTTP URL.
+HTTP clients connect directly to the ship's ACP API. `harness/hand` is a method
+on that API. The local JavaScript bridges are optional.
 
 Each client opens a unique connection in `%acp`, sends JSON-RPC frames to its
 agent queue, and watches or polls its client queue. Frames have monotonically increasing
@@ -70,24 +61,8 @@ node acp/harness-acp.mjs
 Its stdin and stdout carry only ACP frames. Use a distinct
 `ACP_CONNECTION` for each simultaneously running client.
 
-Harness extensions include:
-
-```text
-harness/defaults
-harness/defaults/configure
-harness/mcp/servers
-harness/mcp/configure
-harness/status
-harness/tools
-harness/session/config
-harness/session/configure
-harness/session/rename
-harness/session/snapshot
-harness/session/fork
-harness/credential/set
-harness/provider/models
-harness/hand
-```
+The [ACP reference](acp.md#methods) lists session, configuration, provider,
+tool, and hand methods.
 
 `session/prompt` returns after the admitted turn reaches a terminal state.
 Observe `session/update` notifications for the admitted user item, tool
@@ -138,10 +113,8 @@ HTTP projections of those scries are available at:
 /~/scry/harness/mcp.json
 ```
 
-The typed action surface includes creation, prompt admission, fork, compact,
-cancel, retry, configuration, timers, skills, peer grants, global defaults,
-and MCP configuration. Native callers should depend on these nouns rather than
-the React component state.
+Native actions cover conversations, execution, configuration, timers, skills,
+peers, and MCP. Their types live in `desk/sur/harness.hoon`.
 
 `[%fork-at from to at]` branches at a completed, tool-free assistant reply.
 It uses the same pure gate as ACP, preserves the immutable history prefix,
@@ -155,7 +128,7 @@ policy used by the ship. For a different policy, `decide` in `/lib/harness`
 takes a view and a pure `~ -> @ud` budget gate; it evaluates the gate only when
 inference could run. Provider codecs live in `/lib/harness-provider`, client
 JSON in `/lib/harness-json`, and concrete execution bindings in
-`/lib/harness-effects`. None is a second owner of the session log.
+`/lib/harness-effects`. The head owns the session log.
 
 ## Webhooks
 
@@ -190,20 +163,12 @@ a native Gall bridge; see [local discovery](peers.md#local-mcp-discovery).
 
 ## Properties integrations can rely on
 
-- **Durability:** the event transcript is authoritative and survives client
-  disconnects and agent reloads.
-- **Independent progress:** provider and remote-tool requests are asynchronous;
-  one waiting session does not serialize another.
-- **Replayable meaning:** views are derived from a closed event vocabulary.
-- **Explicit authority:** provider schemas and configured MCP endpoints are
-  discovery; execution still checks the conversation's tool-family grant.
-- **Provenance:** admitted inputs carry identity, source, timestamp, and reply
-  route; forks record their divergence point.
-- **Replaceable hands:** ACP, React, providers, MCP, timers, peers, and native
-  apps surround the same session head rather than owning it.
-- **Global policy, local divergence:** new conversations snapshot agent defaults;
-  subsequent per-conversation model, instructions, and tool changes are
-  recorded independently.
+- Conversations survive client disconnects and agent reloads.
+- Waiting on a provider or tool does not block other conversations.
+- Inputs retain their source, timestamp, and reply route; branches retain their
+  branch point.
+- Execution checks current permissions, not just discovered schemas.
+- New conversations copy global defaults; their later settings are independent.
 
 `harness/session/use-default-model` takes `{ "sessionId": "..." }` and explicitly
 adopts the current default endpoint, model, headers and context budget without
@@ -213,5 +178,4 @@ retry failed work; submit new input or explicitly retry. React derives context
 budgets from provider model metadata; the settings do not expose a manual budget
 control. Endpoints without published limits use the 80,000-token fallback.
 
-This split is the extension rule: add a small adapter or supervised hand, admit
-typed facts, and leave session ownership in Harness.
+Keep conversation state in Harness; adapters handle their own transport.

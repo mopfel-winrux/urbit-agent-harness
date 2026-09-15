@@ -1,8 +1,7 @@
 # Sustained operation and recovery
 
-The acceptance workload measures sustained operation and fault recovery through
-the real client transport and ship-owned head. Focused conformance tests cover
-individual boundaries; a soak checks their behavior under concurrent activity.
+The soak runner measures sustained operation and recovery with concurrent
+clients on a local test ship.
 
 ## Local acceptance runner
 
@@ -34,12 +33,9 @@ SOAK_DURATION_MS=120000 SOAK_TURN_INTERVAL_MS=1500 \
 node scripts/reliability-soak.mjs
 ```
 
-Work mode creates uniquely named conversations and configures **only those
-conversations** with a local synthetic provider and a local HTTP POST tool.
-There are no paid provider calls, public posts, Notes mutations or global
-configuration changes. It counts each local effect before returning its receipt.
-That makes duplicate execution observable rather than hiding it with fixture
-deduplication. Growing conversation histories remain on the real Harness head.
+Work mode creates test conversations using a local synthetic provider and HTTP
+POST tool. It counts every effect, including duplicates, against the real head.
+It makes no paid calls, public posts, Notes writes, or global configuration changes.
 
 The first worker cycles through these cases; other workers continue ordinary
 local tool turns concurrently:
@@ -53,10 +49,8 @@ local tool turns concurrently:
 | Cancellation after the effect | Uncertain cancellation is retained; the late reply cannot revive work |
 | Grant revoked before tool dispatch | No effect; the continuation receives a denied-tool receipt |
 
-Work mode must cover all six cases to pass. A short observation window or too
-small a round cap is insufficient coverage, not a green recovery test. Silent
-watch loss intentionally uses the production 45-second heartbeat timeout and
-10-second resubscription backoff. The runner does not shorten either timeout.
+All six cases must run to pass. Watch recovery uses the production 45-second
+heartbeat timeout and 10-second backoff; allow enough time and rounds to cover it.
 
 ## Long observation windows
 
@@ -69,13 +63,9 @@ SOAK_DURATION_MS=86400000 SOAK_MAX_ROUNDS=256 \
 node scripts/reliability-soak.mjs
 ```
 
-This creates a bounded amount of conversation history, then continues read/idle
-observation after the round cap. It does **not** generate active work all day once
-that cap is reached. Maximums are four workers, 1,024 rounds and 24 hours; requests
-to the local model are capped at 4 MiB to prevent an accidental unbounded replay
-workload. The configured context is large enough for this bounded synthetic
-history; any unexpected compaction request fails the fixture instead of selecting
-a real provider.
+After the round cap, only read/idle observation continues. Limits are four
+workers, 1,024 rounds, 24 hours, and 4 MiB per local model request. Unexpected
+compaction fails the fixture; it never falls through to a real provider.
 
 `--help` lists all options. `SOAK_MAX_READ_MS` adds a machine-calibrated budget for
 the complete read batch. A failure stops new work; it does not retry a mutation.
@@ -90,9 +80,7 @@ Before connecting, the runner prints a newly created private temporary directory
 per-turn cases, probe timings and failures. `report.json` is written once at the
 end with the verdict, coverage, transport counts, bounded latency summaries and
 cleanup failures. Reports do not include cookies, transcripts or provider keys.
-Source Git revision, dirty-worktree state and host characteristics describe the
-test source and machine; the installed ship release is explicitly not inferred
-from the working tree.
+Reports identify the test source and machine, not the installed ship release.
 
 Ctrl-C stops this Node runner, not the ship. Cleanup uses a fresh connection,
 cancels only the exact fixture session identities, verifies they have no pending
@@ -115,13 +103,11 @@ Run deterministic runner tests with:
 node --test scripts/reliability.test.mjs
 ```
 
-The full-agent `/tests-integration/harness-reload` checks subscription recovery
-and re-observation of an already-sent Notes request without another mutation
-poke. Its cards are inspected in an isolated evaluation, never executed. It is
-not proof of durability across a real process restart.
-Assertions execute inside that evaluation and return only compact test results:
-revalidating complete emitted card types outside it can itself be expensive
-enough to block the ship's event loop.
+`/tests-integration/harness-reload` checks subscription recovery and observing
+a sent Notes request without resending it. The isolated evaluation inspects
+cards rather than executing them, so it does not test a real process restart.
+Assertions return compact results; revalidating full card types outside the
+evaluation can block the event loop.
 
 Keep these checks distinct:
 

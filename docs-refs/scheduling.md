@@ -1,17 +1,12 @@
 # Shared scheduled work
 
-Schedules belong to the Harness head, not to Tlon or another delivery adapter.
-Open **Settings → Schedules** to inspect and cancel work from every hand. A job
-records its originating hand, immutable source binding, actor, exact destination,
-isolated run conversation, remaining runs, execution and delivery evidence.
+Ask for a follow-up, recurring work, or a reminder through an authorized
+[conversation hand](hands.md), such as Tlon. Results return to the same
+destination. Open **Settings → Schedules** to inspect or cancel jobs.
 
-Any authorized [conversation hand](hands.md) can use the scheduler. Tlon is one
-such hand; it is not required for another hand's schedules. An active bound
-conversation receives `schedule_once`, `cron_add`, `cron_list`, `cron_remove`
-and `reminder_add`.
-These are implicit conversation capabilities, not configurable resource grants.
-Unbound browser conversations, delegated work and scheduled runs cannot acquire
-them merely by saving a `cron` flag in their configuration.
+Active bound conversations receive `schedule_once`, `cron_add`, `cron_list`,
+`cron_remove`, and `reminder_add`. Unbound browser conversations, delegated
+agents, and scheduled runs cannot enable these through a configuration flag.
 
 ## Tasks and literal reminders
 
@@ -35,21 +30,16 @@ offset rather than guessing. When due, the head admits a literal notification
 and publication without inference or command parsing. `/cancel` in its text
 remains text. Provider availability and credits are not needed at delivery time.
 
-A model task receives its source configuration and a bounded snapshot of its
-effective tool grants, but no source transcript. Scheduled runs cannot create
-more schedules, delegate, execute JavaScript, or acquire administrative tools.
-With an inherited Workspace grant they can read and update task records,
-including recording the outcome of a future job. Their fresh identity grants
-no document membership, source transcript, or human management authority.
-Editing a run's configuration cannot expand this ceiling. The head checks the
-source binding and grants before admission and effect dispatch; a Tlon source
-also retains its live actor and conversation authority checks.
+Scheduled agents receive the source configuration and permitted tools, not its
+transcript or document membership. They can inherit Workspace to update tasks,
+but cannot create schedules, run subagents, execute JavaScript, or administer
+Harness. Editing their configuration cannot expand these permissions. The head
+checks source permissions before admitting work and dispatching tools, including
+Tlon's actor and conversation checks.
 
 Disabling or replacing a source binding, or changing its effective grants,
-pauses affected jobs and fences their work. Re-enabling the source does not
-resurrect a paused schedule: explicitly reschedule it. Ordinary hand workers
-still own delivery claims and receipts, and must authenticate external actors.
-Hand names and actor strings are routing identities, not credentials.
+pauses affected jobs. Re-enabling the source does not resume them; reschedule
+explicitly. Hand workers authenticate actors and deliver results.
 
 ## Timing, delivery and retention
 
@@ -58,10 +48,8 @@ Downtime coalesces to one run, never a missed-run backlog. The run budget advanc
 in the same Gall transaction as ledger admission. Pending execution or pending,
 claimed or uncertain publication blocks another run of that schedule.
 
-Scheduled output uses the existing addressed hand outbox. A completed model run
-is not a delivered reply; a scheduling acknowledgement is not a reminder receipt.
-No automatic retry repeats an uncertain external send. The adapter's normal
-claim, receipt and explicit reconciliation protocol remains authoritative.
+Results enter the hand's outbox. Check delivery separately from execution;
+uncertain sends are not retried automatically. See [hand receipts](hands.md#claims-and-receipts).
 
 The head retains up to 64 schedule records across all hands. Cancel stops future
 work but cannot retract dispatched effects. Clear is allowed only for completed
@@ -94,9 +82,8 @@ the same rows. These are same-ship/owner APIs, like the existing hand boundary.
 Model tools additionally require an exact outstanding request and source input;
 listing and cancellation cannot expose another source binding's schedules.
 
-The JavaScript `HandClient` supplies `schedule(binding, options)`,
-`schedules(binding)`, `cancelSchedule(id)` and `clearSchedule(id)`. It adds no
-timer, model loop or separate delivery queue.
+The JavaScript `HandClient` wraps these as `schedule(binding, options)`,
+`schedules(binding)`, `cancelSchedule(id)`, and `clearSchedule(id)`.
 
 ## Verification
 

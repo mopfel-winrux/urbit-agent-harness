@@ -1,8 +1,8 @@
 # ACP boundary
 
-Agent Client Protocol is Harness's client boundary. `%acp` is a generic Gall
-broker for opaque JSON-RPC frames; `%harness` implements agent semantics behind
-it. The browser and stdio adapter are equal clients.
+Clients use Agent Client Protocol (ACP) to reach Harness. The `%acp` Gall agent
+carries JSON-RPC frames; `%harness` handles conversations. The browser and stdio
+adapter use the same interface.
 
 ```text
 browser ─┐
@@ -10,19 +10,16 @@ editor ──┼─> independent %acp queues ─> %harness sessions
 service ─┘
 ```
 
-Each connection has two monotonically sequenced queues. A client acknowledges
-only frames it has consumed. Harness acknowledges agent-bound frames only after
-admission. Queues survive ordinary process reloads and prevent one client from
-stealing another client's updates.
+Each connection has separate, ordered client and agent queues that survive
+reloads. Clients acknowledge consumed frames; Harness acknowledges admitted
+inputs. Connections cannot consume one another's updates.
 
 Queue admission is bounded by both count and bytes: 1,024 frames and 4 MiB per
 direction on one connection, with 8,192 frames and 16 MiB across all connections.
 Individual frames are limited to 1 MiB.
-Acknowledgements release space. Exhaustion rejects new frames, not retained
-evidence. An explicitly closed transport can be discarded;
-it is not the primary conversation log or publication ledger. A rejected or
-missing response does not prove the corresponding mutation was never admitted:
-inspect durable state before retrying it.
+Acknowledgements release space. Full queues reject new frames; closing a
+transport allows its queues to be discarded without deleting conversation
+history. After a missing response, inspect saved state before retrying a write.
 
 ## Protocol surface
 
@@ -46,7 +43,7 @@ hands use the same command interpreter; adapters do not implement command logic.
 | `/memory` | List the current conversation's pinned notes. |
 | `/remember <name> <text>` | Save or replace a note, retained verbatim across compaction. |
 | `/forget <name>` | Unpin a note; earlier messages and checkpoints are not erased. |
-| `/work` | Read work or prepare a human-confirmed project, task, or artifact operation. See [conversation work management](work-control.md). |
+| `/work` | Inspect and manage work; protected changes need confirmation. See [work commands](work-control.md). |
 | `/stop` | Cancel the current turn and queued hand work; acknowledge locally. |
 
 Only `/compact` calls a model. Work management requires current owner or scoped
@@ -56,11 +53,9 @@ name is not an access check; the provider may reject it on the next real prompt.
 Changing to an uncatalogued model uses the same 80,000-token context fallback as
 the settings client. `/model default` copies the default's context limit.
 
-Memory commands require admission to the conversation, not a tool grant. They
-do not grant cross-session access. Current notes are limited to 16 entries,
-1,024 UTF-8 bytes per body and 8,192 name/body bytes total; overflow is explicit.
-Snapshots and views expose `memory: [{name, body}]`. Edits append `memory-set`
-events (`body: null` unpins) in the same admission as the command reply.
+Snapshots expose pinned notes as `memory: [{name, body}]`. Edits append
+`memory-set` events (`body: null` unpins) alongside the command reply.
+See [pinned notes](context-and-memory.md#pinned-conversation-notes) for limits.
 
 Only an exact `/stop` (ignoring surrounding whitespace) interrupts active work.
 Other commands submitted through ACP while busy get the normal busy error;
@@ -166,12 +161,9 @@ read bodies; **Search content** uses the separate indexed corpus methods below.
 See [shared scheduling](scheduling.md) for the native equivalent, authority,
 and limits.
 
-`harness/hand` is the bidirectional conversation-adapter extension. It projects
-the same native binding, observation, publication, and receipt contract—not a
-second agent loop. `initialize` advertises version 2 and the `publish`
-capability under `_meta["harness/hand"]`. See [hands](hands.md) for exact action
-shapes and recovery semantics. These clients have owner authority; hand ids
-are not independently authenticated capability tokens.
+`harness/hand` connects chat adapters. `initialize` advertises version 2 and
+the `publish` capability under `_meta["harness/hand"]`. These clients have owner
+authority; hand IDs are not credentials. See [hands](hands.md) for actions and recovery.
 
 `harness/session/verify` returns `{authoritativeRevision, authoritativeDigest,
 check}` for a `sessionId`. Require a matched check at the same revision with
@@ -240,10 +232,8 @@ The child retains that prefix and records its origin without replaying effects.
 
 ## Provider authentication
 
-Built-in provider settings select an authentication method, not an arbitrary
-URL. The stored configuration URL encodes the selected route, so there is no
-second mode field that can disagree with the request codec. Custom providers
-retain editable endpoints and custom headers.
+Built-in providers store the chosen authentication route as their configuration
+URL. Custom providers allow editable endpoints and headers.
 
 | OpenAI authentication | Credential slot | Inference route |
 | --- | --- | --- |
@@ -265,11 +255,9 @@ otherwise prefers an available device login. An existing conversation retains
 its explicit selection. React uses this status when selecting OpenAI from a
 different provider, rather than resetting unconditionally to the API route.
 
-Completing device login in the provider settings saves the credential and then
-the selected conversation/default configuration. The login is not shown as
-connected if saving that configuration fails. Each conversation can select
-its authentication route in model settings; saving it affects subsequent
-requests without rewriting the transcript.
+Device login saves credentials and the selected configuration before showing
+Connected. Each conversation can choose its authentication route in model
+settings; changes apply to subsequent requests.
 
 Subscription and API-key authentication are separate access modes; see
 [OpenAI authentication](https://learn.chatgpt.com/docs/auth). OpenAI device
@@ -324,6 +312,4 @@ admitting new ones.
 The stdio process performs the same projection over authenticated Eyre. Its
 stdout contains only ACP NDJSON, so diagnostics go to stderr.
 
-ACP delivery is durable but does not compete with session state: `%acp` may
-know that frame 12 is unacknowledged, while only `%harness` knows what the frame
-means and whether a model turn is active.
+ACP retains transport frames; Harness retains conversation state.

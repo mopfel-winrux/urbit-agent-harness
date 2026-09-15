@@ -1,9 +1,8 @@
 # Hosting boundary, version 1
 
-This is the integration contract for a hosted companion, not a claim that a
-hosting control plane is implemented. The ship remains the authority for the
-companion. A host provisions and operates it; it does not maintain a competing
-conversation database or silently repair the owner's settings.
+This contract describes how a hosting service connects to Harness; the hosting
+control plane is not included. The host operates the ship. Harness keeps
+conversations and owner settings.
 
 ## One authority per field
 
@@ -27,11 +26,9 @@ assembly includes pinned dependencies and generated assets. Credentials are
 references/presence flags in that record, not plaintext. Unknown contract
 versions require explicit negotiation; they must not be silently normalized.
 
-Configuration has one write path into the owning service and one acknowledged
-readback. A stale read or timeout is an unknown result: read before repeating a
-mutation. There is no precedence stack of generated files, environment overlays
-and startup repair loops. A host may offer suggested defaults, but replacing an
-owner's existing settings requires an explicit operation.
+Write configuration through its owning service and read back the result.
+After a timeout, inspect state before retrying. Host defaults are suggestions;
+replacing owner settings requires an explicit operation.
 
 ## Health and failure
 
@@ -44,11 +41,9 @@ make unrelated native commands unavailable. Billing suspension must have an
 explicit admission policy; it must not invent successful or failed external
 delivery evidence.
 
-Private-network isolation is outside this contract's scope. The current Iris
-request interface does not provide DNS-answer validation with pinned public-IP
-connections; URL hostname checks are not such a boundary. Hosts may impose their
-own egress policy, but Harness does not require or claim private-network
-isolation. Adding another media service is not part of this contract.
+Harness does not enforce private-network isolation. Iris does not validate DNS
+answers against pinned public-IP connections; hostname checks are insufficient.
+Hosts that require egress restrictions must supply them.
 
 ## Release acceptance
 
@@ -61,10 +56,9 @@ changes only the Harness desk; native integrations use existing interfaces.
 
 ## Verification and operational measurements
 
-Continuous verification maintains native session and check grubs and the
-browser's verification view. It runs the same reducer as the head: it can reveal
-divergence, stale inputs, and reconstruction failures, but cannot independently
-certify the reducer's semantics or the correctness of external effects.
+Continuous verification maintains session/check grubs and the browser's
+verification view. It checks reconstruction using the head's reducer, not an
+independent model of correctness or proof of external actions.
 
 Measure admission acknowledgement and stop acknowledgement separately from
 provider latency and destination delivery. For empty, active and long-lived
