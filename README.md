@@ -1,20 +1,18 @@
 # Urbit Agent Harness
 
-Harness runs AI agents on an Urbit ship. The ship owns their conversations,
-memory, permissions and work records; models and interfaces connect to that
-durable state. Use the included web app, an editor, a native Urbit app or Tlon
-without making any one interface responsible for keeping the agent alive.
+Harness runs AI agents on your Urbit ship. Talk to them in the web app, Tlon,
+or a connected editor. They can research, use tools, work with other agents,
+and schedule follow-ups.
 
-A conversation can research, use tools, delegate work, manage Tlon content and
-schedule follow-ups. Its provider and model can change between turns without
-moving its history. Closing a browser does not stop accepted work.
+Your ship keeps the conversations, permissions, and work. You can switch clients
+or models without moving your history, and closing the browser doesn't stop
+work that's underway.
 
 ## How it fits together
 
-The **head** is the on-ship service that records inputs, decides what runs next
-and accepts results. **Hands** connect it to conversation surfaces and external
-effects. A conversation hand also tracks delivery separately from inference:
-a failed send does not require another model turn.
+The **head** runs conversations and keeps their history on the ship. **Hands**
+connect conversations to apps such as Tlon and track whether replies are sent.
+Model providers supply inference; tools give agents access to other services.
 
 ```mermaid
 flowchart LR
@@ -27,55 +25,24 @@ flowchart LR
   Head --> Verifier["Grubbery replay verifier"]
 ```
 
-This separation provides:
-
-- Continuity across clients, provider changes and agent reloads.
-- Inspectable history, explicit cancellation and branches that do not rerun
-  inherited effects.
-- Per-conversation permissions, with live checks at tool dispatch and result
-  admission.
-- Delivery records that distinguish accepted work, completed inference and an
-  uncertain external send.
-- Native and conventional integration paths around one conversation owner.
-
-Independent sessions can wait on providers and tools concurrently. They share
-Urbit's event loop; this is asynchronous progress, not parallel CPU execution.
+Conversations have separate tool permissions and can work concurrently while
+waiting on models and services. They share the ship's event loop.
 
 ## Capabilities
 
-- Model providers: OpenRouter, OpenAI, Anthropic and compatible custom endpoints;
-  provider credentials, model catalogs and per-conversation settings. OpenAI API
-  keys and device login have separate routes and credential slots.
-- Memory: source-linked hierarchical summaries, explicit pinned notes, retained
-  transcripts and permission-scoped lexical search. Compaction reduces model
-  context; it does not delete history.
-- Tools: path-scoped Clay reads, web search, general HTTP, shared skills,
-  subagents, peer requests and direct remote tool calls. MCP access is granted
-  by named server.
-- Tlon: DMs and threaded replies, history, reactions, groups, roles, moderation,
-  group DMs, Notes, uploads, persistent channel hooks and public publishing.
-  The reply hand and the ship-wide Tlon tool are independently configurable.
-- Scheduled work: destination-bound UTC cron runs and literal one-shot reminders,
-  with separate execution and delivery status.
-- Tasks, projects, and artifacts: shared task tracking, optional project grouping,
-  and Notes-backed documents with reviewed agent proposals. Publish saved snapshots
-  through native Notes; unified search groups matching artifact revisions.
-- [Work inbox](docs-refs/inbox.md): a read-only view of retained tasks, proposals,
-  schedules and hand receipts, newest first, with a default Needs attention filter
-  and explicit delivery uncertainty.
-- [Project access](docs-refs/project-access.md): shared document roles
-  and expiring, revocable, project-only read keys without sharing the ship login.
-- Clients: a React web app, a dependency-free ACP stdio adapter, native
-  poke/watch/scry interfaces, webhooks and a durable conversation-hand protocol.
+- Choose models from OpenRouter, OpenAI, Anthropic, or a compatible endpoint.
+- Search conversation history and pin notes that survive summarization.
+- Give agents web access, ship files, reusable skills, and tools from MCP servers.
+- Delegate work to local agents or mutually trusted ships.
+- Use Tlon conversations, groups, Notes, and publishing.
+- Schedule one-time follow-ups, recurring work, and reminders.
+- Keep track of tasks and projects, and review or publish documents in **Work**.
 
-Fresh-install defaults enable broad local capabilities, including general HTTP,
-shared skill authoring, ship-wide Tlon tools and Clay reads across desks.
-Review and narrow grants before connecting external participants. Saved defaults
-and existing conversations retain their explicit settings. JavaScript execution
-is opt-in and has broad host authority, not a sandbox enforced by other tool grants.
-
-Groups is needed for Tlon features, not for ordinary Harness conversations.
-Model inference uses configured providers; a native model runtime is not bundled.
+Default tools have broad access, including HTTP, ship files, skill authoring,
+and Tlon. Review permissions before connecting other people or agents.
+JavaScript execution is opt-in and is not sandboxed by other tool permissions.
+Tlon features and document storage need Groups; ordinary conversations do not.
+Models run through configured providers, not on the ship itself.
 
 See the [capability guide](docs-refs/capabilities.md) for scope and limits, or
 [companion workflows](docs-refs/companion.md) for practical uses.
@@ -126,10 +93,8 @@ See [context and memory](docs-refs/context-and-memory.md).
 
 ## Connect an editor or service
 
-HTTP-capable clients connect directly to the ship's ACP API through authenticated
-Eyre. The hand API is the on-ship `harness/hand` method; it needs no local adapter
-process. For a client that expects a local stdin/stdout executable, use the
-optional bridge:
+Clients can connect directly to the ship's authenticated ACP API. For an editor
+that expects a local stdin/stdout executable, use the bridge:
 
 ```sh
 SHIP_URL=http://localhost:8081 \
@@ -137,8 +102,7 @@ SHIP_CODE=your-ship-code \
 node acp/harness-acp.mjs
 ```
 
-Each ACP client has an independent ordered queue while addressing the same
-on-ship sessions. Treat the ship login code as an owner credential.
+Treat the ship login code as an owner credential.
 See the [adapter setup](acp/README.md) and [integration guide](docs-refs/integrations.md).
 
 ## Documentation

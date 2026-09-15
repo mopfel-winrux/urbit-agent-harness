@@ -8,31 +8,30 @@ web
 
 ## Users
 
-The ship owner works with agents through the web app, connected clients, and conversation hands such as Tlon. Agents coordinate work locally and with mutually trusted ships. Readers can access documents the owner explicitly shares or publishes.
+Ship owners who want to work with agents through the web app, Tlon, or a connected client, and people they choose to share work with.
 
 ## Product Purpose
 
-Harness is a ship-owned agent runtime. Conversations, accepted work, and results persist independently of the client used to reach them. Agents use granted tools to pursue the owner's requests, with visible evidence of execution and delivery.
+Ask for help and let the agents handle the work. Your ship keeps the conversations and results, so you can return through any connected client.
 
-Tasks keep track of units of work; optional projects collect related tasks. Agents handle this bookkeeping when it helps, without making the user manage an execution lifecycle. Artifacts preserve editable documents, accepted revisions, authorship, and source references.
+Tasks keep track of work; projects group related tasks. Agents handle the bookkeeping. Documents give useful results a home beyond the conversation.
 
 ## Capabilities and Constraints
 
-Task tracking and project metadata are shared by agents with Workspace access. A task records an assignment, progress, or outcome; it does not start inference, schedule work, or grant tools. Simple questions need no task.
+Agents can use tools, delegate to other agents, and schedule follow-ups within their permissions. Tasks record progress, not execution: creating one does not start an agent. Simple questions need no task.
 
-Artifacts use native Notes storage. Document membership, exact proposal review, and publication have separate controls. Saving or accepting a revision does not publish it; a public page exposes an explicitly selected accepted snapshot. Shared records do not expose private conversation transcripts or expand an agent's tool grants.
+Documents live in Notes. You choose who can read them, review agent proposals, and decide what to publish. Saving is separate from publishing. Sharing a document does not share your conversations or grant more tools.
 
 ## Operating Context
 
-The ship owns durable state and execution authority. Clients present that state; model providers and tool adapters supply inference and external capabilities. Native integrations retain ownership of their documents and delivery receipts. The Work views let the owner inspect and manage records without being required for ordinary conversation.
+Harness runs on the ship and connects to model providers and other services. The web app and Tlon are ways to reach it. Work lets you inspect tasks, projects, and documents when you want to; ordinary requests stay in conversation.
 
 ## Product Principles
 
-- Preserve stable identities and immutable accepted history.
-- Keep routine coordination in the background; surface useful results, blockers, and decisions.
-- Make sharing and publication deliberate, separate decisions.
-- Bind approvals to exact proposed content and a known base revision.
-- Keep execution and authority in the ship-owned head.
+- Keep work and its history on the ship.
+- Handle routine coordination quietly; bring back results and real decisions.
+- Make sharing and publishing deliberate.
+- Show exactly what the user is approving.
 
 ## Open Decisions
 

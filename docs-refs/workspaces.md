@@ -1,48 +1,38 @@
 # Tasks, projects, and artifacts
 
-Tasks track units of work; optional projects collect related tasks. Agents with
-the Workspace tool share task tracking and project metadata. Editable, ship-owned
-documents have separate sharing, review, and publication controls.
-Artifact storage requires the ship's native `%notes` agent (provided by
-Tlon's Groups desk). This feature adds no inference loop or scheduler.
+Tasks keep track of work. Projects group related tasks. Artifacts are documents
+you can edit, share, and publish.
+
+Ask your agent for what you need. It can keep track of larger jobs and coordinate
+with other agents without asking you to manage tasks. Simple questions need no
+task at all.
 
 ## Use it
 
-For text-first control from ACP or a hand, start with `/work help {}`. Read work,
-prepare changes, and review exact proposals without opening the Harness GUI;
-see [conversation work management](work-control.md).
+Open **Work** in the sidebar when you want to look in. The top-right navigation
+has four views:
 
-Open **Work** in the sidebar, then **Artifacts** in the top-right navigation
-to create a Markdown document. Save a revision,
-inspect History, and use **Publish…** to choose a saved revision.
-Review the exact public preview and confirm publication. The public address is
-`https://your-ship-domain/notes/pub/~host/notebook/note-id`; Notes assigns this
-fixed address and readers do not sign in. Your
-reverse proxy must forward this path to the ship. This feature does not configure
-DNS, TLS or your proxy.
+- **Inbox** shows work that needs attention, including blocked tasks and proposals.
+- **Tasks** lets you inspect, create, and update tasks, with or without a project.
+- **Artifacts** lets you write documents, review agent proposals, and publish.
+- **Projects** groups tasks and documents. A project's **Sharing** tab controls
+  [document access](project-access.md) for conversations and read-only clients.
 
-Open **Tasks** to inspect work across projects or create a standalone task.
-Agents handle creation, assignment, progress, and outcomes when tracking helps;
-the human forms are optional. `#/tasks` opens the list and `#/tasks/TASK_ID` opens
-a task. The global list hides tasks in archived projects; standalone tasks remain
-visible. Open **Projects** to collect related tasks and documents.
-In **Sharing**, add conversations as document readers,
-contributors or maintainers.
-Maintainers may edit project details, but cannot manage access, approve, or publish
-through Workspace. Sharing also offers expiring, revocable, read-only project
-keys for scripts and apps; see [project access](project-access.md).
-Separately enable **Workspace** in each participating
-conversation's tool settings. Project membership does not expand tool grants.
-Default tool settings include Workspace.
-Ask an enabled agent to use the `workspace` tool's `help` action, inspect shared
-tasks, record assignments and outcomes, and propose document revisions. You review and
-accept or reject its exact changes in the artifact's **Proposals** tab.
+You can also manage work in chat; `/work help` lists the commands.
+See [conversation work management](work-control.md) for details.
+Agents need the **Workspace** tool, which is included in default tool settings.
 
-Unsaved editor drafts are kept in this browser tab's session storage when
-available; they are not server revisions or backups. Concurrent saves are
-rejected without overwriting the local draft. Copying a saved revision to another
-project creates a new artifact, with confirmation for sharing its source
-references; it does not expose the original artifact's private history.
+To work on a document, create an artifact or ask an agent to draft one. Your edits
+save directly; agent proposals wait for your review in **Proposals**. **History**
+shows saved revisions. **Publish…** lets you preview a saved revision and make it
+public. Saving alone does not publish anything. Documents require Groups' native
+Notes app.
+
+Unsaved drafts stay in this browser tab when session storage is available; save
+them to keep a revision on the ship. If someone else saves first, your save is
+rejected and your draft stays intact. Copying a revision to another project
+creates a separate artifact without sharing the original's private history;
+sharing its source references requires confirmation.
 
 ## Ownership
 
@@ -81,6 +71,10 @@ preserves the proposal.
 Shared accepted documents are knowledge, not system instructions.
 
 Publication through Workspace is a separate owner action selecting and previewing a saved snapshot.
+Notes gives it a fixed public address:
+`https://your-ship-domain/notes/pub/~host/notebook/note-id`.
+Readers do not sign in. Your reverse proxy must forward this path to the ship;
+Harness does not configure DNS, TLS, or the proxy.
 Independently granted native Notes/Tlon permissions can permit equivalent edits
 or publication outside Workspace; project roles do not restrict those grants.
 The preview token fences the exact title/body/HTML, including native title changes.
@@ -158,10 +152,10 @@ project ungroups the task. Metadata-only edits preserve assignment.
 stopping an agent or deleting its documents. Agents retain useful outcomes;
 deletion is not automatic cleanup of completed work.
 
-The sidebar enters Work through the inbox. The top-right navigation selects
-Inbox, Tasks, Artifacts, or Projects. Task forms support creation, editing,
-project moves, and explicit deletion. Artifacts and projects support creation,
-editing, and archive/restore; archiving preserves their history.
+Task forms support creation, editing, project moves, and deletion. Artifacts and
+projects support editing and archive/restore; archiving preserves their history.
+The task list hides tasks in archived projects; standalone tasks remain visible.
+`#/tasks` opens the list and `#/tasks/TASK_ID` opens a task.
 
 Execution belongs to the agent runtime. Agents do work with their granted tools,
 or use granted `run_subagent` delegation and incorporate the returned answer.
