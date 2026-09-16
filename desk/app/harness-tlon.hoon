@@ -26,9 +26,11 @@
     def   ~(. (default-agent this %.n) bowl)
     cor   ~(. +> [bowl ~])
 ++  on-init
-  =.  state  state(policy [| ~ ~ &], watching |, activity-through now.bowl)
+  ::  Listen from installation; owner/trust policy still gates every sender.
+  ::  Saved enable/disable choices are preserved by on-load.
+  =.  state  state(policy [& ~ ~ &], watching |, activity-through now.bowl)
   =.  state  initialize-owner:cor
-  =^  cards  state  abet:refresh-peers:cor
+  =^  cards  state  abet:boot:refresh-peers:cor
   [cards this]
 ++  on-save  !>(state)
 ++  on-load

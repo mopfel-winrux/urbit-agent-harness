@@ -68,10 +68,15 @@ api.read = async (path) => {
   if (path === 'status/openai') return { 'has-key': device || apiKey, 'has-api-key': apiKey, 'has-device-login': device, 'auth-method': device ? 'device' : 'api-key' }
   if (path === 'status/brave') return { 'has-key': braveKey }
   if (path === 'search') return search
-  if (path === 'tools') return ['clay', 'web', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'mcp', 'tlon']
+  if (path === 'tools') {
+    if (params.has('hold-tools')) await new Promise((resolve) => { window.settingsFixture.releaseTools = resolve })
+    return ['clay', 'web', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'mcp', 'tlon', ...(params.has('all-permissions') ? ['curl', 'code', 'workspace', 'corpus'] : [])]
+  }
+  if (path === 'mcp' && params.has('fail-mcp') && !window.settingsFixture.retryMcp) throw new Error('MCP catalog unavailable in fixture')
   if (path === 'mcp' && params.get('page') !== 'mcp') return [
     { id: 'calendar', name: 'Calendar', enabled: true },
     { id: 'notes', name: 'Notes', enabled: true },
+    ...(params.has('all-permissions') ? [{ id: 'disabled', name: 'Disabled', enabled: false }] : []),
   ]
   return []
 }

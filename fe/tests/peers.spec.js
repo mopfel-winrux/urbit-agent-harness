@@ -1,5 +1,67 @@
 import { expect, test } from '@playwright/test'
 
+for (const surface of ['peers', 'tlon']) {
+  test(`${surface}: grant all fills the draft and saves current resources without changing limits`, async ({ page }) => {
+    await page.addInitScript(() => sessionStorage.setItem('settings-fixture-skills', JSON.stringify([{ name: 'checklist', desc: 'Make a checklist' }])))
+    await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}&all-permissions`)
+    await page.locator('summary').filter({ hasText: '~nec' }).click()
+    if (surface === 'peers') await page.getByRole('textbox', { name: 'Model override for ~nec' }).fill('custom-model')
+    await page.getByRole('spinbutton', { name: 'Peer token limit for ~nec' }).fill('500')
+    const bulk = page.getByRole('button', { name: 'Grant all available to ~nec' })
+    await bulk.click()
+    await expect(bulk).toHaveText('All available selected')
+    await expect(bulk).toBeDisabled()
+    await expect(page.getByRole('checkbox', { name: /All Clay files/ })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: /MCP: Calendar/ })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: /MCP: Disabled/ })).not.toBeChecked()
+    await expect(page.getByRole('checkbox', { name: /Cross-conversation recall/ })).toHaveCount(0)
+    expect(await page.evaluate(() => window.settingsFixture.saves)).toEqual([])
+    await page.getByRole('button', { name: surface === 'peers' ? 'Save peer settings' : 'Save Tlon settings', exact: true }).click()
+    await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.length)).toBe(surface === 'peers' ? 1 : 2)
+    const saves = await page.evaluate(() => window.settingsFixture.saves)
+    const grant = surface === 'peers' ? saves[0].peers.grants.find(row => row.ship === '~nec') : saves[0].tlon.trusted.find(row => row.ship === '~nec')
+    expect(grant.tools).toEqual(expect.arrayContaining(['web', 'curl', 'code', 'workspace', 'skills', 'subagents', 'peers', 'tlon', { clay: '/' }, { mcp: 'calendar' }, { mcp: 'notes' }]))
+    expect(grant.tools).not.toEqual(expect.arrayContaining(['admin']))
+    if (surface === 'peers') {
+      expect(grant).toMatchObject({ budget: 500, model: 'custom-model', inflows: ['checklist'] })
+    } else {
+      expect(saves[1].peers.limits).toEqual([{ ship: '~nec', budget: 500 }])
+    }
+    await page.reload()
+    await page.locator('summary').filter({ hasText: '~nec' }).click()
+    await expect(bulk).toHaveText('All available selected')
+    await page.getByRole('checkbox', { name: /Web search & GET/ }).uncheck()
+    await expect(bulk).toBeEnabled()
+  })
+}
+
+test('grant all waits for catalogs and recovers from a failed MCP read', async ({ page }) => {
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=peers&hold-tools&fail-mcp')
+  await page.locator('summary').filter({ hasText: '~nec' }).click()
+  const bulk = page.getByRole('button', { name: 'Grant all available to ~nec' })
+  await expect(bulk).toBeDisabled()
+  await page.evaluate(() => window.settingsFixture.releaseTools())
+  await expect(page.getByText('Permission catalog unavailable.')).toBeVisible()
+  await expect(bulk).toBeDisabled()
+  await page.evaluate(() => { window.settingsFixture.retryMcp = true })
+  await page.getByRole('button', { name: 'Retry loading permissions' }).click()
+  await expect(bulk).toBeEnabled()
+})
+
+for (const width of [1440, 390]) {
+  test(`peer model field stays compact at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/apps/harness/tests/settings-fixture.html?page=peers')
+    await page.locator('summary').filter({ hasText: '~nec' }).click()
+    const model = await page.getByRole('textbox', { name: 'Model override for ~nec' }).boundingBox()
+    const limit = await page.getByRole('spinbutton', { name: 'Peer token limit for ~nec' }).boundingBox()
+    expect(model.height).toBeLessThanOrEqual(44)
+    expect(model.height).toBe(limit.height)
+    if (width > 760) expect(model.y).toBe(limit.y)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  })
+}
+
 test('ownership uses a light read and contacts are shared without rapid settings polling', async ({ page }) => {
   await page.clock.install()
   await page.goto('/apps/harness/tests/settings-fixture.html?page=peers')

@@ -8,6 +8,8 @@ import { authMethod, withAuth, chooseProvider, catalogEndpoint } from '../provid
 import { emptyPeers, effectivePeers, editPeer, peerPayload } from '../peers'
 import ShipPicker from './ShipPicker'
 import ToolOptions, { toggleGrant } from './ToolOptions'
+import GrantAllAvailable from './GrantAllAvailable'
+import { peerTools } from '../peerGrants'
 import PeerTokenLimit from './PeerTokenLimit'
 import ProviderRoute from './ProviderRoute'
 import HeaderEditor from './HeaderEditor'
@@ -73,7 +75,8 @@ export default function PeerSettings() {
               <PeerTokenLimit ship={entry.ship} value={entry.budget} resource={stored} disabled={busy || unavailable} onChange={(budget) => edit(entry.ship, { budget })} />
               <label><span>Model override</span><input value={entry.model || ''} placeholder="Use serving model" aria-label={`Model override for ${entry.ship}`} onChange={(event) => edit(entry.ship, { model: event.target.value || null })} /><small className="field-note">Optional model ID on the serving provider.</small></label>
             </div>
-            <ToolOptions available={(tools.value || []).filter((name) => !['author', 'skill-write', 'corpus'].includes(name))} selected={entry.tools} servers={mcp.value || []} onChange={(grant) => edit(entry.ship, { tools: toggleGrant(entry.tools, grant) })} />
+            <GrantAllAvailable ship={entry.ship} selected={entry.tools} tools={tools} mcp={mcp} skills={skills} inflows={entry.inflows} onChange={(patch) => edit(entry.ship, patch)} />
+            <ToolOptions available={peerTools(tools.value || [])} selected={entry.tools} servers={mcp.value || []} onChange={(grant) => edit(entry.ship, { tools: toggleGrant(entry.tools, grant) })} />
             {tools.error && <p className="field-note">Tool catalog unavailable. Existing grants are preserved.</p>}
             <fieldset className="peer-skills"><legend>Shared skills</legend>
               {[...new Set([...(skills.value || []).map((skill) => skill.name), ...entry.inflows])].map((name) => <label className="tool-option" key={name}><input type="checkbox" checked={entry.inflows.includes(name)} onChange={() => edit(entry.ship, { inflows: entry.inflows.includes(name) ? entry.inflows.filter((item) => item !== name) : [...entry.inflows, name] })} /><span>{name}</span></label>)}

@@ -42,6 +42,18 @@ test('permission synchronization is change-driven and trust reads stay small', a
   assert.doesNotMatch(settings, /trusted-peers|effective-peers|\(is-owner /)
 })
 
+test('Tlon starts listening on install without overriding saved enable choices', async () => {
+  const agent = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const init = agent.split('++  on-init\n')[1].split('\n++  on-save')[0]
+  assert.match(init, /policy \[& ~ ~ &\]/)
+  assert.match(init, /initialize-owner:cor[\s\S]+abet:boot:refresh-peers:cor/)
+  const reload = agent.split('++  on-load\n')[1].split('\n++  on-poke')[0]
+  assert.doesNotMatch(reload, /policy \[|enabled\.policy\s+&/)
+  const boot = agent.split('++  boot\n')[1].split('\n++  watch-head')[0]
+  assert.match(boot, /\?\.  enabled\.policy  cor/)
+  assert.match(boot, /watch-head[\s\S]+%activity\] %watch \/v4/)
+})
+
 test('default native tests do not construct full Gall agents', async () => {
   const tests = new URL('../desk/tests/', import.meta.url)
   for (const name of await readdir(tests)) {

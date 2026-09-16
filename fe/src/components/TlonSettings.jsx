@@ -4,6 +4,8 @@ import { useResource } from '../useResource'
 import { BackIcon } from './Icons'
 import ShipPicker from './ShipPicker'
 import ToolOptions, { toggleGrant } from './ToolOptions'
+import GrantAllAvailable from './GrantAllAvailable'
+import { peerTools } from '../peerGrants'
 import TlonIcon from './TlonIcon'
 import TlonProfile from './TlonProfile'
 import TlonModels from './TlonModels'
@@ -85,7 +87,8 @@ export default function TlonSettings({ onBack, workOpen = false }) {
                 }} />
               {peerGrants.get(entry.ship)?.overridden && <p className="field-note">This ship also has an explicit peer grant in Settings → Peers. Removing Tlon trust does not revoke that separate grant.</p>}
             </div>
-            <ToolOptions servers={mcp.value || []} available={(tools.value || []).filter((name) => !['author', 'skill-write'].includes(name))} selected={entry.tools} onChange={(name) => toggleTool(entry.ship, name)} />
+            <GrantAllAvailable ship={entry.ship} selected={entry.tools} tools={tools} mcp={mcp} onChange={(patch) => change({ trusted: policy.trusted.map((item) => item.ship === entry.ship ? { ...item, ...patch } : item) })} />
+            <ToolOptions servers={mcp.value || []} available={peerTools(tools.value || [])} selected={entry.tools} onChange={(name) => toggleTool(entry.ship, name)} />
             </>}
             <button type="button" className="text-button" onClick={() => change({ trusted: policy.trusted.filter((p) => p.ship !== entry.ship) })}>Remove {entry.ship}</button>
           </details>)}
