@@ -1,0 +1,338 @@
+::  Gall persistence envelope. Keep its noun layout stable: on-save writes this
+::  directly, and harness-store loads each supported version without dropping
+::  sessions or credentials. Runtime bookkeeping is not session semantics.
+/-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, corpus=harness-corpus, cron=harness-cron, work=harness-workspace
+/-  hn=harness-notes
+/-  ws=harness-workspace-search
+/-  pc=harness-project-client
+/-  wc=harness-work-control
+|%
++$  state-27
+  $:  %27
+      workspace=state:work
+      work-controls=state:wc
+      project-clients=state:pc
+      workspace-search=state:ws
+      workspace-notes=state:hn
+      legacy-workspace=state-0:work
+      state-20
+  ==
++$  state-26  [%26 work-controls=state:wc state-24]
++$  state-25  [%25 work-controls=state:wc state-24]
++$  state-24  [%24 project-clients=state:pc state-23]
++$  state-23  [%23 workspace-search=state:ws state-22]
++$  state-22  [%22 workspace-notes=state:hn legacy-workspace=state-0:work state-21]
++$  state-21  [%21 workspace=state-0:work state-20]
++$  state-20
+  [%20 schedules=(map @uv schedule:cron) schedule-wake=(unit @da) tlon-cron-imported=? state-19]
++$  stream-progress  [body=@t sent=@ud]
++$  state-0
+  $:  %0
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h json)
+      acp-through=@ud
+  ==
++$  state-1
+  $:  %1
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [request-id=json cursor=@ud])
+      acp-through=@ud
+  ==
++$  state-2
+  $:  %2
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+  ==
++$  state-3
+  $:  %3
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+  ==
++$  state-4
+  $:  %4
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+  ==
++$  state-5
+  $:  %5
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+      defaults=config:h
+      mcp-servers=(map mcp-server-id:h mcp-server:h)
+  ==
++$  state-6
+  $:  %6
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+      defaults=config:h
+      mcp-servers=(map mcp-server-id:h mcp-server:h)
+      streams=(map [session-id:h @ud] stream-progress)
+  ==
++$  state-7
+  $:  %7
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+      defaults=config:h
+      mcp-servers=(map mcp-server-id:h mcp-server:h)
+      streams=(map [session-id:h @ud] stream-progress)
+      hands=state-0:hh
+  ==
++$  state-8
+  $:  %8
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+      defaults=config:h
+      mcp-servers=(map mcp-server-id:h mcp-server:h)
+      streams=(map [session-id:h @ud] stream-progress)
+      hands=state:hh
+  ==
++$  state-9
+  $:  %9
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+      defaults=config:h
+      mcp-servers=(map mcp-server-id:h mcp-server:h)
+      streams=(map [session-id:h @ud] stream-progress)
+      hands=state:hh
+      openai-auth=state:oauth
+  ==
++$  state-10
+  $:  %10
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+      defaults=config:h
+      mcp-servers=(map mcp-server-id:h mcp-server:h)
+      streams=(map [session-id:h @ud] stream-progress)
+      hands=state:hh
+      openai-auth=state:oauth
+  ==
++$  state-11
+  $:  %11
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+      defaults=config:h
+      mcp-servers=(map mcp-server-id:h mcp-server:h)
+      streams=(map [session-id:h @ud] stream-progress)
+      hands=state:hh
+      openai-auth=state:oauth
+      search-config=search-config:h
+      search-requests=search-requests:h
+  ==
++$  state-18
+  [%18 remote-access=(map @p peer-access:h) announced-access=(map @p peer-grant:h) state-17]
++$  state-19
+  $:  %19
+      local-mcp-seen=@ud
+      local-mcp=(map [session-id:h @t] local-mcp-progress:h)
+      peer-receipts=(map [@p ask-id:h] peer-receipt:h)
+      peer-active=(map session-id:h [ship=@p id=ask-id:h])
+      state-18
+  ==
++$  state-17  [%17 welcome-seen=@ud state-16]
++$  state-16  [%16 peer-budget-resets=(map @p @ud) state-15]
++$  state-15  [%15 peer-limits=(map @p @ud) state-14]
++$  state-14
+  $:  %14
+      summary-models=summary-models:h
+      corpus=state:corpus
+      corpus-wake=(unit @da)
+      state-13
+  ==
++$  state-13  [%13 modified=(map session-id:h @da) state-12]
++$  state-12
+  $:  %12
+      sessions=(map session-id:h session:h)
+      timers=(map [session-id:h @ta] timer:h)
+      subs=(map session-id:h [parent=session-id:h call-id=@t])
+      skills=(map @t skill:h)
+      staged=(map @t skill:h)
+      rehearsals=(map session-id:h @t)
+      peers=(map ship peer-grant:h)
+      peer-base=(unit config:h)
+      asks=(map ask-id:h [sid=session-id:h call-id=@t =ship])
+      serving=(map session-id:h (list [=ship id=ask-id:h]))
+      jobs=(map @ta [sid=session-id:h call-id=@t deadline=@da])
+      api-key=@t
+      acp-prompts=(map session-id:h [connection=connection-id:v1:ac request-id=json cursor=@ud])
+      acp-through=(map connection-id:v1:ac @ud)
+      provider-keys=(map @t @t)
+      model-requests=(map @ud [connection=connection-id:v1:ac request-id=json])
+      next-model-request=@ud
+      defaults=config:h
+      mcp-servers=(map mcp-server-id:h mcp-server:h)
+      streams=(map [session-id:h @ud] stream-progress)
+      hands=state:hh
+      openai-auth=state:oauth
+      search-config=search-config:h
+      search-requests=search-requests:h
+  ==
+--

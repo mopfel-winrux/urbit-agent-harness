@@ -1,0 +1,118 @@
+import { expect, test } from '@playwright/test'
+
+const open = (page, path = 'inbox') => page.goto(`/apps/harness/tests/workspace-fixture.html#/${path}`)
+const calls = (page) => page.evaluate(() => window.workFixture.calls)
+
+test('attention-first inbox reads only one bounded projection and opens exact source evidence', async ({ page }) => {
+  await open(page)
+  await expect(page.getByRole('heading', { name: 'Work inbox', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Needs attention\s*4$/ })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.inbox-record')).toHaveCount(4)
+  await expect(page.locator('.inbox-record').first()).toContainText('Delivery uncertain')
+  await expect(page.getByRole('heading', { name: 'Check the supplies list' })).toHaveCount(0)
+  expect((await calls(page)).map((call) => call.action)).toEqual(['inbox'])
+  await page.locator('.inbox-record').first().getByText('Recorded evidence', { exact: true }).click()
+  await expect(page.getByText('A delivery receipt records what the hand confirmed', { exact: false })).toBeVisible()
+  const proposal = page.locator('.inbox-record').filter({ hasText: 'Make dietary information easier to find.' })
+  await proposal.getByRole('link', { name: 'Review proposal' }).click()
+  await expect(page).toHaveURL(/artifacts\/guide\?proposal=suggestion$/)
+  await expect(page.getByRole('region', { name: 'Proposal review' })).toBeVisible()
+  await expect(page.locator('.diff-added')).toContainText('Label dishes with their ingredients.')
+  expect((await calls(page)).filter((call) => ['review', 'publish', 'artifact-save'].includes(call.action))).toEqual([])
+})
+
+test('running, claimed work, and completed delivery are not collapsed into one status', async ({ page }) => {
+  await open(page)
+  await page.getByRole('button', { name: /^Running/ }).click()
+  await expect(page.locator('.inbox-record')).toHaveCount(1)
+  await expect(page.getByRole('heading', { name: 'Check the supplies list' })).toBeVisible()
+  await page.getByRole('button', { name: /^Waiting/ }).click()
+  await expect(page.getByText('Open', { exact: true })).toBeVisible()
+  await expect(page.getByText('Scheduled', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: /^Finished/ }).click()
+  await expect(page.getByText('Reply recorded delivered', { exact: true })).toBeVisible()
+  await page.locator('.inbox-record').getByText('Recorded evidence', { exact: true }).click()
+  await expect(page.getByText('synthetic-native-reference', { exact: true })).toBeVisible()
+})
+
+test('source counts, stale pagination recovery, and exact tasks beyond the first page', async ({ page }) => {
+  await open(page)
+  await page.evaluate(() => {
+    const base = window.workFixture.db.tasks.venue
+    for (let i = 0; i < 30; i++) window.workFixture.db.tasks[`later-${i}`] = { ...base, id: `later-${i}`, title: `Later blocked task ${i}`, updated: base.updated - i - 1 }
+    window.workFixture.changed()
+  })
+  await page.getByRole('button', { name: 'Refresh inbox', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Source', exact: true }).selectOption('task')
+  await expect(page.getByRole('button', { name: /^Needs attention\s*31$/ })).toBeVisible()
+  await expect(page.locator('.inbox-record')).toHaveCount(24)
+  await page.getByRole('button', { name: 'Next page', exact: true }).click()
+  await expect(page.locator('.inbox-record')).toHaveCount(7)
+  await page.evaluate(() => window.workFixture.changed())
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.getByRole('alert')).toContainText('Work changed')
+  await expect(page.getByText('Current status unavailable', { exact: false })).toBeVisible()
+  await page.getByRole('button', { name: 'Refresh from first page', exact: true }).click()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Next page', exact: true }).click()
+  const row = page.locator('.inbox-record').filter({ has: page.getByRole('heading', { name: 'Later blocked task 29', exact: true }) })
+  await row.getByRole('link', { name: 'Open task' }).click()
+  await expect(page).toHaveURL(/tasks\/later-29$/)
+  await expect(page.getByRole('heading', { name: 'Later blocked task 29', exact: true })).toBeVisible()
+  await expect(page.locator('.work-task')).toHaveCount(1)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  expect((await calls(page)).filter((call) => ['task-claim', 'task-update'].includes(call.action))).toEqual([])
+})
+
+test('failed, loading, and empty reads cannot report a false all-clear', async ({ page }) => {
+  await open(page)
+  await page.evaluate(() => { window.workFixture.failInbox = true })
+  await page.getByRole('button', { name: 'Refresh inbox', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Showing the last successful read, not current status.')
+  await expect(page.getByText('No retained records need attention', { exact: true })).toHaveCount(0)
+  await page.evaluate(() => { window.workFixture.failInbox = false; window.workFixture.holdInbox = true })
+  await page.getByRole('combobox', { name: 'Source', exact: true }).selectOption('task')
+  await expect(page.getByText('Loading work records…', { exact: true })).toBeVisible()
+  await expect(page.locator('.inbox-record')).toHaveCount(0)
+  await page.evaluate(() => { window.workFixture.emptyInbox = true; window.workFixture.holdInbox = false; window.workFixture.releaseInbox() })
+  await expect(page.getByText('No retained records need attention', { exact: true })).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+})
+
+test('inbox stops polling when hidden or departed and refreshes once on return', async ({ page }) => {
+  await page.clock.install()
+  await open(page)
+  await expect(page.locator('.inbox-record')).toHaveCount(4)
+  const initial = (await calls(page)).length
+  await page.clock.runFor(60_100)
+  expect((await calls(page)).length - initial).toBe(2)
+  await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')) })
+  const hidden = (await calls(page)).length
+  await page.clock.runFor(120_000)
+  expect((await calls(page)).length).toBe(hidden)
+  await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: false }); document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('focus')) })
+  await expect.poll(async () => (await calls(page)).length).toBe(hidden + 1)
+  await page.getByRole('navigation', { name: 'Workspace', exact: true }).getByRole('link', { name: 'Artifacts', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Artifacts', exact: true })).toBeVisible()
+  const departed = (await calls(page)).filter((call) => call.action === 'inbox').length
+  await page.clock.runFor(60_000)
+  expect((await calls(page)).filter((call) => call.action === 'inbox')).toHaveLength(departed)
+})
+
+test('cross-artifact and cross-project links cannot present a mismatched review', async ({ page }) => {
+  await open(page, 'artifacts/private?proposal=suggestion')
+  await expect(page.getByRole('alert')).toContainText('different artifact')
+  await expect(page.getByRole('button', { name: 'Accept exact changes' })).toHaveCount(0)
+  await open(page, 'projects/neighborhood?task=research')
+  await page.evaluate(() => { window.workFixture.db.tasks.research.project = 'other-project'; window.workFixture.changed() })
+  await expect(page.getByRole('alert')).toContainText('another project')
+  await expect(page.getByRole('button', { name: 'Update task', exact: true })).toHaveCount(0)
+})
+
+test('real App navigation exposes inbox and its read-only empty state', async ({ page }) => {
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=app#/inbox')
+  await expect(page.getByRole('heading', { name: 'Work inbox', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Work', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByText('No retained records need attention', { exact: true })).toBeVisible()
+  expect(await page.evaluate(() => window.settingsFixture.calls.filter((name) => name === 'harness/inbox'))).toHaveLength(1)
+})

@@ -1,61 +1,83 @@
-# harness-acp
+# ACP clients and the optional stdio bridge
 
-An [Agent Client Protocol](https://agentclientprotocol.com) (ACP) server that bridges an ACP client — a code editor like Zed, or any ACP-speaking surface — to the `%harness` agent running on an Urbit ship.
+`harness-acp.mjs` projects the on-ship `%acp` queues onto newline-delimited
+JSON over stdin/stdout. It contains no agent loop and stores no transcript.
 
-ACP is a JSON-RPC protocol (like LSP, but for agents): a client spawns the agent as a subprocess and talks to it over stdio. `harness-acp.mjs` implements the **agent/server** side and translates every ACP call into an action on `%harness` over the ship's Eyre airlock — so an on-ship, event-sourced, self-modifying agent shows up as an ordinary ACP agent in any compatible client.
+The API runs on the ship, not in this script. The browser and HTTP-capable
+services connect directly through authenticated Eyre; native Urbit apps can
+use pokes, watches and scries. No local Node process is required for those clients.
 
-No ship-side changes are needed: `%harness` already exposes the whole surface this bridge uses.
+Use this bridge only when a client expects to launch an executable and exchange
+ACP over stdin/stdout. An HTTP endpoint cannot supply a local process's streams
+without a client-side bridge.
 
-## Mapping
-
-| ACP | %harness |
-|---|---|
-| `initialize` | static capabilities |
-| `session/new` | `%new` — creates a harness session (blank key → the ship's stored key) |
-| `session/load` | resumes an existing session id |
-| `session/prompt` | `%send`, then the transcript is polled and streamed back as `session/update` notifications (`agent_message_chunk`, `tool_call`, `tool_call_update`); resolves with a `stopReason` when the turn goes idle |
-| `session/cancel` | `%cancel` |
-
-Streaming is currently item-level (a whole assistant message / tool result at a time), because `%harness` doesn't yet stream tokens. When token streaming lands (roadmap #1), the same `session/update` channel carries finer chunks with no protocol change.
-
-## Requirements
-
-- **Node ≥ 22** (uses ESM + global `fetch`). No dependencies.
-- A running ship with `%harness` installed and an API key set (the "set key" button in the web UI, or a `%set-key` poke). The bridge sends a blank per-session key so the ship's stored key is used — no key touches this process.
-
-## Use
-
-Point your ACP client at the script. For example, a client that spawns agents by command would use:
-
-```
-command: node
-args:    /path/to/urbit-agent-harness/acp/harness-acp.mjs
-env:     SHIP_URL=http://localhost:8081
+```text
+ACP client <-- NDJSON --> harness-acp.mjs <-- authenticated Eyre --> %acp
 ```
 
-Environment:
+## Run
 
-| var | default |
-|---|---|
-| `SHIP_URL` | `http://localhost:8081` |
-| `SHIP_CODE` | `lidlut-tabwed-pillex-ridrup` (fakezod +code) |
-| `HARNESS_URL` | OpenRouter chat-completions endpoint |
-| `HARNESS_MODEL` | `openai/gpt-4o-mini` |
-| `HARNESS_SYSTEM` | a default system prompt |
-
-## Testing without a client
-
-Drive it with newline-delimited JSON-RPC on stdin:
+Requirements are Node 22 or newer, an installed `%harness` desk, the ship URL,
+and the output of `+code`.
 
 ```sh
-node acp/harness-acp.mjs
-{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}
-{"jsonrpc":"2.0","id":2,"method":"session/new","params":{"cwd":"/tmp","mcpServers":[]}}
-{"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"<from step 2>","prompt":[{"type":"text","text":"what time is it on the ship?"}]}}
+SHIP_URL=http://localhost:8081 \
+SHIP_CODE=your-ship-code \
+node /path/to/urbit-agent-harness/acp/harness-acp.mjs
 ```
 
-You'll see `session/update` notifications stream, then a `{"stopReason":"end_turn"}` result.
+An editor such as Zed can spawn that command with the same environment. There
+is deliberately no embedded login code.
 
-## Relation to Reid's tlon-acp
+| Variable | Default | Meaning |
+|---|---|---|
+| `SHIP_URL` | `http://localhost:8081` | Ship HTTP origin |
+| `SHIP_CODE` | required | Ship login code |
+| `ACP_CONNECTION` | random `harness-stdio-…` | Durable connection identifier |
+| `ACP_POLL_MS` | `100` | Queue polling interval |
 
-This is inspired by [`reid/tlon-acp`](https://github.com/tloncorp/tlon-apps/compare/develop...reid/tlon-acp), which pairs a ship-side `%acp` gall agent with a reusable `@tloncorp/acp` node package and a Tlon-channel bridge. Here the ship side is just the existing `%harness` agent and the bridge is a single dependency-free script; the ACP method/notification shapes follow the same protocol.
+Independent processes get distinct connections by default. Set a stable
+`ACP_CONNECTION` only when intentionally resuming the same ordered queue;
+do not share an active identifier between independent clients.
+
+## Behavior
+
+The adapter logs in, opens its connection, forwards every valid input frame to
+the agent queue, writes client frames to stdout in sequence order, and
+acknowledges them after writing. Invalid input receives a JSON-RPC parse error.
+Diagnostics are written to stderr.
+
+ACP session methods and Harness extensions are documented in
+[`docs-refs/acp.md`](../docs-refs/acp.md). The adapter does not proxy ambient
+filesystem or terminal methods; those capabilities are granted to a session as
+Harness tools.
+
+## Conversation hands
+
+`hand-client.mjs` adapts any initialized `call(method, params)` client to the
+on-ship `harness/hand` method. It is an optional helper library, not a server or
+required adapter process. Call the method directly when a helper is unnecessary;
+see [HTTP connection details](../docs-refs/integrations.md#acp-over-authenticated-eyre).
+It manages no transport or model loop. Bind a source
+to a configured session, admit observations with stable source ids, and deliver
+the independent publication outbox with claims and receipts. Native adapters
+use the same contract without ACP. See [hands](../docs-refs/hands.md) for the
+protocol, authority boundary, recovery rules, and an integration example.
+
+The same helper exposes `schedule`, `schedules`, `cancelSchedule`, and
+`clearSchedule` through the head-owned `harness/cron` namespace. Scheduling is
+available to any authorized hand and uses its existing delivery outbox; see
+[shared scheduled work](../docs-refs/scheduling.md).
+
+## Smoke test
+
+Start the adapter and enter:
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}
+{"jsonrpc":"2.0","id":2,"method":"session/new","params":{"name":"editor-test"}}
+{"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"editor-test","prompt":[{"type":"text","text":"Reply with ACP_OK"}]}}
+```
+
+The prompt first yields a `user_message_chunk`, then an assistant update and a
+terminal result.

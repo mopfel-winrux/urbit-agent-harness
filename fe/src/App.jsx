@@ -1,0 +1,115 @@
+import { lazy, Suspense, useEffect, useState } from 'react'
+import Chat from './components/Chat'
+import ConversationModal from './components/ConversationModal'
+import Settings from './components/Settings'
+import Sidebar from './components/Sidebar'
+import Welcome from './components/Welcome'
+import TlonSettings from './components/TlonSettings'
+import CorpusSearch from './components/CorpusSearch'
+import { useConversations } from './useConversations'
+import { acp } from './acp'
+const Workspace = lazy(() => import('./components/Workspace'))
+
+function route() {
+  const [value, query = ''] = location.hash.replace(/^#\/?/, '').split('?')
+  try {
+    const params = new URLSearchParams(query)
+    if (value === 'tasks' || value.startsWith('tasks/')) return { page: 'tasks', chat: '', id: decodeURIComponent(value.slice(6)) }
+    if (value === 'inbox') return { page: 'inbox', chat: '' }
+    if (value === 'artifacts' || value.startsWith('artifacts/')) return { page: 'artifacts', chat: '', id: decodeURIComponent(value.slice(10)), proposal: params.get('proposal') }
+    if (value === 'projects' || value.startsWith('projects/')) return { page: 'projects', chat: '', id: decodeURIComponent(value.slice(9)), task: params.get('task') }
+    if (value === 'tlon') return { page: 'tlon', chat: '', workOpen: params.get('work') === '1' }
+    if (value === 'search') return { page: 'corpus', chat: '' }
+    if (value === 'settings') return { page: 'settings', chat: '', tab: new URLSearchParams(query).get('tab') }
+    if (value.startsWith('settings/')) return { page: 'settings', chat: decodeURIComponent(value.slice(9)) }
+    return { page: 'chat', chat: value ? decodeURIComponent(value) : '' }
+  } catch { return { page: 'chat', chat: '' } }
+}
+
+export default function App() {
+  const [view, setView] = useState(route)
+  const [dialog, setDialog] = useState(null)
+  const [settingsEntry, setSettingsEntry] = useState(0)
+  const [error, setError] = useState('')
+  const [theme, setTheme] = useState(() => localStorage.getItem('harness-theme') || 'system')
+  const { chat: current, page } = view
+  const settings = page === 'settings'
+  const conversations = useConversations(current, choose)
+  const { chats, loading, resources } = conversations
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('harness-theme', theme)
+  }, [theme])
+  useEffect(() => {
+    const navigate = () => setView(route())
+    addEventListener('popstate', navigate)
+    addEventListener('hashchange', navigate)
+    return () => {
+      removeEventListener('popstate', navigate)
+      removeEventListener('hashchange', navigate)
+    }
+  }, [])
+  useEffect(() => {
+    if (page === 'chat' && chats.length && !chats.includes(current)) choose(chats[0], false)
+  }, [chats, current, page])
+
+  function choose(chat, push = true) {
+    setView({ page: 'chat', chat }); setError('')
+    if (push) history.pushState({}, '', `#/${encodeURIComponent(chat)}`)
+  }
+
+  function openSettings(chat = '') {
+    setSettingsEntry((entry) => entry + 1)
+    setView({ page: 'settings', chat }); setError('')
+    history.pushState({}, '', chat ? `#/settings/${encodeURIComponent(chat)}` : '#/settings')
+  }
+
+  function openTlon() {
+    setView({ page: 'tlon', chat: current }); setError('')
+    history.pushState({}, '', '#/tlon')
+  }
+
+  function openCorpus() {
+    setView({ page: 'corpus', chat: current }); setError('')
+    history.pushState({}, '', '#/search')
+  }
+
+  function openWorkspace(kind) {
+    setView({ page: kind, chat: current, id: '' }); setError('')
+    history.pushState({}, '', `#/${kind}`)
+  }
+
+  async function createChat(name) {
+    await conversations.create(name)
+  }
+
+  async function renameChat(name) {
+    await conversations.rename(dialog?.chat, name)
+  }
+
+  async function forkChat(name) {
+    const result = await acp.call('harness/session/fork', { sessionId: dialog.chat, eventCount: dialog.eventCount, name })
+    await conversations.refresh()
+    choose(result.sessionId)
+  }
+
+  async function deleteChat(name) {
+    if (!confirm(`Delete “${name}” and its transcript?`)) return
+    setError('')
+    try {
+      await conversations.remove(name)
+    } catch (cause) { setError(cause.message) }
+  }
+
+  const toggleTheme = () => setTheme((value) => ({ system: 'light', light: 'dark', dark: 'system' })[value] || 'system')
+
+  return <div className="app-shell">
+    <Sidebar chats={chats} current={page === 'chat' ? current : ''} onSelect={choose} onNew={() => setDialog({ mode: 'create' })} onRename={(chat) => setDialog({ mode: 'rename', chat })} onDelete={deleteChat} settings={settings && !current} onSettings={() => openSettings()} onSessionSettings={openSettings} tlon={page === 'tlon'} onTlon={openTlon} corpus={page === 'corpus'} onCorpus={openCorpus} work={page} onWorkspace={openWorkspace} />
+    {['inbox', 'artifacts', 'projects', 'tasks'].includes(page) ? <Suspense fallback={<main className="workspace"><p className="field-note" role="status">Loading workspace…</p></main>}><Workspace kind={page} id={view.id} proposal={view.proposal} task={view.task} onBack={() => choose(current)} /></Suspense> : page === 'corpus' ? <CorpusSearch onBack={() => choose(current)} onOpen={choose} /> : page === 'tlon' ? <TlonSettings workOpen={view.workOpen} onBack={() => choose(current)} /> : settings
+      ? <Settings key={`${current}:${settingsEntry}:${view.tab || ''}`} initialTab={view.tab} resources={resources} theme={theme} onThemeChange={setTheme} onBack={() => choose(current)} />
+      : current ? <Chat key={current} chat={current} theme={theme} onToggleTheme={toggleTheme} onSettings={() => openSettings(current)} onSelect={choose} onFork={(eventCount) => setDialog({ mode: 'fork', chat: current, eventCount })} /> : <Welcome loading={loading} onNew={() => setDialog({ mode: 'create' })} />}
+    {(error || conversations.error) && <div className="global-error" onClick={() => setError('')}>{error || conversations.error}</div>}
+    {dialog && <ConversationModal mode={dialog.mode} initialName={dialog.mode === 'fork' ? `${dialog.chat.slice(0, 50)}-branch` : dialog.chat || ''} onClose={() => setDialog(null)} onSave={dialog.mode === 'fork' ? forkChat : dialog.mode === 'rename' ? renameChat : createChat} />}
+  </div>
+}

@@ -1,0 +1,138 @@
+/-  c=harness-cron, hh=harness-hand, h=harness, *harness-store
+/+  *test, schedule=harness-schedule, hd=harness-hand, ht=harness-tools, storage=harness-store
+|%
+++  source
+  ^-  binding:hh
+  ['fixture-chat' 'room/launch' 'source' ~['alice'] &]
+++  action
+  ^-  $>(%add action:c)
+  [%add 0v1 'source-binding' 'alice' %prompt (pairs:enjs:format ~[['schedule' %s '* * * * *'] ['timezone' %s 'UTC'] ['prompt' %s 'Check launch status'] ['runs' %s '2']])]
+++  job
+  ^-  schedule:c
+  (create:schedule action source ~[%web] ~2026.9.9)
+++  test-maintenance-follows-invalidation-and-the-armed-deadline
+  =/  job  job
+  =/  jobs  (my ~[[0v1 job]])
+  ;:  weld
+    (expect !>(!(maintenance-needed:schedule jobs `next.job ~2026.9.9 |)))
+    (expect !>((maintenance-needed:schedule jobs `next.job ~2026.9.9 &)))
+    (expect !>((maintenance-needed:schedule jobs `next.job next.job |)))
+    (expect !>((maintenance-needed:schedule jobs `next.job (add next.job ~s1) |)))
+    (expect !>((maintenance-needed:schedule jobs ~ ~2026.9.9 |)))
+  ==
+++  test-overdue-busy-job-respects-backoff-until-receipt-or-wake
+  =/  job  job
+  =/  jobs  (my ~[[0v1 job]])
+  =/  now  (add next.job ~s1)
+  =/  retry  (add now ~s30)
+  ;:  weld
+    (expect !>(!(maintenance-needed:schedule jobs `retry now |)))
+    (expect !>((maintenance-needed:schedule jobs `retry now &)))
+    (expect !>((maintenance-needed:schedule jobs `retry retry |)))
+  ==
+++  test-settled-jobs-do-not-sweep-on-reads-but-still-invalidate
+  =/  job  job
+  =/  jobs  (my ~[[0v1 job(state %complete)] [0v2 job(state %cancelled)] [0v3 job(state %paused)]])
+  ;:  weld
+    (expect !>(!(maintenance-needed:schedule jobs ~ ~2026.9.10 |)))
+    (expect !>((maintenance-needed:schedule jobs ~ ~2026.9.10 &)))
+    (expect !>(!(maintenance-needed:schedule ~ ~ ~2026.9.10 |)))
+    (expect !>((maintenance-needed:schedule ~ `~2026.9.11 ~2026.9.10 &)))
+  ==
+++  test-scheduler-has-no-tlon-dependency
+  =/  job  job
+  ;:  weld
+    (expect-eq !>('fixture-chat') !>(hand.job))
+    (expect-eq !>('room/launch') !>(destination.job))
+    (expect-eq !>('source-binding') !>(binding.job))
+    (expect-eq !>('alice') !>(actor.job))
+    (expect-eq !>(`%harness) !>((tool-hand:ht 'cron_add')))
+  ==
+++  test-unknown-actor-and-disabled-binding-rejected
+  =/  action  action
+  =/  source  source
+  =/  wrong  (mule |.((create:schedule action(actor 'mallory') source ~ ~2026.9.9)))
+  =/  disabled  (mule |.((create:schedule action source(enabled |) ~ ~2026.9.9)))
+  (expect !>(&(?=(%| -.wrong) ?=(%| -.disabled))))
+++  test-reminder-cannot-change-hand-destination
+  =/  action  action
+  =/  args  (pairs:enjs:format ~[['at' %s '2026-09-10T10:00:00-05:00'] ['destination' %s 'another-room'] ['text' %s 'literal text']])
+  =/  wrong  (mule |.((create:schedule action(kind %reminder, args args) source ~ ~2026.9.9)))
+  (expect !>(?=(%| -.wrong)))
+++  test-valid-reminder-keeps-timezone-and-literal-body
+  =/  action  action
+  =/  args  (pairs:enjs:format ~[['at' %s '2026-09-10T10:00:00-05:00'] ['destination' %s 'room/launch'] ['text' %s '/cancel is literal reminder text']])
+  =/  out  (create:schedule action(kind %reminder, args args) source ~ ~2026.9.9)
+  ;:  weld
+    (expect-eq !>(%reminder) !>(kind.out))
+    (expect-eq !>('UTC-05:00') !>(timezone.out))
+    (expect-eq !>('/cancel is literal reminder text') !>(prompt.out))
+    (expect-eq !>(1) !>(remaining.out))
+  ==
+++  test-downtime-coalesces-and-run-budget-terminates
+  =/  once  (advance:schedule job 0v1 ~2026.9.10..12.00.30)
+  =/  done  (advance:schedule once 0v2 ~2026.9.10..12.02.00)
+  ;:  weld
+    (expect-eq !>(1) !>(remaining.once))
+    (expect-eq !>(~2026.9.10..12.01.00) !>(next.once))
+    (expect-eq !>(%complete) !>(state.done))
+    (expect-eq !>(0) !>(remaining.done))
+  ==
+++  test-one-time-work-uses-exact-time-and-completes-once
+  =/  action  action
+  =/  args  (pairs:enjs:format ~[['at' %s '2026-09-10T10:02:17-05:00'] ['prompt' %s 'Fetch the confirmed quote and finish the home task.']])
+  =/  once  (create:schedule action(args args) source ~[%workspace %curl] ~2026.9.9)
+  =/  done  (advance:schedule once 0v3 ~2026.9.10..15.02.18)
+  =/  repeat  (mule |.((advance:schedule done 0v4 ~2026.9.11)))
+  ;:  weld
+    (expect-eq !>(%prompt) !>(kind.once))
+    (expect-eq !>(~2026.9.10..15.02.17) !>(next.once))
+    (expect-eq !>('UTC-05:00') !>(timezone.once))
+    (expect-eq !>(1) !>(remaining.once))
+    (expect-eq !>(%complete) !>(state.done))
+    (expect-eq !>(0) !>(remaining.done))
+    (expect !>(?=(%| -.repeat)))
+    (expect-eq !>(`%harness) !>((tool-hand:ht 'schedule_once')))
+  ==
+++  test-one-time-work-rejects-invalid-or-past-time
+  =/  action  action
+  %-  zing
+  %+  turn  ~['2026-09-08T10:00:00Z' '2026-09-10T10:00:00' '2026-09-31T10:00:00Z' '2028-09-10T10:00:00Z']
+  |=  at=@t
+  =/  args  (pairs:enjs:format ~[['at' %s at] ['prompt' %s 'Work']])
+  =/  invalid  (mule |.((create:schedule action(args args) source ~ ~2026.9.9)))
+  (expect !>(?=(%| -.invalid)))
+++  test-pending-and-uncertain-work-prevent-overlap-and-clear
+  =/  job  job
+  =/  db=state:hh  *state:hh
+  =.  observations.db  (my ~[[0v1 [run-sid.job 'event' 'alice' 'test' ~2026.9.9 %completed]]])
+  =.  outbox.db  (my ~[[0v1 [0v1 run-sid.job hand.job destination.job run-sid.job %reply 'answer' %uncertain 'worker' '' ~]]])
+  =/  done  (job-value:schedule job(state %complete, remaining 0, last `0v1))
+  ;:  weld
+    (expect !>((busy:schedule done db)))
+    (expect !>(!(clearable:schedule done db)))
+    (expect !>((clearable:schedule done db(outbox ~))))
+  ==
+++  test-clearing-unfired-cancelled-job-keeps-budget-unused
+  =/  job  job
+  (expect !>((clearable:schedule (job-value:schedule job(state %cancelled)) *state:hh)))
+++  test-source-binding-scopes-list-results
+  =/  job  job
+  =/  jobs  (my ~[[0v1 job] [0v2 job(binding 'another-binding')]])
+  =/  result  (list-json:schedule jobs *state:hh `'source-binding')
+  ?>  ?=(%a -.result)
+  (expect-eq !>(1) !>((lent p.result)))
+++  test-schedules-strip-recursion-delegation-and-administration
+  (expect-eq !>(`(list tool-grant:h)`~[%web %workspace]) !>((scheduled-tools:ht ~[%cron %subagents %code %admin %web %workspace])))
+++  test-store-upgrade-preserves-prior-state-and-starts-one-empty-scheduler
+  =/  old=state-19  *state-19
+  =.  sessions.old  (my ~[['source' [~ 7]]])
+  =.  provider-keys.old  (my ~[['fixture' 'synthetic-secret']])
+  =/  loaded  (load:storage !>(old))
+  ;:  weld
+    (expect-eq !>(sessions.old) !>(sessions.loaded))
+    (expect-eq !>(provider-keys.old) !>(provider-keys.loaded))
+    (expect-eq !>(`(map @uv schedule:c)`~) !>(schedules.loaded))
+    (expect !>(!tlon-cron-imported.loaded))
+  ==
+--

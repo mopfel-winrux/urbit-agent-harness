@@ -1,0 +1,251 @@
+// Architectural checks complement behavior tests: keep dependency direction
+// legible as capabilities are added. File size is a guideline, not a test.
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { readFile, readdir } from 'node:fs/promises'
+
+const directory = new URL('../desk/lib/', import.meta.url)
+const sources = new Map(await Promise.all((await readdir(directory))
+  .filter((name) => /^harness(?:-.*)?\.hoon$/.test(name))
+  .map(async (name) => [name.slice(0, -5), await readFile(new URL(name, directory), 'utf8')])))
+const code = (name) => sources.get(name).split('\n').filter((line) => !line.trimStart().startsWith('::')).join('\n')
+const dependencies = (name) => [...code(name).matchAll(/^\/\+\s+(.+)$/gm)]
+  .flatMap((match) => match[1].split(',').map((entry) => entry.trim().split('=').at(-1).replace(/^\*/, '')))
+
+test('work guidance teaches bounded decomposition and quiet cross-ship coordination', () => {
+  const tools = code('harness-tools')
+  const workspace = tools.split('\n').find(line => line.includes("(fun 'workspace'"))
+  for (const instruction of ['completion check', 'dependencies', 'Keep tightly coupled steps together',
+    'capable agents', 'reassess', 'one home record', 'mutual Workspace grants',
+    'Never change trust', 'Keep coordination in the background', 'actual blockers',
+    'Ordinary questions need neither', 'not promise later follow-up',
+    'set status done with a concise verified outcome before replying', 'Never leave completed work open']) {
+    assert.ok(workspace.includes(instruction), `Missing work guidance: ${instruction}`)
+  }
+  assert.ok(workspace.length < 2600, 'Keep work guidance focused; action details belong in help')
+  assert.match(tools, /mutually trusted ship/)
+  assert.match(tools, /inspect the home task and never resend automatically/)
+})
+
+test('permission synchronization is change-driven and trust reads stay small', async () => {
+  const agent = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  assert.match(agent, /before-access\s+access-inputs:hc/)
+  assert.match(agent, /\?:\s+=\(before-access access-inputs:hc\)\s+`state\s+sync-peer-access:hc/)
+  assert.match(agent, /%peer-refresh\s+=\.\s+state\s+discover-local-mcp\s+sync-peer-access/)
+  const flush = agent.split('    flush-auth\n')[1].split('\n++  on-init')[0]
+  assert.doesNotMatch(flush, /mcp-server|discover-local-mcp/)
+  assert.match(agent, /\?:\s+!=\(0 local-mcp-seen\)\s+state/)
+  assert.doesNotMatch(code('harness-peer-trust'), /status\/json|mole|dejs|cron|ledger/)
+  assert.match(code('harness-peer-trust'), /peer-trust\/noun/)
+  const settings = agent.split('++  peer-settings\n')[1].split('\n++  peer-revision')[0]
+  assert.equal((settings.match(/snapshot:~\(\. peer-trust bowl\)/g) || []).length, 1)
+  assert.doesNotMatch(settings, /trusted-peers|effective-peers|\(is-owner /)
+})
+
+test('Tlon starts listening on install without overriding saved enable choices', async () => {
+  const agent = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const init = agent.split('++  on-init\n')[1].split('\n++  on-save')[0]
+  assert.match(init, /policy \[& ~ ~ &\]/)
+  assert.match(init, /initialize-owner:cor[\s\S]+abet:boot:refresh-peers:cor/)
+  const reload = agent.split('++  on-load\n')[1].split('\n++  on-poke')[0]
+  assert.doesNotMatch(reload, /policy \[|enabled\.policy\s+&/)
+  const boot = agent.split('++  boot\n')[1].split('\n++  watch-head')[0]
+  assert.match(boot, /\?\.  enabled\.policy  cor/)
+  assert.match(boot, /watch-head[\s\S]+%activity\] %watch \/v4/)
+})
+
+test('default native tests do not construct full Gall agents', async () => {
+  const tests = new URL('../desk/tests/', import.meta.url)
+  for (const name of await readdir(tests)) {
+    if (!name.endsWith('.hoon')) continue
+    assert.doesNotMatch(name, /benchmark/, 'large corpus benchmarks must be opt-in')
+    const source = await readFile(new URL(name, tests), 'utf8')
+    assert.doesNotMatch(source, /^\/=\s+.*\/app\//m,
+      `${name}: full-agent fixtures belong in tests-integration, outside the default 2 GB loom suite`)
+  }
+})
+
+test('semantic head depends on nouns, not providers or transports', () => {
+  for (const name of ['harness', 'harness-context', 'harness-memory', 'harness-lcm']) {
+    assert.deepEqual(dependencies(name), name === 'harness' ? ['harness-lcm'] : [])
+    assert.doesNotMatch(code(name), /\bjson\b|\.\^\(|%pass|bowl:gall/)
+  }
+})
+
+test('client settlement consumes the core outcome instead of defining completion', async () => {
+  const agent = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  for (const name of ['settle-acp', 'settle-hands', 'settle-sub', 'settle-asks']) {
+    const arm = agent.split(`++  ${name}\n`)[1]?.split('\n++  ')[0]
+    assert.ok(arm, `Missing settlement boundary: ${name}`)
+    assert.match(arm, /outcome:hl/)
+    assert.doesNotMatch(arm, /rear items|pending\.v|wait\.v|\[\[%cancelled/)
+  }
+})
+
+test('concrete bindings cannot import the session store or become an orchestrator', () => {
+  for (const name of ['harness-effects', 'harness-acp']) {
+    assert.doesNotMatch(code(name), /harness-store|state-\d|sessions=\(map/)
+    assert.ok(!dependencies(name).includes('harness-session'))
+  }
+})
+
+test('Harness libraries have no dependency cycles', () => {
+  const done = new Set()
+  function visit(name, path = []) {
+    assert.ok(!path.includes(name), `Dependency cycle: ${[...path, name].join(' -> ')}`)
+    if (done.has(name) || !sources.has(name)) return
+    for (const next of dependencies(name)) visit(next, [...path, name])
+    done.add(name)
+  }
+  for (const name of sources.keys()) visit(name)
+})
+
+test('inbox is a bounded owner projection, not a transcript reader or mutation path', async () => {
+  const projection = code('harness-inbox')
+  assert.doesNotMatch(projection, /play:|harness-session|harness-store|bowl:gall|%pass|\.\^\(|command\.pending|body\.value\.proposal/)
+  assert.match(projection, /\(lte limit 32\)/)
+  assert.match(projection, /\(row-json row db hands jobs native\)/)
+  const agent = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  const handler = agent.split("%'harness/inbox'")[1].split("%'harness/hand'")[0]
+  assert.match(handler, /decode:admin connection/)
+  assert.match(handler, /read:inbox/)
+  assert.doesNotMatch(handler, /handle-action|workspace-apply|hand-call/)
+})
+
+test('project client reads have no execution imports, owner promotion or notebook body listing', async () => {
+  const capability = code('harness-project-client')
+  assert.deepEqual(dependencies('harness-project-client'), ['harness-workspace-json', 'harness-workspace'])
+  assert.doesNotMatch(capability, /harness-store|harness-session|%pass|\.\^\(|bowl:gall/)
+  const agent = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  const handler = agent.split('++  serve-project-read\n')[1].split('\n++  serve\n')[0]
+  assert.match(handler, /authenticate:project-client/)
+  assert.match(handler, /read-action:project-client/)
+  assert.match(handler, /refresh-scoped:/)
+  assert.doesNotMatch(handler, /workspace-owner|workspace-request|handle-action|hand-call|authenticated\.req|acp-open|%poke/)
+  const fastPath = agent.split('++  on-poke\n')[1].split('  %-  flush-auth')[0]
+  assert.match(fastPath, /serve-project-read:hc/)
+  assert.match(fastPath, /%handle-http-request/)
+  const scoped = code('harness-notes').split('  ++  refresh-scoped\n')[1].split('  ++  refresh\n')[0]
+  assert.match(scoped, /\(note book note\.link\)/)
+  assert.doesNotMatch(scoped, /\/v0\/notes\//)
+})
+
+test('run inspection stays local and the adapter has no Steward export or trust effects', async () => {
+  assert.equal(sources.has('harness-run-report'), false, 'no orphaned export-only projection')
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  assert.doesNotMatch(adapter, /sync-lenses|harness-tlon-lens|%steward|trust-policy|pointer:lens/)
+  assert.doesNotMatch(code('harness-tlon-io'), /steward|trust-policy/)
+})
+
+test('Tlon is a replaceable hand, not an inference engine', async () => {
+  for (const name of ['harness', 'harness-session', 'harness-hand']) {
+    assert.doesNotMatch(code(name), /tlon|groups|contacts/)
+  }
+  for (const name of ['harness-tlon-policy', 'harness-tlon-story']) {
+    assert.doesNotMatch(code(name), /\.\^\(|%pass|bowl:gall/)
+  }
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  assert.doesNotMatch(adapter, /%connect\b|%request.*%iris|harness-provider|harness-store/)
+  assert.match(adapter, /%harness-hand/)
+})
+test('schedules have one shared head owner and no adapter timer', async () => {
+  assert.doesNotMatch(code('harness-schedule'), /harness-tlon|bowl:gall|%pass|\.\^\(/)
+  const head = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  assert.match(head, /poll-schedules:hc/)
+  assert.match(head, /%harness-cron-import/)
+  assert.match(head, /\?:  tlon-cron-imported  `state/)
+  assert.match(head, /harness\/cron/)
+  assert.doesNotMatch(adapter, /\+\+  (?:add-cron|poll-cron|stop-cron)/)
+  assert.doesNotMatch(code('harness-tlon-clock'), /cron|schedule/)
+  const settings = await readFile(new URL('../fe/src/components/Settings.jsx', import.meta.url), 'utf8')
+  const tlon = await readFile(new URL('../fe/src/components/TlonSettings.jsx', import.meta.url), 'utf8')
+  assert.match(settings, /CronSettings/)
+  assert.doesNotMatch(tlon, /<TlonCron|<CronSettings/)
+})
+test('scheduler maintenance is change-driven without caching effect authority', async () => {
+  const head = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  const arm = (name) => head.split(`++  ${name}\n`)[1]?.split('\n++  ')[0]
+  assert.match(head, /before-scheduler\s+schedule-inputs:hc/)
+  assert.match(head, /maintenance-needed:schedule-lib schedules schedule-wake now\.bowl !=\(before-scheduler schedule-inputs:hc\)/)
+  const inputs = arm('schedule-inputs').split('\n').filter((line) => !line.trimStart().startsWith('::')).join('\n')
+  for (const input of ['schedules', 'sessions', 'hands', 'rehearsals', 'peers', 'peer-limits', 'announced-access', 'tools.defaults']) {
+    assert.ok(inputs.includes(input), `Missing scheduler invalidation input: ${input}`)
+  }
+  assert.doesNotMatch(inputs, /\.\^\(|acp-through|model-requests|streams/)
+  assert.match(arm('poll-schedules'), /\(schedule-live job\)/)
+  assert.match(arm('execution-tools'), /\(schedule-live u\.scheduled\)/)
+  assert.match(head, /\[%x %cron-authority @ ~\][\s\S]*?\(schedule-live:hc u\.job\)/)
+})
+test('channel reconciliation uses self-role events and native live read authority', async () => {
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const activity = adapter.split('++  activity\n')[1].split('\n++  ')[0]
+  assert.match(activity, /target:membership our\.bowl enabled\.policy event/)
+  assert.match(activity, /reconcile:~\(\. io:membership bowl\)/)
+  const membership = code('harness-tlon-membership')
+  assert.match(membership, /channels\/can-read\/noun/)
+  assert.match(membership, /load\.net\.u\.channel/)
+  assert.doesNotMatch(membership, /%behn|%iris|harness-provider|harness-store|%group-join/)
+})
+test('unpermissioned Tlon senders have a local audit, never an outbound denial', async () => {
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const arm = adapter.split('++  record-denial\n')[1].split('\n++  ')[0]
+  assert.match(arm, /allowed:denial/)
+  assert.match(arm, /note 'permission-denied'/)
+  assert.doesNotMatch(arm, /%pass|publish|messenger|last-sent/)
+  assert.doesNotMatch(code('harness-tlon-denial'), /\+\+  message/)
+})
+test('native hook mutation subscribes before dispatch and waits beyond transport acknowledgement', async () => {
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const hookTool = code('harness-tlon-hook-tool')
+  assert.match(hookTool, /\(command args\)[\s\S]*%watch \/v0\/hooks/)
+  assert.doesNotMatch(hookTool, /%poke/)
+  const watch = adapter.split('      [%tlon-hooks @ ~]\n')[1].split('      [%tlon-hook-poke @ ~]\n')[0]
+  assert.ok(watch.indexOf('tool-authority request.u.receipt') < watch.indexOf('%poke %hook-action-0'))
+  assert.ok(watch.indexOf("u.receipt(body 'pending: awaiting native hook result')") < watch.indexOf('%poke %hook-action-0'))
+  assert.match(watch, /%hook-response-0/)
+  const ack = adapter.split('      [%tlon-hook-poke @ ~]\n')[1].split('      [%tlon-notes @ ~]\n')[0]
+  assert.match(ack, /\?~  p.sign  cor/)
+})
+
+test('Notes migration verifies native affiliation and fresh authority before dispatch', async () => {
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const migration = await readFile(new URL('../desk/lib/harness-tlon-notes-migration.hoon', import.meta.url), 'utf8')
+  assert.match(migration, /group\.notebook-state\.snapshot/)
+  assert.match(migration, /%watch \/v0\/notes/)
+  assert.match(adapter, /\[%tlon-notes-migration @ ~\][\s\S]*tool-authority request\.u\.receipt[\s\S]*command:~\(\. notes-migration bowl\)[\s\S]*%poke %notes-action-1/)
+  assert.match(adapter, /another native Notes change is pending/)
+  assert.doesNotMatch(migration, /%delete|%rename/)
+})
+
+test('history pagination is bounded, read-only and follows current lane authority', async () => {
+  const reader = code('harness-tlon-history-read')
+  assert.doesNotMatch(reader, /%poke|%pass|%watch|harness-store/)
+  assert.match(reader, /\(lte count 65\)/)
+  assert.match(reader, /\/older\/\(scot %ud u.before\)/)
+  assert.doesNotMatch(code('harness-tlon-history-page'), /\.\^\(|%pass|bowl:gall/)
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const tool = adapter.split('++  tool\n')[1].split('\n++  ')[0]
+  assert.ok(tool.indexOf('(tool-authority req)') < tool.indexOf("=('tlon_history_page'"))
+  assert.match(tool, /sham \[sid.req epoch.u.lane actor.u.lane to.u.lane name.call.req needle\]/)
+  assert.match(tool, /load:~\(\. history-read bowl\) to.u.lane before/)
+})
+
+test('Tlon addressing cannot become a second memory or command authority', () => {
+  assert.doesNotMatch(code('harness-tlon-input'), /%memory-set|%command-completed|harness-provider|harness-memory|harness-command|%pass|\.\^\(/)
+  assert.match(code('harness-tlon-policy'), /text:input our content.event/)
+  assert.doesNotMatch(code('harness-memory'), /\.\^\(|%pass|bowl:gall|harness-store|session-id/)
+})
+
+test('Tlon messages are driven by head facts and receipts, never maintenance wakes', async () => {
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const arm = (name) => adapter.split(`++  ${name}\n`)[1]?.split('\n++  ')[0]
+  assert.match(arm('on-arvo'), /maintain:cor/)
+  assert.doesNotMatch(arm('maintain'), /reconcile|%claim|publish/)
+  assert.match(arm('agent'), /\[%head ~\][\s\S]*%fact[\s\S]*reconcile/)
+  assert.match(arm('agent'), /%receipt phase\)[\s\S]*attempt\.u\.delivery[\s\S]*reconcile\(deliveries/)
+  assert.doesNotMatch(code('harness-tlon-clock'), /deliveries|observations|outbox|jobs/)
+  assert.match(arm('watch-head'), /%watch \/hand-events/)
+  assert.match(arm('claimed'), /%claim stage\.u\.delivery/)
+  assert.match(arm('claimed'), /attempt:\(get-control:hd db id\)/)
+})

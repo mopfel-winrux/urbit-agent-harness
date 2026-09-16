@@ -1,10 +1,10 @@
 /-  h=harness
-/+  hl=harness
+/+  hj=harness-json
 |_  upd=update:h
 ++  grow
   |%
   ++  noun  upd
-  ++  json  (update-json:hl upd)
+  ++  json  (update-json:hj upd)
   --
 ++  grab
   |%

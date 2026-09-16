@@ -1,49 +1,229 @@
-::  harness: the pure core of the head
-::
-::    replay (+play), decide (+decide), assemble the provider request
-::    (+request-body), digest the provider response (+parse-response).
-::    no i/o anywhere in this file.
+::  The deterministic head: replay, transcript, continuation and loop guards.
+::  This module depends only on the Harness noun vocabulary. It knows no JSON,
+::  provider, credential, client, Gall bowl, or executor implementation.
+::  +decide returns an intention; it never performs the intended operation.
 ::
 /-  h=harness
+/+  lcm=harness-lcm
 |%
+::  Shared libraries are not private conversation memory. Durable source
+::  provenance also protects an operator-created fork of a social transcript.
+++  social-context
+  |=  log=(list event:h)
+  ^-  ?
+  %+  lien  log
+  |=  e=event:h
+  ?&(?=(%input-received -.e) ?=(?(%hand %peer) -.source.input.e))
+::  Durable lineage survives completion and forks; ephemeral waiter maps do
+::  not. The runtime uses it to fence descendants without erasing history.
+++  delegation
+  |=  log=(list event:h)
+  ^-  (unit [parent=session-id:h call-id=@t rehearsal=?])
+  ?~  log  ~
+  ?:  ?=(%input-received -.i.log)
+    =/  source  source.input.i.log
+    ?:  ?=(%subagent -.source)  `[parent.source call-id.source |]
+    ?:  ?=(%rehearsal -.source)  `[parent.source call-id.source &]
+    $(log t.log)
+  $(log t.log)
+++  delegated-id
+  |=  [parent=session-id:h call-id=@t rehearsal=? generation=(unit @ud)]
+  ^-  session-id:h
+  %+  rap  3
+  :~  ?:(rehearsal 'rehearse--' '')
+      parent  '--'
+      ?~(generation '' (cat 3 (scot %ud u.generation) '--'))
+      call-id
+  ==
+::  Read the newest marker, including legacy in-flight requests. A legacy
+::  receipt can never borrow a later generation that reused its call ID.
+++  request-generation
+  |=  [ses=session:h call-id=@t]
+  ^-  (unit @ud)
+  =/  events  log.ses
+  |-  ^-  (unit @ud)
+  ?~  events  ~
+  ?:  ?&(?=(%tool-requested-2 -.i.events) =(call-id call-id.i.events))
+    `generation.i.events
+  ?:  ?&(?=(%tool-requested -.i.events) =(call-id call-id.i.events))
+    ~
+  $(events t.events)
+++  request-current
+  |=  [ses=session:h generation=(unit @ud) call-id=@t]
+  ^-  ?
+  ?.  (~(has in wait:(play log.ses)) call-id)  |
+  ?.  =(generation (request-generation ses call-id))  |
+  ?~  generation  &
+  =(u.generation next-req.ses)
 ::  +play: fold the event log (newest first) into a view
 ::
 ++  play
   |=  log=(list event:h)
   ^-  view:h
-  %+  roll  (flop log)
+  ::  Accumulate newest first, reversing once instead of copying every prefix.
+  =/  reversed  (roll (flop log) fold)
+  reversed(items (flop items.reversed), positions (flop positions.reversed))
+::  Incremental replay for rebuildable projections. The accumulator keeps
+::  items and positions newest-first; +play exposes them chronologically.
+++  fold
   |=  [e=event:h v=view:h]
   ^-  view:h
+  =.  revision.v  +(revision.v)
   ?-  -.e
-    %config-replaced       v(config config.e, err ~)
-    %input-admitted        v(items (snoc items.v item.e), err ~)
-    %llm-requested         v(pending `[req.e kind.e])
-    %llm-failed            v(pending ~, err `err.e)
+    ::  Editing policy is not permission to restart a failed request.
+    %config-replaced       v(config config.e)
+    %input-admitted        v(items [item.e items.v], positions [revision.v positions.v], err ~, cancelled ~, compact-attempts 0)
+    %input-received        v(items [item.input.e items.v], positions [revision.v positions.v], err ~, cancelled ~, compact-attempts 0)
+    %context-received      v(items [[%user body.e] items.v], positions [revision.v positions.v])
+    %command-completed    v(items [[%assistant body.e ~] items.v], positions [revision.v positions.v])
+    %memory-set           v(memory ?~(body.e (~(del by memory.v) name.e) (~(put by memory.v) name.e u.body.e)))
+    ::  A recorded request is an admitted continuation. Clearing the error
+    ::  here also keeps already-recorded config/retry exchanges replayable.
+    %llm-requested         v(pending `[req.e kind.e], err ~)
+    %llm-failed            v(pending ~, compaction ~, lcm-plan ~, err `err.e)
     %tool-requested        v(wait (~(put in wait.v) call-id.e))
-    %retried               v(err ~)
+    %tool-requested-2      v(wait (~(put in wait.v) call-id.e))
+    %retried               v(err ~, cancelled ~)
     %halted                v(pending ~, err `reason.e)
+    %forked                v(pending ~, compaction ~, lcm-plan ~, wait ~, cancelled ~, origin `[from.e at.e])
+    %compaction-planned    v(pending `[req.e %compaction], compaction `plan.e, lcm-plan ~, err ~, compact-attempts +(compact-attempts.v))
+    %lcm-planned           v(pending `[req.e %compaction], compaction `checkpoint.plan.e, lcm-plan `plan.e, err ~, compact-attempts +(compact-attempts.v))
+  ::  Results cannot revive a cancelled or superseded checkpoint, even when
+  ::  replayed independently of Gall. The plan fixes the cut before dispatch.
+      %checkpoint-completed
+    ?.  =(pending.v `[req.e %compaction])  v
+    ?~  compaction.v  v
+    =/  p  u.compaction.v
+    ?.  =(source.p (sham [summary.v (scag count.p (flop items.v))]))  v
+    ?:  ?&(?=(^ lcm-plan.v) !=(sources.u.lcm-plan.v (scag count.p (flop positions.v))))  v
+    =/  tail=(list item:h)  (slag count.p (flop items.v))
+    =/  positions=(list @ud)  (slag count.p (flop positions.v))
+    =/  forest
+      ?~  lcm-plan.v
+        (legacy:lcm lcm.v revision.v summary.e (scag count.p (flop positions.v)))
+      =/  plan  u.lcm-plan.v
+      (fall (append:lcm lcm.v revision.v summary.e sources.plan children.plan) lcm.v)
+    ::  An invalid tree transition cannot accept a provider checkpoint.
+    ?:  &(?=(^ lcm-plan.v) =(forest lcm.v))  v
+    ::  A manual command's reply belongs at its admitted boundary. Native
+    ::  input arriving during summary execution stays after it and still
+    ::  needs inference; the acknowledgement must not swallow that input.
+    =?  tail  ?=(^ reply.e)
+      =/  at  (sub length.p count.p)
+      (weld (scag at tail) [`item:h`[%assistant body.u.reply.e ~] (slag at tail)])
+    =?  positions  ?=(^ reply.e)
+      =/  at  (sub length.p count.p)
+      (weld (scag at positions) [revision.v (slag at positions)])
+    %=  v
+      pending  ~
+      summary  ?~(lcm-plan.v `summary.e (render:lcm forest))
+      items  (flop tail)
+      positions  (flop positions)
+      lcm  forest
+      lcm-plan  ~
+      compaction  ~
+      compact-usage  [(add prompt.compact-usage.v prompt.usage.e) (add completion.compact-usage.v completion.usage.e)]
+      total  [(add prompt.total.v prompt.usage.e) (add completion.total.v completion.usage.e)]
+    ==
+      %compaction-failed
+    ?.  =(pending.v `[req.e %compaction])  v
+    %=  v
+      pending  ~
+      compaction  ~
+      lcm-plan  ~
+      err  `err.e
+      compact-usage  [(add prompt.compact-usage.v prompt.usage.e) (add completion.compact-usage.v completion.usage.e)]
+      total  [(add prompt.total.v prompt.usage.e) (add completion.total.v completion.usage.e)]
+    ==
+  ::  Cancellation closes the provider exchange as well as the wait set.
+  ::  These are cancellation receipts, never claims of external rollback.
+  ::  Interpreting the event keeps existing logs intact and replayable.
+  ::
+      %cancelled
+    =/  closed  (cancel-results (flop items.v) reason.e)
+    %=  v
+      pending    ~
+      compaction  ~
+      lcm-plan  ~
+      wait       ~
+      cancelled  `reason.e
+      items      (weld (flop closed) items.v)
+      positions  (weld (reap (lent closed) revision.v) positions.v)
+    ==
   ::
       %tool-completed
     %=  v
       wait   (~(del in wait.v) call-id.e)
-      items  (snoc items.v [%tool call-id.e name.e body.e])
+      items  [[%tool call-id.e name.e body.e] items.v]
+      positions  [revision.v positions.v]
     ==
   ::
       %llm-completed
     %=  v
       pending  ~
-      items    (snoc items.v item.e)
+      items    [item.e items.v]
+      positions  [revision.v positions.v]
       total    :-  (add prompt.total.v prompt.usage.e)
                (add completion.total.v completion.usage.e)
     ==
   ::
       %compaction-completed
+    =/  kept  (retained (flop items.v))
+    =/  count  (sub (lent items.v) (lent kept))
     %=  v
       pending  ~
       summary  `summary.e
-      items    (retained items.v)
+      items    (flop kept)
+      positions  (scag (lent kept) positions.v)
+      lcm  (legacy:lcm lcm.v revision.v summary.e (scag count (flop positions.v)))
     ==
   ==
+::  Classify a turn at the settlement boundary. Outstanding effects are not
+::  terminal; an idle view without a final answer is not a successful reply.
+::  Cancellation is replayed state, not the position of an event in the log:
+::  a later config edit must not turn a cancelled turn into apparent success.
+++  outcome
+  |=  v=view:h
+  ^-  (unit outcome:h)
+  ?:  |(?=(^ pending.v) !=(~ wait.v))  ~
+  ?^  cancelled.v  `[%cancelled u.cancelled.v]
+  ?^  err.v  `[%failure u.err.v]
+  =/  last=(unit item:h)  ?~(items.v ~ `(rear items.v))
+  ?.  ?=([~ %assistant * ~] last)
+    `[%failure 'Session ended without a response']
+  `[%reply body.u.last]
+::  The human transcript is independent of the provider's compacted context.
+::  Event counts are stable message addresses within this session's history.
+::
+++  transcript
+  |=  log=(list event:h)
+  ^-  (list [at=@ud input-id=(unit input-id:h) =item:h])
+  =/  events  (flop log)
+  =/  at=@ud  0
+  =|  rows=(list [at=@ud input-id=(unit input-id:h) =item:h])
+  |-  ^-  (list [at=@ud input-id=(unit input-id:h) =item:h])
+  ?~  events  (flop rows)
+  =/  e  i.events
+  ?:  ?=(%cancelled -.e)
+    =/  before  (flop (turn rows |=([@ud (unit input-id:h) =item:h] item)))
+    =/  closed  (cancel-results before reason.e)
+    =/  added
+      (turn closed |=(it=item:h [+(at) ~ it]))
+    $(events t.events, at +(at), rows (weld (flop added) rows))
+  =/  row=(unit [input-id=(unit input-id:h) =item:h])
+    ?+  -.e  ~
+      %input-admitted  `[~ item.e]
+      %input-received  `[`id.input.e item.input.e]
+      %command-completed  `[~ [%assistant body.e ~]]
+      %checkpoint-completed  ?~(reply.e ~ `[~ [%assistant body.u.reply.e ~]])
+      %llm-completed   `[~ item.e]
+      %tool-completed  `[~ [%tool call-id.e name.e body.e]]
+    ==
+  ?~  row  $(events t.events, at +(at))
+  $(events t.events, at +(at), rows [[+(at) u.row] rows])
+++  transcript-items
+  |=  log=(list event:h)
+  (turn (transcript log) |=([@ud (unit input-id:h) =item:h] item))
 ::  +unanswered: trailing items with no assistant response yet
 ::
 ++  unanswered
@@ -82,6 +262,32 @@
   ?:  ?=(%assistant -.i.rev)
     [calls.i.rev after]
   $(rev t.rev, after [i.rev after])
+::  Outstanding calls, including calls not yet dispatched. The same gate
+::  determines execution and the terminal receipts produced by interruption.
+++  open-calls
+  |=  items=(list item:h)
+  ^-  (list tool-call:h)
+  =/  lc  (last-calls items)
+  =/  done=(set @t)
+    %-  ~(gas in *(set @t))
+    %+  murn  after.lc
+    |=(it=item:h ?:(?=(%tool -.it) `call-id.it ~))
+  (skip calls.lc |=(c=tool-call:h (~(has in done) id.c)))
+++  is-cancelled
+  |=  body=@t
+  =('cancelled: ' (end [3 11] body))
+++  cancel-results
+  |=  [items=(list item:h) reason=@t]
+  ^-  (list item:h)
+  %+  turn  (open-calls items)
+  |=  c=tool-call:h
+  :-  %tool
+  :+  id.c  name.c
+  %+  rap  3
+  :~  'cancelled: '  reason
+      '. No result was accepted. Execution may already have occurred; '
+      'do not assume rollback or repeat the action without checking.'
+  ==
 ::  loop-guard thresholds
 ::
 ++  max-fails  4    ::  consecutive failing tool results before halting
@@ -125,12 +331,14 @@
   ?:  ?=(%assistant -.i.rev)  $(rev t.rev, n +(n))
   $(rev t.rev)
 ::  +decide: what happens next; ~ means idle.
-::  skills come from agent state (they shape the request context,
-::  hence the token estimate); the lib stays pure
+::  The caller supplies a pure budget estimate. It is lazy so idle sessions
+::  and outstanding tool work need not build a provider request just to decide
+::  that nothing can run. A different encoding can supply a different estimate.
 ::
 ++  decide
-  |=  [v=view:h skills=(map @t skill:h)]
+  |=  [v=view:h budget=$-(~ @ud)]
   ^-  (unit step:h)
+  ?^  cancelled.v  ~
   ?^  pending.v  ~
   ::  async tool results still in flight
   ::
@@ -141,13 +349,7 @@
   ?~  items.v  ~
   ::  outstanding tool calls from the last assistant turn
   ::
-  =/  lc  (last-calls items.v)
-  =/  todo=(list tool-call:h)
-    =/  done=(set @t)
-      %-  ~(gas in *(set @t))
-      %+  murn  after.lc
-      |=(it=item:h ?:(?=(%tool -.it) `call-id.it ~))
-    (skip calls.lc |=(c=tool-call:h (~(has in done) id.c)))
+  =/  todo  (open-calls items.v)
   ?^  todo  `[%tools todo]
   =/  last=item:h  (rear items.v)
   ?:  ?=(%assistant -.last)  ~
@@ -174,591 +376,9 @@
         ' turns without resolving the request. stopping to avoid a '
         'runaway — send a new message to continue.'
     ==
-  ?.  (gth (est-tokens v skills) max-context.config.v)
+  ?.  (gth (budget ~) max-context.config.v)
     `[%turn ~]
-  ::  compact only when it would actually shed items; an over-budget
-  ::  irreducible tail proceeds rather than compacting forever
-  ::
-  ?:  (lth (lent (retained items.v)) (lent items.v))
-    `[%compact ~]
-  `[%turn ~]
-::  +js-loop-guard: reject the canonical unbounded-loop spellings.
-::  the wasm runtime has no preemption, so a tight infinite loop wedges
-::  the whole ship for the duration of its (single, blocking) event. a
-::  behn watchdog catches loops that YIELD; this catches the ones that
-::  don't, before any thread is spawned. coarse but cheap, and the model
-::  gets a clear error to correct against
-::
-++  js-loop-guard
-  |=  code=@t
-  ^-  (unit @t)
-  =/  flat  (normalize code)
-  =/  bad=(list @t)
-    :~  'while(true)'  'while(1)'  'while(!0)'
-        'for(;;)'  'do{'
-    ==
-  ?:  (lien bad |=(pat=@t (find-sub pat flat)))
-    :-  ~
-    %+  rap  3
-    :~  'rejected: unbounded loop construct detected. this runtime '
-        'cannot be interrupted, so infinite loops are not allowed. '
-        'use a loop with an explicit bound instead.'
-    ==
-  ~
-::  +normalize: lowercase and strip ascii whitespace, for pattern search
-::
-++  normalize
-  |=  t=@t
-  ^-  @t
-  %-  crip
-  %+  murn  (trip t)
-  |=  c=@t
-  ^-  (unit @t)
-  ?:  ?|(=(' ' c) =('\09' c) =('\0a' c) =('\0d' c))  ~
-  `?:(&((gte c 'A') (lte c 'Z')) (add c 32) c)
-::  +find-sub: does needle occur in haystack?
-::
-++  find-sub
-  |=  [needle=@t haystack=@t]
-  ^-  ?
-  =/  nl  (met 3 needle)
-  =/  hl  (met 3 haystack)
-  ?:  (gth nl hl)  |
-  =/  i  0
-  |-  ^-  ?
-  ?:  (gth i (sub hl nl))  |
-  ?:  =(needle (cut 3 [i nl] haystack))  &
-  $(i +(i))
-::  +clip: cap a cord's byte length, marking truncation
-::
-++  clip
-  |=  [t=@t cap=@ud]
-  ^-  @t
-  ?:  (lte (met 3 t) cap)  t
-  (cat 3 (end [3 cap] t) ' ...(truncated)')
-::  +est-tokens: crude budget: request bytes / 4
-::
-++  est-tokens
-  |=  [v=view:h skills=(map @t skill:h)]
-  ^-  @ud
-  (div (met 3 (en:json:html (request-body v %turn skills))) 4)
-::  +request-body: assemble the provider-native request
-::
-++  request-body
-  |=  [v=view:h kind=request-kind:h skills=(map @t skill:h)]
-  ^-  json
-  =/  msgs=(list json)
-    %-  zing
-    ^-  (list (list json))
-    :~  ~[(msg-json 'system' system.config.v)]
-      ::
-        ?~  summary.v  ~
-        :_  ~
-        %+  msg-json  'system'
-        (cat 3 'Summary of the conversation so far: ' u.summary.v)
-      ::
-        ::  the skill catalog rides along whenever %skills is granted;
-        ::  names and descriptions only, bodies are read on demand
-        ::
-        ?.  &((lien tools.config.v |=(t=term =(%skills t))) !=(~ skills))
-          ~
-        ~[(msg-json 'system' (skills-catalog skills))]
-      ::
-        (turn items.v item-json)
-      ::
-        ?.  =(%compaction kind)  ~
-        :_  ~
-        %+  msg-json  'user'
-        '''
-        Summarize the conversation so far for your own future reference.
-        Preserve all facts, decisions, names, and open tasks.
-        Reply with only the summary.
-        '''
-    ==
-  =/  base=(list [@t json])
-    :~  ['model' %s model.config.v]
-        ['messages' %a msgs]
-        ['stream' %b %.n]
-    ==
-  =?  base  &(=(%turn kind) !=(~ tools.config.v))
-    (snoc base ['tools' (tool-defs tools.config.v)])
-  (pairs:enjs:format base)
-::  +skills-catalog: the system message advertising available skills
-::
-++  skills-catalog
-  |=  skills=(map @t skill:h)
-  ^-  @t
-  %+  rap  3
-  :-  '''
-      You have a library of skills: named instructions for handling
-      particular kinds of task. When a task matches a skill, read its
-      body with the read_skill tool and follow it. Available skills:
-
-      '''
-  %+  turn  ~(tap by skills)
-  |=  [name=@t s=skill:h]
-  (rap 3 '- ' name ': ' desc.s '\0a' ~)
-::  +skills-json: the catalog for the ui (bodies withheld)
-::
-++  skills-json
-  |=  skills=(map @t skill:h)
-  ^-  json
-  :-  %a
-  %+  turn  ~(tap by skills)
-  |=  [name=@t s=skill:h]
-  ^-  json
-  (pairs:enjs:format ~[['name' %s name] ['desc' %s desc.s]])
-::
-++  msg-json
-  |=  [role=@t content=@t]
-  ^-  json
-  (pairs:enjs:format ~[['role' %s role] ['content' %s content]])
-::
-++  item-json
-  |=  it=item:h
-  ^-  json
-  ?-  -.it
-      %user  (msg-json 'user' body.it)
-  ::
-      %assistant
-    =/  base=(list [@t json])
-      :~  ['role' %s 'assistant']
-          ['content' %s body.it]
-      ==
-    =?  base  !=(~ calls.it)
-      %+  snoc  base
-      :-  'tool_calls'
-      :-  %a
-      %+  turn  calls.it
-      |=  c=tool-call:h
-      %-  pairs:enjs:format
-      :~  ['id' %s id.c]
-          ['type' %s 'function']
-          :-  'function'
-          (pairs:enjs:format ~[['name' %s name.c] ['arguments' %s args.c]])
-      ==
-    (pairs:enjs:format base)
-  ::
-      %tool
-    %-  pairs:enjs:format
-    :~  ['role' %s 'tool']
-        ['tool_call_id' %s call-id.it]
-        ['content' %s body.it]
-    ==
-  ==
-::  +all-tools: the canonical tool families, in code so a new session
-::  can default to the full set without re-granting after a state wipe.
-::  (peer sessions do NOT use this — their grant is explicit)
-::
-++  all-tools
-  ^-  (list term)
-  :~  %ship-time  %clay  %web  %code  %skills  %skill-write
-      %author  %subagents  %peers
-  ==
-::  +tool-defs: schemas for granted tool families
-::
-++  tool-defs
-  |=  tools=(list term)
-  ^-  json
-  :-  %a
-  %-  zing
-  %+  turn  tools
-  |=  t=term
-  ^-  (list json)
-  ?+  t  ~
-      %ship-time
-    :_  ~
-    %^    fun-json
-        'get_ship_time'
-      'Get the current time on the urbit ship hosting this agent'
-    ~
-  ::
-      %clay
-    :~  %^    fun-json
-            'read_desk_file'
-          %-  crip
-          %+  weld
-            "Read a file from the ship's filesystem (clay). "
-          "Path is /desk/spur, e.g. /harness/lib/harness/hoon"
-        ~[['path' 'the file path, as /desk/spur/file/ext']]
-      ::
-        %^    fun-json
-            'list_desk_files'
-          'List files under a clay directory. Path is /desk or /desk/spur'
-        ~[['path' 'the directory path, as /desk/spur']]
-    ==
-  ::
-      %web
-    :_  ~
-    %^    fun-json
-        'http_fetch'
-      %-  crip
-      %+  weld
-        "Fetch a url over http(s). Optional method (GET or POST) "
-      "and body (sent as json when present)."
-    :~  ['url' 'the url to fetch']
-        ['method' 'GET or POST; defaults to GET']
-        ['body' 'optional request body']
-    ==
-  ::
-      %skills
-    :_  ~
-    %^    fun-json
-        'read_skill'
-      %-  crip
-      %+  weld
-        "Read the full body of a named skill from your skill library. "
-      "The catalog of available skills is in your context."
-    ~[['name' 'the skill name']]
-  ::
-      %skill-write
-    :~  %^    fun-json
-            'write_skill'
-          %-  crip
-          %+  weld
-            "Create or update a named skill in your persistent skill "
-          "library. Skills survive across sessions."
-        :~  ['name' 'the skill name']
-            ['description' 'one line shown in the skill catalog']
-            ['body' 'the full skill text']
-        ==
-      ::
-        %^    fun-json
-            'delete_skill'
-          'Delete a named skill from your skill library'
-        ~[['name' 'the skill name']]
-    ==
-  ::
-      %author
-    :~  %^    fun-json
-            'propose_skill'
-          %-  crip
-          %-  zing
-          ^-  (list tape)
-          :~  "Stage a new or revised skill WITHOUT making it live. Use "
-              "this to author a skill, then rehearse_skill to test it, "
-              "then commit_skill only if the test succeeds."
-          ==
-        :~  ['name' 'the skill name']
-            ['description' 'one line for the skill catalog']
-            ['body' 'the full skill text']
-        ==
-      ::
-        %^    fun-json
-            'rehearse_skill'
-          %-  crip
-          %-  zing
-          ^-  (list tape)
-          :~  "Test a staged skill in a fresh sandboxed rehearsal "
-              "session that can see it, by giving it a sample task. "
-              "Returns what the rehearsal produced. Nothing you do here "
-              "touches your real state — if it fails, just revise and "
-              "rehearse again before committing."
-          ==
-        :~  ['name' 'the staged skill to test']
-            ['input' 'a sample task to try the skill on']
-        ==
-      ::
-        %^    fun-json
-            'commit_skill'
-          %-  crip
-          %+  weld
-            "Promote a staged skill to your live library, where future "
-          "sessions can use it. Do this only after a successful rehearsal."
-        ~[['name' 'the staged skill to commit']]
-      ::
-        %^    fun-json
-            'discard_skill'
-          'Drop a staged skill without committing it'
-        ~[['name' 'the staged skill to discard']]
-    ==
-  ::
-      %code
-    :_  ~
-    %^    fun-json
-        'run_js'
-      %-  crip
-      %-  zing
-      ^-  (list tape)
-      :~  "Run a JavaScript snippet on the ship and get its result. "
-          "The code MUST assign a function to module.exports; its return "
-          "value (JSON.stringify objects) is the result. Available: "
-          "console.*, fetch_sync(url), require('urbit_thread') for file "
-          "i/o. No unbounded loops (while(true), for(;;)): the runtime "
-          "cannot be preempted, so use a bounded loop or you are rejected."
-      ==
-    :~  ['code' 'the javascript source; must set module.exports to a function']
-    ==
-  ::
-      %peers
-    :_  ~
-    %^    fun-json
-        'ask_peer'
-      %-  crip
-      %+  weld
-        "Ask another ship's agent a question over the urbit network. "
-      "Their agent answers from their own knowledge; expect a delay."
-    :~  ['ship' 'the ship to ask, e.g. ~sampel-palnet']
-        ['prompt' 'the question or task']
-    ==
-  ::
-      %subagents
-    :_  ~
-    %^    fun-json
-        'run_subagent'
-      %-  crip
-      %+  weld
-        "Delegate a task to a fresh subagent session with no history. "
-      "It runs until done and its final answer is returned to you."
-    :~  ['prompt' 'the task for the subagent']
-        ['system' 'optional system prompt for the subagent']
-    ==
-  ==
-::  +fun-json: an openai function schema; first param is required
-::
-++  fun-json
-  |=  [name=@t desc=@t params=(list [@t @t])]
-  ^-  json
-  %-  pairs:enjs:format
-  :~  ['type' %s 'function']
-      :-  'function'
-      %-  pairs:enjs:format
-      :~  ['name' %s name]
-          ['description' %s desc]
-          :-  'parameters'
-          =/  props=json
-            :-  %o
-            %-  ~(gas by *(map @t json))
-            %+  turn  params
-            |=  [pn=@t pd=@t]
-            ^-  [@t json]
-            :-  pn
-            (pairs:enjs:format ~[['type' %s 'string'] ['description' %s pd]])
-          =/  req=json
-            :-  %a
-            ?~  params  ~
-            ~[`json`[%s -.i.params]]
-          %-  pairs:enjs:format
-          :~  ['type' %s 'object']
-              ['properties' props]
-              ['required' req]
-          ==
-      ==
-  ==
-::  +parse-response: digest a chat-completions response into branch fields
-::
-++  parse-response
-  |=  jon=json
-  ^-  (each [stop=stop-reason:h u=usage:h it=item:h] @t)
-  ?.  ?=([%o *] jon)  [%| 'unexpected response shape']
-  =/  err  (~(get by p.jon) 'error')
-  ?^  err
-    ?.  ?=([%o *] u.err)  [%| 'provider error']
-    =/  msg  (~(get by p.u.err) 'message')
-    [%| ?:(?=([~ %s *] msg) p.u.msg 'provider error')]
-  =/  choices  (~(get by p.jon) 'choices')
-  ?.  ?=([~ %a ^] choices)  [%| 'no choices in response']
-  =/  choice  i.p.u.choices
-  ?.  ?=([%o *] choice)  [%| 'malformed choice']
-  =/  stop=stop-reason:h
-    =/  fin  (~(get by p.choice) 'finish_reason')
-    ?.  ?=([~ %s *] fin)  %stop
-    ?+  p.u.fin  %stop
-      %'tool_calls'  %tool-calls
-      %length        %length
-    ==
-  =/  msg  (~(get by p.choice) 'message')
-  ?.  ?=([~ %o *] msg)  [%| 'no message in choice']
-  =/  content=@t
-    =/  c  (~(get by p.u.msg) 'content')
-    ?:(?=([~ %s *] c) p.u.c '')
-  =/  calls=(list tool-call:h)
-    =/  tc  (~(get by p.u.msg) 'tool_calls')
-    ?.  ?=([~ %a *] tc)  ~
-    %+  murn  p.u.tc
-    |=  j=json
-    ^-  (unit tool-call:h)
-    ?.  ?=([%o *] j)  ~
-    =/  id  (~(get by p.j) 'id')
-    =/  fun  (~(get by p.j) 'function')
-    ?.  &(?=([~ %s *] id) ?=([~ %o *] fun))  ~
-    =/  nam  (~(get by p.u.fun) 'name')
-    =/  arg  (~(get by p.u.fun) 'arguments')
-    ?.  &(?=([~ %s *] nam) ?=([~ %s *] arg))  ~
-    `[p.u.id p.u.nam p.u.arg]
-  =/  u=usage:h
-    =/  us  (~(get by p.jon) 'usage')
-    ?.  ?=([~ %o *] us)  [0 0]
-    =/  pt  (~(get by p.u.us) 'prompt_tokens')
-    =/  ct  (~(get by p.u.us) 'completion_tokens')
-    :-  ?:(?=([~ %n *] pt) (fall (rush p.u.pt dem) 0) 0)
-    ?:(?=([~ %n *] ct) (fall (rush p.u.ct dem) 0) 0)
-  [%& stop u [%assistant content calls]]
-::  json for the ui: full session view (key withheld)
-::
-++  view-json
-  |=  v=view:h
-  ^-  json
-  %-  pairs:enjs:format
-  :~  ['url' %s url.config.v]
-      ['model' %s model.config.v]
-      ['system' %s system.config.v]
-      ['max-context' (numb:enjs:format max-context.config.v)]
-      ['tools' %a (turn tools.config.v |=(t=term `json`[%s t]))]
-      ['summary' ?~(summary.v ~ [%s u.summary.v])]
-      ['items' %a (turn items.v item-ui-json)]
-      ['pending' %b !=(~ pending.v)]
-      ['wait' %a (turn ~(tap in wait.v) |=(id=@t `json`[%s id]))]
-      ['err' ?~(err.v ~ [%s u.err.v])]
-      :-  'usage'
-      %-  pairs:enjs:format
-      :~  ['prompt' (numb:enjs:format prompt.total.v)]
-          ['completion' (numb:enjs:format completion.total.v)]
-      ==
-  ==
-::
-++  item-ui-json
-  |=  it=item:h
-  ^-  json
-  ?-  -.it
-      %user
-    (pairs:enjs:format ~[['role' %s 'user'] ['body' %s body.it]])
-  ::
-      %assistant
-    %-  pairs:enjs:format
-    :~  ['role' %s 'assistant']
-        ['body' %s body.it]
-        :-  'calls'
-        :-  %a
-        %+  turn  calls.it
-        |=  c=tool-call:h
-        (pairs:enjs:format ~[['name' %s name.c] ['args' %s args.c]])
-    ==
-  ::
-      %tool
-    %-  pairs:enjs:format
-    :~  ['role' %s 'tool']
-        ['name' %s name.it]
-        ['body' %s body.it]
-    ==
-  ==
-::  json for the ui: one event
-::
-++  event-json
-  |=  e=event:h
-  ^-  json
-  ?-  -.e
-      %config-replaced
-    %-  pairs:enjs:format
-    :~  ['type' %s 'config']
-        ['model' %s model.config.e]
-    ==
-  ::
-      %input-admitted
-    %-  pairs:enjs:format
-    :~  ['type' %s 'input']
-        ['item' (item-ui-json item.e)]
-    ==
-  ::
-      %llm-requested
-    %-  pairs:enjs:format
-    :~  ['type' %s 'llm-requested']
-        ['req' (numb:enjs:format req.e)]
-        ['kind' %s kind.e]
-    ==
-  ::
-      %llm-completed
-    %-  pairs:enjs:format
-    :~  ['type' %s 'llm-completed']
-        ['stop' %s stop.e]
-        ['item' (item-ui-json item.e)]
-        :-  'usage'
-        %-  pairs:enjs:format
-        :~  ['prompt' (numb:enjs:format prompt.usage.e)]
-            ['completion' (numb:enjs:format completion.usage.e)]
-        ==
-    ==
-  ::
-      %llm-failed
-    %-  pairs:enjs:format
-    :~  ['type' %s 'llm-failed']
-        ['err' %s err.e]
-    ==
-  ::
-      %tool-requested
-    %-  pairs:enjs:format
-    :~  ['type' %s 'tool-requested']
-        ['name' %s name.e]
-    ==
-  ::
-      %tool-completed
-    %-  pairs:enjs:format
-    :~  ['type' %s 'tool']
-        ['name' %s name.e]
-        ['body' %s body.e]
-    ==
-  ::
-      %compaction-completed
-    %-  pairs:enjs:format
-    :~  ['type' %s 'compaction']
-        ['summary' %s summary.e]
-    ==
-  ::
-      %retried
-    (pairs:enjs:format ~[['type' %s 'retried']])
-  ::
-      %halted
-    %-  pairs:enjs:format
-    :~  ['type' %s 'halted']
-        ['reason' %s reason.e]
-    ==
-  ==
-::
-++  update-json
-  |=  upd=update:h
-  ^-  json
-  ?-  -.upd
-      %event
-    %-  pairs:enjs:format
-    :~  ['sid' %s sid.upd]
-        ['event' (event-json event.upd)]
-    ==
-  ==
-::  pokes from json (eyre channel / ui)
-::
-++  json-action
-  |=  jon=json
-  ^-  action:h
-  =,  dejs:format
-  =/  secs  (cu |=(s=@ud `@dr`(mul s ~s1)) ni)
-  %.  jon
-  %-  of
-  :~  new+(ot ~[sid+so config+json-config])
-      send+(ot ~[sid+so text+so])
-      fork+(ot ~[from+so to+so])
-      compact+(ot ~[sid+so])
-      cancel+(ot ~[sid+so])
-      delete+(ot ~[sid+so])
-      retry+(ot ~[sid+so])
-      config+(ot ~[sid+so config+json-config])
-      timer-set+(ot ~[sid+so name+(su sym) in+secs every+(mu secs) prompt+so])
-      timer-cancel+(ot ~[sid+so name+(su sym)])
-      skill-add+(ot ~[name+so desc+so body+so])
-      skill-del+(ot ~[name+so])
-      set-key+(ot ~[key+so])
-      commit-skill+(ot ~[name+so])
-      discard-skill+(ot ~[name+so])
-  ==
-::
-++  json-config
-  =,  dejs:format
-  ^-  $-(json config:h)
-  %-  ot
-  :~  url+so
-      model+so
-      key+so
-      system+so
-      max-context+ni
-      tools+(ar (su sym))
-  ==
+  ::  The planner either selects a bounded span or records a useful halt.
+  ::  An oversized irreducible request must never be sent optimistically.
+  `[%compact ~]
 --

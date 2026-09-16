@@ -1,3 +1,6 @@
-:~  %harness
+:~  %harness-grub
+    %harness
     %harness-fileserver
+    %acp
+    %harness-tlon
 ==

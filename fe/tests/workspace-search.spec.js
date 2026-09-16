@@ -1,0 +1,43 @@
+import { expect, test } from '@playwright/test'
+
+async function search(page) {
+  await page.goto('/apps/harness/tests/workspace-fixture.html#/search')
+  await page.getByRole('searchbox', { name: 'Search Harness' }).fill('courtyard')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await expect(page.locator('.corpus-hit')).toHaveCount(2)
+}
+test('artifact revisions collapse and expand without replacing the current document', async ({ page }) => {
+  await search(page)
+  await page.getByRole('button', { name: /A Saturday with the neighbors.*2 matching revisions/ }).click()
+  await expect(page.getByText('This is a historical match, not the current document.', { exact: false })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Open current artifact' })).toHaveAttribute('href', '#/artifacts/guide')
+  await expect(page.locator('.corpus-source-body')).toContainText('Label dishes with their ingredients.')
+  await page.getByRole('button', { name: 'Show 2 matching revisions' }).click()
+  await expect(page.locator('.corpus-version')).toHaveCount(2)
+  await page.getByRole('button', { name: /Revision 1.*A Saturday/ }).click()
+  await expect(page.locator('.corpus-source-body')).not.toContainText('Label dishes with their ingredients.')
+  await expect(page.locator('.corpus-source-body')).not.toContainText('venue is now the park')
+  await page.getByRole('button', { name: 'Load more results' }).click()
+  await expect(page.locator('.corpus-hit')).toHaveCount(4)
+  expect(await page.locator('.corpus-hit').filter({ hasText: 'A Saturday with the neighbors' }).count()).toBe(1)
+})
+test('conversation reads stay on the existing source API and work records link to their project', async ({ page }) => {
+  await search(page)
+  await page.getByRole('button', { name: /neighborhood-research.*Bring a table/ }).click()
+  await expect(page.locator('.corpus-source-body')).toContainText('Synthetic retained message')
+  await page.getByRole('button', { name: 'Close source' }).click()
+  await page.getByRole('button', { name: 'Load more results' }).click()
+  await page.getByRole('button', { name: /Gather the practical details.*task/ }).click()
+  await expect(page.getByRole('link', { name: 'Open project' })).toHaveAttribute('href', '#/projects/neighborhood')
+  await expect(page.locator('.corpus-source-body')).toContainText('List the supplies')
+})
+test('a stale source fails explicitly and retries without silently showing the current revision', async ({ page }) => {
+  await search(page)
+  await page.evaluate(() => { window.workFixture.failSearchRead = true })
+  await page.getByRole('button', { name: /A Saturday with the neighbors.*2 matching revisions/ }).click()
+  await expect(page.getByRole('alert')).toContainText('Search content or access changed')
+  await expect(page.locator('.corpus-source-body')).toHaveCount(0)
+  await page.evaluate(() => { window.workFixture.failSearchRead = false })
+  await page.getByRole('button', { name: 'Retry source' }).click()
+  await expect(page.locator('.corpus-source-body')).toContainText('courtyard')
+})

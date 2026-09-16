@@ -1,105 +1,126 @@
-# urbit-agent-harness
+# Urbit Agent Harness
 
-An **AI agent harness that runs as a Gall agent on Urbit** — the durable, event-sourced *head* of an agent loop, with the heavy *hands* (LLM calls, code execution, web) borrowed from the runtime and other ships.
+Harness runs AI agents on your Urbit ship. Talk to them in the web app, Tlon,
+or a connected editor. They can research, use tools, work with other agents,
+and schedule follow-ups.
 
-It follows the ["Urbit is for your personal agent harness"](https://github.com/lukebuehler/urbit-agent/blob/main/README.md) proposal: the agent loop is a deterministic state machine over an event log — exactly Arvo's shape — so the parts that make Urbit awkward for ordinary apps (one event log, computation split from I/O, state as a value) are precisely what a long-lived, forkable, self-modifying agent wants.
+Your ship keeps the conversations, permissions, and work. You can switch clients
+or models without moving your history, and closing the browser doesn't stop
+work that's underway.
 
-> Working name of the desk is `%harness`. It'll probably get a better one.
+## How it fits together
 
-## The shape
+The **head** runs conversations and keeps their history on the ship. **Hands**
+connect conversations to apps such as Tlon and track whether replies are sent.
+Model providers supply inference; tools give agents access to other services.
 
-- **The head** is the `%harness` Gall agent. A *session* is an event log (a closed vocabulary of events); replaying it yields a view; a pure decider chooses the next step (plan a turn, run tools, compact, or halt). No I/O lives in the core.
-- **The hands** are borrowed: LLM turns and web fetches go out through **Iris**, code runs as **wasm/spider threads**, sub-agents and peers are just more sessions. Results re-enter the log as events. The head never blocks.
-- Everything the agent is — its config, tools, skills, memory — is **data in state**, mutable at runtime without a Clay commit.
-
-```
-  Eyre (web UI, webhooks) ─┐
-  Ames (peer agents) ──────┤     ┌─────────────── %harness (the head) ───────────────┐
-  Behn (timers) ───────────┼───▶ │  session log (noun) → view → decider → step        │
-  pokes / urbit-mcp ───────┘     │  skills, config, peers, staged proposals (state)   │
-                                 └───────────────────────┬────────────────────────────┘
-                                          intents (refs) │ receipts re-enter as events
-                                 ┌───────────────────────▼────────────────────────────┐
-                                 │  hands: Iris (LLM/web) · spider+wasm (run_js) ·      │
-                                 │  Ames (ask_peer) · Behn (timers)                     │
-                                 └──────────────────────────────────────────────────────┘
-```
-
-## What works today
-
-**Core loop** — event-sourced sessions, provider-native turns (OpenAI-compatible / OpenRouter via Iris), provider-executed **compaction** with verbatim tail retention, **forking** (a session is one noun; a fork shares structure and diverges freely), **cancel/retry**, and **loop detection** (halts a session that repeats a failing tool call or runs too many turns without resolving).
-
-**Tools** (families, granted per session; new sessions default to all):
-| family | tools | notes |
-|---|---|---|
-| `ship-time` | `get_ship_time` | on-ship, sync |
-| `clay` | `read_desk_file`, `list_desk_files` | reads the ship filesystem |
-| `web` | `http_fetch` | **async** via Iris; result re-enters as an event |
-| `code` | `run_js` | JavaScript as a wasm/spider thread; QuickJS errors feed back for self-correction; loop-guarded (see below) |
-| `skills` | `read_skill` | reads the agent's skill library; the catalog rides in context |
-| `skill-write` | `write_skill`, `delete_skill` | direct (ungoverned) authoring |
-| `author` | `propose_skill`, `rehearse_skill`, `commit_skill`, `discard_skill` | **governed self-modification** (see below) |
-| `subagents` | `run_subagent` | a child session; answer returns via `+settle` |
-| `peers` | `ask_peer` | ask another ship's agent over Ames |
-
-**Skills in state** — the agent's knowledge is a `(map name skill)` in agent state (not desk files, to avoid OTA/ownership tangles). The catalog (names + descriptions) is injected into context when `skills` is granted; bodies are read on demand.
-
-**Governed self-modification** — the flagship loop: the agent `propose_skill`s a new skill, `rehearse_skill`s it in a **sandboxed child session** that can see the staged skill and run code against a sample task, and `commit_skill`s it to the live library only if the rehearsal works. The rehearsal is stripped of state-mutating and outward tools, and if it crashes nothing touches the parent — a failed event leaves no trace. Proven: an agent authored a JS `fib` skill, rehearsed it (N=20 → 6765), and committed it.
-
-**Agent-to-agent over Ames** — `ask_peer(ship, prompt)` sends a typed ask (`%harness-a2a-0` mark) to another ship's harness. The answer crosses the wire; the data doesn't. The serving side runs the ask in a **durable, sandboxed per-peer session** under an **identity-based grant** (`peer-grant`: which tools, which model, a token budget, which skills are visible). Absent grant = refused. Verified across two fakeships, including grant/revoke.
-
-**Timers** — `%timer-set` schedules a Behn wakeup whose prompt is admitted as input; the agent can wake itself.
-
-**Safety** — `run_js` infinite loops are guarded two ways: a static guard rejects `while(true)`/`for(;;)` before dispatch (the runtime has no preemption), and a 30s Behn watchdog `%spider-stop`s a thread that hangs while yielding. API keys live in agent state, resolved at send time (a session's config key can be blank).
-
-## Surfaces
-
-- **Web chat UI** at `http://<ship>/harness` (served from `/web` by `%harness-fileserver`, Fang's fileserver pattern). New/fork/delete/compact/retry/cancel, set ship key, per-tool grants.
-- **Pokes** — `%harness-action` (or `%noun`) with the `action` type in [`sur/harness.hoon`](desk/sur/harness.hoon).
-- **Scry namespace** — `/x/sessions`, `/x/session/[sid]`, `/x/skills`, `/x/staged`, `/x/timers`, `/x/peers`, `/x/tools`, `/x/status`. The session view is legible JSON; any front-end renders from it.
-- **Webhooks** — `POST /harness-api/webhook/[sid]` with `{"text": …}` admits external input.
-- **urbit-mcp** — drive it from an MCP client via pokes/scries.
-
-## Layout
-
-```
-desk/
-  sur/harness.hoon        types: events, config, actions, a2a protocol
-  lib/harness.hoon        the pure core: play · decide · request-body · parse-response
-  app/harness.hoon        the Gall agent (sessions, tool dispatch, the hands)
-  app/harness-fileserver.hoon + app/fileserver/config.hoon   serves the UI
-  web/index.html          the chat UI
-  mar/harness/{action,update,a2a-0}.hoon   marks
-  lib/wasm/*, sur/wasm/*, lib/thread-builder-js.hoon, quick-js-emcc.wasm
-                          vendored JS-on-wasm runtime (for run_js)
-docs-refs/                design docs and spike notes (see below)
+```mermaid
+flowchart LR
+  Clients["Web app · editors · services"] <-->|ACP| Head["Harness: sessions, memory, policy"]
+  Native["Native Urbit apps"] <-->|typed nouns| Head
+  Tlon["Tlon DMs · channels · threads"] <--> Hand["Tlon hand"]
+  Hand <-->|inputs · delivery receipts| Head
+  Head <--> Models["Model providers"]
+  Head <--> Tools["Tools · MCP · peers"]
+  Head --> Verifier["Grubbery replay verifier"]
 ```
 
-## Running it
+Conversations have separate tool permissions and can work concurrently while
+waiting on models and services. They share the ship's event loop.
 
-Boot a fakezod, install the desk:
+## Capabilities
 
-```
-urbit -F zod --http-port 8081 -c zod
-# in the dojo:
+- Choose models from OpenRouter, OpenAI, Anthropic, or a compatible endpoint.
+- Search conversation history and pin notes that survive summarization.
+- Give agents web access, ship files, reusable skills, and tools from MCP servers.
+- Delegate work to local agents or mutually trusted ships.
+- Use Tlon conversations, groups, Notes, and publishing.
+- Schedule one-time follow-ups, recurring work, and reminders.
+- Keep track of tasks and projects, and review or publish documents in **Work**.
+
+Default tools have broad access, including HTTP, ship files, skill authoring,
+and Tlon. Review permissions before connecting other people or agents.
+JavaScript execution is opt-in and is not sandboxed by other tool permissions.
+Tlon features and document storage need Groups; ordinary conversations do not.
+Models run through configured providers, not on the ship itself.
+
+See the [capability guide](docs-refs/capabilities.md) for scope and limits, or
+[companion workflows](docs-refs/companion.md) for practical uses.
+
+## Build and install
+
+Create and mount a desk in Dojo:
+
+```text
 |new-desk %harness
 |mount %harness
-# copy desk/* into zod/harness/, then:
+```
+
+Assemble into the mount:
+
+```sh
+zig build -Ddesk=/path/to/pier/harness
+```
+
+Commit and install in Dojo:
+
+```text
 |commit %harness
 |install our %harness
 ```
 
-Open `http://localhost:8081/harness` (fakezod code `lidlut-tabwed-pillex-ridrup`), click **set key** to store an OpenRouter key, then **new** to start a session. Reliable test model: `openai/gpt-4o-mini`. Free models on OpenRouter (`minimax/minimax-m3:free`, etc.) work but rate-limit heavily.
+Open `/apps/harness`. In Settings, configure a provider and model, review default
+tools and start a conversation. To enable Tlon replies, open Tlon in the sidebar,
+select an owner and trusted ships, review their grants, then enable the hand.
+Unpermissioned senders are silently ignored.
 
-## Design docs
+Full-desk assembly removes files absent from its output. For an existing
+development mount, build to `zig-out` and copy only intended overlay changes.
+See [development and verification](docs-refs/development.md).
 
-- [lukebuehler/urbit-agent — README](https://github.com/lukebuehler/urbit-agent/blob/main/README.md) — the proposal
-- [lukebuehler/urbit-agent — harness-design-notes](https://github.com/lukebuehler/urbit-agent/blob/main/harness-design-notes.md) — the technical design this implements
-- [`docs-refs/lightspeed-design.md`](docs-refs/lightspeed-design.md) — the prior-art harness (Rust/Temporal) whose invariants we follow
-- [`docs-refs/a2a-design.md`](docs-refs/a2a-design.md) — the agent-to-agent design
-- [`docs-refs/threads-substrate-notes.md`](docs-refs/threads-substrate-notes.md) — the wasm-threads spike behind `run_js`
-- [`docs-refs/roadmap.md`](docs-refs/roadmap.md) — **what's next**
+## Using a conversation
 
-## Status
+Send `/help` for the shared command list. `/status` inspects the conversation,
+`/model` selects its model, `/context` reports its working-context budget and
+`/compact` summarizes older exchanges. `/stop` cancels active work; it cannot
+undo an external action already performed.
 
-A working Phase-0/Phase-2 prototype on 32-bit vere 4.6 (base kelvin 408). The pieces the proposal calls "the things to prove" — long-lived sessions, forking, compaction, self-modification, agent society — run today. Not yet: streaming, prompt-cache-stable prefixes, payload offload to the blob store (that's the vere64 precondition), a second provider API, and a real client protocol. See the roadmap.
+Use `/remember preference Keep replies short.` to pin a note,
+`/memory` to list notes and `/forget preference` to unpin one.
+Notes belong to that conversation and survive compaction verbatim. Search
+content finds retained evidence; it does not fetch every other app's history.
+See [context and memory](docs-refs/context-and-memory.md).
+
+## Connect an editor or service
+
+Clients can connect directly to the ship's authenticated ACP API. For an editor
+that expects a local stdin/stdout executable, use the bridge:
+
+```sh
+SHIP_URL=http://localhost:8081 \
+SHIP_CODE=your-ship-code \
+node acp/harness-acp.mjs
+```
+
+Treat the ship login code as an owner credential.
+See the [adapter setup](acp/README.md) and [integration guide](docs-refs/integrations.md).
+
+## Documentation
+
+| Read this | For |
+| --- | --- |
+| [Architecture](docs-refs/architecture.md) | Ownership, lifecycle, source modules and trust boundaries |
+| [Capabilities](docs-refs/capabilities.md) | Available features, authority and limits |
+| [Companion workflows](docs-refs/companion.md) | Research, social collaboration and scheduled work |
+| [Integrations](docs-refs/integrations.md) | Choosing ACP, native nouns, webhooks, MCP or hands |
+| [ACP reference](docs-refs/acp.md) | Client methods, commands, authentication and recovery |
+| [Conversation hands](docs-refs/hands.md) | Bindings, deduplication, publication receipts and retirement |
+| [Shared scheduling](docs-refs/scheduling.md) | Tasks and reminders from any hand; Settings → Schedules |
+| [Artifacts and projects](docs-refs/workspaces.md) | Editing, agent coordination, proposal review and public pages |
+| [Conversation work management](docs-refs/work-control.md) | Text-first work controls; human confirmation for protected changes |
+| [Tlon reference](docs-refs/tlon.md) | Social tools, Notes, hooks, publishing and media |
+| [Peers](docs-refs/peers.md) | Ship-to-ship requests, tool RPC and administrative authority |
+| [Context and memory](docs-refs/context-and-memory.md) | Summaries, pinned notes, corpus search and provenance |
+| [JavaScript execution](docs-refs/execution.md) | Opt-in executor, host APIs and resource limits |
+| [Development](docs-refs/development.md) | Build layout, test selection and safe live verification |
+| [Reliability](docs-refs/reliability.md) | Sustained local operation, fault recovery, evidence and coverage limits |
