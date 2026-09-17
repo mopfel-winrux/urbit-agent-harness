@@ -1,5 +1,5 @@
 /-  c=harness-corpus, w=harness-workspace, s=harness-workspace-search
-/+  *test, work=harness-workspace, wi=harness-workspace-search, search=harness-unified-search, codec=harness-workspace-json
+/+  *test, work=harness-workspace, wi=harness-workspace-search, search=harness-unified-search, codec=harness-workspace-json, ci=harness-corpus-index
 |%
 ++  owner  `authority:w`[& [0v0 'Owner'] 0v0]
 ++  db
@@ -52,12 +52,54 @@
   ?>  ?=(%& -.result)
   (expect-eq !>(`json`[%a ~]) !>((need (get:codec p.result 'hits'))))
 ++  test-position-codec-and-equal-time-ordering
-  =/  position=cursor:search  [~2026.9.11 %artifact 'doc' 0]
-  =/  conversation=cursor:search  [~2026.9.11 %conversation '' 4]
+  =/  position=cursor:search  [0 ~2026.9.11 %artifact 'doc' 0]
+  =/  conversation=cursor:search  [0 ~2026.9.11 %conversation '' 4]
   ;:  weld
     (expect-eq !>(`position) !>((decode:search fence (encode:search fence position))))
     (expect-eq !>(`(unit cursor:search)`~) !>((decode:search 'changed' (encode:search fence position))))
     (expect !>((before:search conversation position)))
     (expect !>(!(before:search position conversation)))
+    (expect !>((before:search position conversation(rank 1, sent ~2026.9.17))))
+  ==
+++  corpus
+  |=  text=@t
+  ^-  state:c
+  =/  source  *conversation:c
+  =.  source  source(sid 'search-source', records (~(put by records.source) 1 [%message 'user' text ~ ~2026.9.17 'Owner']), count 1)
+  =/  db  *state:c
+  db(scopes (~(put by scopes.db) 0v1 source), index (put-document:ci index.db [0v1 1 ~] ~2026.9.17 'Owner' ~[text]))
+++  test-exact-work-precedes-newer-approximate-conversation-across-pages
+  =/  corpus  (corpus 'orchards')
+  =/  first  (search:search corpus idx db (silt ~[0v1]) owner & 'orchard' ~ 1)
+  ?>  ?=(%& -.first)
+  =/  hits  (need (get:codec p.first 'hits'))
+  ?>  ?=([%a ^] hits)
+  =/  second  (search:search corpus idx db (silt ~[0v1]) owner & 'orchard' `(string:codec p.first 'cursor') 1)
+  ?>  ?=(%& -.second)
+  =/  rest  (need (get:codec p.second 'hits'))
+  ?>  ?=([%a ^] rest)
+  ;:  weld
+    (expect-eq !>('artifact') !>((string:codec i.p.hits 'kind')))
+    (expect-eq !>('exact') !>((string:codec i.p.hits 'matchType')))
+    (expect-eq !>('message') !>((string:codec i.p.rest 'kind')))
+    (expect-eq !>('approximate') !>((string:codec i.p.rest 'matchType')))
+    (expect-eq !>(`json`~) !>((need (get:codec p.second 'cursor'))))
+  ==
+++  test-exact-conversation-precedes-approximate-work-without-repeating
+  =/  corpus  (corpus 'orchards')
+  =/  first  (search:search corpus idx db (silt ~[0v1]) owner & 'orchards' ~ 1)
+  ?>  ?=(%& -.first)
+  =/  hits  (need (get:codec p.first 'hits'))
+  ?>  ?=([%a ^] hits)
+  =/  second  (search:search corpus idx db (silt ~[0v1]) owner & 'orchards' `(string:codec p.first 'cursor') 1)
+  ?>  ?=(%& -.second)
+  =/  rest  (need (get:codec p.second 'hits'))
+  ?>  ?=([%a ^] rest)
+  ;:  weld
+    (expect-eq !>('message') !>((string:codec i.p.hits 'kind')))
+    (expect-eq !>('exact') !>((string:codec i.p.hits 'matchType')))
+    (expect-eq !>('artifact') !>((string:codec i.p.rest 'kind')))
+    (expect-eq !>('approximate') !>((string:codec i.p.rest 'matchType')))
+    (expect-eq !>(`json`~) !>((need (get:codec p.second 'cursor'))))
   ==
 --

@@ -3,12 +3,13 @@
 /-  c=harness-corpus, w=harness-workspace, s=harness-workspace-search
 /+  ci=harness-corpus-index, cj=harness-corpus-json, wi=harness-workspace-search, wj=harness-workspace-json, work=harness-workspace
 |%
-+$  cursor  [sent=@da kind=?(%conversation %artifact %project %task) id=@t ordinal=@ud]
++$  cursor  [rank=@ud sent=@da kind=?(%conversation %artifact %project %task) id=@t ordinal=@ud]
 +$  hit  [position=cursor value=json]
 ++  before
   |=  [a=cursor b=cursor]
   ^-  ?
   ?:  =(a b)  |
+  ?:  !=(rank.a rank.b)  (lth rank.a rank.b)
   ?:  !=(sent.a sent.b)  (gth sent.a sent.b)
   ?:  !=(=(%conversation kind.a) =(%conversation kind.b))  =(%conversation kind.a)
   ?:  =(%conversation kind.a)  (gth ordinal.a ordinal.b)
@@ -29,7 +30,7 @@
   |=  [fence=@t position=cursor]
   ^-  @t
   %-  en:json:html
-  (pairs:enjs:format ~[['fence' %s fence] ['sent' %s (scot %da sent.position)] ['kind' %s kind.position] ['id' %s id.position] ['ordinal' (numb:enjs:format ordinal.position)]])
+  (pairs:enjs:format ~[['fence' %s fence] ['rank' (numb:enjs:format rank.position)] ['sent' %s (scot %da sent.position)] ['kind' %s kind.position] ['id' %s id.position] ['ordinal' (numb:enjs:format ordinal.position)]])
 ++  decode
   |=  [fence=@t raw=@t]
   ^-  (unit cursor)
@@ -39,7 +40,9 @@
   ?>  =((string:wj json 'fence') fence)
   =/  kind  (string:wj json 'kind')
   ?>  (lien `(list @t)`~['conversation' 'artifact' 'project' 'task'] |=(item=@t =(item kind)))
-  [(slav %da (string:wj json 'sent')) ;;(?(%conversation %artifact %project %task) kind) (string:wj json 'id') (number:wj json 'ordinal' 0)]
+  =/  rank  (number:wj json 'rank' 2)
+  ?>  (lte rank 1)
+  [rank (slav %da (string:wj json 'sent')) ;;(?(%conversation %artifact %project %task) kind) (string:wj json 'id') (number:wj json 'ordinal' 0)]
 ++  status
   |=  [corpus=state:c idx=state:s allowed=(set scope:c) available=?]
   ^-  json
@@ -65,7 +68,7 @@
   %+  skim  ~(tap in matches)
   |=(revision=@ud (live:wi idx db [key revision]))
 ++  workspace-hit
-  |=  [idx=state:s db=state:w who=authority:w key=key:s matches=(set @ud) fence=@t]
+  |=  [idx=state:s db=state:w who=authority:w key=key:s matches=(set @ud) fence=@t rank=@ud]
   ^-  (unit hit)
   =/  matches  (versions idx db who key matches)
   ?~  matches  ~
@@ -95,10 +98,20 @@
         ['currentMatches' %b (~(has in available) head)]
         ['archived' %b archived]
         ['sent' (stamp:wj at.indexed)]
-        ['snippet' %s (make-snippet:ci ?~(texts ~ (weld t.texts ~[i.texts])))]
         ['searchToken' %s fence]
     ==
-  `[[at.indexed kind.key id.key 0] value]
+  `[[rank at.indexed kind.key id.key 0] value]
+++  workspace-preview
+  |=  [db=state:w value=json terms=(set @t) rank=@ud]
+  ^-  json
+  ?>  ?=(%o -.value)
+  =/  key=key:s  [;;(?(%artifact %project %task) (string:wj value 'kind')) (string:wj value 'id')]
+  =/  texts  (need (source:wi db [key (number:wj value 'revision' 0)]))
+  =/  preview  (match-preview:ci texts terms)
+  =.  p.value  (~(put by p.value) 'snippet' [%s snippet.preview])
+  =.  p.value  (~(put by p.value) 'matchedTerms' [%a (turn matched.preview |=(word=@t [%s word]))])
+  =.  p.value  (~(put by p.value) 'matchType' [%s ?:(=(0 rank) 'exact' 'approximate')])
+  value
 ++  search
   |=  [corpus=state:c idx=state:s db=state:w allowed=(set scope:c) who=authority:w available=? query=@t cursor=(unit @t) limit=@ud]
   ^-  (each json @t)
@@ -108,18 +121,25 @@
   =/  after  ?~(cursor ~ (decode fence u.cursor))
   ?:  &(?=(^ cursor) ?=(~ after))
     [%| 'Search content or access changed. Run the search again from the first page.']
+  =/  corpus-terms  (query-terms:ci index.corpus query)
+  =/  corpus-rank  (match-rank:ci query corpus-terms)
+  =/  work-terms  (query-terms:wi idx query)
+  =/  work-rank  (match-rank:ci query work-terms)
   =/  corpus-after=(unit cursor:c)
     ?~  after  ~
+    ?.  =(corpus-rank rank.u.after)  ~
     `[sent.u.after ?:(=(%conversation kind.u.after) ordinal.u.after 0)]
-  =/  conversation-page  (search-scoped:ci index.corpus query corpus-after +(limit) `allowed)
+  =/  conversation-page
+    ?:  ?~(after | (lth corpus-rank rank.u.after))  *page:c
+    (search-scoped:ci index.corpus query corpus-after +(limit) `allowed)
   =/  rows=(list hit)
     %+  turn  hits.conversation-page
     |=  item=hit:c
-    [[sent.cursor.item %conversation '' id.cursor.item] (record-json:cj corpus scope.ref.item at.ref.item)]
+    [[corpus-rank sent.cursor.item %conversation '' id.cursor.item] (search-record:cj corpus scope.ref.item at.ref.item corpus-terms corpus-rank)]
   =?  rows  available
     %+  roll  ~(tap by (search:wi idx query))
     |=  [[key=key:s matches=(set @ud)] out=_rows]
-    =/  row  (workspace-hit idx db who key matches fence)
+    =/  row  (workspace-hit idx db who key matches fence work-rank)
     ?~  row  out
     ?:  ?~(after | !(before u.after position.u.row))  out
     (insert u.row out +(limit))
@@ -130,7 +150,7 @@
     `(encode fence position:(rear selected))
   :-  %&
   %-  pairs:enjs:format
-  :~  ['hits' %a (turn selected |=(row=hit value.row))]
+  :~  ['hits' %a (turn selected |=(row=hit ?:(=(%conversation kind.position.row) value.row (workspace-preview db value.row work-terms work-rank))))]
       ['cursor' (nullable:wj next)]
       ['complete' %b !more]
       ['status' (status corpus idx allowed available)]

@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 async function search(page) {
   await page.goto('/apps/harness/tests/workspace-fixture.html#/search')
   await page.getByRole('searchbox', { name: 'Search Harness' }).fill('courtyard')
-  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.getByRole('search').getByRole('button', { name: 'Search', exact: true }).click()
   await expect(page.locator('.corpus-hit')).toHaveCount(2)
 }
 test('artifact revisions collapse and expand without replacing the current document', async ({ page }) => {
@@ -40,4 +40,32 @@ test('a stale source fails explicitly and retries without silently showing the c
   await page.evaluate(() => { window.workFixture.failSearchRead = false })
   await page.getByRole('button', { name: 'Retry source' }).click()
   await expect(page.locator('.corpus-source-body')).toContainText('courtyard')
+})
+
+test('matches explain spelling expansion and highlight whole terms without interpreting source markup', async ({ page }) => {
+  await page.goto('/apps/harness/tests/workspace-fixture.html#/search')
+  await page.getByRole('searchbox', { name: 'Search Harness' }).fill('reid')
+  await page.getByRole('search').getByRole('button', { name: 'Search', exact: true }).click()
+  const hits = page.locator('.corpus-hit')
+  await expect(hits).toHaveCount(2)
+  await expect(hits.first()).toContainText('Planning with Reid')
+  await expect(hits.first().locator('.corpus-hit-match')).toHaveCount(0)
+  await expect(hits.first().locator('.corpus-hit-snippet mark')).toHaveText(['Reid'])
+  await expect(hits.first()).toContainText('<img src=x onerror=alert(1)>')
+  await expect(hits.locator('img')).toHaveCount(0)
+  await expect(hits.last()).toContainText('Similar spelling · “read”')
+  await expect(hits.last().locator('.corpus-hit-snippet mark')).toHaveText(['Read'])
+})
+
+test('a distant conversation match opens at its passage and can read from the beginning', async ({ page }) => {
+  await page.goto('/apps/harness/tests/workspace-fixture.html#/search')
+  await page.getByRole('searchbox', { name: 'Search Harness' }).fill('reid')
+  await page.getByRole('search').getByRole('button', { name: 'Search', exact: true }).click()
+  await page.locator('.corpus-hit').first().click()
+  await expect(page.locator('.corpus-source-body mark')).toHaveText(['Reid'])
+  await expect(page.locator('.corpus-source-body')).not.toContainText('Introduction')
+  expect(await page.evaluate(() => window.workFixture.calls.find(({ action }) => action === 'corpus/read').args.offset)).toBe(2400)
+  await page.getByRole('button', { name: 'Read from beginning' }).click()
+  await expect(page.locator('.corpus-source-body')).toContainText('Introduction')
+  await expect(page.getByRole('button', { name: 'Read from beginning' })).toHaveCount(0)
 })
