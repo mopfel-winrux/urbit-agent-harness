@@ -32,6 +32,10 @@
   |=  [keys=(map @t @t) provider=@t]
   ^-  @t
   =/  stored  (fall (~(get by keys) provider) '')
+  ::  Hosting owns its fallback slots; explicit local keys (including a blank
+  ::  override) win. Subscription credentials never use platform API keys.
+  =?  stored  ?&(!(~(has by keys) provider) (~(has in (silt ~['openai' 'anthropic' 'xai' 'openrouter' 'brave'])) provider))
+    (fall (~(get by keys) (cat 3 'hosted-' provider)) '')
   ?:  =('openai' provider)  ?:((jwt-shaped stored) '' stored)
   ?.  =('openai-device' provider)  stored
   ?:  (~(has by keys) provider)  stored

@@ -82,6 +82,14 @@
 ++  configurable-tools
   ^-  (list term)
   (skip all-tools |=(family=term ?=(?(%tlon-read %tlon-write %cron %admin) family)))
+++  owner-tools
+  |=  servers=(map mcp-server-id:h mcp-server:h)
+  ^-  (list tool-grant:h)
+  (scope-mcp (scope-clay configurable-tools) (enabled-mcp servers))
+++  enabled-mcp
+  |=  servers=(map mcp-server-id:h mcp-server:h)
+  ^-  (list @t)
+  (murn ~(tap by servers) |=([id=@t server=mcp-server:h] ?:(enabled.server `id ~)))
 ::  Rehearsals may inspect inherited source material, never dispatch effects
 ::  or publish instructions. An allowlist keeps future families out by default.
 ++  conversation-tools

@@ -3,10 +3,9 @@
 /-  h=harness
 |%
 ++  acp-id  'harness'
-::  Local families are enabled for new owner sessions, except experimental
-::  code execution: the owner must explicitly opt in to its broad authority.
-::  MCP servers need named grants. Ship-wide Tlon is explicit; current-chat
-::  tools still derive from live hands rather than ambient configuration.
+::  Baseline grants for bounded work. Direct owner turns use the live tool
+::  catalog; delegated work retains its explicit grants. Current-chat tools
+::  derive from live hands rather than ambient configuration.
 ++  default-tools
   ^-  (list tool-grant:h)
   ~[[%clay ~] %web %curl %skills %skill-write %author %subagents %peers %corpus %workspace %tlon]

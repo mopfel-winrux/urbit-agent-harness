@@ -26,6 +26,7 @@
 /+  work-copy=harness-work-copy
 /+  hosted-auth=harness-hosted-auth
 /+  hosted-settings=harness-hosted-settings
+/+  hosted-provision=harness-hosted-provision
 |%
 +$  card  card:agent:gall
 --
@@ -756,11 +757,11 @@
   ?~  source  |
   =/  cfg  config:(play:hl log.u.source)
   =/  live  (execution-tools sid.job tools.cfg)
-  ::  The ambient scheduling capability is input-local, not part of the
-  ::  durable permission ceiling. Every actual grant must still match.
+  ::  Saved grants must remain available. Newly available tools do not widen
+  ::  a schedule's durable ceiling or pause work that is still authorized.
   =/  actual  (skip live |=(g=tool-grant:h =(%cron g)))
   =/  saved  (skip tools.job |=(g=tool-grant:h =(%cron g)))
-  =((silt actual) (silt saved))
+  (levy saved |=(g=tool-grant:h (~(has in (silt actual)) g)))
 ++  stop-schedule
   |=  [id=@uv job=schedule:cr mode=?(%paused %cancelled) reason=@t]
   ^-  (quip card _state)
@@ -1763,6 +1764,14 @@
 ++  hosted-request
   |=  req=request:hosted-types
   ^-  (quip card _state)
+  ?:  =('provision' action.req)
+    =.  state  discover-local-mcp
+    =/  attempted  (mule |.((apply:hosted-provision defaults provider-keys mcp-servers args.req)))
+    ?:  ?=(%| -.attempted)
+      [~[[%give %fact ~[/hosted/[id.req]] %json !>((error:hosted-auth 400 'Invalid provisioning settings.'))]] state]
+    =.  defaults  config.p.attempted
+    =.  provider-keys  keys.p.attempted
+    [~[[%give %fact ~[/hosted/[id.req]] %json !>((envelope:hosted-auth 200 (pairs:enjs:format ~[['ready' %b &]])))]] state]
   ?:  =('settings' action.req)
     =/  attempted  (mule |.((apply:hosted-settings defaults provider-keys args.req)))
     ?:  ?=(%| -.attempted)
@@ -3657,6 +3666,7 @@
     =/  ceiling  (scheduled-tools:ht tools.u.scheduled)
     (skim granted |=(g=tool-grant:h (lien ceiling |=(cap=tool-grant:h =(g cap)))))
   =/  administrator  (session-admin sid)
+  =?  granted  administrator  (owner-tools:ht mcp-servers)
   =.  granted  (skip granted |=(g=tool-grant:h |(=(%admin g) =(%cron g))))
   =/  ses  (~(get by sessions) sid)
   =/  peer  ?~(ses ~ (peer-source:admin log.u.ses))
@@ -4330,11 +4340,7 @@
   (owner:~(. ownership bowl) owner.policy.trust siblings.trust who)
 ++  owner-grant
   ^-  peer-grant:h
-  =/  tools
-    %+  skim  tools.defaults
-    |=  grant=tool-grant:h
-    ?:(?=(^ grant) & (lien configurable-tools:ht |=(known=term =(known grant))))
-  [tools ~ 0 ~(key by skills)]
+  [(owner-tools:ht mcp-servers) ~ 0 ~(key by skills)]
 ++  trusted-peers
   ^-  (map @p peer-grant:h)
   =/  trust  snapshot:~(. peer-trust bowl)

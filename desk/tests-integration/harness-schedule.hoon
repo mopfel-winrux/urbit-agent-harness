@@ -101,6 +101,25 @@
   ==
 ++  test-legacy-handoff-preserves-receipts-and-cannot-resurrect-cleared-jobs
   (isolated |=(ignored=* legacy-handoff))
+++  test-added-tools-preserve-schedule-ceilings-and-revocation-pauses
+  %-  isolated  |=  ignored=*
+  =/  s  fixture
+  =.  tlon-cron-imported.s  &
+  =/  cfg  defaults.s(tools ~[%web %workspace])
+  =.  sessions.s  (~(put by sessions.s) 'source' [~[[%config-replaced cfg]] 1])
+  =/  j  job
+  =.  tools.j  ~[%web]
+  =.  schedules.s  (my ~[[0v1 j]])
+  =/  loaded  (~(on-load head bowl) !>(s))
+  =/  next  !<(state-29 ~(on-save +.loaded bowl))
+  =.  sessions.next  (~(put by sessions.next) 'source' [~[[%config-replaced cfg(tools ~[%workspace])]] 1])
+  =/  reloaded  (~(on-load head bowl) !>(next))
+  =/  revoked  !<(state-29 ~(on-save +.reloaded bowl))
+  ;:  weld
+    (expect-eq !>(%active) !>(state:(~(got by schedules.next) 0v1)))
+    (expect-eq !>(~[%web]) !>(tools:(~(got by schedules.next) 0v1)))
+    (expect-eq !>(%paused) !>(state:(~(got by schedules.revoked) 0v1)))
+  ==
 ++  legacy-handoff
   =/  s  fixture
   =.  bindings.hands.s  ~

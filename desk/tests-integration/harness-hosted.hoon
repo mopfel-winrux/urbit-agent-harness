@@ -1,7 +1,7 @@
 ::  Full head execution with fixture HTTP responses; emitted network cards
 ::  are inspected, never delivered to providers or the installed agent.
 /-  *harness-store, hosted=harness-hosted, ac=acp, renew=harness-oauth
-/+  *test, auth=harness-auth, ha=harness-hosted-auth
+/+  *test, auth=harness-auth, ha=harness-hosted-auth, defaults=harness-defaults, ht=harness-tools, j=harness-workspace-json
 /=  head  /app/harness
 |%
 ++  isolated
@@ -55,6 +55,64 @@
   ;:  weld
     (expect !>(?=(%| -.poke)))
     (expect !>(?=(%| -.watch)))
+  ==
+++  test-provision-survives-reload-and-preserves-owner-configuration
+  (isolated |=(ignored=* provision-reload))
+++  provision-reload
+  =/  bowl=bowl:gall  *bowl:gall
+  =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.17)
+  =/  saved=state-29  *state-29
+  =.  local-mcp-seen.saved  1
+  =.  defaults.saved  builtin-config:defaults
+  =.  model.defaults.saved  'owner-choice'
+  =.  provider-keys.saved  (my ~[['openai-device' 'subscription']])
+  =.  mcp-servers.saved  (my ~[['local' ['Local' 'urbit://~zod/mcp-proxy' ~ &]]])
+  =/  loaded  (~(on-load head bowl) !>(saved))
+  =/  args  (need (de:json:html '{"providerKeys":{"openrouter":"platform","brave":"search"}}'))
+  =/  applied  (~(on-poke +.loaded bowl) %harness-hosted !>(`request:hosted`['provision' 'provision' args]))
+  =/  next  !<(state-29 ~(on-save +.applied bowl))
+  =/  reloaded  (~(on-load head bowl) !>(next))
+  =/  repeated  (~(on-poke +.reloaded bowl) %harness-hosted !>(`request:hosted`['again' 'provision' args]))
+  =/  after  !<(state-29 ~(on-save +.repeated bowl))
+  ;:  weld
+    (expect-eq !>(provider-keys.next) !>(provider-keys.after))
+    (expect-eq !>('owner-choice') !>(model.defaults.after))
+    (expect-eq !>('subscription') !>((key:auth provider-keys.after 'openai-device')))
+    (expect-eq !>('platform') !>((key:auth provider-keys.after 'openrouter')))
+    (expect !>((mcp-granted:ht 'local' tools.defaults.after)))
+    (expect-eq !>(sessions.saved) !>(sessions.after))
+  ==
+++  test-owner-first-turn-advertises-live-tools-despite-empty-session-grants
+  (isolated |=(ignored=* owner-tools))
+++  owner-tools
+  =/  bowl=bowl:gall  *bowl:gall
+  =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.17)
+  =/  saved=state-29  *state-29
+  =.  local-mcp-seen.saved  1
+  =.  mcp-servers.saved  (my ~[['local' ['Local' 'urbit://~zod/mcp-proxy' ~ &]]])
+  =/  loaded  (~(on-load head bowl) !>(saved))
+  =/  cfg  builtin-config:defaults
+  =.  tools.cfg  ~
+  =/  created  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%new 'owner' cfg]))
+  =/  sent  (~(on-poke +.created bowl) %harness-action !>(`action:h`[%send 'owner' 'What tools can you use?']))
+  =/  requests
+    %+  murn  -.sent
+    |=  c=card:agent:gall
+    ^-  (unit @t)
+    ?.  ?=([%pass [%llm *] %arvo %i %request *] c)  ~
+    =/  sent=http-card:renew  c
+    ?~  body.request.sent  ~
+    `q.u.body.request.sent
+  ?>  =(1 (lent requests))
+  =/  payload  (need (de:json:html (snag 0 requests)))
+  =/  tools  (need (get:j payload 'tools'))
+  ?>  ?=(%a -.tools)
+  =/  names
+    (turn p.tools |=(entry=json (string:j (need (get:j entry 'function')) 'name')))
+  ;:  weld
+    (expect !>((lien names |=(n=@t =('run_js' n)))))
+    (expect !>((lien names |=(n=@t =('list_mcp_tools' n)))))
+    (expect !>((lien names |=(n=@t =('harness_admin' n)))))
   ==
 ++  test-xai-native-login-and-renewal-survive-head-reload
   (isolated |=(ignored=* xai-login))
