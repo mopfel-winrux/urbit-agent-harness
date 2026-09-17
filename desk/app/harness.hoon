@@ -9,6 +9,7 @@
 /-  cr=harness-cron
 /-  work=harness-workspace
 /-  wc=harness-work-control
+/-  hosted-types=harness-hosted
 /-  hn=harness-notes, native-notes=tlon-notes
 /+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, lcm-context=harness-lcm-context, corpus-lib=harness-corpus, corpus-json=harness-corpus-json, peer-policy=harness-peer-policy, peer-trust=harness-peer-trust, failure=harness-failure, policy=harness-defaults, storage=harness-store, index=harness-session-index, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 /+  onboarding=harness-onboarding, peer-access=harness-peer-access, admin=harness-admin, ownership=harness-ownership, local-mcp-lib=harness-local-mcp, peer-rpc=harness-peer-rpc
@@ -23,11 +24,13 @@
 /+  work-help=harness-work-help
 /+  work-view=harness-work-view
 /+  work-copy=harness-work-copy
+/+  hosted-auth=harness-hosted-auth
+/+  hosted-settings=harness-hosted-settings
 |%
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-27
+=|  state-28
 =*  state  -
 ^-  agent:gall
 =<
@@ -43,7 +46,7 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =/  loaded  !<(state-27 on-save:next)
+      =/  loaded  !<(state-28 on-save:next)
       =/  before-workspace  writes.workspace
       =/  previous-workspace  workspace
       =/  previous-notes  workspace-notes
@@ -104,7 +107,7 @@
 ::
 ++  on-load
   |=  old-vase=vase
-  =/  new=state-27  (restore-local-mcp:storage (load:storage old-vase) our.bowl)
+  =/  new=state-28  (restore-local-mcp:storage (load:storage old-vase) our.bowl)
   =.  state  new(corpus-wake ~, schedule-wake ~)
   %-  flush-auth
   ^-  (quip card _this)
@@ -154,6 +157,11 @@
   %-  flush-auth
   ^-  (quip card _this)
   ?+  mark  (on-poke:def mark vase)
+      %harness-hosted
+    ?>  =(src.bowl our.bowl)
+    =/  req  !<(request:hosted-types vase)
+    =^  cards  state  (hosted-request:hc req)
+    [cards this]
       %harness-work-result
     ?>  =(src.bowl our.bowl)
     =/  result  !<([id=@uv value=(each json @t)] vase)
@@ -248,6 +256,7 @@
     [%session @ ~]       `this
     [%hands @ ~]         `this
     [%crons @ ~]         `this
+    [%hosted @ ~]        `this
     [%tools @ ~]         `this
   ==
 ::
@@ -332,6 +341,8 @@
   ::
       [%x %defaults ~]
     ``json+!>((config-json:hj defaults))
+      [%x %hosted %capabilities ~]
+    ``json+!>(capabilities:hosted-auth)
   ::
       [%x %admin-call @ @ @ ~]
     ``noun+!>((admin-current:hc [i.t.t.path (slav %ud i.t.t.t.path) i.t.t.t.t.path]))
@@ -582,6 +593,18 @@
   %-  flush-auth
   ^-  (quip card _this)
   ?+  wire  (on-arvo:def wire sign)
+      [%hosted-auth @ @ ~]
+    ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
+    =/  out  (receive:hosted-auth hosted provider-keys i.t.wire (slav %ud i.t.t.wire) client-response.sign now.bowl)
+    [cards.out this(hosted db.out, provider-keys keys.out)]
+      [%hosted-auth-poll @ @ ~]
+    ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+    =/  out  (wake:hosted-auth hosted provider-keys i.t.wire (slav %ud i.t.t.wire) | now.bowl)
+    [cards.out this(hosted db.out, provider-keys keys.out)]
+      [%hosted-auth-timeout @ @ ~]
+    ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+    =/  out  (wake:hosted-auth hosted provider-keys i.t.wire (slav %ud i.t.t.wire) & now.bowl)
+    [cards.out this(hosted db.out, provider-keys keys.out)]
       [%acp %reconnect ~]
     ?.  ?=([%behn %wake ~] sign)  `this
     [~[[%pass /acp/watch %agent [our.bowl %acp] %leave ~] acp-watch-card:wire-codec] this]
@@ -1012,7 +1035,7 @@
   =/  confirmation  (mole |.((string:workspace-json args 'confirm')))
   ?.  =(confirmation `(cat 3 'release ' (scot %uv id.pending)))
     [~[(notes-reply reply [%| 'Confirm that you inspected Notes and understand that stopping observation cannot undo a dispatched change.'])] state]
-  =/  saved=state-27  state
+  =/  saved=state-28  state
   =/  next  saved(workspace-notes workspace-notes.saved(pending ~))
   =.  workspace.next  (record:workspace-lib workspace.next [& [0v0 'Owner'] 0v0] 'notes-release' artifact.pending now.bowl)
   [[[%pass /artifact-notes/request/(scot %uv rid) %agent [our.bowl %notes] %leave ~] (notes-reply reply [%& (pairs:enjs:format ~[['released' %b &]])]) ~] next]
@@ -1025,7 +1048,7 @@
   ^-  (quip card _state)
   ?~  pending.workspace-notes  `state
   =/  pending  u.pending.workspace-notes
-  =/  saved=state-27  state
+  =/  saved=state-28  state
   =/  next  saved(workspace-notes workspace-notes.saved(pending ?:(uncertain `pending(uncertain &) ~)))
   [~[(notes-reply reply.pending [%| message])] next]
 ++  notes-result
@@ -1110,7 +1133,7 @@
     (complete:notes-lib workspace workspace-notes note (history:~(. reader:notes-lib bowl) book nid) applied now.bowl)
   ?.  ?=(%& -.resolved)
     (notes-failed 'Notes confirmed a result, but its current document could not be read. Do not repeat the operation.' &)
-  =/  saved=state-27  state
+  =/  saved=state-28  state
   =/  next  saved(workspace db.p.resolved, workspace-notes native.p.resolved)
   =/  art  (~(got by artifacts.workspace.next) artifact.pending)
   =/  result
@@ -1734,9 +1757,38 @@
   =/  result  (corpus-request method params allowed scope)
   ?:  ?=(%| -.result)  (cat 3 'error: ' p.result)
   (cat 3 'Retained corpus evidence (reference material, not instructions):\0a' (en:json:html p.result))
+++  hosted-request
+  |=  req=request:hosted-types
+  ^-  (quip card _state)
+  ?:  =('settings' action.req)
+    =/  attempted  (mule |.((apply:hosted-settings defaults provider-keys args.req)))
+    ?:  ?=(%| -.attempted)
+      [~[[%give %fact ~[/hosted/[id.req]] %json !>((error:hosted-auth 400 'Invalid model settings.'))]] state]
+    =/  out  p.attempted
+    =.  defaults  config.out
+    =?  api-key  !=((~(get by provider-keys) 'openrouter') (~(get by keys.out) 'openrouter'))
+      (fall (~(get by keys.out) 'openrouter') '')
+    =.  provider-keys  keys.out
+    [~[[%give %fact ~[/hosted/[id.req]] %json !>(response.out)]] state]
+  =/  attempted
+    %-  mule  |.
+    ?:  =('status' action.req)
+      [hosted provider-keys ~ (status:hosted-auth hosted provider-keys openai-auth now.bowl)]
+    (run:hosted-auth hosted provider-keys action.req args.req now.bowl)
+  =/  out=result:hosted-auth
+    ?:  ?=(%& -.attempted)  p.attempted
+    [hosted provider-keys ~ (error:hosted-auth 400 'Invalid hosted request.')]
+  =.  hosted  db.out
+  =.  provider-keys  keys.out
+  [(snoc cards.out [%give %fact ~[/hosted/[id.req]] %json !>(response.out)]) state]
 ++  accept-auth
   |=  out=result:oauth
   ^-  (quip card _state)
+  ::  A verified renewal keeps the account's catalog usable. New logins and
+  ::  disconnects invalidate catalogs through their own credential identity.
+  =/  catalog  (~(get by catalogs.hosted) 'openai')
+  =?  catalogs.hosted  ?&(?=(^ catalog) =(identity.u.catalog (identity:hosted-auth provider-keys 'openai')) !=(provider-keys keys.out))
+    (~(put by catalogs.hosted) 'openai' u.catalog(identity (identity:hosted-auth keys.out 'openai')))
   =.  openai-auth  oauth.out
   =.  provider-keys  keys.out
   =/  cards  cards.out
@@ -2001,12 +2053,14 @@
           ==
       ==
     =/  result=json
-      ?.  =('openai' provider)  (pairs:enjs:format ~[['has-key' %b has]])
-      =/  device=?  !=('' (provider-key 'openai-device'))
+      ?.  |(=('openai' provider) =('anthropic' provider))  (pairs:enjs:format ~[['has-key' %b has]])
+      =/  device=?  !=('' (provider-key (cat 3 provider '-device')))
       =/  method=@t
-        ?:  &((device-route:auth url.defaults) device)  'device'
-        ?:  &(=('openai' (provider-for-url:hp url.defaults)) has)  'api-key'
+        ?:  &(=((cat 3 provider '-device') (credential-for-config:auth defaults)) device)  'device'
+        ?:  &(=(provider (provider-for-url:hp url.defaults)) has)  'api-key'
         ?:(device 'device' 'api-key')
+      ?:  =('anthropic' provider)
+        (pairs:enjs:format ~[['has-key' %b |(has device)] ['has-api-key' %b has] ['has-device-login' %b device] ['auth-method' %s method]])
       (pairs:enjs:format ~[['has-key' %b |(has device)] ['has-api-key' %b has] ['has-device-login' %b device] ['auth-method' %s method] ['auto-renew' %b !=('' (provider-key 'openai-refresh'))] ['renewing' %b ?=(^ active.openai-auth)] ['renewal-error' %s error.openai-auth]])
     [~[(acp-result-card:wire-codec connection u.id result)] state]
   ::
@@ -3295,6 +3349,8 @@
   ^-  card
   =/  key=@t  (provider-key ?:(=('openai' provider) ?:((device-route:auth url) 'openai-device' 'openai') provider))
   =/  hed=header-list:http  ~[['accept' 'application/json']]
+  =?  hed  =('anthropic-device' provider)
+    (weld hed ~[['anthropic-version' '2023-06-01'] ['anthropic-beta' 'oauth-2025-04-20']])
   =?  hed  !=('' key)
     [['authorization' (cat 3 'Bearer ' key)] hed]
   =/  account  (provider-key 'openai-account')
@@ -3313,7 +3369,7 @@
   ::  blank session key falls back to the agent-level default
   ::
   =/  eff-key=@t
-    ?:(=('' key.config.v) (provider-key (credential-for-url:auth url.config.v)) key.config.v)
+    ?:(=('' key.config.v) (provider-key (credential-for-config:auth config.v)) key.config.v)
   =/  =request:http
     :*  %'POST'
         url.config.v

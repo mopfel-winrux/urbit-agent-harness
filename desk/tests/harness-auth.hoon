@@ -30,4 +30,15 @@
   =.  url.cfg  'https://api.openai.com/v1/chat/completions'
   =/  keys=(map @t @t)  (my ~[['openai-device' 'fixture-device']])
   (expect !>(&(?=(^ (missing:auth keys cfg)) ?=(~ (missing:auth keys cfg(url device-url:auth))) ?=(~ (missing:auth ~ cfg(url 'https://custom.example'))))))
+++  test-anthropic-auth-selection-does-not-cross-credential-slots
+  =/  cfg=config:h  *config:h
+  =.  url.cfg  'https://api.anthropic.com/v1/chat/completions'
+  =/  device  cfg(headers ~[['anthropic-beta' 'oauth-2025-04-20']])
+  =/  keys  (my ~[['anthropic' 'API_KEY']])
+  ;:  weld
+    (expect-eq !>('anthropic') !>((credential-for-config:auth cfg)))
+    (expect-eq !>('anthropic-device') !>((credential-for-config:auth device)))
+    (expect !>(?=(^ (missing:auth keys device))))
+    (expect !>(?=(~ (missing:auth keys cfg))))
+  ==
 --

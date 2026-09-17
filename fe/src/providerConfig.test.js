@@ -37,5 +37,7 @@ test('Anthropic login selects its OAuth header on the same fixed route', () => {
   const config = withAuth({ headers: [] }, 'anthropic', 'device')
   assert.equal(config.url, PROVIDERS.anthropic.endpoint)
   assert.equal(authMethod('anthropic', config), 'device')
+  assert.equal(credentialSlot('anthropic', 'device'), 'anthropic-device')
+  assert.equal(credentialSlot('anthropic', 'api-key'), 'anthropic')
   assert.deepEqual(withAuth(config, 'anthropic', 'api-key').headers, [])
 })

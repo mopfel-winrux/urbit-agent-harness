@@ -4,8 +4,8 @@
 /=  head  /app/harness
 |%
 ++  poke
-  |=  [saved=state-27 act=action:h no-scries=?]
-  ^-  [(list card:agent:gall) state-27]
+  |=  [saved=state-28 act=action:h no-scries=?]
+  ^-  [(list card:agent:gall) state-28]
   =/  bowl=bowl:gall  *bowl:gall
   =.  our.bowl  ~zod
   =.  src.bowl  ~zod
@@ -17,15 +17,15 @@
     =/  step
       |.
       =/  out  (~(on-poke +.loaded bowl) %harness-action !>(act))
-      [-.out !<(state-27 ~(on-save +.out bowl))]
+      [-.out !<(state-28 ~(on-save +.out bowl))]
     =/  out  (mink [step %9 2 %0 1] |=([* *] ?:(no-scries ~ ``%.n)))
     ?>  ?=(%0 -.out)
     product.out
   =/  out  (mink [attempt %9 2 %0 1] |=([* *] ``%.n))
   ?>  ?=(%0 -.out)
-  ;;([(list card:agent:gall) state-27] product.out)
+  ;;([(list card:agent:gall) state-28] product.out)
 ++  test-local-grant-and-revocation-announce-once
-  =/  first  (poke *state-27 [%grant ~nec [~[%web] ~ 0 ~]] |)
+  =/  first  (poke *state-28 [%grant ~nec [~[%web] ~ 0 ~]] |)
   =/  same  (poke +.first [%grant ~nec [~[%web] ~ 0 ~]] &)
   =/  removed  (poke +.same [%revoke ~nec] |)
   ;:  weld
@@ -38,7 +38,7 @@
   =/  bowl=bowl:gall  *bowl:gall
   =.  our.bowl  ~zod
   =.  now.bowl  ~2026.9.8
-  =/  saved=state-27  *state-27
+  =/  saved=state-28  *state-28
   ::  Even an undiscovered/absent MCP agent must not add callback scries.
   =.  local-mcp-seen.saved  0
   =/  attempt
@@ -56,7 +56,7 @@
   =.  our.bowl  ~zod
   =.  src.bowl  ~nec
   =.  now.bowl  ~2026.9.8
-  =/  saved=state-27  *state-27
+  =/  saved=state-28  *state-28
   =.  local-mcp-seen.saved  1
   =.  remote-access.saved  (my ~[[~nec [~ ~2026.9.7]]])
   =/  attempt

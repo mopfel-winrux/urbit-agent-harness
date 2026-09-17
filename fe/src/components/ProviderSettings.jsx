@@ -20,8 +20,8 @@ export default function ProviderSettings({ provider, resources }) {
   const dirty = useRef(false)
   const loaded = useRef('')
   const method = authMethod(provider, form)
-  const catalog = useProviderModels(provider, catalogEndpoint(provider, form), !session.loading && !status.loading && loaded.current === `${provider}:${resources.chat || 'defaults'}`)
-  const configured = provider === 'openai'
+  const catalog = useProviderModels(provider === 'anthropic' ? credentialSlot(provider, method) : provider, catalogEndpoint(provider, form), !session.loading && !status.loading && loaded.current === `${provider}:${resources.chat || 'defaults'}`)
+  const configured = ['openai', 'anthropic'].includes(provider)
     ? status.value?.[method === 'device' ? 'has-device-login' : 'has-api-key']
     : status.value?.['has-key']
 

@@ -1,6 +1,7 @@
 ::  Composition contracts: storage, wire shapes and grants remain independent
 ::  of the reducer. Use fixture credentials only; never inspect real secrets.
 /-  h=harness, w=harness-workspace, hn=harness-notes, ws=harness-workspace-search, pc=harness-project-client, wc=harness-work-control, *harness-store
+/-  hosted=harness-hosted
 /+  *test, storage=harness-store, policy=harness-defaults, hj=harness-json, hp=harness-provider, ht=harness-tools, hl=harness
 |%
 ++  test-bootstrap-enables-configurable-local-families
@@ -14,7 +15,7 @@
 ++  test-rehearsal-does-not-add-read-authority
   (expect-eq !>(`(list term)`~) !>((rehearsal-tools:ht ~[%web %mcp])))
 ++  test-current-store-load-is-an-identity
-  =/  saved=state-27  *state-27
+  =/  saved=state-28  *state-28
   =.  peer-budget-resets.saved  (my ~[[~nec 1.234]])
   =.  defaults.saved  builtin-config:policy
   =.  provider-keys.saved  (my ~[['fixture' 'test-secret']])
@@ -49,11 +50,11 @@
   =.  provider-keys.saved  (my ~[['fixture' 'test-secret']])
   =/  loaded  (load:storage !>(saved))
   ;:  weld
-    (expect-eq !>([%27 *state:w *state:wc *state:pc *state:ws *state:hn *state-0:w saved]) !>(loaded))
+    (expect-eq !>([%28 *state:hosted %27 *state:w *state:wc *state:pc *state:ws *state:hn *state-0:w saved]) !>(loaded))
     (expect-eq !>(loaded) !>((load:storage !>(loaded))))
   ==
 ++  test-current-store-retains-workspace-evidence
-  =/  saved=state-27  *state-27
+  =/  saved=state-28  *state-28
   =.  writes.workspace.saved  7
   =.  projects.workspace.saved  (my ~[['fixture' ['Keep project' '' 2 ~ |]]])
   =.  project-clients.saved
@@ -75,22 +76,22 @@
   =.  links.workspace-notes.saved  (my ~[['fixture' [42 ~ ~]]])
   =.  writes.workspace.saved  7
   =/  [%22 * * %21 * runtime=state-20]  saved
-  (expect-eq !>([%27 (restore-workspace:storage workspace.saved) *state:wc *state:pc *state:ws workspace-notes.saved legacy-workspace.saved runtime]) !>((load:storage !>(saved))))
+  (expect-eq !>([%28 *state:hosted %27 (restore-workspace:storage workspace.saved) *state:wc *state:pc *state:ws workspace-notes.saved legacy-workspace.saved runtime]) !>((load:storage !>(saved))))
 ++  test-project-client-upgrade-does-not-grant-access-or-change-work
   =/  saved=state-23  *state-23
   =.  writes.workspace.saved  7
   =.  provider-keys.saved  (my ~[['fixture' 'private-fixture-key']])
   =.  projects.workspace.saved  (my ~[['fixture' ['Keep project' '' 2 (my ~[[0v1 %contributor]]) |]]])
   =/  [%23 * %22 * * %21 * runtime=state-20]  saved
-  (expect-eq !>([%27 (restore-workspace:storage workspace.saved) *state:wc *state:pc workspace-search.saved workspace-notes.saved legacy-workspace.saved runtime]) !>((load:storage !>(saved))))
+  (expect-eq !>([%28 *state:hosted %27 (restore-workspace:storage workspace.saved) *state:wc *state:pc workspace-search.saved workspace-notes.saved legacy-workspace.saved runtime]) !>((load:storage !>(saved))))
 ++  test-work-control-migration-retains-pending-notes-and-the-entire-envelope
   =/  saved=state-24  *state-24
   =.  pending.workspace-notes.saved  `*pending:hn
   =.  provider-keys.saved  (my ~[['fixture' 'retained-private-key']])
   =/  [%24 * %23 * %22 * * %21 * runtime=state-20]  saved
-  (expect-eq !>([%27 (restore-workspace:storage workspace.saved) *state:wc project-clients.saved workspace-search.saved workspace-notes.saved legacy-workspace.saved runtime]) !>((load:storage !>(saved))))
+  (expect-eq !>([%28 *state:hosted %27 (restore-workspace:storage workspace.saved) *state:wc project-clients.saved workspace-search.saved workspace-notes.saved legacy-workspace.saved runtime]) !>((load:storage !>(saved))))
 ++  test-current-store-retains-work-confirmations-and-owner-grants
-  =/  saved=state-27  *state-27
+  =/  saved=state-28  *state-28
   =.  owners.work-controls.saved  (sy ~[['binding' 'alice']])
   =.  requests.work-controls.saved
     (my ~[[0v3 ['conversation' 0v1 [%acp 'fixture'] `~zod 'task-create' [%o ~] 0v2 ~2026.9.13 %running ~]]])
@@ -120,7 +121,7 @@
     (expect-eq !>(`(map @p @ud)`~) !>(peer-budget-resets.loaded))
   ==
 ++  test-saved-tool-policy-is-not-replaced-by-bootstrap-defaults
-  =/  saved=state-27  *state-27
+  =/  saved=state-28  *state-28
   =/  cfg  builtin-config:policy
   =.  defaults.saved  cfg(tools ~[%author %skill-write [%mcp 'calendar']])
   =.  sessions.saved  (my ~[['fixture' [~[[%config-replaced defaults.saved]] 0]]])

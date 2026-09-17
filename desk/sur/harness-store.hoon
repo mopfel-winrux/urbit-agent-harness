@@ -6,7 +6,9 @@
 /-  ws=harness-workspace-search
 /-  pc=harness-project-client
 /-  wc=harness-work-control
+/-  hosted=harness-hosted
 |%
++$  state-28  [%28 hosted=state:hosted state-27]
 +$  state-27
   $:  %27
       workspace=state:work

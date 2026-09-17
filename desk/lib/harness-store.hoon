@@ -6,12 +6,13 @@
 /-  ws=harness-workspace-search
 /-  pc=harness-project-client
 /-  wc=harness-work-control
+/-  hosted=harness-hosted
 /+  hl=harness, ht=harness-tools, hd=harness-hand, policy=harness-defaults, index=harness-session-index, control=harness-work-control, j=harness-workspace-json, workspace=harness-workspace
 /+  local-mcp=harness-local-mcp
 |%
 ++  restore-local-mcp
-  |=  [db=state-27 our=@p]
-  ^-  state-27
+  |=  [db=state-28 our=@p]
+  ^-  state-28
   ::  Migrate the direct native registration to the aggregate proxy without
   ::  changing its ID, grants, name, headers, or enabled state. Custom URLs
   ::  and deleted entries stay untouched. Repeated loads are idempotent.
@@ -21,6 +22,17 @@
   ?.  =((rap 3 'urbit://' (scot %p our) '/mcp-server' ~) url.u.server)  db
   db(mcp-servers (~(put by mcp-servers.db) id u.server(url (url:local-mcp our))))
 ++  load
+  |=  old-vase=vase
+  ^-  state-28
+  =/  current  (mule |.(!<(state-28 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  =/  prior  (load-27 old-vase)
+  ::  Setup tokens occupy their own slot; API keys retain the API slot.
+  =/  token  (fall (~(get by provider-keys.prior) 'anthropic') '')
+  =?  provider-keys.prior  &(!(~(has by provider-keys.prior) 'anthropic-device') =('sk-ant-oat01-' (cut 3 [0 13] token)))
+    (~(put by (~(del by provider-keys.prior) 'anthropic')) 'anthropic-device' token)
+  [%28 *state:hosted prior]
+++  load-27
   |=  old-vase=vase
   ^-  state-27
   =/  current  (mule |.(!<(state-27 old-vase)))

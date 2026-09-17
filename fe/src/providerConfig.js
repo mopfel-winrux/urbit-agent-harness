@@ -30,5 +30,5 @@ export function catalogEndpoint(provider, config) {
 }
 
 export function credentialSlot(provider, method) {
-  return provider === 'openai' && method === 'device' ? 'openai-device' : provider
+  return ['openai', 'anthropic'].includes(provider) && method === 'device' ? `${provider}-device` : provider
 }

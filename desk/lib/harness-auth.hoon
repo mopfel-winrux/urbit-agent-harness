@@ -12,6 +12,11 @@
   |=  url=@t
   ?:  (device-route url)  'openai-device'
   (provider-for-url:hp url)
+++  credential-for-config
+  |=  cfg=config:h
+  ?:  ?&(=('anthropic' (provider-for-url:hp url.cfg)) (lien headers.cfg |=([name=@t value=@t] &(=('anthropic-beta' name) =('oauth-2025-04-20' value)))))
+    'anthropic-device'
+  (credential-for-url url.cfg)
 ::  Compatibility for device tokens already saved in the shared OpenAI slot.
 ::  This recognizes token shape only, not validity or authorization. New device
 ::  credentials have a dedicated slot and do not need shape inference.
@@ -37,8 +42,13 @@
 ++  missing
   |=  [keys=(map @t @t) cfg=config:h]
   ^-  (unit @t)
-  ?.  =('openai' (provider-for-url:hp url.cfg))  ~
-  ?:  |(!=('' key.cfg) !=('' (key keys (credential-for-url url.cfg))))  ~
+  =/  provider  (provider-for-url:hp url.cfg)
+  ?.  |(=('openai' provider) =('anthropic' provider))  ~
+  ?:  |(!=('' key.cfg) !=('' (key keys (credential-for-config cfg))))  ~
+  ?:  =('anthropic' provider)
+    ?:  =('anthropic-device' (credential-for-config cfg))
+      `'authentication_error: Connect an Anthropic subscription in provider settings.'
+    `'authentication_error: Enter an Anthropic API key in provider settings.'
   ?:  (device-route url.cfg)
     `'authentication_error: Device login is selected but no OpenAI device credential is saved. Sign in in OpenAI settings.'
   `'authentication_error: API key is selected but no OpenAI API key is saved. Enter a key or select Device login in model settings.'

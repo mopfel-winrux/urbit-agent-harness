@@ -28,7 +28,7 @@
 ++  missing-subscriptions
   =/  bowl=bowl:gall  *bowl:gall
   =.  our.bowl  ~zod
-  =/  cards  (reload bowl !>(*state-27))
+  =/  cards  (reload bowl !>(*state-28))
   (expect-eq !>(2) !>((lent (watches cards))))
 ++  test-reload-reopens-acp-but-keeps-surviving-mirror
   (isolated |=(ignored=* surviving-subscriptions))
@@ -37,7 +37,7 @@
   =.  our.bowl  ~zod
   =.  wex.bowl  (~(put by wex.bowl) [/acp/watch ~zod %acp] [& /v1/agent])
   =.  wex.bowl  (~(put by wex.bowl) [/harness-grub/sessions ~zod %harness-grub] [& /client/sessions])
-  =/  saved=state-27  *state-27
+  =/  saved=state-28  *state-28
   =.  sessions.saved  (my ~[['peer--~nec' [~ 1]]])
   =/  cards  (reload bowl !>(saved))
   ;:  weld
@@ -53,7 +53,7 @@
   =.  our.bowl  ~zod
   =.  wex.bowl  (~(put by wex.bowl) [/acp/watch ~zod %acp] [& /v1/agent])
   =.  wex.bowl  (~(put by wex.bowl) [/harness-grub/sessions ~zod %harness-grub] [| /client/sessions])
-  =/  saved=state-27  *state-27
+  =/  saved=state-28  *state-28
   =.  sessions.saved  (my ~[['fixture' [~ 1]]])
   =/  cards  (reload bowl !>(saved))
   ;:  weld
@@ -67,7 +67,7 @@
     =.  our.bowl  ~zod
     =.  src.bowl  ~zod
     =.  now.bowl  ~2026.9.12
-    =/  saved=state-27  *state-27
+    =/  saved=state-28  *state-28
     =.  tlon-cron-imported.saved  &
     =/  args=json  (pairs:enjs:format ~[['title' %s 'Reload fixture'] ['body' %s 'Already dispatched']])
     =/  prepared  (prepare:notes workspace.saved workspace-notes.saved [%native 'reload'] 'artifact-create' args 'doc' now.bowl 0v42)
@@ -75,9 +75,9 @@
     =.  pending.workspace-notes.saved  `p.prepared(sent &)
     =/  rid  (request-id:notes p.prepared)
     =/  loaded  (~(on-load head bowl) !>(saved))
-    =/  after-load  !<(state-27 ~(on-save +.loaded bowl))
+    =/  after-load  !<(state-28 ~(on-save +.loaded bowl))
     =/  ack  (~(on-agent +.loaded bowl) /artifact-notes/request/(scot %uv rid) [%watch-ack ~])
-    =/  after-ack  !<(state-27 ~(on-save +.ack bowl))
+    =/  after-ack  !<(state-28 ~(on-save +.ack bowl))
     =/  emitted=(list card:agent:gall)  (weld -.loaded -.ack)
     ;:  weld
       (expect-eq !>(pending.workspace-notes.saved) !>(pending.workspace-notes.after-load))
