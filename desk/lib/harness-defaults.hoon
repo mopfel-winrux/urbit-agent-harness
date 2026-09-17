@@ -73,7 +73,9 @@
 ::
 ++  builtin-config
   ^-  config:h
-  :*  'https://openrouter.ai/api/v1/chat/completions'
+  :*  |
+      ~
+      'https://openrouter.ai/api/v1/chat/completions'
       'z-ai/glm-5.3-flash'
       ''
       ~

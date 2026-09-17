@@ -9,8 +9,8 @@
   =/  cfg  builtin-config:defaults
   =.  cfg  cfg(url device-url:auth, model 'gpt-5.6-luna')
   =/  args  (need (de:json:html '{"providerKeys":{"openrouter":"platform","brave":"search"}}'))
-  =/  out  (apply:provision cfg keys servers args)
-  =/  again  (apply:provision config.out keys.out servers args)
+  =/  out  (apply:provision cfg keys servers args |)
+  =/  again  (apply:provision config.out keys.out servers args |)
   ;:  weld
     (expect-eq !>(out) !>(again))
     (expect-eq !>(url.cfg) !>(url.config.out))
@@ -24,7 +24,7 @@
 ++  test-platform-key-rotation-removal-and-explicit-empty-override
   =/  keys  (my ~[['hosted-openrouter' 'old'] ['hosted-brave' 'removed'] ['xai' ''] ['hosted-xai' 'platform']])
   =/  args  (need (de:json:html '{"providerKeys":{"openrouter":"new","xai":"next"}}'))
-  =/  out  (apply:provision builtin-config:defaults keys ~ args)
+  =/  out  (apply:provision builtin-config:defaults keys ~ args |)
   ;:  weld
     (expect-eq !>('new') !>((key:auth keys.out 'openrouter')))
     (expect-eq !>('') !>((key:auth keys.out 'brave')))

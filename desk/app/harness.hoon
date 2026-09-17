@@ -27,11 +27,12 @@
 /+  hosted-auth=harness-hosted-auth
 /+  hosted-settings=harness-hosted-settings
 /+  hosted-provision=harness-hosted-provision
+/+  routing=harness-model-routing
 |%
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-29
+=|  state-30
 =*  state  -
 ^-  agent:gall
 =<
@@ -47,7 +48,7 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =/  loaded  !<(state-29 on-save:next)
+      =/  loaded  !<(state-30 on-save:next)
       =/  before-workspace  writes.workspace
       =/  previous-workspace  workspace
       =/  previous-notes  workspace-notes
@@ -110,7 +111,7 @@
 ::
 ++  on-load
   |=  old-vase=vase
-  =/  new=state-29  (restore-local-mcp:storage (load:storage old-vase) our.bowl)
+  =/  new=state-30  (restore-local-mcp:storage (load:storage old-vase) our.bowl)
   =.  state  new(corpus-wake ~, schedule-wake ~)
   %-  flush-auth
   ^-  (quip card _this)
@@ -1039,7 +1040,7 @@
   =/  confirmation  (mole |.((string:workspace-json args 'confirm')))
   ?.  =(confirmation `(cat 3 'release ' (scot %uv id.pending)))
     [~[(notes-reply reply [%| 'Confirm that you inspected Notes and understand that stopping observation cannot undo a dispatched change.'])] state]
-  =/  saved=state-29  state
+  =/  saved=state-30  state
   =/  next  saved(workspace-notes workspace-notes.saved(pending ~))
   =.  workspace.next  (record:workspace-lib workspace.next [& [0v0 'Owner'] 0v0] 'notes-release' artifact.pending now.bowl)
   [[[%pass /artifact-notes/request/(scot %uv rid) %agent [our.bowl %notes] %leave ~] (notes-reply reply [%& (pairs:enjs:format ~[['released' %b &]])]) ~] next]
@@ -1052,7 +1053,7 @@
   ^-  (quip card _state)
   ?~  pending.workspace-notes  `state
   =/  pending  u.pending.workspace-notes
-  =/  saved=state-29  state
+  =/  saved=state-30  state
   =/  next  saved(workspace-notes workspace-notes.saved(pending ?:(uncertain `pending(uncertain &) ~)))
   [~[(notes-reply reply.pending [%| message])] next]
 ++  notes-result
@@ -1137,7 +1138,7 @@
     (complete:notes-lib workspace workspace-notes note (history:~(. reader:notes-lib bowl) book nid) applied now.bowl)
   ?.  ?=(%& -.resolved)
     (notes-failed 'Notes confirmed a result, but its current document could not be read. Do not repeat the operation.' &)
-  =/  saved=state-29  state
+  =/  saved=state-30  state
   =/  next  saved(workspace db.p.resolved, workspace-notes native.p.resolved)
   =/  art  (~(got by artifacts.workspace.next) artifact.pending)
   =/  result
@@ -1766,10 +1767,11 @@
   ^-  (quip card _state)
   ?:  =('provision' action.req)
     =.  state  discover-local-mcp
-    =/  attempted  (mule |.((apply:hosted-provision defaults provider-keys mcp-servers args.req)))
+    =/  attempted  (mule |.((apply:hosted-provision defaults provider-keys mcp-servers args.req !model-defaults-set)))
     ?:  ?=(%| -.attempted)
       [~[[%give %fact ~[/hosted/[id.req]] %json !>((error:hosted-auth 400 'Invalid provisioning settings.'))]] state]
     =.  defaults  config.p.attempted
+    =.  model-defaults-set  &
     =.  provider-keys  keys.p.attempted
     [~[[%give %fact ~[/hosted/[id.req]] %json !>((envelope:hosted-auth 200 (pairs:enjs:format ~[['ready' %b &]])))]] state]
   ?:  =('settings' action.req)
@@ -1824,6 +1826,10 @@
   =/  ses=session:h  u.current
   =/  view  (play:hl log.ses)
   ?.  =(pending.view `[req ;;(request-kind:h i.t.t.t.w)])  $(failed t.failed)
+  =/  fallback  (try-fallback sid ses req ;;(request-kind:h i.t.t.t.w))
+  ?^  fallback
+    =.  sessions  (~(put by sessions) sid session.u.fallback)
+    $(failed t.failed, cards (weld cards cards.u.fallback))
   =/  event=event:h
     ?:  =(%compaction i.t.t.t.w)  [%compaction-failed req message [0 0]]
     [%llm-failed req message]
@@ -3320,6 +3326,11 @@
   =/  visible  (skills-visible sid skills)
   =/  leaf  (fall compaction.summary-models defaults)
   =/  branch  (fall lcm.summary-models defaults)
+  ::  Summarization cannot weaken the conversation's routing restriction.
+  =?  leaf  &(zdr.config.v !=('openrouter' (provider-for-url:hp url.leaf)))  config.v
+  =?  branch  &(zdr.config.v !=('openrouter' (provider-for-url:hp url.branch)))  config.v
+  =.  zdr.leaf  |(zdr.leaf zdr.config.v)
+  =.  zdr.branch  |(zdr.branch zdr.config.v)
   =/  planned
     (plan:lcm-context v (lent log.ses) input leaf branch |=(candidate=view:h (estimate:hp candidate %compaction visible)))
   ?:  ?=(%| -.planned)
@@ -3332,7 +3343,7 @@
   ?^  missing  (record-all sid ses ~[[%halted u.missing]])
   =/  req  next-req.ses
   =.  next-req.ses  +(req)
-  =^  cs  ses  (record-all sid ses ~[[%lcm-planned req p.planned]])
+  =^  cs  ses  (record-all sid ses ~[[%lcm-planned req p.planned] [%llm-routed req cfg]])
   :-  :+  (llm-card sid req %compaction (request:lcm-context v p.planned cfg))
           [%pass `wire`[%compact-timeout `@ta`sid (scot %ud req) (scot %uv (sham log.ses)) ~] %arvo %b %wait (add now.bowl ~m3)]
           cs
@@ -3349,8 +3360,13 @@
   ::  Session titles can currently be reused after deletion. Include the exact
   ::  dispatch log (with admitted input identity/time), not just a small request
   ::  counter, so an old watchdog cannot cancel work in a recreated session.
-  =/  at  +(through.u.compaction.v)
-  ?.  =(checkpoint (sham (slag (sub (lent log.ses) at) log.ses)))  `state
+  =/  dispatched
+    =/  events  log.ses
+    |-  ^-  (list event:h)
+    ?~  events  ~
+    ?:  ?&(?=(%llm-routed -.i.events) =(req req.i.events))  events
+    $(events t.events)
+  ?.  =(checkpoint (sham dispatched))  `state
   =^  recorded  ses
     (record-all sid ses ~[[%compaction-failed req 'Compaction timed out; the previous context was retained.' [0 0]]])
   =^  settled  state  (drive-put sid ses)
@@ -3364,11 +3380,35 @@
   |=  [sid=session-id:h ses=session:h kind=request-kind:h v=view:h]
   ^-  [(list card) session:h]
   =/  missing  (missing:auth provider-keys config.v)
-  ?^  missing  (record-all sid ses ~[[%halted u.missing]])
+  ?^  missing
+    =/  fallback  (next:routing config.v provider-keys)
+    ?~  fallback  (record-all sid ses ~[[%halted u.missing]])
+    $(v v(config u.fallback))
   =/  req  next-req.ses
   =.  next-req.ses  +(req)
-  =^  cs  ses  (record-all sid ses ~[[%llm-requested req kind]])
+  =^  cs  ses  (record-all sid ses ~[[%llm-requested req kind] [%llm-routed req config.v]])
   [(snoc cs (llm-card sid req kind v)) ses]
+++  try-fallback
+  |=  [sid=session-id:h ses=session:h req=@ud kind=request-kind:h]
+  ^-  (unit [cards=(list card) session=session:h])
+  =/  v  (play:hl log.ses)
+  =/  cfg  (active:routing v req)
+  =/  selected  (next:routing cfg provider-keys)
+  ?~  selected  ~
+  =.  cfg  u.selected
+  =/  candidate
+    ?:  =(%turn kind)  v(config cfg)
+    ?~  lcm-plan.v  v(config cfg)
+    (request:lcm-context v u.lcm-plan.v cfg)
+  ::  A smaller fallback must not silently truncate the prompt.
+  ?:  (gth (estimate:hp candidate kind (skills-visible sid skills)) (input-budget:context max-context.cfg))
+    ~
+  =/  next  next-req.ses
+  =.  next-req.ses  +(next)
+  =^  cards  ses  (record-all sid ses ~[[%llm-requested next kind] [%llm-routed next cfg]])
+  =?  cards  =(%compaction kind)
+    (snoc cards [%pass `wire`[%compact-timeout `@ta`sid (scot %ud next) (scot %uv (sham log.ses)) ~] %arvo %b %wait (add now.bowl ~m3)])
+  `[(snoc cards (llm-card sid next kind candidate)) ses]
 ++  provider-key
   |=  provider=@t
   ^-  @t
@@ -3431,6 +3471,7 @@
   ::
   ?~  pending.v  `state
   ?.  =(req.u.pending.v req)  `state
+  =/  request-config  (active:routing v req)
   ?:  ?=(%progress -.res)
     ?.  =(%turn kind)  `state
     =/  incremental  incremental.res
@@ -3439,7 +3480,7 @@
     =/  prior=stream-progress  (fall (~(get by streams) key) ['' 0])
     =/  body=@t  (cat 3 body.prior q.u.incremental)
     =/  responses=?
-      (responses-route:hp url.config.v)
+      (responses-route:hp url.request-config)
     =/  text=@t  (stream-text:hp body responses)
     =/  total=@ud  (met 3 text)
     =/  sent=@ud  sent.prior
@@ -3449,6 +3490,7 @@
     =/  prompt  (~(get by acp-prompts) sid)
     ?~  prompt  `state
     [~[(acp-stream-card:wire-codec connection.u.prompt sid delta)] state]
+  =/  streamed  (~(get by streams) [sid req])
   =.  streams  (~(del by streams) [sid req])
   =/  ev=event:h
     ?:  ?=(%cancel -.res)
@@ -3466,8 +3508,7 @@
           (fall body '')
       ==
     ?~  body  [%llm-failed req 'empty response body']
-    =/  request-url=@t
-      ?~(compaction.v url.config.v url.u.compaction.v)
+    =/  request-url=@t  url.request-config
     =/  responses=?  (responses-route:hp request-url)
     =/  digest
       ?:  responses
@@ -3490,6 +3531,13 @@
         `[u.command.u.compaction.v 'Context compacted. The recent turn and full source transcript were retained.']
       [%checkpoint-completed req body.it.p.out u.p.out reply]
     [%llm-completed req stop.p.out u.p.out it.p.out]
+  ::  No failover after user-visible output, explicit cancellation, or a
+  ::  semantic completion. Each attempt gets a fresh fenced request ID.
+  =/  fallback
+    ?.  ?&(?=(%llm-failed -.ev) !?=(%cancel -.res) |(?=(~ streamed) =(0 sent.u.streamed)))  ~
+    (try-fallback sid ses req kind)
+  ?^  fallback
+    [cards.u.fallback state(sessions (~(put by sessions) sid session.u.fallback))]
   =?  ev  &(?=(%llm-failed -.ev) =(%compaction kind))
     [%compaction-failed req err.ev [0 0]]
   =^  cs1  ses  (record-all sid ses ~[ev])

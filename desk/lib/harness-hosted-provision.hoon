@@ -1,11 +1,14 @@
 ::  A complete platform key snapshot replaces only platform-owned slots.
 /-  h=harness
-/+  ht=harness-tools, j=harness-workspace-json
+/+  ht=harness-tools, j=harness-workspace-json, routing=harness-model-routing
 |%
 ++  apply
-  |=  [cfg=config:h keys=(map @t @t) servers=(map mcp-server-id:h mcp-server:h) args=json]
+  |=  [cfg=config:h keys=(map @t @t) servers=(map mcp-server-id:h mcp-server:h) args=json initialize=?]
   ^-  [config=config:h keys=(map @t @t)]
   =/  supplied  (need (get:j args 'providerKeys'))
+  =/  fallbacks  (get:j args 'fallbacks')
+  =?  cfg  &(initialize ?=(^ fallbacks))
+    cfg(fallbacks (parse:routing u.fallbacks))
   ?>  ?=(%o -.supplied)
   =/  names=(list @t)  ~['openai' 'anthropic' 'xai' 'openrouter' 'brave']
   ?>  (levy ~(tap by p.supplied) |=([name=@t value=json] ?&((lien names |=(n=@t =(n name))) ?=(%s -.value) (lte (met 3 p.value) 8.192))))

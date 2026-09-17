@@ -21,7 +21,7 @@ export function chooseProvider(config, provider, preferredAuth = 'api-key') {
   if (providerOf(config.url) === provider) return config
   const details = PROVIDERS[provider]
   // Do not carry another provider's headers/credentials across a provider switch.
-  return withAuth({ ...config, url: details.endpoint || '', model: details.model || '', headers: [], key: '' }, provider, preferredAuth)
+  return withAuth({ ...config, url: details.endpoint || '', model: details.model || '', headers: [], key: '', zdr: false }, provider, preferredAuth)
 }
 
 export function catalogEndpoint(provider, config) {

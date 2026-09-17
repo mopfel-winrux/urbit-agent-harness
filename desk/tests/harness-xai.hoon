@@ -127,7 +127,7 @@
   (expect !>((lien p.providers |=(row=json &(=('xai' (string:j row 'provider')) =('expiring' (string:j row 'status')))))))
 ++  test-xai-uses-responses-for-inference-and-stream-decoding
   =/  v=view:h  *view:h
-  =.  config.v  ['https://cli-chat-proxy.grok.com/v1/responses' 'grok-build' '' ~ 'Answer the question.' 80.000 ~]
+  =.  config.v  [| ~ 'https://cli-chat-proxy.grok.com/v1/responses' 'grok-build' '' ~ 'Answer the question.' 80.000 ~]
   =.  items.v  ~[[%user 'What is two plus two?']]
   =/  body  (payload:hp v %turn ~)
   =/  response  (parse-responses-sse:hp 'data: {"type":"response.output_item.done","item":{"type":"message","content":[{"text":"4"}]}}\0adata: {"type":"response.completed","response":{"usage":{"input_tokens":6,"output_tokens":1}}}\0a')

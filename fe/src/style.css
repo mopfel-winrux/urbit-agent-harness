@@ -496,6 +496,8 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 .text-button, .remove-header { border: 0; background: transparent; color: var(--accent); cursor: pointer; font: inherit; }
 .header-row { display: grid; grid-template-columns: minmax(120px, .8fr) minmax(180px, 1.2fr) 36px; gap: 8px; }
 .header-row input { min-width: 0; }
+.model-fallback-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.model-fallback-row label { flex: 1 1 220px; min-width: 0; }
 .remove-header { min-height: 38px; border-radius: 7px; color: var(--muted); font-size: 18px; }
 .remove-header:hover { color: var(--danger); background: var(--soft); }
 .danger-text { color: var(--danger); }

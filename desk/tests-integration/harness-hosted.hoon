@@ -16,22 +16,22 @@
   =.  our.bowl  ~zod
   =.  src.bowl  ~zod
   =.  now.bowl  ~2026.9.17
-  =/  loaded  (~(on-load head bowl) !>(*state-29))
+  =/  loaded  (~(on-load head bowl) !>(*state-30))
   =/  args  (pairs:enjs:format ~[['provider' %s 'openai'] ['requestId' %s 'integration-login']])
   =/  started  (~(on-poke +.loaded bowl) %harness-hosted !>(`request:hosted`['start' 'start' args]))
-  =/  saved  !<(state-29 ~(on-save +.started bowl))
+  =/  saved  !<(state-30 ~(on-save +.started bowl))
   =/  reloaded  (~(on-load head bowl) !>(saved))
-  =/  retained  !<(state-29 ~(on-save +.reloaded bowl))
+  =/  retained  !<(state-30 ~(on-save +.reloaded bowl))
   =/  reply=client-response:iris
     [%finished [200 ~] `['application/json' (as-octs:mimes:html '{"device_auth_id":"PRIVATE_DEVICE","user_code":"VISIBLE_CODE","interval":5}')]]
   =/  responded  (~(on-arvo +.reloaded bowl) /hosted-auth/integration-login/1 [%iris %http-response reply])
-  =/  polled  !<(state-29 ~(on-save +.responded bowl))
+  =/  polled  !<(state-30 ~(on-save +.responded bowl))
   =/  wake  (~(on-arvo +.responded bowl(now (add now.bowl ~s5))) /hosted-auth-poll/integration-login/1 [%behn %wake ~])
-  =/  polling  !<(state-29 ~(on-save +.wake bowl))
+  =/  polling  !<(state-30 ~(on-save +.wake bowl))
   =/  disconnected  (~(on-poke +.wake bowl) %harness-hosted !>(`request:hosted`['disconnect' 'disconnect' args]))
-  =/  cleared  !<(state-29 ~(on-save +.disconnected bowl))
+  =/  cleared  !<(state-30 ~(on-save +.disconnected bowl))
   =/  late  (~(on-arvo +.disconnected bowl) /hosted-auth/integration-login/2 [%iris %http-response reply])
-  =/  after  !<(state-29 ~(on-save +.late bowl))
+  =/  after  !<(state-30 ~(on-save +.late bowl))
   ;:  weld
     (expect-eq !>(hosted.saved) !>(hosted.retained))
     (expect-eq !>(%poll) !>(phase:(~(got by flows.hosted.polled) 'integration-login')))
@@ -48,7 +48,7 @@
   =.  our.bowl  ~zod
   =.  src.bowl  ~zod
   =.  now.bowl  ~2026.9.17
-  =/  loaded  (~(on-load head bowl) !>(*state-29))
+  =/  loaded  (~(on-load head bowl) !>(*state-30))
   =.  src.bowl  ~nec
   =/  poke  (mule |.((~(on-poke +.loaded bowl) %harness-hosted !>(`request:hosted`['foreign' 'status' [%o ~]]))))
   =/  watch  (mule |.((~(on-watch +.loaded bowl) /hosted/foreign)))
@@ -61,7 +61,7 @@
 ++  provision-reload
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.17)
-  =/  saved=state-29  *state-29
+  =/  saved=state-30  *state-30
   =.  local-mcp-seen.saved  1
   =.  defaults.saved  builtin-config:defaults
   =.  model.defaults.saved  'owner-choice'
@@ -70,10 +70,10 @@
   =/  loaded  (~(on-load head bowl) !>(saved))
   =/  args  (need (de:json:html '{"providerKeys":{"openrouter":"platform","brave":"search"}}'))
   =/  applied  (~(on-poke +.loaded bowl) %harness-hosted !>(`request:hosted`['provision' 'provision' args]))
-  =/  next  !<(state-29 ~(on-save +.applied bowl))
+  =/  next  !<(state-30 ~(on-save +.applied bowl))
   =/  reloaded  (~(on-load head bowl) !>(next))
   =/  repeated  (~(on-poke +.reloaded bowl) %harness-hosted !>(`request:hosted`['again' 'provision' args]))
-  =/  after  !<(state-29 ~(on-save +.repeated bowl))
+  =/  after  !<(state-30 ~(on-save +.repeated bowl))
   ;:  weld
     (expect-eq !>(provider-keys.next) !>(provider-keys.after))
     (expect-eq !>('owner-choice') !>(model.defaults.after))
@@ -87,7 +87,7 @@
 ++  owner-tools
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.17)
-  =/  saved=state-29  *state-29
+  =/  saved=state-30  *state-30
   =.  local-mcp-seen.saved  1
   =.  mcp-servers.saved  (my ~[['local' ['Local' 'urbit://~zod/mcp-proxy' ~ &]]])
   =/  loaded  (~(on-load head bowl) !>(saved))
@@ -125,7 +125,7 @@
   =.  our.bowl  ~zod
   =.  src.bowl  ~zod
   =.  now.bowl  ~2026.9.17
-  =/  loaded  (~(on-load head bowl) !>(*state-29))
+  =/  loaded  (~(on-load head bowl) !>(*state-30))
   =/  payload  '{"jsonrpc":"2.0","id":1,"method":"harness/provider/login","params":{"action":"start","provider":"xai","requestId":"xai-integration"}}'
   =/  update=update:v1:ac  [%messages 'xai-fixture' %agent ~[[1 now.bowl payload]]]
   =/  started  (~(on-agent +.loaded bowl) /acp/watch [%fact %acp-update-1 !>(update)])
@@ -134,16 +134,16 @@
   =/  polling  (~(on-arvo +.code bowl) /hosted-auth-poll/xai-integration/1 [%behn %wake ~])
   =/  tokens  (~(on-arvo +.polling bowl) /hosted-auth/xai-integration/2 [%iris %http-response (reply '{"access_token":"ACCESS","refresh_token":"REFRESH","expires_in":3600}')])
   =/  verified  (~(on-arvo +.tokens bowl) /hosted-auth/xai-integration/3 [%iris %http-response (reply '{"data":[{"id":"grok-build"}]}')])
-  =/  saved  !<(state-29 ~(on-save +.verified bowl))
+  =/  saved  !<(state-30 ~(on-save +.verified bowl))
   =.  now.bowl  (add now.bowl ~h1)
   =/  reloaded  (~(on-load head bowl) !>(saved))
   =/  payload  '{"jsonrpc":"2.0","id":2,"method":"harness/provider/models","params":{"provider":"xai","url":"https://cli-chat-proxy.grok.com/v1/models"}}'
   =/  update=update:v1:ac  [%messages 'xai-fixture' %agent ~[[2 now.bowl payload]]]
   =/  requested  (~(on-agent +.reloaded bowl) /acp/watch [%fact %acp-update-1 !>(update)])
-  =/  pending  !<(state-29 ~(on-save +.requested bowl))
+  =/  pending  !<(state-30 ~(on-save +.requested bowl))
   =/  during  (~(on-load head bowl) !>(pending))
   =/  renewed  (~(on-arvo +.during bowl) /xai-renew/1 [%iris %http-response (reply '{"access_token":"ROTATED_ACCESS","refresh_token":"ROTATED_REFRESH","expires_in":3600}')])
-  =/  after  !<(state-29 ~(on-save +.renewed bowl))
+  =/  after  !<(state-30 ~(on-save +.renewed bowl))
   =/  requests
     %+  murn  -.renewed
     |=  c=card:agent:gall

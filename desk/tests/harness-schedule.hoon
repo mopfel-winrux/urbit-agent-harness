@@ -130,7 +130,7 @@
   =.  provider-keys.old  (my ~[['fixture' 'synthetic-secret']])
   =/  loaded  (load:storage !>(old))
   ;:  weld
-    (expect-eq !>(sessions.old) !>(sessions.loaded))
+    (expect-eq !>((upgrade-sessions:storage sessions.old)) !>(sessions.loaded))
     (expect-eq !>(provider-keys.old) !>(provider-keys.loaded))
     (expect-eq !>(`(map @uv schedule:c)`~) !>(schedules.loaded))
     (expect !>(!tlon-cron-imported.loaded))

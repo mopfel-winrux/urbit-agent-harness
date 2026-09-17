@@ -76,7 +76,8 @@
   :~  ['runtime' %s 'harness']
       ['providers' %a ~[[%s 'openai'] [%s 'anthropic'] [%s 'xai']]]
       ['apiKeyProviders' %a ~[[%s 'openai'] [%s 'anthropic'] [%s 'xai'] [%s 'openrouter']]]
-      ['modelFallbacks' %b |]
+      ['modelFallbacks' %b &]
+      ['openrouterZdr' %b &]
   ==
 ++  prune
   |=  [db=state now=@da]

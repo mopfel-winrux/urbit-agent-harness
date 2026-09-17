@@ -15,7 +15,7 @@
   (expect-eq !>(prior) !>((update:ix sessions sessions prior ~2026.9.6)))
 ++  test-legacy-migration-does-not-invent-a-modification-time
   =/  old=state-12  *state-12
-  =.  sessions.old  (my ~[['legacy' *session:h]])
+  =.  sessions.old  (my ~[['legacy' *session-0]])
   =/  next  (load:storage !>(old))
-  (expect !>(&(=(sessions.old sessions.next) =(`@da`0 (~(got by modified.next) 'legacy')) =(next (load:storage !>(next))))))
+  (expect !>(&(=((upgrade-sessions:storage sessions.old) sessions.next) =(`@da`0 (~(got by modified.next) 'legacy')) =(next (load:storage !>(next))))))
 --

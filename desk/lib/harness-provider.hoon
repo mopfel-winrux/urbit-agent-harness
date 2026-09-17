@@ -69,6 +69,10 @@
     ==
   =?  base  =(%turn kind)
     (snoc base ['tools' (tool-defs:ht tools.config.v)])
+  ::  Privacy restrictions belong to every request, including checkpoints.
+  ::  They never constrain direct providers or subscription endpoints.
+  =?  base  &(zdr.config.v =('openrouter' (provider-for-url url.config.v)))
+    (snoc base ['provider' (pairs:enjs:format ~[['zdr' %b &] ['data_collection' %s 'deny']])])
   (pairs:enjs:format base)
 ::  +responses-body: Responses wire format for subscription inference.
 ::

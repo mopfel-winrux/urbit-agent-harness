@@ -7,6 +7,7 @@ import { useProviderModels, invalidateModelCatalogs } from '../useProviderModels
 import { AnthropicDeviceLogin, OpenAIDeviceLogin, XaiDeviceLogin } from './ProviderLogin'
 import ProviderRoute from './ProviderRoute'
 import HeaderEditor from './HeaderEditor'
+import ModelFallbacks from './ModelFallbacks'
 
 export default function ProviderSettings({ provider, resources }) {
   const details = PROVIDERS[provider]
@@ -58,6 +59,7 @@ export default function ProviderSettings({ provider, resources }) {
     event.preventDefault()
     setBusy(true); setSaved(false); setError('')
     try {
+      if (form.zdr && form.fallbacks?.some((entry) => entry.provider !== 'openrouter')) throw new Error('Zero data retention requires OpenRouter fallbacks. Change or remove the other providers below.')
       if (['openai', 'xai'].includes(provider) && !configured && !key) throw new Error(method === 'device' ? 'Complete device login first.' : 'Enter an API key for API-key authentication.')
       if (key) {
         await api.action({ 'set-key': { provider: credentialSlot(provider, method), key } })
@@ -123,6 +125,8 @@ export default function ProviderSettings({ provider, resources }) {
       {catalog.loading && <p className="field-note">Loading the provider’s model catalog…</p>}
       {catalog.error && provider !== 'custom' && <p className="field-note">Catalog unavailable: {catalog.error}. You can still type a model name.</p>}
       {catalog.contextFor(form.model) && <p className="field-note">Provider reports a {catalog.contextFor(form.model).toLocaleString()} token context window. It will be applied when you save.</p>}
+      {provider === 'openrouter' && <label className="tool-option"><input type="checkbox" checked={!!form.zdr} onChange={(event) => edit({ ...form, zdr: event.target.checked })} /><span><strong>Zero data retention</strong><small>Use only endpoints that retain no prompt or response data. Requests fail if no eligible endpoint is available.</small></span></label>}
+      <ModelFallbacks value={form.fallbacks} zdr={form.zdr} onChange={(fallbacks) => edit({ ...form, fallbacks })} />
       <HeaderEditor value={form.headers || []} onChange={(headers) => edit({ ...form, headers })} />
     </section>
     <div className="save-bar"><span role="status">{saved ? 'Saved.' : resources.chat ? 'Saving selects this provider and authentication for the conversation.' : 'Saving selects this provider and authentication for new conversations.'}</span><button className="button primary" disabled={busy || session.loading}>{busy ? 'Saving…' : `Save ${details.title}`}</button></div>

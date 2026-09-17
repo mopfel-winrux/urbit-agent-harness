@@ -3,7 +3,7 @@
 |%
 ++  config
   ^-  config:h
-  ['https://openrouter.ai/api/v1/chat/completions' 'fixture' '' ~ 'KEEP INSTRUCTIONS' 80.000 ~[%web]]
+  [| ~ 'https://openrouter.ai/api/v1/chat/completions' 'fixture' '' ~ 'KEEP INSTRUCTIONS' 80.000 ~[%web]]
 ++  args
   |=  [revision=@t method=@t]
   (pairs:enjs:format ~[['revision' %s revision] ['provider' %s 'openai'] ['model' %s 'selected-model'] ['auth' %s method]])
@@ -45,7 +45,7 @@
   =/  cfg=config:h  config
   =/  input  (args (revision:settings cfg) 'subscription')
   ?>  ?=(%o -.input)
-  =.  p.input  (~(put by p.input) 'fallbacks' [%a ~])
+  =.  p.input  (~(put by p.input) 'unknown' [%a ~])
   =/  result  (apply:settings cfg ~ input)
   ;:  weld
     (expect-eq !>(cfg) !>(config.result))

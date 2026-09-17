@@ -2,7 +2,7 @@
 ::  JSON marks, ACP and snapshots. These are views of nouns, not stored state.
 ::  Provider wire messages live separately in harness-provider.
 /-  h=harness
-/+  hl=harness
+/+  hl=harness, routing=harness-model-routing
 |%
 ++  transcript-json
   |=  log=(list event:h)
@@ -40,7 +40,9 @@
   |=  cfg=config:h
   ^-  json
   %-  pairs:enjs:format
-  :~  ['url' %s url.cfg]
+  :~  ['zdr' %b zdr.cfg]
+      ['fallbacks' %a (turn fallbacks.cfg |=(m=model-choice:h (pairs:enjs:format ~[['provider' %s provider.m] ['model' %s model.m]])))]
+      ['url' %s url.cfg]
       ['model' %s model.cfg]
       :-  'headers'
       :-  %a
@@ -159,6 +161,9 @@
         ['req' (numb:enjs:format req.e)]
         ['kind' %s kind.e]
     ==
+  ::
+      %llm-routed
+    (pairs:enjs:format ~[['type' %s 'llm-routed'] ['model' %s model.config.e]])
   ::
       %llm-completed
     %-  pairs:enjs:format
@@ -325,17 +330,23 @@
   ==
 ::
 ++  json-config
+  |=  jon=json
+  ^-  config:h
   =,  dejs:format
-  ^-  $-(json config:h)
-  %-  ot
-  :~  url+so
+  ?>  ?=(%o -.jon)
+  =/  zdr  (~(get by p.jon) 'zdr')
+  =/  decode
+    %-  ot
+    :~  url+so
       model+so
       key+so
       headers+(ar (ot ~[name+so value+so]))
       system+so
       max-context+ni
       tools+(ar json-grant)
-  ==
+    ==
+  =/  fallbacks  (~(get by p.jon) 'fallbacks')
+  [?~(zdr | (bo u.zdr)) ?~(fallbacks ~ (parse:routing u.fallbacks)) (decode jon)]
 ++  grant-json
   |=  grant=tool-grant:h
   ^-  json

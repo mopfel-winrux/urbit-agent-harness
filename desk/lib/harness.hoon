@@ -80,6 +80,7 @@
     ::  A recorded request is an admitted continuation. Clearing the error
     ::  here also keeps already-recorded config/retry exchanges replayable.
     %llm-requested         v(pending `[req.e kind.e], err ~)
+    %llm-routed            v(route `[req.e config.e])
     %llm-failed            v(pending ~, compaction ~, lcm-plan ~, err `err.e)
     %tool-requested        v(wait (~(put in wait.v) call-id.e))
     %tool-requested-2      v(wait (~(put in wait.v) call-id.e))
