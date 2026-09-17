@@ -26,6 +26,49 @@
 ++  fixture-done
   ^-  result:hosted
   (receive:hosted db:fixture-verify keys:fixture-verify 'test-login' 4 (reply 200 '{"models":[{"slug":"fixture-model","display_name":"Fixture"}]}') (add now ~s8))
+++  test-model-catalog-allows-large-provider-metadata
+  =/  body
+    (rap 3 '{"models":[{"slug":"fixture-model","display_name":"Fixture","base_instructions":"' (crip (reap 320.000 'x')) '"}]}' ~)
+  =/  done  (receive:hosted db:fixture-verify keys:fixture-verify 'test-login' 4 (reply 200 body) (add now ~s8))
+  =/  expected  [%a ~[(pairs:enjs:format ~[['id' %s 'fixture-model'] ['name' %s 'Fixture']])]]
+  =/  catalog  (~(get by catalogs.db.done) 'openai')
+  ;:  weld
+    (expect-eq !>(%done) !>(phase:(~(got by flows.db.done) 'test-login')))
+    (expect-eq !>('PRIVATE_ACCESS') !>((key:auth keys.done 'openai-device')))
+    (expect-eq !>(expected) !>(?~(catalog ~ models.u.catalog)))
+  ==
+++  test-model-catalog-remains-bounded-and-does-not-save-credentials
+  =/  response=client-response:iris
+    [%finished [200 ~] `['application/json' [2.097.153 '{}']]]
+  =/  failed  (receive:hosted db:fixture-verify keys:fixture-verify 'test-login' 4 response (add now ~s8))
+  =/  f  (~(got by flows.db.failed) 'test-login')
+  ;:  weld
+    (expect-eq !>(%error) !>(phase.f))
+    (expect-eq !>('Provider model catalog exceeds the 2 MiB limit.') !>(error.f))
+    (expect-eq !>(~) !>(keys.failed))
+    (expect-eq !>(~) !>(catalogs.db.failed))
+    (expect-eq !>(['' '' '']) !>([token.f refresh.f account.f]))
+  ==
+++  test-token-response-retains-its-smaller-budget
+  =/  response=client-response:iris
+    [%finished [200 ~] `['application/json' [262.145 '{}']]]
+  =/  failed  (receive:hosted db:fixture-exchange keys:fixture-exchange 'test-login' 3 response (add now ~s7))
+  ;:  weld
+    (expect-eq !>('Provider authentication response exceeds the 256 KiB limit.') !>(error:(~(got by flows.db.failed) 'test-login')))
+    (expect-eq !>(~) !>(keys.failed))
+  ==
+++  test-invalid-token-response-identifies-the-stage-without-secrets
+  =/  failed  (receive:hosted db:fixture-exchange keys:fixture-exchange 'test-login' 3 (reply 200 '{"access_token":null,"refresh_token":"PRIVATE_REFRESH"}') (add now ~s7))
+  ;:  weld
+    (expect-eq !>('Provider returned an invalid token-exchange response.') !>(error:(~(got by flows.db.failed) 'test-login')))
+    (expect-eq !>(~) !>(keys.failed))
+  ==
+++  test-malformed-model-catalog-identifies-verification
+  =/  failed  (receive:hosted db:fixture-verify keys:fixture-verify 'test-login' 4 (reply 200 'PRIVATE_PROVIDER_BODY') (add now ~s8))
+  ;:  weld
+    (expect-eq !>('Provider returned an invalid model catalog while verifying the login.') !>(error:(~(got by flows.db.failed) 'test-login')))
+    (expect-eq !>(~) !>(keys.failed))
+  ==
 ++  test-server-flow-commits-only-after-verification
   ;:  weld
     (expect-eq !>(%poll) !>(phase:(~(got by flows.db:fixture-code) 'test-login')))

@@ -186,6 +186,15 @@
   =/  decoded  (~(de base64:mimes:html | &) (snag 1 u.parts))
   ?~  decoded  ~
   (fall (de:json:html q.u.decoded) ~)
+++  invalid-response
+  |=  phase=@tas
+  ^-  @t
+  ?+  phase  'Provider returned an invalid authentication response.'
+    %code      'Provider returned an invalid device-code response.'
+    %poll      'Provider returned an invalid device-authorization response.'
+    %exchange  'Provider returned an invalid token-exchange response.'
+    %verify    'Provider returned an invalid model catalog while verifying the login.'
+  ==
 ++  receive
   |=  [db=state keys=(map @t @t) id=@t serial=@ud res=client-response:iris now=@da]
   ^-  result
@@ -205,17 +214,21 @@
   ?:  &(=(%poll phase.f) |(=(403 status) =(404 status)))
     (poll-later out id now)
   ?.  =(200 status)  (fail out id 'Provider rejected authentication. Check your login and try again.')
+  ::  Model catalogs carry instructions and capability metadata. Keep their
+  ::  wire budget separate from token responses; persist only IDs and names.
+  =/  limit  ?:(=(%verify phase.f) 2.097.152 262.144)
+  ?:  ?&(?=(^ full-file.res) (gth p.data.u.full-file.res limit))
+    (fail out id ?:(=(%verify phase.f) 'Provider model catalog exceeds the 2 MiB limit.' 'Provider authentication response exceeds the 256 KiB limit.'))
   =/  parsed
     %-  mole  |.
     ?>  ?=(^ full-file.res)
-    ?>  (lte p.data.u.full-file.res 262.144)
     =/  value  (need (de:json:html q.data.u.full-file.res))
     ?>  ?=(%o -.value)
     value
-  ?~  parsed  (fail out id 'Provider returned an invalid authentication response.')
+  ?~  parsed  (fail out id (invalid-response phase.f))
   =/  body  u.parsed
   =/  decoded  (mule |.((advance out id f body now)))
-  ?:  ?=(%| -.decoded)  (fail out id 'Provider returned an invalid authentication response.')
+  ?:  ?=(%| -.decoded)  (fail out id (invalid-response phase.f))
   p.decoded
 ++  advance
   |=  [out=result id=@t f=flow body=json now=@da]
