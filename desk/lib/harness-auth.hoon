@@ -6,11 +6,16 @@
 |%
 ++  device-url  'https://chatgpt.com/backend-api/codex/responses'
 ++  device-models  'https://chatgpt.com/backend-api/codex/models?client_version=0.153.0'
+++  xai-url  'https://cli-chat-proxy.grok.com/v1/responses'
+++  xai-models  'https://cli-chat-proxy.grok.com/v1/models'
+++  xai-route
+  |=(url=@t |(=(url xai-url) =(url xai-models)))
 ++  device-route
   |=(url=@t |(=(url device-url) =(url device-models)))
 ++  credential-for-url
   |=  url=@t
   ?:  (device-route url)  'openai-device'
+  ?:  (xai-route url)  'xai-device'
   (provider-for-url:hp url)
 ++  credential-for-config
   |=  cfg=config:h
@@ -34,6 +39,8 @@
   ?:((jwt-shaped shared) shared '')
 ++  put-key
   |=  [keys=(map @t @t) provider=@t token=@t]
+  =?  keys  |(=('openai-device' provider) =('xai-device' provider))
+    (~(del by keys) ?:(=('xai-device' provider) 'xai-expires' 'openai-expires'))
   ::  Saving an API key must not discard a previously saved device login.
   =/  shared  (fall (~(get by keys) 'openai') '')
   =?  keys  &(=('openai' provider) (jwt-shaped shared) !(~(has by keys) 'openai-device'))
@@ -43,8 +50,12 @@
   |=  [keys=(map @t @t) cfg=config:h]
   ^-  (unit @t)
   =/  provider  (provider-for-url:hp url.cfg)
-  ?.  |(=('openai' provider) =('anthropic' provider))  ~
+  ?.  |(=('openai' provider) =('anthropic' provider) =('xai' provider))  ~
   ?:  |(!=('' key.cfg) !=('' (key keys (credential-for-config cfg))))  ~
+  ?:  =('xai' provider)
+    ?:  (xai-route url.cfg)
+      `'authentication_error: Connect your Grok subscription in xAI settings.'
+    `'authentication_error: Enter an xAI API key in provider settings.'
   ?:  =('anthropic' provider)
     ?:  =('anthropic-device' (credential-for-config cfg))
       `'authentication_error: Connect an Anthropic subscription in provider settings.'
@@ -55,7 +66,7 @@
 ++  headers
   |=  [keys=(map @t @t) url=@t extra=(list [name=@t value=@t])]
   ^-  (list [name=@t value=@t])
-  ?.  |((device-route url) =('openai' (provider-for-url:hp url)))  extra
+  ?.  |((device-route url) (xai-route url) =('openai' (provider-for-url:hp url)) =('xai' (provider-for-url:hp url)))  extra
   ::  Built-in auth headers cannot override the route's selected credential or
   ::  leak a ChatGPT account onto the API route. Custom endpoints retain theirs.
   =.  extra

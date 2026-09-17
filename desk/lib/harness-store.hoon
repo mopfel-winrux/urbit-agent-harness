@@ -11,8 +11,8 @@
 /+  local-mcp=harness-local-mcp
 |%
 ++  restore-local-mcp
-  |=  [db=state-28 our=@p]
-  ^-  state-28
+  |=  [db=state-29 our=@p]
+  ^-  state-29
   ::  Migrate the direct native registration to the aggregate proxy without
   ::  changing its ID, grants, name, headers, or enabled state. Custom URLs
   ::  and deleted entries stay untouched. Repeated loads are idempotent.
@@ -23,6 +23,15 @@
   db(mcp-servers (~(put by mcp-servers.db) id u.server(url (url:local-mcp our))))
 ++  load
   |=  old-vase=vase
+  ^-  state-29
+  =/  current  (mule |.(!<(state-29 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  =/  prior  (load-28 old-vase)
+  =/  [%28 * runtime=state-27]  prior
+  =/  flows  (malt (turn ~(tap by flows.hosted.prior) |=([id=@t f=flow-0:hosted] [id [~ f]])))
+  [%29 *state:oauth [flows catalogs.hosted.prior] runtime]
+++  load-28
+  |=  old-vase=vase
   ^-  state-28
   =/  current  (mule |.(!<(state-28 old-vase)))
   ?:  ?=(%& -.current)  p.current
@@ -31,7 +40,7 @@
   =/  token  (fall (~(get by provider-keys.prior) 'anthropic') '')
   =?  provider-keys.prior  &(!(~(has by provider-keys.prior) 'anthropic-device') =('sk-ant-oat01-' (cut 3 [0 13] token)))
     (~(put by (~(del by provider-keys.prior) 'anthropic')) 'anthropic-device' token)
-  [%28 *state:hosted prior]
+  [%28 *state-0:hosted prior]
 ++  load-27
   |=  old-vase=vase
   ^-  state-27

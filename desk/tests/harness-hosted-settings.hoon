@@ -59,7 +59,7 @@
   ;:  weld
     (expect-eq !>(cfg) !>(config.result))
     (expect-eq !>('PRIVATE') !>((key:auth keys.result 'anthropic')))
-    (expect-eq !>(`(unit json)`[~ [%o (my ~[['anthropic' [%b &]] ['openai' [%b |]] ['openrouter' [%b |]]])]]) !>((get:j body 'apiKeys')))
+    (expect-eq !>(`(unit json)`[~ [%o (my ~[['anthropic' [%b &]] ['openai' [%b |]] ['openrouter' [%b |]] ['xai' [%b |]]])]]) !>((get:j body 'apiKeys')))
   ==
 ++  test-clearing-api-key-keeps-subscription-credential
   =/  cfg=config:h  config

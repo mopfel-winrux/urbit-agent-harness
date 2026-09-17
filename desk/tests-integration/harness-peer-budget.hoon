@@ -7,8 +7,8 @@
 /=  head  /app/harness
 |%
 ++  fixture
-  ^-  state-28
-  =/  saved=state-28  *state-28
+  ^-  state-29
+  =/  saved=state-29  *state-29
   =.  defaults.saved  builtin-config:defaults
   =.  peers.saved  (my ~[[~nec [~ ~ 100 ~]]])
   =.  sessions.saved
@@ -16,17 +16,17 @@
     ~[['peer--~nec' [~[[%llm-completed 0 %stop [100 20] [%assistant 'Retain this reply' ~]] [%config-replaced defaults.saved]] 1]]]
   saved
 ++  invoke
-  |=  [saved=state-28 method=@t params=json]
-  ^-  [(list card:agent:gall) state-28]
+  |=  [saved=state-29 method=@t params=json]
+  ^-  [(list card:agent:gall) state-29]
   ::  Optional live bindings are absent in this fixture. Never forward its
   ::  synthetic bowl scries to the ship running the tests.
   =/  attempt  |.((invoke-raw saved method params))
   =/  out  (mink [attempt %9 2 %0 1] |=([* *] ``%.n))
   ?>  ?=(%0 -.out)
-  ;;([(list card:agent:gall) state-28] product.out)
+  ;;([(list card:agent:gall) state-29] product.out)
 ++  invoke-raw
-  |=  [saved=state-28 method=@t params=json]
-  ^-  [(list card:agent:gall) state-28]
+  |=  [saved=state-29 method=@t params=json]
+  ^-  [(list card:agent:gall) state-29]
   =/  bowl=bowl:gall  *bowl:gall
   =.  our.bowl  ~zod
   =.  src.bowl  ~zod
@@ -36,9 +36,9 @@
     (pairs:enjs:format ~[['jsonrpc' %s '2.0'] ['id' %n '1'] ['method' %s method] ['params' params]])
   =/  update=update:v1:ac  [%messages 'budget-fixture' %agent ~[[1 now.bowl payload]]]
   =/  out  (~(on-agent +.loaded bowl) /acp/watch [%fact %acp-update-1 !>(update)])
-  [-.out !<(state-28 ~(on-save +.out bowl))]
+  [-.out !<(state-29 ~(on-save +.out bowl))]
 ++  reset-params
-  |=  [saved=state-28 ship=@p]
+  |=  [saved=state-29 ship=@p]
   (pairs:enjs:format ~[['ship' %s (scot %p ship)] ['revision' %s (revision:peers peers.saved ~ peer-base.saved peer-limits.saved)]])
 ++  test-reset-keeps-history-grants-and-limit-and-survives-reload
   =/  saved  fixture
@@ -73,6 +73,6 @@
   =.  src.bowl  ~zod
   =/  loaded  (~(on-load head bowl) !>(saved))
   =/  out  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%delete 'peer--~nec']))
-  =/  next  !<(state-28 ~(on-save +.out bowl))
+  =/  next  !<(state-29 ~(on-save +.out bowl))
   (expect !>(&(!(~(has by sessions.next) 'peer--~nec') =((my ~[[~bud 7]]) peer-budget-resets.next))))
 --

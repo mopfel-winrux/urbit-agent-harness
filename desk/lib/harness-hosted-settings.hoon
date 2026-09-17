@@ -7,8 +7,9 @@
 ++  view
   |=  [cfg=config:h keys=(map @t @t)]
   =/  configured
-    (turn `(list @t)`~['openai' 'anthropic' 'openrouter'] |=(name=@t [name [%b !=('' (key:auth keys name))]]))
-  (envelope:hosted 200 (pairs:enjs:format ~[['revision' %s (revision cfg)] ['provider' %s (provider-for-url:provider url.cfg)] ['model' %s model.cfg] ['apiKeys' (pairs:enjs:format configured)] ['auth' %s ?:(=('openai-device' (credential-for-config:auth cfg)) 'subscription' ?:(=('anthropic-device' (credential-for-config:auth cfg)) 'subscription' 'api-key'))]]))
+    (turn `(list @t)`~['openai' 'anthropic' 'xai' 'openrouter'] |=(name=@t [name [%b !=('' (key:auth keys name))]]))
+  =/  subscription  (~(has in (silt ~['openai-device' 'anthropic-device' 'xai-device'])) (credential-for-config:auth cfg))
+  (envelope:hosted 200 (pairs:enjs:format ~[['revision' %s (revision cfg)] ['provider' %s (provider-for-url:provider url.cfg)] ['model' %s model.cfg] ['apiKeys' (pairs:enjs:format configured)] ['auth' %s ?:(subscription 'subscription' 'api-key')]]))
 ++  apply
   |=  [cfg=config:h keys=(map @t @t) args=json]
   ^-  [config=config:h keys=(map @t @t) response=json]
@@ -24,7 +25,7 @@
   =/  provider  (string:j args 'provider')
   ::  Key management does not select a model or change its authentication.
   ?:  ?=(~ (get:j args 'model'))
-    ?.  (~(has in (silt ~['openai' 'anthropic' 'openrouter'])) provider)  out
+    ?.  (~(has in (silt ~['openai' 'anthropic' 'xai' 'openrouter'])) provider)  out
     ?.  ?=(~ (get:j args 'auth'))  out
     =/  token  (string:j args 'apiKey')
     ?.  (lte (met 3 token) 8.192)  out
@@ -36,6 +37,7 @@
   =/  url=@t
     ?:  =('openai' provider)  ?:(=('subscription' method) device-url:auth 'https://api.openai.com/v1/chat/completions')
     ?:  =('anthropic' provider)  'https://api.anthropic.com/v1/chat/completions'
+    ?:  =('xai' provider)  ?:(=('subscription' method) xai-url:auth 'https://api.x.ai/v1/chat/completions')
     ?:  &(=('openrouter' provider) =('api-key' method))  'https://openrouter.ai/api/v1/chat/completions'
     ''
   ?:  =('' url)  [cfg keys (error:hosted 400 'Unsupported provider or authentication method.')]

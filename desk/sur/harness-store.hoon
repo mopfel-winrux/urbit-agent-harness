@@ -8,7 +8,8 @@
 /-  wc=harness-work-control
 /-  hosted=harness-hosted
 |%
-+$  state-28  [%28 hosted=state:hosted state-27]
++$  state-29  [%29 xai-auth=state:oauth hosted=state:hosted state-27]
++$  state-28  [%28 hosted=state-0:hosted state-27]
 +$  state-27
   $:  %27
       workspace=state:work

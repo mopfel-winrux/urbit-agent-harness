@@ -14,8 +14,8 @@
     [%add 0v1 'source-binding' 'alice' %prompt (pairs:enjs:format ~[['schedule' %s '* * * * *'] ['timezone' %s 'UTC'] ['prompt' %s 'Check status'] ['runs' %s '2']])]
   (create:schedule act ['fixture-chat' 'room' 'source' ~['alice'] &] ~ ~2026.9.9)
 ++  fixture
-  ^-  state-28
-  =/  s=state-28  *state-28
+  ^-  state-29
+  =/  s=state-29  *state-29
   =.  tlon-cron-imported.s  |
   =/  cfg  builtin-config:defaults
   =.  defaults.s  cfg(tools ~)
@@ -41,7 +41,7 @@
   =/  act=action:c
     [%add 0v2 'source-binding' 'alice' %prompt (pairs:enjs:format ~[['at' %s '2026-09-09T00:01:17Z'] ['prompt' %s 'Finish the task and report the result']])]
   =/  out  (~(on-poke +.loaded bowl) %harness-cron !>(`request:c`['fixture' act]))
-  =/  next  !<(state-28 ~(on-save +.out bowl))
+  =/  next  !<(state-29 ~(on-save +.out bowl))
   =/  v  (play:hl log:(~(got by sessions.next) 'schedule-0v2'))
   ;:  weld
     (expect !>((tool-granted:tools 'workspace' tools.config.v)))
@@ -62,7 +62,7 @@
   =.  schedules.s  (my ~[[0v1 job]])
   =.  schedule-wake.s  `next.job
   =/  out  (~(on-load head bowl) !>(s))
-  =/  next  !<(state-28 ~(on-save +.out bowl))
+  =/  next  !<(state-29 ~(on-save +.out bowl))
   =/  timers
     (skim -.out |=(card=card:agent:gall ?=([%pass [%schedules *] %arvo %b *] card)))
   ;:  weld
@@ -83,14 +83,14 @@
   =.  sessions.s
     (~(put by sessions.s) 'source' [~[[%input-received [0v9 [%acp 'fixture'] `~zod ~ ~2026.9.9 [%user 'fixture']]] [%config-replaced defaults.s]] 1])
   =/  loaded  (~(on-load head bowl) !>(s))
-  =/  ready  !<(state-28 ~(on-save +.loaded bowl))
+  =/  ready  !<(state-29 ~(on-save +.loaded bowl))
   =/  step
     |.
     =/  ack  (~(on-agent +.loaded bowl) /acp/ack [%poke-ack ~])
     =/  update=update:v1:ac
       [%messages 'fixture' %agent ~[[1 ~2026.9.9 '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}']]]
     =/  read  (~(on-agent +.ack bowl) /acp/watch [%fact %acp-update-1 !>(update)])
-    =/  next  !<(state-28 ~(on-save +.read bowl))
+    =/  next  !<(state-29 ~(on-save +.read bowl))
     &(=(schedules.ready schedules.next) =(schedule-wake.ready schedule-wake.next) =(2 (lent -.read)) =(~ -.ack))
   ::  Any attempted authority scry blocks this isolated evaluation.
   =/  checked  (mink [step %9 2 %0 1] |=([* *] ~))
@@ -111,13 +111,13 @@
   =/  transfer=transfer:c  [(my ~[[0v1 old]]) (my ~[[0v1 ['missing-source' 'alice']]])]
   =/  loaded  (~(on-load head bowl) !>(s))
   =/  out  (~(on-poke +.loaded bowl) %harness-cron-import !>(transfer))
-  =/  next  !<(state-28 ~(on-save +.out bowl))
+  =/  next  !<(state-29 ~(on-save +.out bowl))
   =/  imported  (need (~(get by schedules.next) 0v1))
   ::  Simulate removal of settled metadata; the durable import fence survives.
   =/  cleared  next(schedules ~)
   =/  reloaded  (~(on-load head bowl) !>(cleared))
   =/  repeat  (~(on-poke +.reloaded bowl) %harness-cron-import !>(transfer))
-  =/  final  !<(state-28 ~(on-save +.repeat bowl))
+  =/  final  !<(state-29 ~(on-save +.repeat bowl))
   ;:  weld
     (expect !>(tlon-cron-imported.next))
     (expect-eq !>(run-sid.old) !>(run-sid.imported))

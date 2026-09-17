@@ -16,16 +16,16 @@
   =.  our.bowl  ~zod
   =.  src.bowl  ~zod
   =.  now.bowl  ~2026.9.12
-  =/  saved=state-28  *state-28
+  =/  saved=state-29  *state-29
   =.  tlon-cron-imported.saved  &
   =.  tasks.workspace.saved
     (my ~[['task' ['project' 'Read-only fixture' 'No effects' 1 %blocked ~ '' ~ now.bowl]]])
   =/  loaded  (~(on-load head bowl) !>(saved))
-  =/  before  !<(state-28 ~(on-save +.loaded bowl))
+  =/  before  !<(state-29 ~(on-save +.loaded bowl))
   =/  frame=@t  '{"jsonrpc":"2.0","id":1,"method":"harness/inbox","params":{"state":"attention"}}'
   =/  update=update:v1:ac  [%messages connection %agent ~[[1 now.bowl frame]]]
   =/  read  (~(on-agent +.loaded bowl) /acp/watch [%fact %acp-update-1 !>(update)])
-  =/  after  !<(state-28 ~(on-save +.read bowl))
+  =/  after  !<(state-29 ~(on-save +.read bowl))
   =/  payload=@t
     =/  cards  -.read
     |-  ^-  @t

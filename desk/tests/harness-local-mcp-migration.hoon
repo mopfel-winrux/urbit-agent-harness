@@ -2,7 +2,7 @@
 /+  *test, storage=harness-store
 |%
 ++  test-direct-registration-migrates-without-changing-access
-  =/  saved=state-28  *state-28
+  =/  saved=state-29  *state-29
   =.  local-mcp-seen.saved  1
   =.  mcp-servers.saved
     (my ~[['~nec-mcp' ['Local tools' 'urbit://~nec/mcp-server' ~[['x-fixture' 'value']] |]]])
@@ -13,7 +13,7 @@
     (expect-eq !>(loaded) !>((restore-local-mcp:storage loaded ~nec)))
   ==
 ++  test-custom-and-deleted-registrations-stay-untouched
-  =/  saved=state-28  *state-28
+  =/  saved=state-29  *state-29
   =.  local-mcp-seen.saved  1
   =/  custom  saved(mcp-servers (my ~[['~nec-mcp' ['Custom' 'https://example.com/mcp' ~ &]]]))
   =/  foreign  saved(mcp-servers (my ~[['~nec-mcp' ['Other ship' 'urbit://~zod/mcp-server' ~ &]]]))

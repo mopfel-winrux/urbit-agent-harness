@@ -41,3 +41,15 @@ test('Anthropic login selects its OAuth header on the same fixed route', () => {
   assert.equal(credentialSlot('anthropic', 'api-key'), 'anthropic')
   assert.deepEqual(withAuth(config, 'anthropic', 'api-key').headers, [])
 })
+
+test('xAI device login selects the subscription route without borrowing API credentials', () => {
+  const device = withAuth({ headers: [{ name: 'ChatGPT-Account-ID', value: 'private' }] }, 'xai', 'device')
+  assert.equal(device.url, PROVIDERS.xai.deviceEndpoint)
+  assert.equal(authMethod('xai', device), 'device')
+  assert.equal(catalogEndpoint('xai', device), PROVIDERS.xai.deviceModelsEndpoint)
+  assert.equal(credentialSlot('xai', 'device'), 'xai-device')
+  assert.equal(credentialSlot('xai', 'api-key'), 'xai')
+  assert.deepEqual(device.headers, [])
+  assert.equal(withAuth(device, 'xai', 'api-key').url, PROVIDERS.xai.endpoint)
+  assert.equal(chooseProvider({ url: PROVIDERS.openai.endpoint }, 'xai', 'device').url, device.url)
+})

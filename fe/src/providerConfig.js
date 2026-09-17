@@ -3,7 +3,7 @@
 import { PROVIDERS, providerOf } from './providers.js'
 
 export function authMethod(provider, config = {}) {
-  if (provider === 'openai') return config.url === PROVIDERS.openai.deviceEndpoint ? 'device' : 'api-key'
+  if (PROVIDERS[provider]?.deviceEndpoint) return config.url === PROVIDERS[provider].deviceEndpoint ? 'device' : 'api-key'
   if (provider === 'anthropic') return (config.headers || []).some((h) => h.name.toLowerCase() === 'anthropic-beta' && h.value.includes('oauth-')) ? 'device' : 'api-key'
   return 'api-key'
 }
@@ -30,5 +30,5 @@ export function catalogEndpoint(provider, config) {
 }
 
 export function credentialSlot(provider, method) {
-  return ['openai', 'anthropic'].includes(provider) && method === 'device' ? `${provider}-device` : provider
+  return ['openai', 'anthropic', 'xai'].includes(provider) && method === 'device' ? `${provider}-device` : provider
 }

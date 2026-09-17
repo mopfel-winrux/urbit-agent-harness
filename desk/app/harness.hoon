@@ -30,7 +30,7 @@
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-28
+=|  state-29
 =*  state  -
 ^-  agent:gall
 =<
@@ -46,7 +46,7 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =/  loaded  !<(state-28 on-save:next)
+      =/  loaded  !<(state-29 on-save:next)
       =/  before-workspace  writes.workspace
       =/  previous-workspace  workspace
       =/  previous-notes  workspace-notes
@@ -58,8 +58,10 @@
       =.  state  loaded
       =?  writes.workspace  &(!=(previous-notes workspace-notes) =(before-workspace writes.workspace))
         +(writes.workspace)
-      =/  out  (filter:oauth -.result openai-auth provider-keys now.bowl)
-      =^  cards  state  (accept-auth:hc out)
+      =/  out  (filter:oauth -.result openai-auth provider-keys now.bowl 'openai')
+      =^  cards  state  (accept-auth:hc out 'openai')
+      =/  out  (filter:oauth cards xai-auth provider-keys now.bowl 'xai')
+      =^  cards  state  (accept-auth:hc out 'xai')
       =^  scheduled  state
         ::  Reads and transport acknowledgements cannot invalidate schedules.
         ::  Keep live effect authorization separate from maintenance cadence.
@@ -107,7 +109,7 @@
 ::
 ++  on-load
   |=  old-vase=vase
-  =/  new=state-28  (restore-local-mcp:storage (load:storage old-vase) our.bowl)
+  =/  new=state-29  (restore-local-mcp:storage (load:storage old-vase) our.bowl)
   =.  state  new(corpus-wake ~, schedule-wake ~)
   %-  flush-auth
   ^-  (quip card _this)
@@ -619,13 +621,14 @@
     =.  corpus  (work:corpus-lib corpus 32 65.536)
     =.  workspace-search  (work:workspace-index workspace-search workspace 8 65.536)
     `this
-      [%openai-renew @ ~]
+      [?(%openai-renew %xai-renew) @ ~]
     ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
-    =/  out  (receive:oauth openai-auth provider-keys now.bowl (slav %ud i.t.wire) client-response.sign)
-    =^  cards  state  (accept-auth:hc out)
+    =/  provider  ?:(=(%xai-renew i.wire) 'xai' 'openai')
+    =/  out  (receive:oauth ?:(=('xai' provider) xai-auth openai-auth) provider-keys now.bowl (slav %ud i.t.wire) client-response.sign provider)
+    =^  cards  state  (accept-auth:hc out provider)
     [cards this]
   ::  The filter checks the persisted deadline; stale watchdogs are harmless.
-      [%openai-timeout @ ~]
+      [?(%openai-timeout %xai-timeout) @ ~]
     `this
       [%eyre %connect ~]
     ?.  ?=([%eyre %bound *] sign)  (on-arvo:def wire sign)
@@ -1035,7 +1038,7 @@
   =/  confirmation  (mole |.((string:workspace-json args 'confirm')))
   ?.  =(confirmation `(cat 3 'release ' (scot %uv id.pending)))
     [~[(notes-reply reply [%| 'Confirm that you inspected Notes and understand that stopping observation cannot undo a dispatched change.'])] state]
-  =/  saved=state-28  state
+  =/  saved=state-29  state
   =/  next  saved(workspace-notes workspace-notes.saved(pending ~))
   =.  workspace.next  (record:workspace-lib workspace.next [& [0v0 'Owner'] 0v0] 'notes-release' artifact.pending now.bowl)
   [[[%pass /artifact-notes/request/(scot %uv rid) %agent [our.bowl %notes] %leave ~] (notes-reply reply [%& (pairs:enjs:format ~[['released' %b &]])]) ~] next]
@@ -1048,7 +1051,7 @@
   ^-  (quip card _state)
   ?~  pending.workspace-notes  `state
   =/  pending  u.pending.workspace-notes
-  =/  saved=state-28  state
+  =/  saved=state-29  state
   =/  next  saved(workspace-notes workspace-notes.saved(pending ?:(uncertain `pending(uncertain &) ~)))
   [~[(notes-reply reply.pending [%| message])] next]
 ++  notes-result
@@ -1133,7 +1136,7 @@
     (complete:notes-lib workspace workspace-notes note (history:~(. reader:notes-lib bowl) book nid) applied now.bowl)
   ?.  ?=(%& -.resolved)
     (notes-failed 'Notes confirmed a result, but its current document could not be read. Do not repeat the operation.' &)
-  =/  saved=state-28  state
+  =/  saved=state-29  state
   =/  next  saved(workspace db.p.resolved, workspace-notes native.p.resolved)
   =/  art  (~(got by artifacts.workspace.next) artifact.pending)
   =/  result
@@ -1773,7 +1776,7 @@
   =/  attempted
     %-  mule  |.
     ?:  =('status' action.req)
-      [hosted provider-keys ~ (status:hosted-auth hosted provider-keys openai-auth now.bowl)]
+      [hosted provider-keys ~ (status:hosted-auth hosted provider-keys openai-auth xai-auth now.bowl)]
     (run:hosted-auth hosted provider-keys action.req args.req now.bowl)
   =/  out=result:hosted-auth
     ?:  ?=(%& -.attempted)  p.attempted
@@ -1782,14 +1785,15 @@
   =.  provider-keys  keys.out
   [(snoc cards.out [%give %fact ~[/hosted/[id.req]] %json !>(response.out)]) state]
 ++  accept-auth
-  |=  out=result:oauth
+  |=  [out=result:oauth provider=@t]
   ^-  (quip card _state)
   ::  A verified renewal keeps the account's catalog usable. New logins and
   ::  disconnects invalidate catalogs through their own credential identity.
-  =/  catalog  (~(get by catalogs.hosted) 'openai')
-  =?  catalogs.hosted  ?&(?=(^ catalog) =(identity.u.catalog (identity:hosted-auth provider-keys 'openai')) !=(provider-keys keys.out))
-    (~(put by catalogs.hosted) 'openai' u.catalog(identity (identity:hosted-auth keys.out 'openai')))
-  =.  openai-auth  oauth.out
+  =/  catalog  (~(get by catalogs.hosted) provider)
+  =?  catalogs.hosted  ?&(?=(^ catalog) =(identity.u.catalog (identity:hosted-auth provider-keys provider)) !=(provider-keys keys.out))
+    (~(put by catalogs.hosted) provider u.catalog(identity (identity:hosted-auth keys.out provider)))
+  =?  openai-auth  =('openai' provider)  oauth.out
+  =?  xai-auth  =('xai' provider)  oauth.out
   =.  provider-keys  keys.out
   =/  cards  cards.out
   =/  failed  failed.out
@@ -2053,7 +2057,7 @@
           ==
       ==
     =/  result=json
-      ?.  |(=('openai' provider) =('anthropic' provider))  (pairs:enjs:format ~[['has-key' %b has]])
+      ?.  (supported:hosted-auth provider)  (pairs:enjs:format ~[['has-key' %b has]])
       =/  device=?  !=('' (provider-key (cat 3 provider '-device')))
       =/  method=@t
         ?:  &(=((cat 3 provider '-device') (credential-for-config:auth defaults)) device)  'device'
@@ -2061,7 +2065,8 @@
         ?:(device 'device' 'api-key')
       ?:  =('anthropic' provider)
         (pairs:enjs:format ~[['has-key' %b |(has device)] ['has-api-key' %b has] ['has-device-login' %b device] ['auth-method' %s method]])
-      (pairs:enjs:format ~[['has-key' %b |(has device)] ['has-api-key' %b has] ['has-device-login' %b device] ['auth-method' %s method] ['auto-renew' %b !=('' (provider-key 'openai-refresh'))] ['renewing' %b ?=(^ active.openai-auth)] ['renewal-error' %s error.openai-auth]])
+      =/  renewal  ?:(=('xai' provider) xai-auth openai-auth)
+      (pairs:enjs:format ~[['has-key' %b |(has device)] ['has-api-key' %b has] ['has-device-login' %b device] ['auth-method' %s method] ['auto-renew' %b !=('' (provider-key (cat 3 provider '-refresh')))] ['renewing' %b ?=(^ active.renewal)] ['renewal-error' %s error.renewal]])
     [~[(acp-result-card:wire-codec connection u.id result)] state]
   ::
       %'harness/tools'
@@ -2278,7 +2283,7 @@
       ?.  =(%turn kind.u.pending.v)  ''
       =/  progress  (~(get by streams) [u.sid req.u.pending.v])
       ?~  progress  ''
-      (stream-text:hp body.u.progress =('https://chatgpt.com/backend-api/codex/responses' url.config.v))
+      (stream-text:hp body.u.progress (responses-route:hp url.config.v))
     =/  result  (snapshot:hs u.current since)
     ?>  ?=(%o -.result)
     =.  result  [%o (~(put by p.result) 'streaming' [%s streaming])]
@@ -2371,6 +2376,23 @@
     =/  result=json
       (pairs:enjs:format ~[['has-key' %b !=('' u.key)]])
     [~[(acp-result-card:wire-codec connection u.id result)] state]
+  ::
+      %'harness/provider/login'
+    ?~  id  `state
+    =/  attempted
+      %-  mule  |.
+      =/  action  (need (acp-param-string:wire-codec params 'action'))
+      ^-  result:hosted-auth
+      ?:  =('status' action)
+        [hosted provider-keys ~ (status:hosted-auth hosted provider-keys openai-auth xai-auth now.bowl)]
+      ?>  (lien `(list @t)`~['start' 'flow' 'disconnect'] |=(name=@t =(action name)))
+      (run:hosted-auth hosted provider-keys action (need params) now.bowl)
+    ?:  ?=(%| -.attempted)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Invalid login request')] state]
+    =/  out  p.attempted
+    =.  hosted  db.out
+    =.  provider-keys  keys.out
+    [(snoc cards.out (acp-result-card:wire-codec connection u.id response.out)) state]
   ::
       %'harness/provider/models'
     ?~  id  `state
@@ -3347,7 +3369,7 @@
 ++  model-list-card
   |=  [req=@ud provider=@t url=@t]
   ^-  card
-  =/  key=@t  (provider-key ?:(=('openai' provider) ?:((device-route:auth url) 'openai-device' 'openai') provider))
+  =/  key=@t  (provider-key ?:((xai-route:auth url) 'xai-device' ?:(=('openai' provider) ?:((device-route:auth url) 'openai-device' 'openai') provider)))
   =/  hed=header-list:http  ~[['accept' 'application/json']]
   =?  hed  =('anthropic-device' provider)
     (weld hed ~[['anthropic-version' '2023-06-01'] ['anthropic-beta' 'oauth-2025-04-20']])
@@ -3408,7 +3430,7 @@
     =/  prior=stream-progress  (fall (~(get by streams) key) ['' 0])
     =/  body=@t  (cat 3 body.prior q.u.incremental)
     =/  responses=?
-      =('https://chatgpt.com/backend-api/codex/responses' url.config.v)
+      (responses-route:hp url.config.v)
     =/  text=@t  (stream-text:hp body responses)
     =/  total=@ud  (met 3 text)
     =/  sent=@ud  sent.prior
@@ -3437,7 +3459,7 @@
     ?~  body  [%llm-failed req 'empty response body']
     =/  request-url=@t
       ?~(compaction.v url.config.v url.u.compaction.v)
-    =/  responses=?  =('https://chatgpt.com/backend-api/codex/responses' request-url)
+    =/  responses=?  (responses-route:hp request-url)
     =/  digest
       ?:  responses
         (mule |.((parse-responses-sse:hp u.body)))

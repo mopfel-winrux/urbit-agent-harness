@@ -82,7 +82,7 @@
   ==
 ++  test-status-and-flow-never-return-secrets
   =/  flow  (public-flow:hosted 'test-login' (~(got by flows.db:fixture-verify) 'test-login') now)
-  =/  status  (status:hosted db:fixture-done keys:fixture-done *state:renew now)
+  =/  status  (status:hosted db:fixture-done keys:fixture-done *state:renew *state:renew now)
   =/  body  (need (get:j status 'body'))
   ;:  weld
     (expect-eq !>(~) !>((get:j flow 'token')))
@@ -92,7 +92,7 @@
     (expect-eq !>('authenticating') !>((string:j flow 'status')))
   ==
 ++  test-verification-keeps-temporary-credential-at-renewal-boundary
-  =/  result  (filter:renewal cards:fixture-verify *state:renew ~ now)
+  =/  result  (filter:renewal cards:fixture-verify *state:renew ~ now 'openai')
   ;:  weld
     (expect-eq !>(cards:fixture-verify) !>(cards.result))
     (expect-eq !>(~) !>(failed.result))
@@ -157,8 +157,9 @@
   =/  saved  *state-27:store
   =.  provider-keys.saved  (my ~[['openai-device' 'RETAINED']])
   =/  loaded  (load:storage !>(saved))
+  =/  [%29 * * runtime=state-27:store]  loaded
   ;:  weld
-    (expect-eq !>(saved) !>(+>.loaded))
+    (expect-eq !>(saved) !>(runtime))
     (expect-eq !>(*state) !>(hosted.loaded))
     (expect-eq !>(loaded) !>((load:storage !>(loaded))))
   ==

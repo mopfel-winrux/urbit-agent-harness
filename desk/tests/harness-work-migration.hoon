@@ -21,7 +21,7 @@
   =.  writes.workspace.saved  77
   =/  loaded  (load:storage !>(saved))
   =/  [%26 * %24 * %23 * %22 * * %21 * before=state-20]  saved
-  =/  [%28 * %27 * * * * * * after=state-20]  loaded
+  =/  [%29 * * %27 * * * * * * after=state-20]  loaded
   ;:  weld
     (expect-eq !>(workspace.saved) !>(+>.workspace.loaded))
     (expect-eq !>(before) !>(after))
