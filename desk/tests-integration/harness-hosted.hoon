@@ -4,6 +4,34 @@
 /+  *test, auth=harness-auth, ha=harness-hosted-auth, defaults=harness-defaults, ht=harness-tools, j=harness-workspace-json
 /=  head  /app/harness
 |%
+++  test-credential-cleanup-survives-reload
+  (isolated |=(ignored=* cleanup-reload))
+++  cleanup-reload
+  =/  bowl=bowl:gall  *bowl:gall
+  =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.17)
+  =/  saved=state-30  *state-30
+  =.  api-key.saved  'private'
+  =.  provider-keys.saved  (my ~[['openai-device' 'subscription'] ['xai-refresh' 'refresh'] ['hosted-openrouter' 'managed']])
+  =/  loaded  (~(on-load head bowl) !>(saved))
+  =/  args  (pairs:enjs:format ~[['provider' %s 'openai'] ['requestId' %s 'pending-cleanup']])
+  =/  started  (~(on-poke +.loaded bowl) %harness-hosted !>(`request:hosted`['login' 'start' args]))
+  =/  cleared  (~(on-poke +.started bowl) %harness-hosted !>(`request:hosted`['cleanup' 'clear-credentials' [%o ~]]))
+  =/  after  !<(state-30 ~(on-save +.cleared bowl))
+  =/  reloaded  (~(on-load head bowl) !>(after))
+  =/  retained  !<(state-30 ~(on-save +.reloaded bowl))
+  =/  reply=client-response:iris
+    [%finished [200 ~] `['application/json' (as-octs:mimes:html '{"device_auth_id":"PRIVATE_DEVICE","user_code":"VISIBLE_CODE","interval":5}')]]
+  =/  late  (~(on-arvo +.reloaded bowl) /hosted-auth/pending-cleanup/1 [%iris %http-response reply])
+  =/  late-state  !<(state-30 ~(on-save +.late bowl))
+  ;:  weld
+    (expect-eq !>(~) !>(provider-keys.retained))
+    (expect-eq !>('') !>(api-key.retained))
+    (expect-eq !>(~) !>(flows.hosted.retained))
+    (expect-eq !>(~) !>(active.openai-auth.retained))
+    (expect-eq !>(~) !>(active.xai-auth.retained))
+    (expect-eq !>(~) !>(flows.hosted.late-state))
+    (expect-eq !>(~) !>(provider-keys.late-state))
+  ==
 ++  isolated
   |=  attempt=$-(* tang)
   =/  out  (mink [attempt %9 2 %0 1] |=([* *] ``%.n))

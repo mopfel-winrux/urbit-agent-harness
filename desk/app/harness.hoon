@@ -27,6 +27,7 @@
 /+  hosted-auth=harness-hosted-auth
 /+  hosted-settings=harness-hosted-settings
 /+  hosted-provision=harness-hosted-provision
+/+  hosted-cleanup=harness-hosted-cleanup
 /+  routing=harness-model-routing
 |%
 +$  card  card:agent:gall
@@ -1765,6 +1766,9 @@
 ++  hosted-request
   |=  req=request:hosted-types
   ^-  (quip card _state)
+  ?:  =('clear-credentials' action.req)
+    =.  state  (clear:hosted-cleanup state)
+    [~[[%give %fact ~[/hosted/[id.req]] %json !>((envelope:hosted-auth 200 (pairs:enjs:format ~[['cleared' %b &]])))]] state]
   ?:  =('provision' action.req)
     =.  state  discover-local-mcp
     =/  attempted  (mule |.((apply:hosted-provision defaults provider-keys mcp-servers args.req !model-defaults-set)))
