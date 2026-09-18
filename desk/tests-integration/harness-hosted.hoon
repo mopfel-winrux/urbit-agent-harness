@@ -68,15 +68,24 @@
   =.  provider-keys.saved  (my ~[['openai-device' 'subscription']])
   =.  mcp-servers.saved  (my ~[['local' ['Local' 'urbit://~zod/mcp-proxy' ~ &]]])
   =/  loaded  (~(on-load head bowl) !>(saved))
-  =/  args  (need (de:json:html '{"providerKeys":{"openrouter":"platform","brave":"search"}}'))
+  =/  args  (need (de:json:html '{"providerKeys":{"openrouter":"platform","brave":"search"},"fallbacks":[{"provider":"openrouter","model":"z-ai/glm-5.3-flash:nitro"}]}'))
   =/  applied  (~(on-poke +.loaded bowl) %harness-hosted !>(`request:hosted`['provision' 'provision' args]))
   =/  next  !<(state-30 ~(on-save +.applied bowl))
+  ?>  =(fallbacks.defaults.next ~[['openrouter' 'z-ai/glm-5.3-flash:nitro']])
+  ::  An explicit empty chain survives subsequent platform provisioning.
+  =.  fallbacks.defaults.next  ~
   =/  reloaded  (~(on-load head bowl) !>(next))
   =/  repeated  (~(on-poke +.reloaded bowl) %harness-hosted !>(`request:hosted`['again' 'provision' args]))
   =/  after  !<(state-30 ~(on-save +.repeated bowl))
+  ::  A saved owner choice also takes precedence before initial provisioning.
+  =/  chosen  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%defaults defaults.saved]))
+  =/  provisioned  (~(on-poke +.chosen bowl) %harness-hosted !>(`request:hosted`['owner-first' 'provision' args]))
+  =/  owner-first  !<(state-30 ~(on-save +.provisioned bowl))
   ;:  weld
+    (expect-eq !>(~) !>(fallbacks.defaults.owner-first))
     (expect-eq !>(provider-keys.next) !>(provider-keys.after))
     (expect-eq !>('owner-choice') !>(model.defaults.after))
+    (expect-eq !>(~) !>(fallbacks.defaults.after))
     (expect-eq !>('subscription') !>((key:auth provider-keys.after 'openai-device')))
     (expect-eq !>('platform') !>((key:auth provider-keys.after 'openrouter')))
     (expect !>((mcp-granted:ht 'local' tools.defaults.after)))

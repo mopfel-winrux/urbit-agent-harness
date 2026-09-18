@@ -1779,6 +1779,9 @@
     ?:  ?=(%| -.attempted)
       [~[[%give %fact ~[/hosted/[id.req]] %json !>((error:hosted-auth 400 'Invalid model settings.'))]] state]
     =/  out  p.attempted
+    =?  model-defaults-set
+      &(?=(^ (get:workspace-json args.req 'fallbacks')) =(200 (number:workspace-json response.out 'status' 0)))
+      &
     =.  defaults  config.out
     =?  api-key  !=((~(get by provider-keys) 'openrouter') (~(get by keys.out) 'openrouter'))
       (fall (~(get by keys.out) 'openrouter') '')
@@ -2956,7 +2959,7 @@
     =/  cfg=config:h  config.act
     =?  provider-keys  !=('' key.cfg)
       (put-key:auth provider-keys (credential-for-url:auth url.cfg) key.cfg)
-    `state(defaults cfg(key ''))
+    `state(defaults cfg(key ''), model-defaults-set &)
   ::
       %mcp-config
     =/  next=(map mcp-server-id:h mcp-server:h)

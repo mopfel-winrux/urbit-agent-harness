@@ -11,7 +11,7 @@
 |%
 +$  state-30
   $:  %30
-      model-defaults-set=?(%| %&)
+      model-defaults-set=$~(| ?)
       $_  =/  old  *state-29
           +.old(defaults *config:h, peer-base *(unit config:h), sessions *(map session-id:h session:h), summary-models *summary-models:h, corpus *state:corpus)
   ==

@@ -18,7 +18,7 @@
   ?>  ?=(%o -.args)
   ?:  =(~ p.args)  [cfg keys (view cfg keys)]
   ::  Unknown fields fail closed: callers must not mistake ignored settings
-  ::  (such as a fallback chain) for applied configuration.
+  ::  for applied configuration.
   ?.  (levy ~(tap by p.args) |=([name=@t value=json] (~(has in (silt ~['revision' 'provider' 'model' 'auth' 'apiKey' 'zdr' 'fallbacks'])) name)))
     [cfg keys (error:hosted 400 'Unsupported model setting. Read hosted capabilities.')]
   ?.  =((revision cfg) (string:j args 'revision'))

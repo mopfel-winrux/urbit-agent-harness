@@ -79,4 +79,20 @@
     (expect-eq !>(cfg) !>(config.result))
     (expect-eq !>(409) !>((number:j response.result 'status' 0)))
   ==
+++  test-hosting-applies-privacy-and-fallbacks-and-fences-routing-edits
+  =/  cfg=config:h  config
+  =/  input  (need (de:json:html '{"provider":"openrouter","model":"primary","auth":"api-key","zdr":true,"fallbacks":[{"provider":"openrouter","model":"backup"}]}'))
+  ?>  ?=(%o -.input)
+  =.  p.input  (~(put by p.input) 'revision' [%s (revision:settings cfg)])
+  =/  keys  (my ~[['openrouter' 'fixture-key']])
+  =/  out  (apply:settings cfg keys input)
+  =/  body  (need (get:j response.out 'body'))
+  =/  stale  (apply:settings config.out keys input)
+  ;:  weld
+    (expect-eq !>(200) !>((number:j response.out 'status' 0)))
+    (expect !>(zdr.config.out))
+    (expect-eq !>(`(list model-choice:h)`~[['openrouter' 'backup']]) !>(fallbacks.config.out))
+    (expect-eq !>(`json`[%b &]) !>((need (get:j body 'zdr'))))
+    (expect-eq !>(409) !>((number:j response.stale 'status' 0)))
+  ==
 --

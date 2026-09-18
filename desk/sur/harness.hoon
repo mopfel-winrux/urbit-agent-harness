@@ -53,7 +53,7 @@
 ::  config is data; capabilities absent by default (tools=~)
 ::
 +$  config
-  $:  zdr=?(%| %&)       ::  require OpenRouter zero-data-retention routing
+  $:  zdr=$~(| ?)       ::  require OpenRouter zero-data-retention routing
       fallbacks=(list model-choice)
       url=@t              ::  chat-completions endpoint
       model=@t

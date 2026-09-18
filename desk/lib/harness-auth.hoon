@@ -54,6 +54,8 @@
   |=  [keys=(map @t @t) cfg=config:h]
   ^-  (unit @t)
   =/  provider  (provider-for-url:hp url.cfg)
+  ?:  &(zdr.cfg !=('openrouter' provider))
+    `'Zero data retention routing requires OpenRouter. Change the provider or privacy setting.'
   ?.  |(=('openai' provider) =('anthropic' provider) =('xai' provider))  ~
   ?:  |(!=('' key.cfg) !=('' (key keys (credential-for-config cfg))))  ~
   ?:  =('xai' provider)

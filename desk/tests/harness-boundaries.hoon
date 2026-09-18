@@ -36,7 +36,7 @@
     (expect-eq !>(sessions.saved) !>(sessions.loaded))
     (expect-eq !>(modified.saved) !>(modified.loaded))
     (expect-eq !>(defaults.saved) !>(defaults.loaded))
-    (expect-eq !>(`summary-models:h`*summary-models:h) !>(summary-models.loaded))
+    (expect-eq !>(*summary-models-0) !>(summary-models.loaded))
     (expect-eq !>(0) !>(count.corpus.loaded))
   ==
 ++  test-seventeen-migration-keeps-welcome-marker-and-token-counts

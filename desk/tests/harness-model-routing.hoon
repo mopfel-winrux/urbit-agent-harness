@@ -3,7 +3,8 @@
 |%
 ++  test-zdr-is-on-turns-and-checkpoints-and-is-absent-when-disabled
   =/  v  *view:h
-  =.  config.v  builtin-config:policy(zdr &)
+  =/  cfg  builtin-config:policy
+  =.  config.v  cfg(zdr &)
   =/  expected  (need (de:json:html '{"zdr":true,"data_collection":"deny"}'))
   ;:  weld
     (expect-eq !>(`expected) !>((get:j (payload:hp v %turn ~) 'provider')))
@@ -30,7 +31,8 @@
     (expect-eq !>(~) !>((next:routing cfg ~)))
   ==
 ++  test-routing-json-roundtrip-and-rejects-invalid-chains
-  =/  cfg  builtin-config:policy(zdr &, fallbacks ~[['openrouter' 'backup']])
+  =/  cfg  builtin-config:policy
+  =.  cfg  cfg(zdr &, fallbacks ~[['openrouter' 'backup']])
   =/  invalid  (mule |.((parse:routing [%s 'invalid'])))
   =/  unsupported  (mule |.((parse:routing (need (de:json:html '[{"provider":"custom","model":"x"}]')))))
   =/  json  (config-json:hj cfg)
@@ -59,7 +61,7 @@
     (expect-eq !>(provider-keys.old) !>(provider-keys.loaded))
     (expect-eq !>(42) !>(next-req.current))
     (expect-eq !>(2) !>((lent log.current)))
-    (expect-eq !>('retained input') !>(body.i.items:(play:hl log.current)))
+    (expect-eq !>(`(list item:h)`~[[%user 'retained input']]) !>(items:(play:hl log.current)))
     (expect-eq !>(loaded) !>((load:storage !>(loaded))))
   ==
 --
