@@ -53,7 +53,9 @@
 ::  config is data; capabilities absent by default (tools=~)
 ::
 +$  config
-  $:  url=@t              ::  chat-completions endpoint
+  $:  zdr=$~(| ?)       ::  require OpenRouter zero-data-retention routing
+      fallbacks=(list model-choice)
+      url=@t              ::  chat-completions endpoint
       model=@t
       key=@t              ::  ingress-only; blanked before the config event
       headers=(list [name=@t value=@t])
@@ -61,6 +63,7 @@
       max-context=@ud     ::  provider window (catalog or fallback)
       tools=(list tool-grant)
   ==
++$  model-choice  [provider=@t model=@t]
 ::  Remote, stateless Streamable HTTP MCP server. Headers are held in
 ::  agent state and copied only onto requests to this exact endpoint.
 ::
@@ -156,6 +159,7 @@
       ::  A null body unpins a note; the audit history is not erased.
       [%memory-set name=@t body=(unit @t)]
       [%llm-requested req=@ud kind=request-kind]
+      [%llm-routed req=@ud =config]
       [%llm-completed req=@ud stop=stop-reason =usage =item]
       [%llm-failed req=@ud err=@t]
       [%tool-requested call-id=@t name=@t]
@@ -178,6 +182,7 @@
 ::
 +$  view
   $:  =config
+      route=(unit [req=@ud =config])
       summary=(unit @t)
       items=(list item)
       pending=(unit [req=@ud kind=request-kind])

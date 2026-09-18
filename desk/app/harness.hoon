@@ -9,6 +9,7 @@
 /-  cr=harness-cron
 /-  work=harness-workspace
 /-  wc=harness-work-control
+/-  hosted-types=harness-hosted
 /-  hn=harness-notes, native-notes=tlon-notes
 /+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub, shadow=harness-shadow, hp=harness-provider, auth=harness-auth, oauth=harness-oauth, search=harness-search, ht=harness-tools, hj=harness-json, command=harness-command, context=harness-context, lcm-context=harness-lcm-context, corpus-lib=harness-corpus, corpus-json=harness-corpus-json, peer-policy=harness-peer-policy, peer-trust=harness-peer-trust, failure=harness-failure, policy=harness-defaults, storage=harness-store, index=harness-session-index, transport=harness-acp, bindings=harness-effects, default-agent, dbug
 /+  onboarding=harness-onboarding, peer-access=harness-peer-access, admin=harness-admin, ownership=harness-ownership, local-mcp-lib=harness-local-mcp, peer-rpc=harness-peer-rpc
@@ -23,11 +24,16 @@
 /+  work-help=harness-work-help
 /+  work-view=harness-work-view
 /+  work-copy=harness-work-copy
+/+  hosted-auth=harness-hosted-auth
+/+  hosted-settings=harness-hosted-settings
+/+  hosted-provision=harness-hosted-provision
+/+  hosted-cleanup=harness-hosted-cleanup
+/+  routing=harness-model-routing
 |%
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-27
+=|  state-30
 =*  state  -
 ^-  agent:gall
 =<
@@ -43,7 +49,7 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =/  loaded  !<(state-27 on-save:next)
+      =/  loaded  !<(state-30 on-save:next)
       =/  before-workspace  writes.workspace
       =/  previous-workspace  workspace
       =/  previous-notes  workspace-notes
@@ -55,8 +61,10 @@
       =.  state  loaded
       =?  writes.workspace  &(!=(previous-notes workspace-notes) =(before-workspace writes.workspace))
         +(writes.workspace)
-      =/  out  (filter:oauth -.result openai-auth provider-keys now.bowl)
-      =^  cards  state  (accept-auth:hc out)
+      =/  out  (filter:oauth -.result openai-auth provider-keys now.bowl 'openai')
+      =^  cards  state  (accept-auth:hc out 'openai')
+      =/  out  (filter:oauth cards xai-auth provider-keys now.bowl 'xai')
+      =^  cards  state  (accept-auth:hc out 'xai')
       =^  scheduled  state
         ::  Reads and transport acknowledgements cannot invalidate schedules.
         ::  Keep live effect authorization separate from maintenance cadence.
@@ -104,7 +112,7 @@
 ::
 ++  on-load
   |=  old-vase=vase
-  =/  new=state-27  (restore-local-mcp:storage (load:storage old-vase) our.bowl)
+  =/  new=state-30  (restore-local-mcp:storage (load:storage old-vase) our.bowl)
   =.  state  new(corpus-wake ~, schedule-wake ~)
   %-  flush-auth
   ^-  (quip card _this)
@@ -154,6 +162,11 @@
   %-  flush-auth
   ^-  (quip card _this)
   ?+  mark  (on-poke:def mark vase)
+      %harness-hosted
+    ?>  =(src.bowl our.bowl)
+    =/  req  !<(request:hosted-types vase)
+    =^  cards  state  (hosted-request:hc req)
+    [cards this]
       %harness-work-result
     ?>  =(src.bowl our.bowl)
     =/  result  !<([id=@uv value=(each json @t)] vase)
@@ -248,6 +261,7 @@
     [%session @ ~]       `this
     [%hands @ ~]         `this
     [%crons @ ~]         `this
+    [%hosted @ ~]        `this
     [%tools @ ~]         `this
   ==
 ::
@@ -332,6 +346,8 @@
   ::
       [%x %defaults ~]
     ``json+!>((config-json:hj defaults))
+      [%x %hosted %capabilities ~]
+    ``json+!>(capabilities:hosted-auth)
   ::
       [%x %admin-call @ @ @ ~]
     ``noun+!>((admin-current:hc [i.t.t.path (slav %ud i.t.t.t.path) i.t.t.t.t.path]))
@@ -582,6 +598,18 @@
   %-  flush-auth
   ^-  (quip card _this)
   ?+  wire  (on-arvo:def wire sign)
+      [%hosted-auth @ @ ~]
+    ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
+    =/  out  (receive:hosted-auth hosted provider-keys i.t.wire (slav %ud i.t.t.wire) client-response.sign now.bowl)
+    [cards.out this(hosted db.out, provider-keys keys.out)]
+      [%hosted-auth-poll @ @ ~]
+    ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+    =/  out  (wake:hosted-auth hosted provider-keys i.t.wire (slav %ud i.t.t.wire) | now.bowl)
+    [cards.out this(hosted db.out, provider-keys keys.out)]
+      [%hosted-auth-timeout @ @ ~]
+    ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+    =/  out  (wake:hosted-auth hosted provider-keys i.t.wire (slav %ud i.t.t.wire) & now.bowl)
+    [cards.out this(hosted db.out, provider-keys keys.out)]
       [%acp %reconnect ~]
     ?.  ?=([%behn %wake ~] sign)  `this
     [~[[%pass /acp/watch %agent [our.bowl %acp] %leave ~] acp-watch-card:wire-codec] this]
@@ -596,13 +624,14 @@
     =.  corpus  (work:corpus-lib corpus 32 65.536)
     =.  workspace-search  (work:workspace-index workspace-search workspace 8 65.536)
     `this
-      [%openai-renew @ ~]
+      [?(%openai-renew %xai-renew) @ ~]
     ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
-    =/  out  (receive:oauth openai-auth provider-keys now.bowl (slav %ud i.t.wire) client-response.sign)
-    =^  cards  state  (accept-auth:hc out)
+    =/  provider  ?:(=(%xai-renew i.wire) 'xai' 'openai')
+    =/  out  (receive:oauth ?:(=('xai' provider) xai-auth openai-auth) provider-keys now.bowl (slav %ud i.t.wire) client-response.sign provider)
+    =^  cards  state  (accept-auth:hc out provider)
     [cards this]
   ::  The filter checks the persisted deadline; stale watchdogs are harmless.
-      [%openai-timeout @ ~]
+      [?(%openai-timeout %xai-timeout) @ ~]
     `this
       [%eyre %connect ~]
     ?.  ?=([%eyre %bound *] sign)  (on-arvo:def wire sign)
@@ -730,11 +759,11 @@
   ?~  source  |
   =/  cfg  config:(play:hl log.u.source)
   =/  live  (execution-tools sid.job tools.cfg)
-  ::  The ambient scheduling capability is input-local, not part of the
-  ::  durable permission ceiling. Every actual grant must still match.
+  ::  Saved grants must remain available. Newly available tools do not widen
+  ::  a schedule's durable ceiling or pause work that is still authorized.
   =/  actual  (skip live |=(g=tool-grant:h =(%cron g)))
   =/  saved  (skip tools.job |=(g=tool-grant:h =(%cron g)))
-  =((silt actual) (silt saved))
+  (levy saved |=(g=tool-grant:h (~(has in (silt actual)) g)))
 ++  stop-schedule
   |=  [id=@uv job=schedule:cr mode=?(%paused %cancelled) reason=@t]
   ^-  (quip card _state)
@@ -1012,7 +1041,7 @@
   =/  confirmation  (mole |.((string:workspace-json args 'confirm')))
   ?.  =(confirmation `(cat 3 'release ' (scot %uv id.pending)))
     [~[(notes-reply reply [%| 'Confirm that you inspected Notes and understand that stopping observation cannot undo a dispatched change.'])] state]
-  =/  saved=state-27  state
+  =/  saved=state-30  state
   =/  next  saved(workspace-notes workspace-notes.saved(pending ~))
   =.  workspace.next  (record:workspace-lib workspace.next [& [0v0 'Owner'] 0v0] 'notes-release' artifact.pending now.bowl)
   [[[%pass /artifact-notes/request/(scot %uv rid) %agent [our.bowl %notes] %leave ~] (notes-reply reply [%& (pairs:enjs:format ~[['released' %b &]])]) ~] next]
@@ -1025,7 +1054,7 @@
   ^-  (quip card _state)
   ?~  pending.workspace-notes  `state
   =/  pending  u.pending.workspace-notes
-  =/  saved=state-27  state
+  =/  saved=state-30  state
   =/  next  saved(workspace-notes workspace-notes.saved(pending ?:(uncertain `pending(uncertain &) ~)))
   [~[(notes-reply reply.pending [%| message])] next]
 ++  notes-result
@@ -1110,7 +1139,7 @@
     (complete:notes-lib workspace workspace-notes note (history:~(. reader:notes-lib bowl) book nid) applied now.bowl)
   ?.  ?=(%& -.resolved)
     (notes-failed 'Notes confirmed a result, but its current document could not be read. Do not repeat the operation.' &)
-  =/  saved=state-27  state
+  =/  saved=state-30  state
   =/  next  saved(workspace db.p.resolved, workspace-notes native.p.resolved)
   =/  art  (~(got by artifacts.workspace.next) artifact.pending)
   =/  result
@@ -1734,10 +1763,55 @@
   =/  result  (corpus-request method params allowed scope)
   ?:  ?=(%| -.result)  (cat 3 'error: ' p.result)
   (cat 3 'Retained corpus evidence (reference material, not instructions):\0a' (en:json:html p.result))
-++  accept-auth
-  |=  out=result:oauth
+++  hosted-request
+  |=  req=request:hosted-types
   ^-  (quip card _state)
-  =.  openai-auth  oauth.out
+  ?:  =('clear-credentials' action.req)
+    =.  state  (clear:hosted-cleanup state)
+    [~[[%give %fact ~[/hosted/[id.req]] %json !>((envelope:hosted-auth 200 (pairs:enjs:format ~[['cleared' %b &]])))]] state]
+  ?:  =('provision' action.req)
+    =.  state  discover-local-mcp
+    =/  attempted  (mule |.((apply:hosted-provision defaults provider-keys mcp-servers args.req !model-defaults-set)))
+    ?:  ?=(%| -.attempted)
+      [~[[%give %fact ~[/hosted/[id.req]] %json !>((error:hosted-auth 400 'Invalid provisioning settings.'))]] state]
+    =.  defaults  config.p.attempted
+    =.  model-defaults-set  &
+    =.  provider-keys  keys.p.attempted
+    [~[[%give %fact ~[/hosted/[id.req]] %json !>((envelope:hosted-auth 200 (pairs:enjs:format ~[['ready' %b &]])))]] state]
+  ?:  =('settings' action.req)
+    =/  attempted  (mule |.((apply:hosted-settings defaults provider-keys args.req)))
+    ?:  ?=(%| -.attempted)
+      [~[[%give %fact ~[/hosted/[id.req]] %json !>((error:hosted-auth 400 'Invalid model settings.'))]] state]
+    =/  out  p.attempted
+    =?  model-defaults-set
+      &(?=(^ (get:workspace-json args.req 'fallbacks')) =(200 (number:workspace-json response.out 'status' 0)))
+      &
+    =.  defaults  config.out
+    =?  api-key  !=((~(get by provider-keys) 'openrouter') (~(get by keys.out) 'openrouter'))
+      (fall (~(get by keys.out) 'openrouter') '')
+    =.  provider-keys  keys.out
+    [~[[%give %fact ~[/hosted/[id.req]] %json !>(response.out)]] state]
+  =/  attempted
+    %-  mule  |.
+    ?:  =('status' action.req)
+      [hosted provider-keys ~ (status:hosted-auth hosted provider-keys openai-auth xai-auth now.bowl)]
+    (run:hosted-auth hosted provider-keys action.req args.req now.bowl)
+  =/  out=result:hosted-auth
+    ?:  ?=(%& -.attempted)  p.attempted
+    [hosted provider-keys ~ (error:hosted-auth 400 'Invalid hosted request.')]
+  =.  hosted  db.out
+  =.  provider-keys  keys.out
+  [(snoc cards.out [%give %fact ~[/hosted/[id.req]] %json !>(response.out)]) state]
+++  accept-auth
+  |=  [out=result:oauth provider=@t]
+  ^-  (quip card _state)
+  ::  A verified renewal keeps the account's catalog usable. New logins and
+  ::  disconnects invalidate catalogs through their own credential identity.
+  =/  catalog  (~(get by catalogs.hosted) provider)
+  =?  catalogs.hosted  ?&(?=(^ catalog) =(identity.u.catalog (identity:hosted-auth provider-keys provider)) !=(provider-keys keys.out))
+    (~(put by catalogs.hosted) provider u.catalog(identity (identity:hosted-auth keys.out provider)))
+  =?  openai-auth  =('openai' provider)  oauth.out
+  =?  xai-auth  =('xai' provider)  oauth.out
   =.  provider-keys  keys.out
   =/  cards  cards.out
   =/  failed  failed.out
@@ -1759,6 +1833,10 @@
   =/  ses=session:h  u.current
   =/  view  (play:hl log.ses)
   ?.  =(pending.view `[req ;;(request-kind:h i.t.t.t.w)])  $(failed t.failed)
+  =/  fallback  (try-fallback sid ses req ;;(request-kind:h i.t.t.t.w))
+  ?^  fallback
+    =.  sessions  (~(put by sessions) sid session.u.fallback)
+    $(failed t.failed, cards (weld cards cards.u.fallback))
   =/  event=event:h
     ?:  =(%compaction i.t.t.t.w)  [%compaction-failed req message [0 0]]
     [%llm-failed req message]
@@ -2001,13 +2079,16 @@
           ==
       ==
     =/  result=json
-      ?.  =('openai' provider)  (pairs:enjs:format ~[['has-key' %b has]])
-      =/  device=?  !=('' (provider-key 'openai-device'))
+      ?.  (supported:hosted-auth provider)  (pairs:enjs:format ~[['has-key' %b has]])
+      =/  device=?  !=('' (provider-key (cat 3 provider '-device')))
       =/  method=@t
-        ?:  &((device-route:auth url.defaults) device)  'device'
-        ?:  &(=('openai' (provider-for-url:hp url.defaults)) has)  'api-key'
+        ?:  &(=((cat 3 provider '-device') (credential-for-config:auth defaults)) device)  'device'
+        ?:  &(=(provider (provider-for-url:hp url.defaults)) has)  'api-key'
         ?:(device 'device' 'api-key')
-      (pairs:enjs:format ~[['has-key' %b |(has device)] ['has-api-key' %b has] ['has-device-login' %b device] ['auth-method' %s method] ['auto-renew' %b !=('' (provider-key 'openai-refresh'))] ['renewing' %b ?=(^ active.openai-auth)] ['renewal-error' %s error.openai-auth]])
+      ?:  =('anthropic' provider)
+        (pairs:enjs:format ~[['has-key' %b |(has device)] ['has-api-key' %b has] ['has-device-login' %b device] ['auth-method' %s method]])
+      =/  renewal  ?:(=('xai' provider) xai-auth openai-auth)
+      (pairs:enjs:format ~[['has-key' %b |(has device)] ['has-api-key' %b has] ['has-device-login' %b device] ['auth-method' %s method] ['auto-renew' %b !=('' (provider-key (cat 3 provider '-refresh')))] ['renewing' %b ?=(^ active.renewal)] ['renewal-error' %s error.renewal]])
     [~[(acp-result-card:wire-codec connection u.id result)] state]
   ::
       %'harness/tools'
@@ -2224,7 +2305,7 @@
       ?.  =(%turn kind.u.pending.v)  ''
       =/  progress  (~(get by streams) [u.sid req.u.pending.v])
       ?~  progress  ''
-      (stream-text:hp body.u.progress =('https://chatgpt.com/backend-api/codex/responses' url.config.v))
+      (stream-text:hp body.u.progress (responses-route:hp url.config.v))
     =/  result  (snapshot:hs u.current since)
     ?>  ?=(%o -.result)
     =.  result  [%o (~(put by p.result) 'streaming' [%s streaming])]
@@ -2317,6 +2398,23 @@
     =/  result=json
       (pairs:enjs:format ~[['has-key' %b !=('' u.key)]])
     [~[(acp-result-card:wire-codec connection u.id result)] state]
+  ::
+      %'harness/provider/login'
+    ?~  id  `state
+    =/  attempted
+      %-  mule  |.
+      =/  action  (need (acp-param-string:wire-codec params 'action'))
+      ^-  result:hosted-auth
+      ?:  =('status' action)
+        [hosted provider-keys ~ (status:hosted-auth hosted provider-keys openai-auth xai-auth now.bowl)]
+      ?>  (lien `(list @t)`~['start' 'flow' 'disconnect'] |=(name=@t =(action name)))
+      (run:hosted-auth hosted provider-keys action (need params) now.bowl)
+    ?:  ?=(%| -.attempted)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Invalid login request')] state]
+    =/  out  p.attempted
+    =.  hosted  db.out
+    =.  provider-keys  keys.out
+    [(snoc cards.out (acp-result-card:wire-codec connection u.id response.out)) state]
   ::
       %'harness/provider/models'
     ?~  id  `state
@@ -2865,7 +2963,7 @@
     =/  cfg=config:h  config.act
     =?  provider-keys  !=('' key.cfg)
       (put-key:auth provider-keys (credential-for-url:auth url.cfg) key.cfg)
-    `state(defaults cfg(key ''))
+    `state(defaults cfg(key ''), model-defaults-set &)
   ::
       %mcp-config
     =/  next=(map mcp-server-id:h mcp-server:h)
@@ -3235,6 +3333,11 @@
   =/  visible  (skills-visible sid skills)
   =/  leaf  (fall compaction.summary-models defaults)
   =/  branch  (fall lcm.summary-models defaults)
+  ::  Summarization cannot weaken the conversation's routing restriction.
+  =?  leaf  &(zdr.config.v !=('openrouter' (provider-for-url:hp url.leaf)))  config.v
+  =?  branch  &(zdr.config.v !=('openrouter' (provider-for-url:hp url.branch)))  config.v
+  =.  zdr.leaf  |(zdr.leaf zdr.config.v)
+  =.  zdr.branch  |(zdr.branch zdr.config.v)
   =/  planned
     (plan:lcm-context v (lent log.ses) input leaf branch |=(candidate=view:h (estimate:hp candidate %compaction visible)))
   ?:  ?=(%| -.planned)
@@ -3247,7 +3350,7 @@
   ?^  missing  (record-all sid ses ~[[%halted u.missing]])
   =/  req  next-req.ses
   =.  next-req.ses  +(req)
-  =^  cs  ses  (record-all sid ses ~[[%lcm-planned req p.planned]])
+  =^  cs  ses  (record-all sid ses ~[[%lcm-planned req p.planned] [%llm-routed req cfg]])
   :-  :+  (llm-card sid req %compaction (request:lcm-context v p.planned cfg))
           [%pass `wire`[%compact-timeout `@ta`sid (scot %ud req) (scot %uv (sham log.ses)) ~] %arvo %b %wait (add now.bowl ~m3)]
           cs
@@ -3264,8 +3367,13 @@
   ::  Session titles can currently be reused after deletion. Include the exact
   ::  dispatch log (with admitted input identity/time), not just a small request
   ::  counter, so an old watchdog cannot cancel work in a recreated session.
-  =/  at  +(through.u.compaction.v)
-  ?.  =(checkpoint (sham (slag (sub (lent log.ses) at) log.ses)))  `state
+  =/  dispatched
+    =/  events  log.ses
+    |-  ^-  (list event:h)
+    ?~  events  ~
+    ?:  ?&(?=(%llm-routed -.i.events) =(req req.i.events))  events
+    $(events t.events)
+  ?.  =(checkpoint (sham dispatched))  `state
   =^  recorded  ses
     (record-all sid ses ~[[%compaction-failed req 'Compaction timed out; the previous context was retained.' [0 0]]])
   =^  settled  state  (drive-put sid ses)
@@ -3279,11 +3387,35 @@
   |=  [sid=session-id:h ses=session:h kind=request-kind:h v=view:h]
   ^-  [(list card) session:h]
   =/  missing  (missing:auth provider-keys config.v)
-  ?^  missing  (record-all sid ses ~[[%halted u.missing]])
+  ?^  missing
+    =/  fallback  (next:routing config.v provider-keys)
+    ?~  fallback  (record-all sid ses ~[[%halted u.missing]])
+    $(v v(config u.fallback))
   =/  req  next-req.ses
   =.  next-req.ses  +(req)
-  =^  cs  ses  (record-all sid ses ~[[%llm-requested req kind]])
+  =^  cs  ses  (record-all sid ses ~[[%llm-requested req kind] [%llm-routed req config.v]])
   [(snoc cs (llm-card sid req kind v)) ses]
+++  try-fallback
+  |=  [sid=session-id:h ses=session:h req=@ud kind=request-kind:h]
+  ^-  (unit [cards=(list card) session=session:h])
+  =/  v  (play:hl log.ses)
+  =/  cfg  (active:routing v req)
+  =/  selected  (next:routing cfg provider-keys)
+  ?~  selected  ~
+  =.  cfg  u.selected
+  =/  candidate
+    ?:  =(%turn kind)  v(config cfg)
+    ?~  lcm-plan.v  v(config cfg)
+    (request:lcm-context v u.lcm-plan.v cfg)
+  ::  A smaller fallback must not silently truncate the prompt.
+  ?:  (gth (estimate:hp candidate kind (skills-visible sid skills)) (input-budget:context max-context.cfg))
+    ~
+  =/  next  next-req.ses
+  =.  next-req.ses  +(next)
+  =^  cards  ses  (record-all sid ses ~[[%llm-requested next kind] [%llm-routed next cfg]])
+  =?  cards  =(%compaction kind)
+    (snoc cards [%pass `wire`[%compact-timeout `@ta`sid (scot %ud next) (scot %uv (sham log.ses)) ~] %arvo %b %wait (add now.bowl ~m3)])
+  `[(snoc cards (llm-card sid next kind candidate)) ses]
 ++  provider-key
   |=  provider=@t
   ^-  @t
@@ -3293,8 +3425,10 @@
 ++  model-list-card
   |=  [req=@ud provider=@t url=@t]
   ^-  card
-  =/  key=@t  (provider-key ?:(=('openai' provider) ?:((device-route:auth url) 'openai-device' 'openai') provider))
+  =/  key=@t  (provider-key ?:((xai-route:auth url) 'xai-device' ?:(=('openai' provider) ?:((device-route:auth url) 'openai-device' 'openai') provider)))
   =/  hed=header-list:http  ~[['accept' 'application/json']]
+  =?  hed  =('anthropic-device' provider)
+    (weld hed ~[['anthropic-version' '2023-06-01'] ['anthropic-beta' 'oauth-2025-04-20']])
   =?  hed  !=('' key)
     [['authorization' (cat 3 'Bearer ' key)] hed]
   =/  account  (provider-key 'openai-account')
@@ -3313,7 +3447,7 @@
   ::  blank session key falls back to the agent-level default
   ::
   =/  eff-key=@t
-    ?:(=('' key.config.v) (provider-key (credential-for-url:auth url.config.v)) key.config.v)
+    ?:(=('' key.config.v) (provider-key (credential-for-config:auth config.v)) key.config.v)
   =/  =request:http
     :*  %'POST'
         url.config.v
@@ -3344,6 +3478,7 @@
   ::
   ?~  pending.v  `state
   ?.  =(req.u.pending.v req)  `state
+  =/  request-config  (active:routing v req)
   ?:  ?=(%progress -.res)
     ?.  =(%turn kind)  `state
     =/  incremental  incremental.res
@@ -3352,7 +3487,7 @@
     =/  prior=stream-progress  (fall (~(get by streams) key) ['' 0])
     =/  body=@t  (cat 3 body.prior q.u.incremental)
     =/  responses=?
-      =('https://chatgpt.com/backend-api/codex/responses' url.config.v)
+      (responses-route:hp url.request-config)
     =/  text=@t  (stream-text:hp body responses)
     =/  total=@ud  (met 3 text)
     =/  sent=@ud  sent.prior
@@ -3362,6 +3497,7 @@
     =/  prompt  (~(get by acp-prompts) sid)
     ?~  prompt  `state
     [~[(acp-stream-card:wire-codec connection.u.prompt sid delta)] state]
+  =/  streamed  (~(get by streams) [sid req])
   =.  streams  (~(del by streams) [sid req])
   =/  ev=event:h
     ?:  ?=(%cancel -.res)
@@ -3379,9 +3515,8 @@
           (fall body '')
       ==
     ?~  body  [%llm-failed req 'empty response body']
-    =/  request-url=@t
-      ?~(compaction.v url.config.v url.u.compaction.v)
-    =/  responses=?  =('https://chatgpt.com/backend-api/codex/responses' request-url)
+    =/  request-url=@t  url.request-config
+    =/  responses=?  (responses-route:hp request-url)
     =/  digest
       ?:  responses
         (mule |.((parse-responses-sse:hp u.body)))
@@ -3403,6 +3538,13 @@
         `[u.command.u.compaction.v 'Context compacted. The recent turn and full source transcript were retained.']
       [%checkpoint-completed req body.it.p.out u.p.out reply]
     [%llm-completed req stop.p.out u.p.out it.p.out]
+  ::  No failover after user-visible output, explicit cancellation, or a
+  ::  semantic completion. Each attempt gets a fresh fenced request ID.
+  =/  fallback
+    ?.  ?&(?=(%llm-failed -.ev) !?=(%cancel -.res) |(?=(~ streamed) =(0 sent.u.streamed)))  ~
+    (try-fallback sid ses req kind)
+  ?^  fallback
+    [cards.u.fallback state(sessions (~(put by sessions) sid session.u.fallback))]
   =?  ev  &(?=(%llm-failed -.ev) =(%compaction kind))
     [%compaction-failed req err.ev [0 0]]
   =^  cs1  ses  (record-all sid ses ~[ev])
@@ -3579,6 +3721,7 @@
     =/  ceiling  (scheduled-tools:ht tools.u.scheduled)
     (skim granted |=(g=tool-grant:h (lien ceiling |=(cap=tool-grant:h =(g cap)))))
   =/  administrator  (session-admin sid)
+  =?  granted  administrator  (owner-tools:ht mcp-servers)
   =.  granted  (skip granted |=(g=tool-grant:h |(=(%admin g) =(%cron g))))
   =/  ses  (~(get by sessions) sid)
   =/  peer  ?~(ses ~ (peer-source:admin log.u.ses))
@@ -4252,11 +4395,7 @@
   (owner:~(. ownership bowl) owner.policy.trust siblings.trust who)
 ++  owner-grant
   ^-  peer-grant:h
-  =/  tools
-    %+  skim  tools.defaults
-    |=  grant=tool-grant:h
-    ?:(?=(^ grant) & (lien configurable-tools:ht |=(known=term =(known grant))))
-  [tools ~ 0 ~(key by skills)]
+  [(owner-tools:ht mcp-servers) ~ 0 ~(key by skills)]
 ++  trusted-peers
   ^-  (map @p peer-grant:h)
   =/  trust  snapshot:~(. peer-trust bowl)

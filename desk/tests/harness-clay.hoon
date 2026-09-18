@@ -41,12 +41,13 @@
 ++  test-legacy-migration-is-explicit-and-keeps-history
   =/  old=state-11  *state-11
   =/  cfg  builtin-config:policy
-  =.  defaults.old  cfg(tools ~[%clay %web])
+  =/  old-cfg  +>.cfg
+  =.  defaults.old  old-cfg(tools ~[%clay %web])
   =.  sessions.old  (my ~[['s' [~[[%config-replaced defaults.old]] 12]]])
   =.  peer-base.old  `defaults.old
   =.  peers.old  (my ~[[~zod [~[%clay] ~ 10 ~]]])
   =/  next  (load:storage !>(old))
-  =/  before  (~(got by sessions.old) 's')
+  =/  before  (upgrade-session:storage (~(got by sessions.old) 's'))
   =/  after  (~(got by sessions.next) 's')
   ?>  ?=(^ log.after)
   ?>  ?=(^ peer-base.next)

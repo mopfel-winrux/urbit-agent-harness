@@ -3,6 +3,7 @@ import { api } from '../api'
 import { useResource } from '../useResource'
 import { BackIcon } from './Icons'
 import WorkspaceSearchSource from './WorkspaceSearchSource'
+import SearchText from './SearchText'
 
 const isWorkspace = (record) => ['artifact', 'project', 'task'].includes(record.kind)
 const address = (record) => isWorkspace(record) ? `${record.kind}:${record.id}` : `conversation:${record.scope}:${record.eventCount}`
@@ -15,18 +16,19 @@ function Source({ record, onSelect, onOpen }) {
   const [error, setError] = useState('')
   const generation = useRef(0)
   const [retry, setRetry] = useState(0)
+  const [fromStart, setFromStart] = useState(false)
   useEffect(() => {
     const epoch = ++generation.current
-    setBusy(true); setError('')
+    setBusy(true); setError(''); setContent(null)
     Promise.all([
-      api.corpus('read', record),
+      api.corpus('read', { ...record, offset: fromStart ? 0 : (record.snippetOffset || 0) }),
       record.kind === 'summary' ? api.corpus('expand', record) : Promise.resolve(null),
     ]).then(([body, sources]) => {
       if (generation.current === epoch) { setContent(body); setEdges(sources) }
     }).catch((cause) => { if (generation.current === epoch) setError(cause.message) })
       .finally(() => { if (generation.current === epoch) setBusy(false) })
     return () => { generation.current++ }
-  }, [record, retry])
+  }, [record, retry, fromStart])
   async function more(operation) {
     const epoch = generation.current
     setBusy(true); setError('')
@@ -45,7 +47,8 @@ function Source({ record, onSelect, onOpen }) {
     {busy && <p className="field-note" role="status">Loading source…</p>}
     {content && <>
       <p className="field-note">Retained reference material. Original wording is shown below.</p>
-      <div className="corpus-source-body">{content.body}</div>
+      {!fromStart && record.snippetOffset > 0 && <p className="field-note">Showing the matching passage. <button className="text-button" onClick={() => setFromStart(true)}>Read from beginning</button></p>}
+      <div className="corpus-source-body"><SearchText text={content.body} terms={record.matchedTerms} /></div>
       {content.nextOffset != null && <button className="button ghost" disabled={busy} onClick={() => more('read')}>Read more</button>}
     </>}
     {edges && <section className="corpus-evidence" aria-label="Summary evidence">
@@ -113,7 +116,9 @@ export default function CorpusSearch({ onBack, onOpen }) {
           {result && <p className="corpus-result-count" role="status">{result.hits.length ? `${result.hits.length} results${result.cursor ? ' loaded' : ''} for “${submitted}”` : `No results for “${submitted}”. Try fewer words or a different spelling.`}</p>}
           {result?.hits.filter(Boolean).map((record) => <div key={address(record)}>
             <button ref={(element) => { if (element) resultButtons.current.set(address(record), element); else resultButtons.current.delete(address(record)) }} className={`corpus-hit${trail[0] && address(record) === address(trail[0]) ? ' active' : ''}`} onClick={() => select(record)} aria-pressed={!!trail[0] && address(record) === address(trail[0])}>
-              <strong>{isWorkspace(record) ? record.title : record.sessionId}</strong><span className="corpus-hit-meta">{provenance(record)}</span><span className="corpus-hit-snippet">{record.snippet}</span>
+              <strong><SearchText text={isWorkspace(record) ? record.title : record.sessionId} terms={record.matchedTerms} /></strong><span className="corpus-hit-meta">{provenance(record)}</span>
+              {record.matchType === 'approximate' && <span className="corpus-hit-match">Similar spelling · {record.matchedTerms.map((term) => `“${term}”`).join(', ')}</span>}
+              <span className="corpus-hit-snippet"><SearchText text={record.snippet} terms={record.matchedTerms} /></span>
             </button>
           </div>)}
           {result?.cursor && <button className="button ghost corpus-more" disabled={busy} onClick={(event) => search(event, true)}>Load more results</button>}

@@ -2,7 +2,7 @@
 /+  *test, welcome=harness-onboarding, storage=harness-store, hl=harness, defaults=harness-defaults
 |%
 ++  test-first-open-is-a-normal-assistant-message-without-inference
-  =/  saved=state-27  *state-27
+  =/  saved=state-30  *state-30
   =.  defaults.saved  builtin-config:defaults
   =/  out  (ensure:welcome saved)
   =/  ses  (~(got by sessions.+.out) 'welcome')
@@ -15,7 +15,7 @@
     (expect-eq !>(~) !>((decide:hl view |=(~ 0))))
   ==
 ++  test-open-is-idempotent-and-deletion-survives-reload
-  =/  out  (ensure:welcome *state-27)
+  =/  out  (ensure:welcome *state-30)
   =/  saved  +.out
   =/  again  (ensure:welcome saved)
   =/  deleted  saved(sessions ~)
@@ -25,7 +25,7 @@
     (expect-eq !>([~ deleted]) !>(reopened))
   ==
 ++  test-existing-users-are-not-interrupted
-  =/  saved=state-27  *state-27
+  =/  saved=state-30  *state-30
   =.  peer-budget-resets.saved  (my ~[[~nec 123]])
   =.  sessions.saved  (my ~[['existing' [~[[%config-replaced builtin-config:defaults]] 0]]])
   =/  out  (ensure:welcome (load:storage !>(saved)))

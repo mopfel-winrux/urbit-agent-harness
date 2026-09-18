@@ -26,6 +26,16 @@ export const PROVIDERS = {
     placeholder: 'sk-ant-…',
     copy: 'Anthropic’s OpenAI-compatible endpoint, including function calls.',
   },
+  xai: {
+    title: 'xAI',
+    endpoint: 'https://api.x.ai/v1/chat/completions',
+    modelsEndpoint: 'https://api.x.ai/v1/models',
+    deviceEndpoint: 'https://cli-chat-proxy.grok.com/v1/responses',
+    deviceModelsEndpoint: 'https://cli-chat-proxy.grok.com/v1/models',
+    model: 'grok-4.3',
+    placeholder: 'xai-…',
+    copy: 'Use an API key or sign in with your Grok subscription.',
+  },
   custom: {
     title: 'Custom', endpoint: '', modelsEndpoint: '', model: '',
     placeholder: 'optional bearer token', copy: 'Any OpenAI-compatible Chat Completions endpoint.',

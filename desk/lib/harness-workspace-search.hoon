@@ -123,6 +123,12 @@
   %+  roll  ~(tap by b)
   |=  [[key=key:s versions=(set @ud)] out=_a]
   (~(put by out) key (~(uni in versions) (fall (~(get by out) key) *(set @ud))))
+++  query-terms
+  |=  [idx=state:s query=@t]
+  ^-  (set @t)
+  %+  roll  ~(tap in (tokenize-text:words query))
+  |=  [needle=@t out=(set @t)]
+  (~(uni in out) (silt (alternatives idx needle)))
 ++  intersect
   |=  [a=matches:s b=matches:s]
   ^-  matches:s

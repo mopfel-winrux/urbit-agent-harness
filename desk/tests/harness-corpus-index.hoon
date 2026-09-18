@@ -139,4 +139,29 @@
 ++  test-zero-and-empty-scope-return-no-results
   =/  idx  (put-document:sidx *index:sidx [0v1 1 ~] ~2024.1.1 '' ~['needle'])
   (expect !>(&(=(~ hits:(search:sidx idx 'needle' ~ 0)) =(~ hits:(search-scoped:sidx idx 'needle' ~ 10 `~)))))
+++  test-exact-term-suppresses-newer-spelling-matches
+  =/  idx  (put-document:sidx *index:sidx [0v1 1 ~] ~2024.1.1 '' ~['Reid'])
+  =.  idx  (put-document:sidx idx [0v1 2 ~] ~2024.1.2 '' ~['read refid'])
+  ;:  weld
+    (expect-eq !>(`(list ref:gs)`~[[0v1 1 ~]]) !>((turn hits:(search:sidx idx 'reid' ~ 1) |=(=hit:gs ref.hit))))
+    (expect-eq !>(0) !>((match-rank:sidx 'reid' (query-terms:sidx idx 'reid'))))
+  ==
+++  test-preview-finds-whole-terms-in-later-fields
+  =/  terms  (silt ~['reid'])
+  =/  preview  (match-preview:sidx ~['unrelated title' 'freid does not match; Reid does.'] terms)
+  ;:  weld
+    (expect-eq !>(`(unit @ud)`~) !>((first-match:sidx 'freid' terms)))
+    (expect-eq !>('freid does not match; Reid does.') !>(snippet.preview))
+    (expect-eq !>(`(list @t)`~['reid']) !>(matched.preview))
+  ==
+++  test-match-preview-keeps-distant-utf8-text
+  =/  prefix  (rap 3 (reap 900 'é '))
+  =/  body  (cat 3 prefix (cat 3 'Reid ' (rap 3 (reap 600 'é '))))
+  =/  preview  (match-preview:sidx ~[body] (silt ~['reid']))
+  ;:  weld
+    (expect !>((gth offset.preview 2.000)))
+    (expect !>((lte (met 3 snippet.preview) 518)))
+    (expect-eq !>(`(list @t)`~['reid']) !>(matched.preview))
+    (expect !>(|((lth (cut 3 [offset.preview 1] body) 128) (gth (cut 3 [offset.preview 1] body) 191))))
+  ==
 --

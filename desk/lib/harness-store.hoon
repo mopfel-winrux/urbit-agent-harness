@@ -6,12 +6,13 @@
 /-  ws=harness-workspace-search
 /-  pc=harness-project-client
 /-  wc=harness-work-control
+/-  hosted=harness-hosted
 /+  hl=harness, ht=harness-tools, hd=harness-hand, policy=harness-defaults, index=harness-session-index, control=harness-work-control, j=harness-workspace-json, workspace=harness-workspace
 /+  local-mcp=harness-local-mcp
 |%
 ++  restore-local-mcp
-  |=  [db=state-27 our=@p]
-  ^-  state-27
+  |=  [db=state-30 our=@p]
+  ^-  state-30
   ::  Migrate the direct native registration to the aggregate proxy without
   ::  changing its ID, grants, name, headers, or enabled state. Custom URLs
   ::  and deleted entries stay untouched. Repeated loads are idempotent.
@@ -21,6 +22,59 @@
   ?.  =((rap 3 'urbit://' (scot %p our) '/mcp-server' ~) url.u.server)  db
   db(mcp-servers (~(put by mcp-servers.db) id u.server(url (url:local-mcp our))))
 ++  load
+  |=  old-vase=vase
+  ^-  state-30
+  =/  current  (mule |.(!<(state-30 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  =/  prior  (load-29 old-vase)
+  [%30 | +.prior(defaults [| ~ defaults.prior], peer-base (bind peer-base.prior |=(c=config-0 [| ~ c])), sessions (upgrade-sessions sessions.prior), summary-models [(bind compaction.summary-models.prior |=(c=config-0 [| ~ c])) (bind lcm.summary-models.prior |=(c=config-0 [| ~ c]))], corpus (upgrade-corpus corpus.prior))]
+++  upgrade-event
+  |=  e=event-0
+  ^-  event:h
+  ?:(?=(%config-replaced -.e) [%config-replaced | ~ config.e] e)
+++  upgrade-corpus
+  |=  old=corpus-0
+  ^-  state:corpus
+  =/  scopes
+    %+  turn  ~(tap by scopes.old)
+    |=  [id=scope:corpus c=conversation-0]
+    =/  v  view.c
+    [id c(seen (turn seen.c upgrade-event), reverse (turn reverse.c upgrade-event), forward (turn forward.c upgrade-event), incoming (turn incoming.c upgrade-event), view [[| ~ config.v] ~ +.v])]
+  old(scopes (malt scopes))
+++  upgrade-session
+  |=  old=session-0
+  ^-  session:h
+  [(turn log.old upgrade-event) next-req.old]
+++  upgrade-sessions
+  |=  old=(map session-id:h session-0)
+  ^-  (map session-id:h session:h)
+  (malt (turn ~(tap by old) |=([sid=session-id:h ses=session-0] [sid (upgrade-session ses)])))
+++  old-config
+  |=  ses=session-0
+  ^-  config-0
+  =/  cfg  config:(play:hl log:(upgrade-session ses))
+  +>.cfg
+++  load-29
+  |=  old-vase=vase
+  ^-  state-29
+  =/  current  (mule |.(!<(state-29 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  =/  prior  (load-28 old-vase)
+  =/  [%28 * runtime=state-27]  prior
+  =/  flows  (malt (turn ~(tap by flows.hosted.prior) |=([id=@t f=flow-0:hosted] [id [~ f]])))
+  [%29 *state:oauth [flows catalogs.hosted.prior] runtime]
+++  load-28
+  |=  old-vase=vase
+  ^-  state-28
+  =/  current  (mule |.(!<(state-28 old-vase)))
+  ?:  ?=(%& -.current)  p.current
+  =/  prior  (load-27 old-vase)
+  ::  Setup tokens occupy their own slot; API keys retain the API slot.
+  =/  token  (fall (~(get by provider-keys.prior) 'anthropic') '')
+  =?  provider-keys.prior  &(!(~(has by provider-keys.prior) 'anthropic-device') =('sk-ant-oat01-' (cut 3 [0 13] token)))
+    (~(put by (~(del by provider-keys.prior) 'anthropic')) 'anthropic-device' token)
+  [%28 *state-0:hosted prior]
+++  load-27
   |=  old-vase=vase
   ^-  state-27
   =/  current  (mule |.(!<(state-27 old-vase)))
@@ -156,14 +210,14 @@
   ^-  state-14
   =/  current  (mule |.(!<(state-14 old-vase)))
   ?:  ?=(%& -.current)  p.current
-  [%14 *summary-models:h *state:corpus ~ (load-13 old-vase)]
+  [%14 *summary-models-0 *corpus-0 ~ (load-13 old-vase)]
 ++  load-13
   |=  old-vase=vase
   ^-  state-13
   =/  current  (mule |.(!<(state-13 old-vase)))
   ?:  ?=(%& -.current)  p.current
   =/  prior  (load-12 old-vase)
-  [%13 (seed:index sessions.prior) prior]
+  [%13 (seed:index (upgrade-sessions sessions.prior)) prior]
 ++  load-12
   |=  old-vase=vase
   ^-  state-12
@@ -216,7 +270,7 @@
     =/  maybe-session  (~(get by sessions.old) sid)
     =/  cursor=@ud
       ?~  maybe-session  0
-      (lent items:(play:hl log.u.maybe-session))
+      (lent items:(play:hl log:(upgrade-session u.maybe-session)))
     (~(put by acc) sid [request-id cursor])
   :*  %1
       sessions.old
@@ -285,11 +339,11 @@
 ++  migrate-3
   |=  old=state-3
   ^-  state-4
-  =/  enabled=(map session-id:h session:h)
+  =/  enabled=(map session-id:h session-0)
     %+  roll  ~(tap by sessions.old)
-    |=  [[sid=session-id:h ses=session:h] acc=(map session-id:h session:h)]
-    =/  cfg=config:h  config:(play:hl log.ses)
-    =/  next=session:h
+    |=  [[sid=session-id:h ses=session-0] acc=(map session-id:h session-0)]
+    =/  cfg=config-0  (old-config ses)
+    =/  next=session-0
       [[[%config-replaced cfg(tools all-tools:ht)] log.ses] next-req.ses]
     (~(put by acc) sid next)
   :*  %4
@@ -314,6 +368,7 @@
 ++  migrate-4
   |=  old=state-4
   ^-  state-5
+  =/  cfg  builtin-config:policy
   :*  %5
       sessions.old
       timers.old
@@ -332,7 +387,7 @@
       provider-keys.old
       model-requests.old
       next-model-request.old
-      builtin-config:policy
+      +>.cfg
       *(map mcp-server-id:h mcp-server:h)
   ==
 ++  migrate-5
@@ -445,8 +500,8 @@
   =/  servers=(list @t)  ~(tap in ~(key by mcp-servers.old))
   =.  sessions.old
     %+  roll  ~(tap by sessions.old)
-    |=  [[sid=session-id:h ses=session:h] acc=(map session-id:h session:h)]
-    =/  cfg  config:(play:hl log.ses)
+    |=  [[sid=session-id:h ses=session-0] acc=(map session-id:h session-0)]
+    =/  cfg  (old-config ses)
     =/  scoped  (scope-mcp:ht tools.cfg servers)
     ?:  =(scoped tools.cfg)  (~(put by acc) sid ses)
     (~(put by acc) sid ses(log [[%config-replaced cfg(tools scoped)] log.ses]))
@@ -493,8 +548,8 @@
   ^-  state-12
   =.  sessions.old
     %+  roll  ~(tap by sessions.old)
-    |=  [[sid=session-id:h ses=session:h] acc=(map session-id:h session:h)]
-    =/  cfg  config:(play:hl log.ses)
+    |=  [[sid=session-id:h ses=session-0] acc=(map session-id:h session-0)]
+    =/  cfg  (old-config ses)
     =/  scoped  (scope-clay:ht tools.cfg)
     ?:  =(scoped tools.cfg)  (~(put by acc) sid ses)
     (~(put by acc) sid ses(log [[%config-replaced cfg(tools scoped)] log.ses]))

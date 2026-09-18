@@ -72,6 +72,11 @@ function searchFixture(method, args) {
   if (method === 'harness/search/read' && window.workFixture.failSearchRead) throw new Error('Search content or access changed. Run the search again.')
   if (window.workFixture.failNext === method) { window.workFixture.failNext = null; throw new Error('Search content or access changed. Run the search again.') }
   if (method === 'harness/search/status') return clone(searchStatus)
+  if (method === 'harness/search/query' && args.query === 'reid') return { hits: [
+    { kind: 'message', scope: '0v2', eventCount: 99, sessionId: 'Planning with Reid', sent: at - 1000, matchType: 'exact', matchedTerms: ['reid'], snippetOffset: 2400, snippet: '...After the introduction, Reid shared the plan. freid is a different term. <img src=x onerror=alert(1)>' },
+    { kind: 'tool', scope: '0v2', eventCount: 100, sessionId: 'File lookup', sent: at, matchType: 'approximate', matchedTerms: ['read'], snippetOffset: 0, snippet: 'Read the file before updating it.' },
+  ], cursor: null, status: clone(searchStatus) }
+  if (method === 'harness/corpus/read' && args.eventCount === 99) return { body: args.offset ? 'Reid shared the plan.' : 'Introduction. Reid shared the plan.', nextOffset: null }
   if (method === 'harness/corpus/read') return { body: 'Synthetic retained message: bring a table to the courtyard.', nextOffset: null }
   const guide = db.artifacts.guide
   guide.head = 3
@@ -81,8 +86,8 @@ function searchFixture(method, args) {
     { kind: 'project', id: 'neighborhood', title: db.projects.neighborhood.title, revision: 0, searchToken, sent: at, snippet: db.projects.neighborhood.description },
     { kind: 'task', id: 'research', project: 'neighborhood', title: db.tasks.research.title, revision: 0, searchToken, sent: at, snippet: db.tasks.research.description },
   ] : [
-    { kind: 'artifact', id: 'guide', title: guide.title, head: 3, revision: 2, matchCount: 2, currentMatches: false, archived: false, searchToken, sent: at, snippet: 'Meet at the courtyard at 11:00.' },
-    { kind: 'message', scope: '0v1', eventCount: 5, sessionId: 'neighborhood-research', hand: 'tlon', author: '~lux', sent: at, snippet: 'Bring a table to the courtyard.' },
+    { kind: 'artifact', id: 'guide', title: guide.title, head: 3, revision: 2, matchCount: 2, currentMatches: false, archived: false, searchToken, sent: at, matchType: 'exact', matchedTerms: ['courtyard'], snippet: 'Meet at the courtyard at 11:00.' },
+    { kind: 'message', scope: '0v1', eventCount: 5, sessionId: 'neighborhood-research', hand: 'tlon', author: '~lux', sent: at, matchType: 'exact', matchedTerms: ['courtyard'], snippet: 'Bring a table to the courtyard.' },
   ], cursor: args.cursor ? null : 'synthetic-next', status: clone(searchStatus) }
   if (args.searchToken !== searchToken) throw new Error('Stale synthetic search token')
   if (method === 'harness/search/versions') return { items: [guide.revisions[2], guide.revisions[1]], nextOffset: null, searchToken }

@@ -3,7 +3,7 @@
 import { PROVIDERS, providerOf } from './providers.js'
 
 export function authMethod(provider, config = {}) {
-  if (provider === 'openai') return config.url === PROVIDERS.openai.deviceEndpoint ? 'device' : 'api-key'
+  if (PROVIDERS[provider]?.deviceEndpoint) return config.url === PROVIDERS[provider].deviceEndpoint ? 'device' : 'api-key'
   if (provider === 'anthropic') return (config.headers || []).some((h) => h.name.toLowerCase() === 'anthropic-beta' && h.value.includes('oauth-')) ? 'device' : 'api-key'
   return 'api-key'
 }
@@ -21,7 +21,7 @@ export function chooseProvider(config, provider, preferredAuth = 'api-key') {
   if (providerOf(config.url) === provider) return config
   const details = PROVIDERS[provider]
   // Do not carry another provider's headers/credentials across a provider switch.
-  return withAuth({ ...config, url: details.endpoint || '', model: details.model || '', headers: [], key: '' }, provider, preferredAuth)
+  return withAuth({ ...config, url: details.endpoint || '', model: details.model || '', headers: [], key: '', zdr: false }, provider, preferredAuth)
 }
 
 export function catalogEndpoint(provider, config) {
@@ -30,5 +30,5 @@ export function catalogEndpoint(provider, config) {
 }
 
 export function credentialSlot(provider, method) {
-  return provider === 'openai' && method === 'device' ? 'openai-device' : provider
+  return ['openai', 'anthropic', 'xai'].includes(provider) && method === 'device' ? `${provider}-device` : provider
 }

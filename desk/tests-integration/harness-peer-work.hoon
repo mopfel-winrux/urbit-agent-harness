@@ -11,8 +11,8 @@
   ;;(tang product.out)
 ++  fixture
   |=  other=@p
-  ^-  state-27
-  =/  saved=state-27  *state-27
+  ^-  state-30
+  =/  saved=state-30  *state-30
   =.  saved  saved(defaults builtin-config:defaults, local-mcp-seen 1, tlon-cron-imported &, welcome-seen 1)
   =.  peers.saved  (my ~[[other [~[%workspace %peers] ~ 0 ~]]])
   =/  created  (apply:work workspace.saved [& [0v0 'Owner'] 0v0] [%task-create 'task' '' 'A bounded part of the goal' 'Return a checked result.'] ~2026.9.14)
@@ -25,7 +25,7 @@
   =/  saved  (fixture ~nec)
   =/  loaded  (~(on-load head bowl) !>(saved))
   =/  received  (~(on-poke +.loaded bowl) %harness-a2a-0 !>(`a2a:h`[%ask 0v1 %text 'Complete the supplied home task.']))
-  =/  next  !<(state-27 ~(on-save +.received bowl))
+  =/  next  !<(state-30 ~(on-save +.received bowl))
   =/  v  (play:hl log:(~(got by sessions.next) 'peer--~nec'))
   %-  zing
   %+  turn  ~['running on ~zod' 'authenticated request from ~nec' 'Workspace records are ship-local' 'call_peer_tool' 'current id and version' 'without changing trust']
@@ -37,11 +37,11 @@
   =.  bowl  bowl(our ~zod, src ~nec, now ~2026.9.14)
   =/  loaded  (~(on-load head bowl) !>((fixture ~nec)))
   =/  first  (~(on-poke +.loaded bowl) %harness-a2a-0 !>(`a2a:h`[%ask 0v1 %text 'Finish this task.']))
-  =/  before  !<(state-27 ~(on-save +.first bowl))
+  =/  before  !<(state-30 ~(on-save +.first bowl))
   =/  duplicate  (~(on-poke +.first bowl) %harness-a2a-0 !>(`a2a:h`[%ask 0v1 %text 'Finish this task.']))
-  =/  repeated  !<(state-27 ~(on-save +.duplicate bowl))
+  =/  repeated  !<(state-30 ~(on-save +.duplicate bowl))
   =/  overlap  (~(on-poke +.duplicate bowl) %harness-a2a-0 !>(`a2a:h`[%ask 0v2 %text 'Another assignment must not replace active work.']))
-  =/  rejected  !<(state-27 ~(on-save +.overlap bowl))
+  =/  rejected  !<(state-30 ~(on-save +.overlap bowl))
   ;:  weld
     (expect-eq !>(sessions.before) !>(sessions.repeated))
     (expect-eq !>(sessions.before) !>(sessions.rejected))
@@ -120,21 +120,21 @@
     (expect-eq !>(~) !>((invoke '{"ship":"~nec","prompt":"Check","task":""}')))
   ==
 ++  receive
-  |=  [saved=state-27 our=@p source=@p id=@uv action=@t args=@t revoke=?]
-  ^-  state-27
+  |=  [saved=state-30 our=@p source=@p id=@uv action=@t args=@t revoke=?]
+  ^-  state-30
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our our, src source, now ~2026.9.14)
   =/  loaded  (~(on-load head bowl) !>(saved))
   =/  arguments  (call action args)
   =/  admitted  (~(on-poke +.loaded bowl) %harness-rpc-0 !>(`peer-rpc:h`[%invoke id now.bowl 'workspace' arguments]))
-  =/  pending  !<(state-27 ~(on-save +.admitted bowl))
+  =/  pending  !<(state-30 ~(on-save +.admitted bowl))
   =/  sid  (cat 3 'peer-tool--' (scot %p source))
   ?.  (~(has by peer-active.pending) sid)  pending
   =?  pending  revoke  pending(peers ~)
   =/  resumed  (~(on-load head bowl(src our)) !>(pending))
   =/  req=tool-request:adapter  [sid next-req:(~(got by sessions.pending) sid) [(call-id:rpc id now.bowl) 'workspace' arguments]]
   =/  executed  (~(on-poke +.resumed bowl(src our)) %harness-tool !>(req))
-  !<(state-27 ~(on-save +.executed bowl))
+  !<(state-30 ~(on-save +.executed bowl))
 ++  test-trusted-peers-claim-and-complete-home-tasks-in-both-directions
   %-  isolated  |=  ignored=*
   =/  a  (receive (fixture ~nec) ~zod ~nec 0v1 'task-claim' '{"id":"task","version":1}' |)
@@ -166,8 +166,8 @@
     (expect !>(?=(^ (find (trip '{"action":"help","args":{}}') (trip i.replies)))))
   ==
 ++  outgoing
-  |=  [saved=state-27 name=@t args=@t act=action:h]
-  ^-  state-27
+  |=  [saved=state-30 name=@t args=@t act=action:h]
+  ^-  state-30
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.14)
   =/  cfg  defaults.saved(tools ~[%peers])
@@ -176,7 +176,7 @@
     (my ~[['coordinator' [~[[%tool-requested-2 1 'call' name] [%llm-completed 0 %tool-calls [1 1] [%assistant '' ~[call]]] [%input-received [0v1 [%poke ~zod] `~zod ~ now.bowl [%user 'Pursue the goal']]] [%config-replaced cfg]] 1]]])
   =/  loaded  (~(on-load head bowl) !>(saved))
   =/  out  (~(on-poke +.loaded bowl) %harness-effect !>(`effect:h`[1 act]))
-  !<(state-27 ~(on-save +.out bowl))
+  !<(state-30 ~(on-save +.out bowl))
 ++  test-outgoing-work-needs-reciprocal-grants-but-discovery-does-not
   %-  isolated  |=  ignored=*
   =/  trusted  (fixture ~nec)
@@ -218,7 +218,7 @@
     ?:  =('ask_peer' name)
       (~(on-poke +.loaded bowl) %harness-a2a-0 !>(`a2a:h`[%answer id [%& 'Remote response']]))
     (~(on-poke +.loaded bowl) %harness-rpc-0 !>(`peer-rpc:h`[%result id [%& 'Remote response']]))
-  =/  settled  !<(state-27 ~(on-save +.response bowl))
+  =/  settled  !<(state-30 ~(on-save +.response bowl))
   =/  replies  (murn log:(~(got by sessions.settled) 'coordinator') |=(e=event:h ?:(?=(%tool-completed -.e) `body.e ~)))
   ?>  ?=(^ replies)
   ;:  weld
@@ -236,7 +236,7 @@
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.14..00.03.00)
   =/  loaded  (~(on-load head bowl) !>(pending))
   =/  out  (~(on-arvo +.loaded bowl) `wire`[%a2a-timeout (scot %uv id) ~] [%behn %wake ~])
-  =/  next  !<(state-27 ~(on-save +.out bowl))
+  =/  next  !<(state-30 ~(on-save +.out bowl))
   =/  replies  (murn log:(~(got by sessions.next) 'coordinator') |=(e=event:h ?:(?=(%tool-completed -.e) `body.e ~)))
   ?>  ?=(^ replies)
   ;:  weld

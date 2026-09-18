@@ -21,16 +21,16 @@
   ::  Public Eyre requests are not delivered as the owner.
   =.  src.bowl  ~nec
   =.  now.bowl  now
-  =/  saved=state-27  *state-27
+  =/  saved=state-30  *state-30
   =.  tlon-cron-imported.saved  &
   =.  workspace.saved  fixture:seed
   =.  project-clients.saved  issued:seed
   =.  book.workspace-notes.saved  `[~zod %fixture]
   =.  links.workspace-notes.saved  (my ~[['document' [42 ~ ~]] ['private' [100 ~ ~]] ['other-document' [99 ~ ~]]])
   =/  loaded  (~(on-load head bowl) !>(saved))
-  =/  before  !<(state-27 ~(on-save +.loaded bowl))
+  =/  before  !<(state-30 ~(on-save +.loaded bowl))
   =/  response  (~(on-poke +.loaded bowl) %handle-http-request !>([`@ta`%client-fixture req]))
-  =/  after  !<(state-27 ~(on-save +.response bowl))
+  =/  after  !<(state-30 ~(on-save +.response bowl))
   =/  headers
     %+  murn  -.response
     |=  card=card:agent:gall
@@ -127,16 +127,16 @@
   =.  our.bowl  ~zod
   =.  src.bowl  ~zod
   =.  now.bowl  ~2026.9.14
-  =/  saved=state-27  *state-27
+  =/  saved=state-30  *state-30
   =.  tlon-cron-imported.saved  &
   =.  workspace.saved  fixture:seed
   =/  loaded  (~(on-load head bowl) !>(saved))
-  =/  before  !<(state-27 ~(on-save +.loaded bowl))
+  =/  before  !<(state-30 ~(on-save +.loaded bowl))
   =/  params  (pairs:enjs:format ~[['action' %s 'client-create'] ['args' (args:seed 'new-key' key:seed 1)]])
   =/  frame  (en:json:html (pairs:enjs:format ~[['jsonrpc' %s '2.0'] ['id' %n '1'] ['method' %s 'harness/workspace'] ['params' params]]))
   =/  update=update:v1:ac  [%messages connection %agent ~[[1 now.bowl frame]]]
   =/  response  (~(on-agent +.loaded bowl) /acp/watch [%fact %acp-update-1 !>(update)])
-  =/  after  !<(state-27 ~(on-save +.response bowl))
+  =/  after  !<(state-30 ~(on-save +.response bowl))
   =/  owner  ?=(~ (decode:admin connection))
   ;:  weld
     (expect-eq !>(?:(owner 1 0)) !>(~(wyt by project-clients.after)))

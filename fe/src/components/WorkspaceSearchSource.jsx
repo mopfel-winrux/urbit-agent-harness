@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
+import SearchText from './SearchText'
 
 export default function WorkspaceSearchSource({ record, query }) {
   const artifact = record.kind === 'artifact'
@@ -66,9 +67,9 @@ export default function WorkspaceSearchSource({ record, query }) {
     {error && <div className="inline-error" role="alert">{error} <button className="text-button" disabled={busy} onClick={() => setRetry((value) => value + 1)}>Retry source</button></div>}
     {content && <>
       {artifact && content.content.title !== record.title && <h3>{content.content.title}</h3>}
-      <div className="corpus-source-body">{artifact ? content.content.body : content.description || 'No description.'}</div>
+      <div className="corpus-source-body"><SearchText text={artifact ? content.content.body : content.description || 'No description.'} terms={record.matchedTerms} /></div>
       {artifact && content.content.sources?.length > 0 && <section className="corpus-evidence" aria-label="Source references"><h3>Source references</h3>{content.content.sources.map((source, index) => <p className="corpus-source-name" key={index}>{source.label}<br /><span className="field-note">{source.url}</span></p>)}</section>}
-      {!artifact && content.outcome && <><h3>Outcome</h3><div className="corpus-source-body">{content.outcome}</div></>}
+      {!artifact && content.outcome && <><h3>Outcome</h3><div className="corpus-source-body"><SearchText text={content.outcome} terms={record.matchedTerms} /></div></>}
       {artifact && content.content.nextOffset != null && <button className="button ghost" disabled={busy} onClick={moreBody}>Read more</button>}
     </>}
   </>
