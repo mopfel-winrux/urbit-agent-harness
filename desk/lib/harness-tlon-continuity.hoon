@@ -1,6 +1,6 @@
 ::  Conversation identity is independent of authorization. Only this hand's
 ::  routing generations change; the head retains configuration and evidence.
-/-  t=harness-tlon, h=harness, a=tlon-activity-ver, cr=harness-cron
+/-  t=harness-tlon, h=harness, a=tlon-activity-ver
 /+  p=harness-tlon-policy
 |%
 +$  authority  $%([%denied ~] [%owner ~] [%trusted tools=(set tool-grant:h)])
@@ -71,15 +71,4 @@
     %post      time.key.event
     %reply     time.key.event
   ==
-++  upgrade
-  |=  old=state-10:t
-  ^-  state-11:t
-  =/  dirs
-    %+  roll  ~(tap by lanes.old)
-    |=  [[sid=@t lane=lane:t] acc=[identities=(map [@p destination:t] @t) routes=(map @t route:t)]]
-    =/  creating  (lien ~(val by jobs.old) |=(job=job:t &(=(sid sid.job) =(%create stage.job))))
-    =.  routes.acc  (~(put by routes.acc) sid [sid ?:(creating %create %ready)])
-    ?:  (lien ~(val by cron.old) |=(job=job-0:cr =(sid run-sid.job)))  acc
-    acc(identities (~(put by identities.acc) [actor.lane to.lane] sid))
-  [%11 identities.dirs routes.dirs ~ `@da`0 +.old]
 --

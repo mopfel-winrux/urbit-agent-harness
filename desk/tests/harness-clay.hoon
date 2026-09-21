@@ -38,27 +38,4 @@
 ++  test-rehearsal-preserves-only-inherited-clay-prefixes
   =/  out  (rehearsal-tools:ht ~[%web [%clay /harness/lib] %skills [%mcp 'a']])
   (expect-eq !>(`(list tool-grant:h)`~[[%clay /harness/lib] %skills]) !>(out))
-++  test-legacy-migration-is-explicit-and-keeps-history
-  =/  old=state-11  *state-11
-  =/  cfg  builtin-config:policy
-  =/  old-cfg  +>.cfg
-  =.  defaults.old  old-cfg(tools ~[%clay %web])
-  =.  sessions.old  (my ~[['s' [~[[%config-replaced defaults.old]] 12]]])
-  =.  peer-base.old  `defaults.old
-  =.  peers.old  (my ~[[~zod [~[%clay] ~ 10 ~]]])
-  =/  next  (load:storage !>(old))
-  =/  before  (upgrade-session:storage (~(got by sessions.old) 's'))
-  =/  after  (~(got by sessions.next) 's')
-  ?>  ?=(^ log.after)
-  ?>  ?=(^ peer-base.next)
-  =/  peer  (~(got by peers.next) ~zod)
-  (expect !>(&(=(log.before t.log.after) =(12 next-req.after) (clay-granted:ht /base tools.defaults.next) (clay-granted:ht /base tools.peer) =(tools.defaults.next tools.u.peer-base.next) =(next (load:storage !>(next))))))
-++  test-tlon-migration-keeps-lanes-and-permission-epoch
-  =/  old=state-2:t  *state-2:t
-  =.  epoch.old  5
-  =.  trusted.policy.old  (my ~[[~nec ~[%clay]]])
-  =.  lanes.old  (my ~[['s' [~nec [%dm ~nec ~] 5 ~[%clay]]]])
-  =/  next  (scope-clay:tp old)
-  =/  lane  (~(got by lanes.next) 's')
-  (expect !>(&(=(5 epoch.next) =(5 epoch.lane) =(jobs.old jobs.next) (clay-granted:ht /harness tools.lane) (clay-granted:ht /harness (~(got by trusted.policy.next) ~nec)))))
 --

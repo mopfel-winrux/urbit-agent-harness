@@ -23,21 +23,6 @@
   |=  url=@t
   ^-  ?
   =(~ (mole |.((download-request:m url))))
-++  test-native-migration-drops-worker-config-preserves-evidence
-  =/  old=state-8:t  *state-8:t
-  =.  media.old  ['http://localhost:8789' 'old-secret']
-  =.  last-sent.old  ~2026.9.6
-  =.  epoch.old  31
-  =.  uploads.old  (my ~[[0v1 `upload:t`[%put 0v2 'key' 'image/png' 'url' [2 1]]]])
-  =/  next  (upgrade-native-media:p old)
-  (expect-eq !>(+.+.old) !>(+.next))
-++  test-media-migration-preserves-delivery-evidence
-  =/  old=state-6:t  *state-6:t
-  =.  last-sent.old  ~2026.9.6
-  =.  epoch.old  31
-  =.  wake.old  `~2026.9.7
-  =/  next  (upgrade-media:p old)
-  (expect !>(&(=(['' ''] media.next) =(~ uploads.next) =(+.old +.+.+.next))))
 ++  test-image-rejects-svg-and-oversized-payloads
   (expect !>(&(=(~ (image-type:m [12 '<svg></svg>'])) =(~ (image-type:m [8.388.609 0xa1a.0a0d.474e.5089])))))
 ++  test-hosted-toggle-needs-no-static-credentials
@@ -67,9 +52,4 @@
 ++  test-hosted-response-rejects-oversized-body
   =/  res=client-response:iris  [%finished [200 ~] `['application/json' [16.385 0]]]
   (expect !>(=(~ (mole |.((hosted-response:m res))))))
-++  test-hosted-migration-preserves-old-upload-evidence
-  =/  old=state-7:t  *state-7:t
-  =.  uploads.old  (my ~[[0v1 `upload-7:t`[%put 0v2 'key' 'image/png' 'url' [2 1]]]])
-  =/  next  (upgrade-hosted-media:p old)
-  (expect-eq !>(+.old) !>(+.next))
 --

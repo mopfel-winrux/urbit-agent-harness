@@ -33,7 +33,7 @@
 +$  card  card:agent:gall
 --
 %-  agent:dbug
-=|  state-30
+=|  state-0
 =*  state  -
 ^-  agent:gall
 =<
@@ -49,7 +49,7 @@
       |=  result=(quip card _this)
       ^-  (quip card _this)
       =/  next  +.result
-      =/  loaded  !<(state-30 on-save:next)
+      =/  loaded  !<(state-0 on-save:next)
       =/  before-workspace  writes.workspace
       =/  previous-workspace  workspace
       =/  previous-notes  workspace-notes
@@ -112,7 +112,7 @@
 ::
 ++  on-load
   |=  old-vase=vase
-  =/  new=state-30  (restore-local-mcp:storage (load:storage old-vase) our.bowl)
+  =/  new=state-0  (load:storage old-vase)
   =.  state  new(corpus-wake ~, schedule-wake ~)
   %-  flush-auth
   ^-  (quip card _this)
@@ -126,10 +126,6 @@
     ==
   =?  base  ?=(^ schedule-wake.new)
     (snoc base [%pass /schedules/(scot %da u.schedule-wake.new) %arvo %b %rest u.schedule-wake.new])
-  ::  Either agent may reload first. The upgraded adapter also offers its
-  ::  handoff on load; a repeated transfer cannot re-import cleared records.
-  =?  base  &(!tlon-cron-imported .^(? %gu /(scot %p our.bowl)/harness-tlon/(scot %da now.bowl)/$))
-    (snoc base [%pass /cron-transfer-request %agent [our.bowl %harness-tlon] %poke %noun !>(`request:adapter`['' ~ 'harness/tlon/cron/transfer' ~])])
   ::  Gall retains subscriptions across code reloads. A new mirror watch
   ::  reprojects on acknowledgement. Refresh a surviving watch only after our
   ::  self-poke completes: Tlon may still be old code during this +on-load.
@@ -182,10 +178,6 @@
     =/  req  !<(request:cr vase)
     =/  out  (schedule-call:hc act.req)
     [(snoc cards.out [%give %fact ~[/crons/[id.req]] %noun !>(result.out)]) this(state new.out)]
-      %harness-cron-import
-    ?>  =(src.bowl our.bowl)
-    =^  cards  state  (import-schedules:hc !<(transfer:cr vase))
-    [cards this]
       %harness-tool
     ?>  =(src.bowl our.bowl)
     =/  req  !<(tool-request:adapter vase)
@@ -1041,7 +1033,7 @@
   =/  confirmation  (mole |.((string:workspace-json args 'confirm')))
   ?.  =(confirmation `(cat 3 'release ' (scot %uv id.pending)))
     [~[(notes-reply reply [%| 'Confirm that you inspected Notes and understand that stopping observation cannot undo a dispatched change.'])] state]
-  =/  saved=state-30  state
+  =/  saved=state-0  state
   =/  next  saved(workspace-notes workspace-notes.saved(pending ~))
   =.  workspace.next  (record:workspace-lib workspace.next [& [0v0 'Owner'] 0v0] 'notes-release' artifact.pending now.bowl)
   [[[%pass /artifact-notes/request/(scot %uv rid) %agent [our.bowl %notes] %leave ~] (notes-reply reply [%& (pairs:enjs:format ~[['released' %b &]])]) ~] next]
@@ -1054,7 +1046,7 @@
   ^-  (quip card _state)
   ?~  pending.workspace-notes  `state
   =/  pending  u.pending.workspace-notes
-  =/  saved=state-30  state
+  =/  saved=state-0  state
   =/  next  saved(workspace-notes workspace-notes.saved(pending ?:(uncertain `pending(uncertain &) ~)))
   [~[(notes-reply reply.pending [%| message])] next]
 ++  notes-result
@@ -1139,7 +1131,7 @@
     (complete:notes-lib workspace workspace-notes note (history:~(. reader:notes-lib bowl) book nid) applied now.bowl)
   ?.  ?=(%& -.resolved)
     (notes-failed 'Notes confirmed a result, but its current document could not be read. Do not repeat the operation.' &)
-  =/  saved=state-30  state
+  =/  saved=state-0  state
   =/  next  saved(workspace db.p.resolved, workspace-notes native.p.resolved)
   =/  art  (~(got by artifacts.workspace.next) artifact.pending)
   =/  result
@@ -1659,30 +1651,6 @@
   =.  schedule-wake  deadline
   ?~  deadline  [cards state]
   [(snoc cards [%pass /schedules/(scot %da u.deadline) %arvo %b %wait u.deadline]) state]
-++  import-schedules
-  |=  transfer=transfer:cr
-  ^-  (quip card _state)
-  ?:  tlon-cron-imported  `state
-  =.  tlon-cron-imported  &
-  =/  pending  ~(tap by jobs.transfer)
-  =|  cards=(list card)
-  |-  ^-  (quip card _state)
-  ?~  pending  [cards state]
-  =/  [id=@uv old=job:cr]  i.pending
-  ?:  (~(has by schedules) id)  $(pending t.pending)
-  =/  origin=[binding=@t actor=@t]  (fall (~(get by origins.transfer) id) ['' ''])
-  =/  job=schedule:cr  [binding.origin actor.origin 'tlon' `@uvH`0 old]
-  =?  job  |(!=(%active state.old) =('initializing' reason.old) !(~(has by sessions) run-sid.old) !(schedule-source-live job))
-    ?:  ?=(?(%cancelled %complete) state.old)  job
-    job(state %paused, reason 'Imported from Tlon; source authority or initialization needs explicit rescheduling')
-  ::  Old schedules carried Tlon's former implicit %cron capability. Compare
-  ::  the same effective source grants, never broaden the saved ceiling.
-  =.  schedules  (~(put by schedules) id job)
-  ?:  |(!(~(has by sessions) run-sid.job) (~(has by bindings.hands) run-sid.job))
-    $(pending t.pending)
-  =/  bound  (apply:hd hands [%bind run-sid.job [hand.job destination.job run-sid.job ~[actor.job] ?=(?(%active %complete) state.job)]] now.bowl)
-  =?  hands  ?=(%& -.bound)  db.p.bound
-  $(pending t.pending)
 ++  wake-corpus
   ^-  (quip card _state)
   =/  waiting  ?=(^ corpus-wake)

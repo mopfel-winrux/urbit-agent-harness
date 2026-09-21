@@ -50,7 +50,7 @@
   =/  reply=incoming-event:v8:a  [%reply [[~nec ~2026.9.9] ~2026.9.9] [[~lux ~2026.9.8] ~2026.9.8] [%chat ~bud %test] [~bud %test] ~ |]
   (expect !>(&(=(~ (sender:deny ~lux post)) =(`~nec (sender:deny ~lux post(mention &))) =(`~nec (sender:deny ~lux reply)))))
 ++  test-tool-deadline-with-tlon-replies-disabled
-  =/  state=state:t  *state:t
+  =/  state=state-0:t  *state-0:t
   =.  enabled.policy.state  |
   =.  tool-receipts.state  (my ~[[0v1 `tool-receipt:t`[['s' 1 ['c' 'tlon' '{}']] %sending 'pending' ~2026.9.9]]])
   (expect !>(&(!enabled.policy.state =(`(add ~2026.9.9 ~m1) (deadline:clock ~2026.9.9 state)) =(~ (deadline:clock ~2026.9.9 state(tool-receipts ~))))))

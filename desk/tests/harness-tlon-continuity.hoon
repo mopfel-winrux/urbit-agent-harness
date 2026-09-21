@@ -56,25 +56,4 @@
   =/  dm  dm
   =/  sid  (identity:c ~bud to.dm)
   (expect !>(&(!=(sid (identity:c ~lux to.dm)) !=(sid (identity:c ~bud [%dm ~bud `[~bud ~2026.9.6]])))))
-++  test-migration-keeps-current-head-and-legacy-binding
-  =/  dm  dm
-  =/  old=state-10:t  *state-10:t
-  =.  lanes.old  (my ~[['legacy-head' dm]])
-  =/  next  (upgrade:c old)
-  (expect !>(&(=('legacy-head' (~(got by identities.next) [~bud to.dm])) =(['legacy-head' %ready] (~(got by routes.next) 'legacy-head')) =(lanes.old lanes.next))))
-++  test-migration-does-not-alias-scheduled-heads
-  =/  dm  dm
-  =/  old=state-10:t  *state-10:t
-  =.  lanes.old  (my ~[['legacy-head' dm] ['cron-head' dm]])
-  =/  job=job-0:cr  *job-0:cr
-  =.  cron.old  (my ~[[0v1 job(sid 'legacy-head', run-sid 'cron-head')]])
-  =/  next  (upgrade:c old)
-  (expect !>(&(=(1 ~(wyt by identities.next)) =('legacy-head' (~(got by identities.next) [~bud to.dm])) =(2 ~(wyt by routes.next)))))
-++  test-migration-keeps-unfinished-creation-closed
-  =/  dm  dm
-  =/  old=state-10:t  *state-10:t
-  =.  lanes.old  (my ~[['legacy-head' dm]])
-  =.  jobs.old  (my ~[[0v1 [[~bud 'event' to.dm 'text'] 'legacy-head' %create '']]])
-  =/  next  (upgrade:c old)
-  (expect !>(=(%create phase:(~(got by routes.next) 'legacy-head'))))
 --

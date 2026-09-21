@@ -17,7 +17,7 @@
 +$  storage-source  $%([%credentials creds=credentials:s3] [%hosted token=@t config=json])
 --
 %-  agent:dbug
-=|  state:t
+=|  state-0:t
 =*  state  -
 ^-  agent:gall
 =<
@@ -35,54 +35,15 @@
 ++  on-save  !>(state)
 ++  on-load
   |=  old=vase
-  =.  state
-    ?:  ?=([%16 *] q.old)  !<(state:t old)
-    %-  |=(previous=state-15:t `state:t`[%16 0 previous])
-    ?:  ?=([%15 *] q.old)  !<(state-15:t old)
-    %-  |=(previous=state-14:t `state-15:t`[%15 | `@da`0 previous])
-    ?:  ?=([%14 *] q.old)  !<(state-14:t old)
-    %-  local-only:p
-    ?:  ?=([%13 *] q.old)  !<(state-13:t old)
-    %-  |=(previous=state-12:t (upgrade:activity-read previous now.bowl))
-    ?:  ?=([%12 *] q.old)  !<(state-12:t old)
-    %-  upgrade-reminders:p
-    ?:  ?=([%11 *] q.old)  !<(state-11:t old)
-    %-  upgrade:continuity
-    ?:  ?=([%10 *] q.old)  !<(state-10:t old)
-    %-  |=(previous=state-9:t (upgrade-lens:p previous now.bowl))
-    ?:  ?=([%9 *] q.old)  !<(state-9:t old)
-    %-  upgrade-native-media:p
-    ?:  ?=([%8 *] q.old)  !<(state-8:t old)
-    %-  upgrade-hosted-media:p
-    ?:  ?=([%7 *] q.old)  !<(state-7:t old)
-    %-  upgrade-media:p
-    ?:  ?=([%6 *] q.old)  !<(state-6:t old)
-    %-  upgrade-delivery:p
-    ?:  ?=([%5 *] q.old)  !<(state-5:t old)
-    %-  upgrade-presence:p
-    ?:  ?=([%4 *] q.old)  !<(state-4:t old)
-    =/  before-3=state-3:t
-      ?:  ?=([%3 *] q.old)  !<(state-3:t old)
-      %-  scope-clay:p
-      ?:  ?=([%2 *] q.old)  !<(state-2:t old)
-      =/  before=state-1:t
-        ?:  ?=([%0 *] q.old)
-          =/  oldest  !<(state-0:t old)
-          [%1 ~ +.oldest]
-        !<(state-1:t old)
-      =/  registry=json
-        .^(json %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/mcp/json)
-      =/  servers  (json-mcp-servers:hj registry)
-      (scope-mcp:p before (turn servers |=([id=@t server=mcp-server:h] id)))
-    (upgrade-tools:p before-3)
+  =.  state  !<(state-0:t old)
   =.  state  initialize-owner:cor
   =?  watching  !enabled.policy  |
   ::  Gall keeps acknowledged subscriptions across reloads. Re-watching that
   ::  same duct raises a false adapter failure; only create a missing watch.
   =^  cards  state
     ::  A saved timestamp is not evidence of a surviving Behn subscription.
-    ::  Retire the legacy poll wake; maintenance gets fresh actual deadlines.
-    =/  c  transfer-cron:refresh-peers:retire-uploads:reset-wake:cor
+    ::  Maintenance gets fresh actual deadlines.
+    =/  c  refresh-peers:retire-uploads:reset-wake:cor
     ?:  &(watching (~(has by wex.bowl) /activity our.bowl %activity))
       abet:watch-head:c
     abet:boot:c
@@ -271,7 +232,6 @@
 ++  request
   |=  req=request:ad
   ^+  cor
-  ?:  =('harness/tlon/cron/transfer' method.req)  transfer-cron
   =/  ticket  (decode:admin connection.req)
   =/  authorized
     ?~  ticket  &
@@ -678,15 +638,6 @@
     (put-upload id u.pending(stage %put-no-acl))
   ?:  (gte status-code.response-header.res 500)  (end-upload id)
   (close-upload id 'failed: storage rejected the upload; inspect the owner storage configuration, bucket access and ACL policy')
-++  transfer-cron
-  ^+  cor
-  =/  origins=(map @uv [binding=@t actor=@t])
-    %-  ~(run by cron)
-    |=  job=job:cr
-    =/  route  (~(get by routes) sid.job)
-    =/  lane  (~(get by lanes) sid.job)
-    [?~(route '' binding.u.route) ?~(lane '' (scot %p actor.u.lane))]
-  (emit [%pass /cron-transfer %agent [our.bowl %harness] %poke %harness-cron-import !>(`transfer:cr`[cron origins])])
 ++  scheduled
   |=  sid=@t
   ^-  (unit schedule:cr)
@@ -705,9 +656,7 @@
 ++  cron-lane-live-for
   |=  [sid=@t job=(unit schedule:cr)]
   ^-  ?
-  ?~  job
-    ::  Never revive a legacy schedule before the explicit head handoff.
-    !(lien ~(val by cron) |=(old=job:cr =(sid run-sid.old)))
+  ?~  job  &
   .^(? %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/cron-authority/[sid]/noun)
 ++  actor-owner
   |=  actor=@p
@@ -722,7 +671,7 @@
   ^-  ?
   =/  lane  (~(get by lanes) sid)
   ?.  ?&(?=(^ lane) (actor-owner actor.u.lane) ?=(%dm -.to.u.lane) live:(lane-authority sid))  |
-  &(?=(~ (scheduled sid)) !(lien ~(val by cron) |=(job=job:cr =(sid run-sid.job))))
+  ?=(~ (scheduled sid))
 ++  lane-authority
   |=  sid=@t
   ^-  hand-authority:ad
@@ -859,7 +808,7 @@
       [%head ~]
     ?+  -.sign  cor
       %watch-ack
-        ?~  p.sign  transfer-cron:recover
+        ?~  p.sign  recover
         cor(error 'Head subscription failed; reload the Tlon adapter to reconnect.')
       %kick  watch-head
       %fact
@@ -983,9 +932,6 @@
           (en:json:html (pairs:enjs:format ~[['status' %s 'uncertain'] ['notebook' %s (rap 3 (scot %p ship.flag.summary) '/' name.flag.summary ~)] ['root_folder_id' %s (scot %ud +(id.notebook.summary))] ['note' %s 'Notebook created, but group listing verification failed; inspect get_notebook before use. Do not repeat creation.']]))
       ==
     (finish-tool id result)
-      [%cron-create @ ~]
-    ?.  ?=(%poke-ack -.sign)  cor
-    (finish-tool (slav %uv i.t.wire) 'Scheduling moved to the shared head during initialization; inspect Settings before rescheduling')
       [%profile @ @ ~]
     ?.  ?=(%poke-ack -.sign)  cor
     =/  id=json  ;;(json (cue (slav %uv i.t.t.wire)))
@@ -1056,8 +1002,6 @@
       ?.  (route-ready sid.u.job)  cor
       =/  route  (~(got by routes) sid.u.job)
       =.  jobs  (~(put by jobs) id u.job(stage %observe))
-      ?:  (lien ~(val by cron) |=(schedule=job:cr &(=(sid.u.job run-sid.schedule) =(%reminder kind.schedule))))
-        (hand %observe id [%notify binding.route event.input.u.job (scot %p actor.input.u.job) text.input.u.job])
       (hand %observe id [%observe binding.route event.input.u.job (scot %p actor.input.u.job) text.input.u.job])
     ?:  =(%observe phase)  cor(jobs (~(del by jobs) id))
     ?:  =(%receipt phase)
@@ -1343,7 +1287,7 @@
   =.  cor
     %+  roll  ~(tap by routes)
     |=  [[sid=@t route=route:t] c=_cor]
-    ?:  |(=(%ready phase.route) (lien ~(val by cron.c) |=(job=job:cr =(sid run-sid.job))))  c
+    ?:  =(%ready phase.route)  c
     (start-route:c sid)
   ::  Recover the durable dispatch boundary, not just the pending outbox.
   ::  %claim means no Messenger card has been emitted; %send means its

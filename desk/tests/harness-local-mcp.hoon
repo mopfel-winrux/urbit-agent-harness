@@ -14,7 +14,7 @@
     (my ~[['~nec-mcp' ['Custom' 'https://example.com/mcp' ~ |]]])
   (expect-eq !>([1 registry]) !>((ensure:local registry 0 ~nec &)))
 ++  test-deleted-registration-stays-deleted-after-reload
-  =/  saved=state-19  *state-19
+  =/  saved=state-0  *state-0
   =.  local-mcp-seen.saved  1
   =/  loaded  (load:storage !>(saved))
   (expect-eq !>([1 *(map mcp-server-id:h mcp-server:h)]) !>((ensure:local mcp-servers.loaded local-mcp-seen.loaded ~nec &)))

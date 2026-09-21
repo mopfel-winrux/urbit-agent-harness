@@ -1,15 +1,6 @@
 ::  Pure binding, admission, and delivery bookkeeping. No transport or scheduler.
 /-  h=harness, hh=harness-hand
 |%
-++  migrate
-  |=  old=state-0:hh
-  ^-  state:hh
-  =/  controls=(map input-id:h control:hh)
-    %-  ~(run by outbox.old)
-    |=  pub=publication:hh
-    ^-  control:hh
-    [?:(=(%pending status.pub) 0 1) ~]
-  [bindings.old observations.old queue.old active.old outbox.old controls ~ 1 ~]
 ++  terminal
   |=  status=delivery-state:hh
   |(=(%delivered status) =(%abandoned status))

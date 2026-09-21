@@ -4,7 +4,7 @@
 /=  head  /app/harness
 |%
 ++  read
-  |=  [saved=state-30 allowed=?]
+  |=  [saved=state-0 allowed=?]
   ^-  (unit @t)
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.13)
@@ -28,8 +28,8 @@
   ?>  ?=(%0 -.checked)
   ;;((unit @t) +.product.checked)
 ++  test-card-needs-current-owner-binding-and-receipt
-  =/  saved=state-30  *state-30
-  =.  saved  saved(tlon-cron-imported &, welcome-seen 1, defaults builtin-config:policy)
+  =/  saved=state-0  *state-0
+  =.  saved  saved(welcome-seen 1, defaults builtin-config:policy)
   =/  source=input-source:h  [%hand 'binding' 'tlon' 'dm/~zod' 'event' '~zod']
   =/  args  (pairs:enjs:format ~[['id' %s 'meeting'] ['title' %s 'Meeting']])
   =/  request=request:wc
@@ -50,8 +50,8 @@
     (expect-eq !>(~) !>((read saved(observations.hands ~) &)))
   ==
 ++  test-navigation-card-needs-no-approval-request
-  =/  saved=state-30  *state-30
-  =.  saved  saved(tlon-cron-imported &, welcome-seen 1, defaults builtin-config:policy)
+  =/  saved=state-0  *state-0
+  =.  saved  saved(welcome-seen 1, defaults builtin-config:policy)
   =/  source=input-source:h  [%hand 'binding' 'tlon' 'dm/~zod' 'event' '~zod']
   =/  args  (need (arguments:view 'projects' ''))
   =/  text  (render:view 'projects' args (read:j workspace.saved [& [0v0 'Owner'] 0v0] 'projects' args))

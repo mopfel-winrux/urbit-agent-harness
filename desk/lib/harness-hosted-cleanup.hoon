@@ -3,8 +3,8 @@
 /-  *harness-store, renew=harness-oauth, hosted=harness-hosted
 |%
 ++  clear
-  |=  saved=state-30
-  ^-  state-30
+  |=  saved=state-0
+  ^-  state-0
   =/  openai=state:renew  *state:renew
   =.  serial.openai  +(serial.openai-auth.saved)
   =/  xai=state:renew  *state:renew

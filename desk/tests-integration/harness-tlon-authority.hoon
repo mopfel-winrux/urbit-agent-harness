@@ -1,12 +1,12 @@
 ::  Full adapter, synthetic scries only; no emitted cards are executed.
 ::  -test /=harness=/tests-integration/harness-tlon-authority
 /-  t=harness-tlon, c=harness-cron, ad=harness-adapter
-/+  *test, schedule=harness-schedule
+/+  *test
 /=  adapter  /app/harness-tlon
 |%
 ++  fixture
-  ^-  state:t
-  =/  s=state:t  *state:t
+  ^-  state-0:t
+  =/  s=state-0:t  *state-0:t
   =.  owner-initialized.s  1
   =.  policy.s  [& `~nec ~ &]
   =.  lanes.s  (my ~[['source' [~nec [%dm ~nec ~] 1 ~[%web]]]])
@@ -16,7 +16,7 @@
   =/  j=schedule:c  *schedule:c
   j(sid 'source', run-sid 'run', binding 'binding', kind %prompt)
 ++  read
-  |=  [saved=state:t sid=@t job=(unit schedule:c) allowed=? admin=?]
+  |=  [saved=state-0:t sid=@t job=(unit schedule:c) allowed=? admin=?]
   ^-  noun
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.10)
@@ -64,14 +64,12 @@
     (equal !>(`hand-authority:ad`[| ~]) !>((read s(enabled.policy |) 'run' `j & |)))
     (equal !>(`hand-authority:ad`[| ~]) !>((read s(routes (my ~[['source' ['binding' %config]]])) 'run' `j & |)))
   ==
-++  test-trusted-lanes-keep-tool-ceilings-and-legacy-runs-stay-denied
+++  test-trusted-lanes-keep-tool-ceilings
   =/  s  fixture
-  =/  j  job
   =.  policy.s  [& ~ (my ~[[~nec ~[%web]]]) &]
   ;:  weld
     (equal !>(`hand-authority:ad`[& `~[%web %tlon-read %tlon-write]]) !>((read s 'source' ~ & |)))
     (equal !>(|) !>((read s 'source' ~ & &)))
     (equal !>(`hand-authority:ad`[| ~]) !>((read s(trusted.policy ~) 'source' ~ & |)))
-    (equal !>(`hand-authority:ad`[| ~]) !>((read s(cron (my ~[[0v1 (job-value:schedule j(run-sid 'source'))]])) 'source' ~ & |)))
   ==
 --

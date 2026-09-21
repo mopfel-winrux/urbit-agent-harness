@@ -43,25 +43,4 @@
     (expect !>(?=(%| -.invalid)))
     (expect !>(?=(%| -.unsupported)))
   ==
-++  test-state-migration-retains-every-config-and-log-position
-  =/  old  *state-29
-  =/  cfg=config-0  ['https://openrouter.ai/api/v1/chat/completions' 'retained' '' ~ 'instructions' 80.000 ~[%web]]
-  =.  defaults.old  cfg
-  =.  peer-base.old  `cfg
-  =.  summary-models.old  [`cfg `cfg]
-  =.  provider-keys.old  (my ~[['openrouter' 'fixture-secret']])
-  =/  session=session-0  [~[[%input-admitted %user 'retained input'] [%config-replaced cfg]] 42]
-  =.  sessions.old  (my ~[['fixture' session]])
-  =/  loaded  (load:storage !>(old))
-  =/  current  (~(got by sessions.loaded) 'fixture')
-  ;:  weld
-    (expect-eq !>([| ~ cfg]) !>(defaults.loaded))
-    (expect-eq !>(`[| ~ cfg]) !>(peer-base.loaded))
-    (expect-eq !>([`[| ~ cfg] `[| ~ cfg]]) !>(summary-models.loaded))
-    (expect-eq !>(provider-keys.old) !>(provider-keys.loaded))
-    (expect-eq !>(42) !>(next-req.current))
-    (expect-eq !>(2) !>((lent log.current)))
-    (expect-eq !>(`(list item:h)`~[[%user 'retained input']]) !>(items:(play:hl log.current)))
-    (expect-eq !>(loaded) !>((load:storage !>(loaded))))
-  ==
 --

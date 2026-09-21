@@ -182,8 +182,9 @@
 ++  test-register-skips-detached-retained-identities
   =/  cfg=binding:hh  ['mail' 'opaque' 'session' ~['alice'] %.y]
   =/  obs=observation:hh  ['hand--1' 'event' 'alice' 'Kept' ~2000.1.1 %completed]
-  =/  old=state-0:hh  [~ (~(put by *(map input-id:h observation:hh)) (input-id:hd 'hand--1' 'event') obs) ~ ~ ~]
-  =/  added  (apply:hd (migrate:hd old) [%register cfg] ~2000.1.2)
+  =/  db  *state:hh
+  =.  db  db(observations (~(put by observations.db) (input-id:hd 'hand--1' 'event') obs), next-binding 1)
+  =/  added  (apply:hd db [%register cfg] ~2000.1.2)
   ?>  ?=(%& -.added)
   (expect !>((~(has by bindings.db.p.added) 'hand--2')))
 ++  test-health-inspection-never-expires-a-claim

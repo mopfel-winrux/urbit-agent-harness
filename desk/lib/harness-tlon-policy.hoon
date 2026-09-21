@@ -4,34 +4,6 @@
 /-  t=harness-tlon, h=harness, a=tlon-activity-ver, cr=harness-cron, hh=harness-hand
 /+  ht=harness-tools, hj=harness-json, story=harness-tlon-story, input=harness-tlon-input
 |%
-++  local-only
-  |=  old=state-13:t
-  ^-  state-14:t
-  ::  Remove the derived export queue only. Accepted work and delivery evidence
-  ::  remain in the head ledger; no cleanup poke is sent to any other agent.
-  :*  %14  activity-through.old  catching-up.old  identities.old  routes.old
-      cuts.old  channel-after.old  uploads.old  last-sent.old
-      tool-receipts.old  cron.old  computing.old
-      policy.old  epoch.old  after.old  lanes.old  jobs.old
-      deliveries.old  notices.old  next-notice.old  listeners.old
-      watching.old  wake.old  error.old
-  ==
-++  upgrade-reminders
-  |=  old=state-11:t
-  ^-  state-12:t
-  =/  cron
-    %-  ~(run by cron.old)
-    |=  job=job-0:cr
-    ^-  job:cr
-    =/  lane  (~(get by lanes.old) run-sid.job)
-    [%prompt 'UTC' ?~(lane '' (address to.u.lane)) job]
-  :*  %12  identities.old  routes.old  cuts.old  channel-after.old
-      lens-after.old  lenses.old  uploads.old  last-sent.old
-      tool-receipts.old  cron  computing.old
-      policy.old  epoch.old  after.old  lanes.old  jobs.old
-      deliveries.old  notices.old  next-notice.old  listeners.old
-      watching.old  wake.old  error.old
-  ==
 ++  cron-clearable
   |=  [job=job:cr db=state:hh admitting=?]
   ^-  ?
@@ -144,70 +116,6 @@
   ?>  =(~(wyt by trusted.policy) (lent trusted.val))
   ?>  (levy ~(val by trusted.policy) |=(ts=(list tool-grant:h) (levy ts |=(grant=tool-grant:h ?:(?=(^ grant) & (lien all-tools:ht |=(known=term =(grant known))))))))
   policy
-++  scope-mcp
-  |=  [old=state-1:t servers=(list @t)]
-  ^-  state-2:t
-  =.  trusted.policy.old
-    %+  roll  ~(tap by trusted.policy.old)
-    |=  [[who=@p tools=(list tool-grant:h)] acc=(map @p (list tool-grant:h))]
-    (~(put by acc) who (scope-mcp:ht tools servers))
-  =.  lanes.old
-    %+  roll  ~(tap by lanes.old)
-    |=  [[sid=@t lane=lane:t] acc=(map @t lane:t)]
-    (~(put by acc) sid lane(tools (scope-mcp:ht tools.lane servers)))
-  [%2 +.old]
-++  scope-clay
-  |=  old=state-2:t
-  ^-  state-3:t
-  =.  trusted.policy.old
-    %+  roll  ~(tap by trusted.policy.old)
-    |=  [[who=@p tools=(list tool-grant:h)] acc=(map @p (list tool-grant:h))]
-    (~(put by acc) who (scope-clay:ht tools))
-  =.  lanes.old
-    %+  roll  ~(tap by lanes.old)
-    |=  [[sid=@t lane=lane:t] acc=(map @t lane:t)]
-    (~(put by acc) sid lane(tools (scope-clay:ht tools.lane)))
-  [%3 +.old]
-++  upgrade-tools
-  |=  old=state-3:t
-  ^-  state-4:t
-  [%4 ~ ~ +.old]
-++  upgrade-presence
-  |=  old=state-4:t
-  ^-  state-5:t
-  ::  Keep contexts so idle leases can still be cleared after reload. A zero
-  ::  timestamp forces active contexts to refresh their richer projection.
-  =/  leases=(map path presence-lease:t)
-    %+  roll  ~(tap by computing.old)
-    |=  [[ctx=path lease=presence-lease-0:t] acc=(map path presence-lease:t)]
-    (~(put by acc) ctx [`@da`0 ~])
-  :*  %5  tool-receipts.old  cron.old  leases
-      policy.old  epoch.old  after.old  lanes.old  jobs.old
-      deliveries.old  notices.old  next-notice.old  listeners.old
-      watching.old  wake.old  error.old
-  ==
-++  upgrade-delivery
-  |=  old=state-5:t
-  ^-  state-6:t
-  [%6 `@da`0 +.old]
-++  upgrade-media
-  |=  old=state-6:t
-  ^-  state-7:t
-  [%7 ['' ''] ~ +.old]
-++  upgrade-hosted-media
-  |=  old=state-7:t
-  ^-  state-8:t
-  [%8 +.old]
-++  upgrade-native-media
-  |=  old=state-8:t
-  ^-  state-9:t
-  ::  Drop the worker URL/token; on-load retires old pending requests.
-  [%9 +.+.old]
-++  upgrade-lens
-  |=  [old=state-9:t now=@da]
-  ^-  state-10:t
-  ::  New summaries only: enabling the integration is not a history export.
-  [%10 now ~ +.old]
 ++  next-message-stamp
   |=  [now=@da previous=@da]
   ^-  @da

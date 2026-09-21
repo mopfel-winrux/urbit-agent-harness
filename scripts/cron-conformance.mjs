@@ -26,7 +26,7 @@ const server = createServer(async (req, res) => {
     const body = JSON.parse(raw); calls.push(body)
     res.writeHead(200, { 'content-type': 'application/json' })
     const receipts = body.messages.slice(body.messages.findLastIndex((message) => message.role === 'user') + 1).filter((message) => message.role === 'tool')
-    if (body.messages.some((message) => message.role === 'system' && message.content.includes('This is bounded scheduled work'))) {
+    if (body.messages.some((message) => message.role === 'user' && message.content === `${marker}-run`)) {
       runCalls++
       assert.ok(!JSON.stringify(body.messages).includes('PRIVATE_SCHEDULING_CONTEXT'))
       assert.ok(!body.tools.some((entry) => ['cron_add', 'reminder_add', 'run_subagent', 'harness_admin'].includes(entry.function.name)))

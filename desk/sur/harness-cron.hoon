@@ -10,8 +10,11 @@
       any-day=?
       any-weekday=?
   ==
-+$  job-0
-  $:  sid=@t
++$  job
+  $:  kind=?(%prompt %reminder)
+      timezone=@t
+      destination=@t
+      sid=@t
       run-sid=@t
       expression=@t
       pattern=pattern
@@ -23,7 +26,6 @@
       reason=@t
       last=(unit @uv)
   ==
-+$  job  [kind=?(%prompt %reminder) timezone=@t destination=@t job-0]
 +$  schedule
   $:  binding=@t
       actor=@t
@@ -38,6 +40,4 @@
       [%clear id=@uv]
   ==
 +$  request  [id=@t act=action]
-+$  transfer
-  [jobs=(map @uv job) origins=(map @uv [binding=@t actor=@t])]
 --

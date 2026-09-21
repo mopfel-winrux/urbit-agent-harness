@@ -27,9 +27,4 @@
 ++  test-new-activity-variants-do-not-become-input
   =/  event=event:v10:a  [[%note-create 1 1 [~bud %test] ~ 'Title' ~bud] | |]
   (expect !>(&(=(~ (supported:p event)) =(`[%dm-invite %ship ~bud] (supported:p [[%dm-invite %ship ~bud] | |])))))
-++  test-migration-preserves-work-without-replaying-pre-cursor-history
-  =/  old=state-12:t  *state-12:t
-  =.  jobs.old  (my ~[[0v1 `job:t`[[~bud 'e' [%dm ~bud ~] 'waiting'] 's' %error 'Head unavailable']]])
-  =/  next  (upgrade:p old ~2026.9.6)
-  (expect !>(&(=(~2026.9.6 activity-through.next) !catching-up.next =(jobs.old jobs.next) =(policy.old policy.next))))
 --

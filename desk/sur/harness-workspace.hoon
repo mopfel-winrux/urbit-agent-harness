@@ -52,9 +52,9 @@
   ==
 +$  audit  [at=@da by=actor action=@t target=id]
 +$  record-key  [kind=?(%artifact %project) id=id]
-+$  state  [%1 recency=(map record-key @da) state-0]
-+$  state-0
++$  state
   $:  %0
+      recency=(map record-key @da)
       artifacts=(map id artifact)
       projects=(map id project)
       proposals=(map id proposal)

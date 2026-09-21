@@ -153,22 +153,4 @@
     (expect-eq !>(token) !>((key:auth keys.receipt 'anthropic-device')))
     (expect-eq !>(200) !>((number:j response.receipt 'status' 0)))
   ==
-++  test-state-upgrade-preserves-credentials-and-work
-  =/  saved  *state-27:store
-  =.  provider-keys.saved  (my ~[['openai-device' 'RETAINED']])
-  =/  loaded  (load-29:storage !>(saved))
-  =/  [%29 * * runtime=state-27:store]  loaded
-  ;:  weld
-    (expect-eq !>(saved) !>(runtime))
-    (expect-eq !>(*state) !>(hosted.loaded))
-    (expect-eq !>(loaded) !>((load-29:storage !>(loaded))))
-  ==
-++  test-state-upgrade-separates-anthropic-setup-token
-  =/  saved  *state-27:store
-  =.  provider-keys.saved  (my ~[['anthropic' 'sk-ant-oat01-PRIVATE']])
-  =/  loaded  (load-29:storage !>(saved))
-  ;:  weld
-    (expect-eq !>('sk-ant-oat01-PRIVATE') !>((key:auth provider-keys.loaded 'anthropic-device')))
-    (expect-eq !>('') !>((key:auth provider-keys.loaded 'anthropic')))
-  ==
 --

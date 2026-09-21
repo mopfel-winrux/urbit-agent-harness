@@ -1,14 +1,8 @@
 ::  Forward, bounded traversal of the native Activity tree. Select first;
 ::  convert only selected events, never serialize/rebuild the whole feed.
-/-  a=tlon-activity-ver, t=harness-tlon
+/-  a=tlon-activity-ver
 |%
 +$  row  [at=@da event=event:v10:a]
-++  upgrade
-  |=  [old=state-12:t now=@da]
-  ^-  state-13:t
-  ::  There was no durable cursor before this version. Start at migration,
-  ::  preserving existing jobs, instead of re-answering older conversations.
-  [%13 now | +.old]
 ++  newer
   |=  [tree=(tree row) after=@da limit=@ud]
   ^-  (list row)

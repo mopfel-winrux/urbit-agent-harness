@@ -2,8 +2,8 @@
 /+  *test, w=harness-tlon-work, hd=harness-hand
 |%
 ++  state
-  ^-  state:t
-  =/  s=state:t  *state:t
+  ^-  state-0:t
+  =/  s=state-0:t  *state-0:t
   s(policy [& `~bud ~ &], routes (my ~[['s' ['b' %ready]]]))
 ++  ledger
   ^-  state:hh

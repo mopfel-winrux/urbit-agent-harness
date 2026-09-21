@@ -34,8 +34,8 @@
       'Keep this chat as a reference, or delete it and start a new one whenever you like.'
   ==
 ++  ensure
-  |=  saved=state-30
-  ^-  [(unit session-id:h) state-30]
+  |=  saved=state-0
+  ^-  [(unit session-id:h) state-0]
   ?:  !=(0 welcome-seen.saved)  [~ saved]
   =.  welcome-seen.saved  1
   ?:  !=(~ sessions.saved)  [~ saved]

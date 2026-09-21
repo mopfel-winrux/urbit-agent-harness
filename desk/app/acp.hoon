@@ -29,10 +29,7 @@
   ++  on-load
     |=  old=vase
     ^-  (quip card _this)
-    =/  attempt  (mule |.(!<(state-0 old)))
-    ?:  ?=(%& -.attempt)  `this(state p.attempt)
-    %-  (slog 'acp: incompatible pre-release state, resetting queues' ~)
-    `this
+    `this(state !<(state-0 old))
   ++  on-poke
     |=  [=mark =vase]
     ^-  (quip card _this)

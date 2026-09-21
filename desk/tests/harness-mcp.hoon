@@ -19,30 +19,4 @@
   =/  out  (run-tool:run ['call' 'list_mcp_servers' '{}'] ~ ~[[%mcp 'a']])
   ?>  ?=(%tool-completed -.out)
   (expect-eq !>((de:json:html '[{"id":"a","name":"Allowed"}]')) !>((de:json:html body.out)))
-++  test-migration-snapshots-registered-servers-and-keeps-history
-  =/  old=state-9  *state-9
-  =/  cfg  builtin-config:policy
-  =/  old-cfg  +>.cfg
-  =.  defaults.old  old-cfg(tools ~[%web %mcp %author])
-  =.  mcp-servers.old  (my ~[['a' ['A' 'https://a.example' ~ &]] ['disabled' ['D' 'https://d.example' ~ |]]])
-  =.  sessions.old  (my ~[['s' [~[[%config-replaced defaults.old]] 37]]])
-  =.  peers.old  (my ~[[~zod [~[%mcp] ~ 3 ~]]])
-  =.  peer-base.old  `defaults.old
-  =/  next  (load:storage !>(old))
-  =/  before  (upgrade-session:storage (~(got by sessions.old) 's'))
-  =/  after  (~(got by sessions.next) 's')
-  ?>  ?=(^ log.after)
-  =/  scoped  tools.defaults.next
-  =/  peer  (~(got by peers.next) ~zod)
-  ?>  ?=(^ peer-base.next)
-  (expect !>(&(=(log.before t.log.after) =(37 next-req.after) (mcp-granted:ht 'a' scoped) (mcp-granted:ht 'disabled' scoped) !(mcp-granted:ht 'future' scoped) (mcp-granted:ht 'a' tools.peer) =(scoped tools.u.peer-base.next) =(next (load:storage !>(next))))))
-++  test-tlon-migration-preserves-lane-epoch-and-scopes-trust
-  =/  old=state-1:t  *state-1:t
-  =.  epoch.old  9
-  =.  trusted.policy.old  (my ~[[~zod ~[%mcp %web]]])
-  =.  lanes.old  (my ~[['s' [~zod [%dm ~zod ~] 9 ~[%mcp]]]])
-  =/  next  (scope-mcp:tp old ~['a'])
-  =/  grants  (~(got by trusted.policy.next) ~zod)
-  =/  lane  (~(got by lanes.next) 's')
-  (expect !>(&(=(9 epoch.next) =(9 epoch.lane) =(jobs.old jobs.next) (mcp-granted:ht 'a' grants) (mcp-granted:ht 'a' tools.lane) !(mcp-granted:ht 'future' grants))))
 --

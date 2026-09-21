@@ -124,15 +124,4 @@
   (expect-eq !>(1) !>((lent p.result)))
 ++  test-schedules-strip-recursion-delegation-and-administration
   (expect-eq !>(`(list tool-grant:h)`~[%web %workspace]) !>((scheduled-tools:ht ~[%cron %subagents %code %admin %web %workspace])))
-++  test-store-upgrade-preserves-prior-state-and-starts-one-empty-scheduler
-  =/  old=state-19  *state-19
-  =.  sessions.old  (my ~[['source' [~ 7]]])
-  =.  provider-keys.old  (my ~[['fixture' 'synthetic-secret']])
-  =/  loaded  (load:storage !>(old))
-  ;:  weld
-    (expect-eq !>((upgrade-sessions:storage sessions.old)) !>(sessions.loaded))
-    (expect-eq !>(provider-keys.old) !>(provider-keys.loaded))
-    (expect-eq !>(`(map @uv schedule:c)`~) !>(schedules.loaded))
-    (expect !>(!tlon-cron-imported.loaded))
-  ==
 --

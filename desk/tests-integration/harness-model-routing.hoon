@@ -22,8 +22,8 @@
   =/  octs  (need body.request.c)
   (need (de:json:html q.octs))
 ++  fixture
-  ^-  state-30
-  =/  s  *state-30
+  ^-  state-0
+  =/  s  *state-0
   =/  cfg  builtin-config:policy
   =.  cfg  cfg(model 'primary', zdr &, fallbacks ~[['openrouter' 'backup']], tools ~)
   s(defaults cfg, local-mcp-seen 1, provider-keys (my ~[['openrouter' 'fixture-key']]), sessions (my ~[['fixture' [~[[%config-replaced cfg]] 0]]]))
@@ -38,12 +38,12 @@
   =/  primary  (snag 0 (requests -.sent))
   =/  retried  (~(on-arvo +.sent bowl) wire.primary [%iris %http-response failed])
   =/  backup  (snag 0 (requests -.retried))
-  =/  saved  !<(state-30 ~(on-save +.retried bowl))
+  =/  saved  !<(state-0 ~(on-save +.retried bowl))
   =/  late  (~(on-arvo +.retried bowl) wire.primary [%iris %http-response failed])
   =/  success=client-response:iris
     [%finished [200 ~] `['application/json' (as-octs:mimes:html '{"choices":[{"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":1}}')]]
   =/  done  (~(on-arvo +.late bowl) wire.backup [%iris %http-response success])
-  =/  finished  !<(state-30 ~(on-save +.done bowl))
+  =/  finished  !<(state-0 ~(on-save +.done bowl))
   =/  view  (play:hl log:(~(got by sessions.finished) 'fixture'))
   =/  repeated  (~(on-poke +.done bowl) %harness-action !>(`action:h`[%send 'fixture' 'Again']))
   ;:  weld
@@ -66,7 +66,7 @@
   =/  retried  (~(on-arvo +.sent bowl) wire.primary [%iris %http-response failed])
   =/  backup  (snag 0 (requests -.retried))
   =/  done  (~(on-arvo +.retried bowl) wire.backup [%iris %http-response failed])
-  =/  saved  !<(state-30 ~(on-save +.done bowl))
+  =/  saved  !<(state-0 ~(on-save +.done bowl))
   =/  view  (play:hl log:(~(got by sessions.saved) 'fixture'))
   =/  cancelled  (~(on-poke +.sent bowl) %harness-action !>(`action:h`[%cancel 'fixture']))
   =/  late  (~(on-arvo +.cancelled bowl) wire.primary [%iris %http-response failed])
@@ -85,7 +85,7 @@
   =/  chunk  (as-octs:mimes:html 'data: {"choices":[{"delta":{"content":"hello"}}]}\0a\0a')
   =/  progress=client-response:iris  [%progress [200 ~] p.chunk ~ `chunk]
   =/  streamed  (~(on-arvo +.sent bowl) wire.primary [%iris %http-response progress])
-  =/  saved  !<(state-30 ~(on-save +.streamed bowl))
+  =/  saved  !<(state-0 ~(on-save +.streamed bowl))
   =/  view  (play:hl log:(~(got by sessions.saved) 'fixture'))
   ?>  ?=(^ pending.view)
   ?>  =(5 sent:(~(got by streams.saved) ['fixture' req.u.pending.view]))

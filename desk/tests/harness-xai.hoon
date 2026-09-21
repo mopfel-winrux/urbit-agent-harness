@@ -158,17 +158,4 @@
     (expect-eq !>('subscription') !>((string:j body 'auth')))
     (expect !>((responses-route:hp url.config.out)))
   ==
-++  test-state-migration-preserves-pending-login-and-renewal
-  =/  saved  *state-28:store
-  =/  f=flow-0  ['openai' %poll (add now ~m15) 0v0 2 | *@da 5 'DEVICE' 'CODE' 'https://auth.openai.com/codex/device' '' '' '' '']
-  =.  flows.hosted.saved  (my ~[['retained' f]])
-  =.  provider-keys.saved  (my ~[['openai-device' 'KEEP']])
-  =.  serial.openai-auth.saved  42
-  =/  loaded  (load:storage !>(saved))
-  ;:  weld
-    (expect-eq !>([~ f]) !>((~(got by flows.hosted.loaded) 'retained')))
-    (expect-eq !>(provider-keys.saved) !>(provider-keys.loaded))
-    (expect-eq !>(openai-auth.saved) !>(openai-auth.loaded))
-    (expect-eq !>(loaded) !>((load:storage !>(loaded))))
-  ==
 --

@@ -32,13 +32,6 @@
       external=@t
       receipts=(list receipt)
   ==
-+$  state-0
-  $:  bindings=(map @t binding)
-      observations=(map input-id:h observation)
-      queue=(list input-id:h)
-      active=(map session-id:h input-id:h)
-      outbox=(map input-id:h publication)
-  ==
 +$  resolution  [at=@da attempt=@ud outcome=delivery-state reason=@t]
 +$  control  [attempt=@ud resolutions=(list resolution)]
 +$  retirement  [binding=@t digest=@uvH location=@t at=@da]

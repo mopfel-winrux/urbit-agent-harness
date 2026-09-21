@@ -32,13 +32,4 @@
   %+  levy  cases
   |=  text=@t
   =(~ (mole |.((parse:r text ~2026.9.6))))
-++  test-migration-retains-old-cron-and-conversation-evidence
-  =/  old=state-11:t  *state-11:t
-  =/  job=job-0:cr  *job-0:cr
-  =.  job  job(sid 'source', run-sid 'scheduled', state %paused, next ~2026.9.7, remaining 3, last `0v1)
-  =.  cron.old  (my ~[[0v2 job]])
-  =.  lanes.old  (my ~[['scheduled' `lane:t`[~bud [%dm ~bud ~] 3 ~]]])
-  =/  next  (upgrade-reminders:p old)
-  =/  migrated  (~(got by cron.next) 0v2)
-  (expect !>(?&(=(%prompt kind.migrated) =('UTC' timezone.migrated) =('dm/~bud' destination.migrated) =(job +.+.+.migrated) =(lanes.old lanes.next) =(deliveries.old deliveries.next) =(identities.old identities.next))))
 --
