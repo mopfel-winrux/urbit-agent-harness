@@ -267,6 +267,53 @@
     ?:  (prefix-match needle term)  &
     (one-edit needle term)
   (scag fuzzy-limit matches)
+++  query-terms
+  |=  [idx=index query=@t]
+  ^-  (set @t)
+  %+  roll  ~(tap in (tokenize-text query))
+  |=  [needle=@t out=(set @t)]
+  (~(uni in out) (silt (candidate-terms idx needle)))
+::  Exact candidates suppress spelling expansion. This rank is shared by
+::  every result in this index, so pagination stays newest-first within it.
+++  match-rank
+  |=  [query=@t terms=(set @t)]
+  ^-  @ud
+  ?:  (levy ~(tap in (tokenize-text query)) |=(word=@t (~(has in terms) word)))
+    0
+  1
+::  Locate a whole indexed term, not a substring of an unrelated word.
+++  first-match
+  |=  [text=@t terms=(set @t)]
+  ^-  (unit @ud)
+  =/  chars  (trip (lower-text text))
+  =/  offset=@ud  0
+  =/  start=@ud  0
+  =/  word=tape  ~
+  |-  ^-  (unit @ud)
+  ?:  ?~(chars & !(term-char i.chars))
+    ?:  &(?=(^ word) (~(has in terms) (crip (flop word))))  `start
+    ?~  chars  ~
+    $(chars t.chars, offset +(offset), start +(offset), word ~)
+  ?>  ?=(^ chars)
+  $(chars t.chars, offset +(offset), word [i.chars word])
+::  Preview only selected results. Both ends stay on UTF-8 boundaries;
+::  title, body and source-label matches use the same projection.
+++  match-preview
+  |=  [texts=(list @t) terms=(set @t)]
+  ^-  [snippet=@t matched=(list @t) offset=@ud]
+  ?~  texts  ['' ~ 0]
+  =/  found  (first-match i.texts terms)
+  ?~  found  $(texts t.texts)
+  =/  text  i.texts
+  =/  start  (sub u.found (min u.found 128))
+  =.  start
+    |-  ^-  @ud
+    =/  byte  (cut 3 [start 1] text)
+    ?:  &((gte byte 128) (lte byte 191))  $(start +(start))
+    start
+  =/  snippet  (make-snippet ~[(rsh [3 start] text)])
+  =/  matched  ~(tap in (~(int in terms) (tokenize-text snippet)))
+  [?:(=(0 start) snippet (cat 3 '...' snippet)) matched start]
 ::  Do not +tap an unbounded bucket before taking a bounded prefix.
 ++  take-terms
   |=  [tree=(set @t) limit=@ud]

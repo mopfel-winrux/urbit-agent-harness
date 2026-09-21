@@ -22,13 +22,14 @@
 ++  test-migration-snapshots-registered-servers-and-keeps-history
   =/  old=state-9  *state-9
   =/  cfg  builtin-config:policy
-  =.  defaults.old  cfg(tools ~[%web %mcp %author])
+  =/  old-cfg  +>.cfg
+  =.  defaults.old  old-cfg(tools ~[%web %mcp %author])
   =.  mcp-servers.old  (my ~[['a' ['A' 'https://a.example' ~ &]] ['disabled' ['D' 'https://d.example' ~ |]]])
   =.  sessions.old  (my ~[['s' [~[[%config-replaced defaults.old]] 37]]])
   =.  peers.old  (my ~[[~zod [~[%mcp] ~ 3 ~]]])
   =.  peer-base.old  `defaults.old
   =/  next  (load:storage !>(old))
-  =/  before  (~(got by sessions.old) 's')
+  =/  before  (upgrade-session:storage (~(got by sessions.old) 's'))
   =/  after  (~(got by sessions.next) 's')
   ?>  ?=(^ log.after)
   =/  scoped  tools.defaults.next

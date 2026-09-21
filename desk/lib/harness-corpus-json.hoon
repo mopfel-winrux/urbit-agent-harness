@@ -44,13 +44,28 @@
   ?:  &(?=(^ cursor) ?=(~ after))
     [%| 'Search changed or the index was rebuilt. Restart from the first page.']
   =/  page  (search-scoped:idx index.db query after limit `allowed)
+  =/  terms  (query-terms:idx index.db query)
+  =/  rank  (match-rank:idx query terms)
   :-  %&
   %-  pairs:enjs:format
-  :~  ['hits' %a (turn hits.page |=(hit=hit:c (record-json db scope.ref.hit at.ref.hit)))]
+  :~  ['hits' %a (turn hits.page |=(hit=hit:c (search-record db scope.ref.hit at.ref.hit terms rank)))]
       ['cursor' ?~(next.page ~ [%s (cursor-json fence u.next.page)])]
       ['complete' %b complete.page]
       ['status' (status db allowed)]
   ==
+++  search-record
+  |=  [db=state:c scope=scope:c at=@ud terms=(set @t) rank=@ud]
+  ^-  json
+  =/  value  (record-json db scope at)
+  ?>  ?=(%o -.value)
+  =/  source  (~(got by scopes.db) scope)
+  =/  record  (~(got by records.source) at)
+  =/  preview  (match-preview:idx ~[body.record] terms)
+  =.  p.value  (~(put by p.value) 'snippet' [%s snippet.preview])
+  =.  p.value  (~(put by p.value) 'snippetOffset' (numb:enjs:format offset.preview))
+  =.  p.value  (~(put by p.value) 'matchedTerms' [%a (turn matched.preview |=(word=@t [%s word]))])
+  =.  p.value  (~(put by p.value) 'matchType' [%s ?:(=(0 rank) 'exact' 'approximate')])
+  value
 ++  record-json
   |=  [db=state:c scope=scope:c at=@ud]
   ^-  json

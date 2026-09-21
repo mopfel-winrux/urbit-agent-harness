@@ -75,6 +75,8 @@
 .corpus-hit.active { background: var(--accent-soft); }
 .corpus-hit-meta { color: var(--muted); font-size: var(--text-small); }
 .corpus-hit-snippet { white-space: pre-wrap; max-width: 72ch; }
+.corpus-hit-match { color: var(--muted); font-size: var(--text-label); }
+.search-match { color: var(--text); background: var(--accent-soft); font-weight: 650; text-decoration: underline; text-underline-offset: .15em; }
 .corpus-more { margin-top: 20px; }
 .corpus-empty { max-width: 65ch; padding: 28px 0; }
 .corpus-empty h2 { font-size: 18px; margin: 0 0 8px; }
@@ -494,6 +496,8 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 .text-button, .remove-header { border: 0; background: transparent; color: var(--accent); cursor: pointer; font: inherit; }
 .header-row { display: grid; grid-template-columns: minmax(120px, .8fr) minmax(180px, 1.2fr) 36px; gap: 8px; }
 .header-row input { min-width: 0; }
+.model-fallback-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.model-fallback-row label { flex: 1 1 220px; min-width: 0; }
 .remove-header { min-height: 38px; border-radius: 7px; color: var(--muted); font-size: 18px; }
 .remove-header:hover { color: var(--danger); background: var(--soft); }
 .danger-text { color: var(--danger); }
@@ -533,9 +537,9 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 .login-panel p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .login-panel textarea { min-height: 72px; }
 .login-panel .button { width: fit-content; }
-.device-code { display: flex; align-items: center; gap: 12px; border-radius: 7px; padding: 10px 12px; background: var(--panel); }
+.device-code { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border-radius: 7px; padding: 10px 12px; background: var(--panel); }
 .device-code span { color: var(--muted); font-size: 10px; }
-.device-code strong { color: var(--text); font: 650 18px/1 ui-monospace, monospace; letter-spacing: .08em; }
+.device-code strong { color: var(--text); font: 650 18px/1 ui-monospace, monospace; letter-spacing: .08em; white-space: nowrap; }
 .device-code a { margin-left: auto; color: var(--accent); font-size: 10px; }
 
 label { display: grid; gap: 7px; color: var(--text); font-size: var(--text-label); font-weight: 600; }

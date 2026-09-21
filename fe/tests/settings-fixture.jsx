@@ -23,6 +23,26 @@ const params = new URLSearchParams(location.search)
 let config = JSON.parse(sessionStorage.getItem('settings-fixture-config') || 'null') || defaultConfig()
 let device = params.has('device') || sessionStorage.getItem('settings-fixture-device') === 'true'
 let apiKey = false
+let xaiDevice = sessionStorage.getItem('settings-fixture-xai') === 'true'
+let xaiFlow
+api.login = async (action, args = {}) => {
+  window.settingsFixture.calls.push({ action, ...args })
+  if (action === 'start') {
+    xaiFlow = { id: args.requestId, provider: 'xai', status: 'awaiting_browser', userCode: 'ABCD-1234', verificationUrl: 'https://accounts.x.ai/oauth2/device', expiresAt: Date.now() + 900_000 }
+    return { flow: xaiFlow }
+  }
+  if (action === 'flow') {
+    if (window.settingsFixture.xaiError) return { flow: { ...xaiFlow, status: 'error', error: 'Device authorization was denied. Start a new login.' } }
+    if (window.settingsFixture.xaiComplete) {
+      xaiDevice = true
+      sessionStorage.setItem('settings-fixture-xai', 'true')
+      return { flow: { ...xaiFlow, status: 'complete' } }
+    }
+    return { flow: xaiFlow }
+  }
+  if (action === 'status') return { subscriptionModels: { xai: [{ id: 'grok-build', name: 'Grok Build' }] } }
+  throw new Error('Unexpected login action')
+}
 let braveKey = sessionStorage.getItem('settings-fixture-brave') === 'true'
 let search = JSON.parse(sessionStorage.getItem('settings-fixture-search') || 'null') || { provider: 'brave', 'instance-url': '' }
 let summaryModels = JSON.parse(sessionStorage.getItem('settings-fixture-summary-models') || 'null') || { compaction: null, lcm: null }
@@ -66,6 +86,7 @@ api.read = async (path) => {
     return config
   }
   if (path === 'status/openai') return { 'has-key': device || apiKey, 'has-api-key': apiKey, 'has-device-login': device, 'auth-method': device ? 'device' : 'api-key' }
+  if (path === 'status/xai') return { 'has-key': xaiDevice, 'has-api-key': false, 'has-device-login': xaiDevice, 'auth-method': xaiDevice ? 'device' : 'api-key' }
   if (path === 'status/brave') return { 'has-key': braveKey }
   if (path === 'search') return search
   if (path === 'tools') {
@@ -174,7 +195,7 @@ function SettingsFixture() {
   const [theme, setTheme] = useState('system')
   const changeTheme = (next) => { document.documentElement.dataset.theme = next; setTheme(next) }
   const component = params.get('page') === 'memory' ? <MemorySettings /> : params.get('page') === 'peers' ? <PeerSettings /> : params.get('page') === 'tlon' ? <TlonSettings onBack={() => {}} /> : params.get('page') === 'skills' ? <SkillSettings /> : params.get('page') === 'mcp' ? <McpSettings resources={resourcesFor('')} /> : params.get('page') === 'search' ? <SearchSettings /> : params.get('page') === 'provider'
-  ? <ProviderSettings provider="openai" resources={resourcesFor('')} />
+  ? <ProviderSettings provider={params.get('provider') || 'openai'} resources={resourcesFor('')} />
   : params.get('page') === 'conversation'
     ? <AgentSettings resources={resourcesFor('fixture')} theme={theme} onThemeChange={changeTheme} />
     : <GlobalSettings resources={resourcesFor('')} theme={theme} onThemeChange={changeTheme} />

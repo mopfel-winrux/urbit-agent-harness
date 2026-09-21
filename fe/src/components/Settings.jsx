@@ -19,7 +19,7 @@ const baseTabs = [
   ['mcp', 'MCP'],
   ['search', 'Search'],
 ]
-const providerTabs = [['openrouter', 'OpenRouter'], ['openai', 'OpenAI'], ['anthropic', 'Anthropic'], ['custom', 'Custom']]
+const providerTabs = [['openrouter', 'OpenRouter'], ['openai', 'OpenAI'], ['anthropic', 'Anthropic'], ['xai', 'xAI'], ['custom', 'Custom']]
 
 export default function Settings({ resources, theme, onThemeChange, onBack, initialTab }) {
   const [tab, setTab] = useState(() => [...baseTabs, ['providers']].some(([id]) => id === initialTab) ? initialTab : resources.chat ? 'conversation' : 'defaults')

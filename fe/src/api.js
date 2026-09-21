@@ -75,7 +75,14 @@ const inbox = async (params = {}) => {
   return acp.call('harness/inbox', params)
 }
 
-export const api = { read, action, models, corpus, search, inbox }
+const login = async (action, params = {}) => {
+  await acp.start()
+  const response = await acp.call('harness/provider/login', { ...params, action })
+  if (response.status >= 400) throw new Error(response.body?.error || 'Login failed. Try again.')
+  return response.body
+}
+
+export const api = { read, action, models, corpus, search, inbox, login }
 
 export function resourcesFor(chat) {
   return {

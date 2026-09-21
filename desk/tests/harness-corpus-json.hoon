@@ -1,5 +1,5 @@
 /-  h=harness, c=harness-corpus
-/+  *test, cj=harness-corpus-json, corpus=harness-corpus
+/+  *test, cj=harness-corpus-json, corpus=harness-corpus, codec=harness-workspace-json
 |%
 ++  ready
   ^-  state:c
@@ -26,6 +26,16 @@
   =/  large  (search:cj ready ~ 'query' ~ 65)
   =/  empty  (search:cj ready ~ 'query' ~ 0)
   (expect !>(&(?=(%| -.large) ?=(%| -.empty))))
+++  test-model-recall-explains-spelling-expansion
+  =/  result  (search:cj ready (silt ~[0v1]) 'searhable' ~ 1)
+  ?>  ?=(%& -.result)
+  =/  hits  (need (get:codec p.result 'hits'))
+  ?>  ?=([%a ^] hits)
+  ;:  weld
+    (expect-eq !>('approximate') !>((string:codec i.p.hits 'matchType')))
+    (expect-eq !>(`json`[%a ~[[%s 'searchable']]]) !>((need (get:codec i.p.hits 'matchedTerms'))))
+    (expect-eq !>('Searchable original evidence.') !>((string:codec i.p.hits 'snippet')))
+  ==
 ++  test-source-chunks-preserve-utf8
   =/  body  (cat 3 (rap 3 (reap 11.999 'a')) 'é end')
   =/  first  (need (chunk:cj body 0))

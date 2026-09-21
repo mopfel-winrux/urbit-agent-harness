@@ -4,9 +4,10 @@ import { useResource } from '../useResource'
 import { PROVIDERS } from '../providers'
 import { authMethod, withAuth, chooseProvider, catalogEndpoint, credentialSlot } from '../providerConfig'
 import { useProviderModels, invalidateModelCatalogs } from '../useProviderModels'
-import { AnthropicDeviceLogin, OpenAIDeviceLogin } from './ProviderLogin'
+import { AnthropicDeviceLogin, OpenAIDeviceLogin, XaiDeviceLogin } from './ProviderLogin'
 import ProviderRoute from './ProviderRoute'
 import HeaderEditor from './HeaderEditor'
+import ModelFallbacks from './ModelFallbacks'
 
 export default function ProviderSettings({ provider, resources }) {
   const details = PROVIDERS[provider]
@@ -20,8 +21,8 @@ export default function ProviderSettings({ provider, resources }) {
   const dirty = useRef(false)
   const loaded = useRef('')
   const method = authMethod(provider, form)
-  const catalog = useProviderModels(provider, catalogEndpoint(provider, form), !session.loading && !status.loading && loaded.current === `${provider}:${resources.chat || 'defaults'}`)
-  const configured = provider === 'openai'
+  const catalog = useProviderModels(provider === 'anthropic' ? credentialSlot(provider, method) : provider, catalogEndpoint(provider, form), !session.loading && !status.loading && loaded.current === `${provider}:${resources.chat || 'defaults'}`)
+  const configured = ['openai', 'anthropic', 'xai'].includes(provider)
     ? status.value?.[method === 'device' ? 'has-device-login' : 'has-api-key']
     : status.value?.['has-key']
 
@@ -58,7 +59,8 @@ export default function ProviderSettings({ provider, resources }) {
     event.preventDefault()
     setBusy(true); setSaved(false); setError('')
     try {
-      if (provider === 'openai' && !configured && !key) throw new Error(method === 'device' ? 'Complete device login first.' : 'Enter an API key for API-key authentication.')
+      if (form.zdr && form.fallbacks?.some((entry) => entry.provider !== 'openrouter')) throw new Error('Zero data retention requires OpenRouter fallbacks. Change or remove the other providers below.')
+      if (['openai', 'xai'].includes(provider) && !configured && !key) throw new Error(method === 'device' ? 'Complete device login first.' : 'Enter an API key for API-key authentication.')
       if (key) {
         await api.action({ 'set-key': { provider: credentialSlot(provider, method), key } })
         invalidateModelCatalogs()
@@ -93,19 +95,38 @@ export default function ProviderSettings({ provider, resources }) {
     }
   }
 
+  async function acceptLogin() {
+    setBusy(true); setError(''); dirty.current = true
+    try {
+      invalidateModelCatalogs()
+      const { subscriptionModels } = await api.login('status')
+      const models = subscriptionModels?.[provider] || []
+      const model = models.find(({ id }) => id === form.model)?.id || models[0]?.id
+      if (!model) throw new Error('Connected, but no models are available. Choose a model and save it below.')
+      await persist(withAuth({ ...form, model }, provider, 'device'))
+      void catalog.refresh()
+    } finally {
+      await status.refresh()
+      setBusy(false)
+    }
+  }
+
   return <form className="settings-grid" onSubmit={save}>
     {(error || session.error || status.error) && <div className="inline-error" role="alert">{error || session.error || status.error}</div>}
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>{details.title}</h2><p>{details.copy}</p></div><span className={`status ${configured ? 'good' : ''}`}>{configured ? 'credential configured' : 'credential needed'}</span></div>
       <ProviderRoute provider={provider} value={form} onChange={edit} />
-      {provider === 'openai' && method === 'device' && status.value?.['renewal-error'] && <div className="inline-error">{status.value['renewal-error']}</div>}
+      {method === 'device' && status.value?.['renewal-error'] && <div className="inline-error">{status.value['renewal-error']}</div>}
       {provider === 'openai' && method === 'device' && !session.loading && <OpenAIDeviceLogin key={resources.chat || 'defaults'} onCredential={acceptCredential} />}
       {provider === 'anthropic' && method === 'device' && !session.loading && <AnthropicDeviceLogin key={resources.chat || 'defaults'} onCredential={acceptCredential} />}
+      {provider === 'xai' && method === 'device' && !session.loading && <XaiDeviceLogin key={resources.chat || 'defaults'} onConnected={acceptLogin} connected={!!configured} />}
       {method === 'api-key' && <label><span>{provider === 'custom' ? 'Bearer token (optional)' : 'API key'}</span><input type="password" autoComplete="off" value={key} onChange={(event) => { dirty.current = true; setSaved(false); setKey(event.target.value) }} placeholder={details.placeholder} /></label>}
       <label><span>Model</span><input list={`provider-models-${provider}`} value={form.model || ''} onChange={(event) => edit({ ...form, model: event.target.value })} placeholder={details.model || 'model-name'} /><datalist id={`provider-models-${provider}`}>{catalog.models.map((name) => <option key={name} value={name} />)}</datalist></label>
       {catalog.loading && <p className="field-note">Loading the provider’s model catalog…</p>}
       {catalog.error && provider !== 'custom' && <p className="field-note">Catalog unavailable: {catalog.error}. You can still type a model name.</p>}
       {catalog.contextFor(form.model) && <p className="field-note">Provider reports a {catalog.contextFor(form.model).toLocaleString()} token context window. It will be applied when you save.</p>}
+      {provider === 'openrouter' && <label className="tool-option"><input type="checkbox" checked={!!form.zdr} onChange={(event) => edit({ ...form, zdr: event.target.checked })} /><span><strong>Zero data retention</strong><small>Use only endpoints that retain no prompt or response data. Requests fail if no eligible endpoint is available.</small></span></label>}
+      <ModelFallbacks value={form.fallbacks} zdr={form.zdr} onChange={(fallbacks) => edit({ ...form, fallbacks })} />
       <HeaderEditor value={form.headers || []} onChange={(headers) => edit({ ...form, headers })} />
     </section>
     <div className="save-bar"><span role="status">{saved ? 'Saved.' : resources.chat ? 'Saving selects this provider and authentication for the conversation.' : 'Saving selects this provider and authentication for new conversations.'}</span><button className="button primary" disabled={busy || session.loading}>{busy ? 'Saving…' : `Save ${details.title}`}</button></div>

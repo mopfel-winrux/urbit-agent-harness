@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { api } from '../api'
 
 const OPENAI_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann'
 const OPENAI_AUTH = 'https://auth.openai.com'
@@ -114,5 +115,48 @@ export function AnthropicDeviceLogin({ onCredential }) {
     <textarea rows="3" value={credential} onChange={(event) => setCredential(event.target.value)} placeholder="Credential JSON or setup token" />
     <button type="button" className="button ghost" disabled={state === 'saving' || !credential.trim()} onClick={connect}>{state === 'saving' ? 'Connecting…' : state === 'connected' ? 'Connected' : 'Connect browser login'}</button>
     {error && <div className="inline-error">{error}</div>}
+  </div>
+}
+
+// The ship owns polling, token storage, and renewal. This component reads only
+// the public flow, so closing the page does not interrupt device authorization.
+export function XaiDeviceLogin({ onConnected, connected }) {
+  const [flow, setFlow] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const live = useRef(false)
+  const accept = useRef(onConnected)
+  accept.current = onConnected
+  useEffect(() => { live.current = true; return () => { live.current = false } }, [])
+
+  async function start() {
+    setBusy(true); setError(''); setFlow(null)
+    try {
+      let { flow: next } = await api.login('start', { provider: 'xai', requestId: crypto.randomUUID() })
+      while (live.current) {
+        setFlow(next)
+        if (next.status === 'error') throw new Error(next.error || 'Sign-in failed. Try again.')
+        if (next.status === 'complete') {
+          await accept.current()
+          return
+        }
+        if (Date.now() >= next.expiresAt) throw new Error('The device code expired. Start a new login.')
+        await wait(2000)
+        if (!live.current) return
+        ;({ flow: next } = await api.login('flow', { flowId: next.id }))
+      }
+    } catch (cause) {
+      if (live.current) setError(cause.message)
+    } finally {
+      if (live.current) setBusy(false)
+    }
+  }
+
+  return <div className="login-panel">
+    <div><strong>Grok device login</strong><p>Open the sign-in page and enter the code. xAI may call the connection Grok Build.</p></div>
+    {flow?.userCode && busy && <div className="device-code"><span>Enter this code</span><strong>{flow.userCode}</strong><a href={flow.verificationUrl} target="_blank" rel="noreferrer">Open sign-in page</a></div>}
+    <button type="button" className="button ghost" disabled={busy} onClick={start}>{busy ? (flow?.userCode ? 'Waiting for sign-in…' : 'Starting…') : connected ? 'Sign in again' : 'Sign in with device code'}</button>
+    {flow?.status === 'complete' && !error && !busy && <span className="status good" role="status">Connected</span>}
+    {error && <div className="inline-error" role="alert">{error}</div>}
   </div>
 }
