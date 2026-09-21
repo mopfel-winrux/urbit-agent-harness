@@ -1,9 +1,30 @@
 ::  Full head execution with fixture HTTP responses; emitted network cards
 ::  are inspected, never delivered to providers or the installed agent.
 /-  *harness-store, hosted=harness-hosted, ac=acp, renew=harness-oauth
-/+  *test, auth=harness-auth, ha=harness-hosted-auth, defaults=harness-defaults, ht=harness-tools, j=harness-workspace-json
+/+  *test, auth=harness-auth, ha=harness-hosted-auth, defaults=harness-defaults, ht=harness-tools, j=harness-workspace-json, settings=harness-hosted-settings
 /=  head  /app/harness
 |%
+++  test-owner-model-selection-survives-first-provision-and-reload
+  (isolated |=(ignored=* owner-model-provision))
+++  owner-model-provision
+  =/  bowl=bowl:gall  *bowl:gall
+  =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.21)
+  =/  loaded  (~(on-load head bowl) !>(*state-30))
+  =/  initial  !<(state-30 ~(on-save +.loaded bowl))
+  =/  args  (need (de:json:html '{"provider":"openrouter","model":"owner-model","auth":"api-key","apiKey":"owner-key"}'))
+  ?>  ?=(%o -.args)
+  =.  p.args  (~(put by p.args) 'revision' [%s (revision:settings defaults.initial)])
+  =/  selected  (~(on-poke +.loaded bowl) %harness-hosted !>(`request:hosted`['settings' 'settings' args]))
+  =/  saved  !<(state-30 ~(on-save +.selected bowl))
+  =/  reloaded  (~(on-load head bowl) !>(saved))
+  =/  supplied  (need (de:json:html '{"providerKeys":{"openrouter":"platform-key"},"primary":{"provider":"openrouter","model":"platform-model"},"fallbacks":[]}'))
+  =/  provisioned  (~(on-poke +.reloaded bowl) %harness-hosted !>(`request:hosted`['provision' 'provision' supplied]))
+  =/  retained  !<(state-30 ~(on-save +.provisioned bowl))
+  ;:  weld
+    (expect !>(model-defaults-set.saved))
+    (expect-eq !>('owner-model') !>(model.defaults.retained))
+    (expect-eq !>('owner-key') !>((key:auth provider-keys.retained 'openrouter')))
+  ==
 ++  test-credential-cleanup-survives-reload
   (isolated |=(ignored=* cleanup-reload))
 ++  cleanup-reload

@@ -1784,7 +1784,7 @@
       [~[[%give %fact ~[/hosted/[id.req]] %json !>((error:hosted-auth 400 'Invalid model settings.'))]] state]
     =/  out  p.attempted
     =?  model-defaults-set
-      &(?=(^ (get:workspace-json args.req 'fallbacks')) =(200 (number:workspace-json response.out 'status' 0)))
+      &(|(?=(^ (get:workspace-json args.req 'model')) ?=(^ (get:workspace-json args.req 'fallbacks'))) =(200 (number:workspace-json response.out 'status' 0)))
       &
     =.  defaults  config.out
     =?  api-key  !=((~(get by provider-keys) 'openrouter') (~(get by keys.out) 'openrouter'))

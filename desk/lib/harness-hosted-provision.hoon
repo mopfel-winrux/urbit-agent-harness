@@ -6,6 +6,10 @@
   |=  [cfg=config:h keys=(map @t @t) servers=(map mcp-server-id:h mcp-server:h) args=json initialize=?]
   ^-  [config=config:h keys=(map @t @t)]
   =/  supplied  (need (get:j args 'providerKeys'))
+  =/  primary  (get:j args 'primary')
+  =?  cfg  &(initialize ?=(^ primary))
+    =/  choice  (snag 0 (parse:routing [%a ~[u.primary]]))
+    cfg(url (endpoint:routing provider.choice), model model.choice, key '', headers ~, max-context 80.000)
   =/  fallbacks  (get:j args 'fallbacks')
   =?  cfg  &(initialize ?=(^ fallbacks))
     cfg(fallbacks (parse:routing u.fallbacks))

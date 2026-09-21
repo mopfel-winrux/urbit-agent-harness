@@ -21,6 +21,24 @@
     (expect !>((mcp-granted:ht 'local' tools.config.out)))
     (expect !>(!(mcp-granted:ht 'off' tools.config.out)))
   ==
+++  test-platform-initializes-primary-and-fallbacks-once
+  =/  cfg  builtin-config:defaults
+  =/  args  (need (de:json:html '{"providerKeys":{"openrouter":"platform"},"primary":{"provider":"openrouter","model":"hosted-primary"},"fallbacks":[{"provider":"openrouter","model":"hosted-backup"}]}'))
+  =/  out  (apply:provision cfg ~ servers args &)
+  =/  selected  config.out(url device-url:auth, model 'owner-model', headers ~[['owner' 'header']])
+  =/  again  (apply:provision selected keys.out servers args |)
+  ;:  weld
+    (expect-eq !>('https://openrouter.ai/api/v1/chat/completions') !>(url.config.out))
+    (expect-eq !>('hosted-primary') !>(model.config.out))
+    (expect-eq !>(`(list model-choice:h)`~[['openrouter' 'hosted-backup']]) !>(fallbacks.config.out))
+    (expect-eq !>(system.cfg) !>(system.config.out))
+    (expect-eq !>('platform') !>((key:auth keys.out 'openrouter')))
+    (expect-eq !>(selected) !>(config.again))
+  ==
+++  test-invalid-primary-is-rejected
+  =/  args  (need (de:json:html '{"providerKeys":{},"primary":{"provider":"unknown","model":"fixture"}}'))
+  =/  attempted  (mule |.((apply:provision builtin-config:defaults ~ ~ args &)))
+  (expect !>(?=(%| -.attempted)))
 ++  test-platform-key-rotation-removal-and-explicit-empty-override
   =/  keys  (my ~[['hosted-openrouter' 'old'] ['hosted-brave' 'removed'] ['xai' ''] ['hosted-xai' 'platform']])
   =/  args  (need (de:json:html '{"providerKeys":{"openrouter":"new","xai":"next"}}'))
