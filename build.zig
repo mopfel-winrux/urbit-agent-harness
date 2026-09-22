@@ -52,7 +52,7 @@ pub fn build(b: *std.Build) void {
     b.step("clean", "Remove assembled output").dependOn(&clean.step);
 
     const clear = DeskStep.create(b, "clear output and dependencies", .clear, null);
-    b.step("clear", "Remove assembled output and the Grubbery checkout").dependOn(&clear.step);
+    b.step("clear", "Remove assembled output and dependency checkouts").dependOn(&clear.step);
 }
 
 fn buildDesk(step: *std.Build.Step, install_path: []const u8, desk_path: ?[]const u8) !void {
@@ -66,7 +66,7 @@ fn buildDesk(step: *std.Build.Step, install_path: []const u8, desk_path: ?[]cons
     try pruneRuntimeDesk(allocator, install_path);
     try adaptRuntimeDesk(allocator, install_path);
     try copyDir(allocator, "desk", install_path);
-    // Only the Tlon hand's source dependency closure, in its own namespace.
+    // Tlon protocol and JSON dependencies share one pinned namespace.
     // No Groups applications, desk bill, UI or runtime are installed here.
     try run(step, &.{ "node", "scripts/stage-tlon.mjs", install_path });
     try stageBootstrapMarks(allocator, install_path);

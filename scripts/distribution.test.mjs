@@ -39,10 +39,14 @@ test('the distribution includes its own tests, not the runtime development suite
   assert.deepEqual(shipped, own)
 })
 test('namespaced Tlon imports include every dependency, including multiline hooks imports', async () => {
+  for (const name of ['channel-json', 'groups-json', 'story-json']) await access(new URL(`lib/tlon-${name}.hoon`, desk))
   const hooks = await readFile(new URL('sur/tlon-hooks.hoon', desk), 'utf8')
   for (const dependency of ['activity-ver', 'chat-ver', 'contacts', 'meta']) assert.ok(hooks.includes(`=tlon-${dependency}`))
   for (const kind of ['sur', 'lib']) {
     for (const file of (await readdir(new URL(`${kind}/`, desk))).filter((name) => name.startsWith('tlon-') && name.endsWith('.hoon'))) {
+      // Groups sources belong to the pinned build dependency, not the overlay.
+      await assert.rejects(access(new URL(`../desk/${kind}/${file.slice(5)}`, import.meta.url)))
+      await assert.rejects(access(new URL(`${kind}/${file.slice(5)}`, desk)))
       const source = await readFile(new URL(`${kind}/${file}`, desk), 'utf8')
       for (const [, rune, imports] of source.matchAll(/^\/([+-])  (.+)$/gm)) {
         for (const token of imports.split(/[, ]+/).filter(Boolean)) {

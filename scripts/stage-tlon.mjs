@@ -42,4 +42,5 @@ async function stage(kind, name) {
   await writeFile(target, lines.join('\n'))
 }
 for (const name of ['activity-ver', 'chat-ver', 'channels', 'contacts', 'story', 'groups', 'presence', 'notes', 'hooks']) await stage('sur', name)
+for (const name of ['channel-json', 'groups-json', 'story-json']) await stage('lib', name)
 console.log(`Tlon: ${visited.size} namespaced protocol dependencies at ${revision.slice(0, 12)}`)

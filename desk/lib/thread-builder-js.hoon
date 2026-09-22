@@ -1,13 +1,13 @@
 /-  spider
-/-  channels-sur=channels
-/-  groups-ver-sur=groups-ver
-/-  chat-ver-sur=chat-ver
+/-  channels-sur=tlon-channels, channels-ver-sur=tlon-channels-ver
+/-  groups-ver-sur=tlon-groups-ver
+/-  chat-ver-sur=tlon-chat-ver
 /+  sio=strandio
 /+  wasm=wasm-lia
-/+  mp=mop-extensions
-/+  cj=channel-json
-/+  gj=groups-json
-/+  sj=story-json
+/+  mp=tlon-mop-extensions
+/+  cj=tlon-channel-json
+/+  gj=tlon-groups-json
+/+  sj=tlon-story-json
 /*  quick-js-wasm  %wasm  /quick-js-emcc/wasm
 ::
 =*  strand       strand:spider
@@ -140,7 +140,7 @@
     ::    
     ++  function-table
       ^-  (list table-entry)
-      =*  v-sur-channels   v9:channels-sur
+      =*  v-sur-channels   v9:channels-ver-sur
       =*  flag             =>  v-sur-channels  flag
       =*  nest             =>  v-sur-channels  nest
       =*  channels         =>  v-sur-channels  channels
