@@ -49,7 +49,7 @@ try {
   const before = await client.call('harness/tlon'); policy = before.policy
   defaults = await client.call('harness/defaults')
   await client.call('harness/defaults/configure', { config: { ...defaults, url: `http://127.0.0.1:${server.address().port}`, model: 'denial-fixture', key: '', headers: [], tools: [] } })
-  await client.call('harness/tlon/configure', { enabled: true, owner: ship, mentions: true, trusted: [] })
+  await client.call('harness/tlon/configure', { enabled: true, owner: ship, response: 'mentions', allowed: [], channels: [], trusted: [] })
   const start = await client.call('harness/tlon')
   const old = new Set(denials(start).map((notice) => notice.sequence))
   const sentBefore = outgoing(await page(true))

@@ -78,7 +78,7 @@ try {
   await poke('channels', 'channel-action-2', { channel: { nest: main, action: { post: { add: {
     content: [{ inline: [`${slug}-checkpoint`] }], author: peer, sent: Date.now(), kind: '/chat', meta: null, blob: null,
   } } } } })
-  await client.call('harness/tlon/configure', { enabled: true, owner: peer, trusted: [], mentions: true })
+  await client.call('harness/tlon/configure', { enabled: true, owner: peer, trusted: [], response: 'mentions', allowed: [], channels: [] })
   await poke('groups', 'group-action-4', { invite: { flag: group, ships: [ship], 'a-invite': { token: null, note: null } } })
   await until('owner invitation joins the group and open channel', () => active(lobby))
   // Native group log replay can leave denied local channel stubs. Establish
@@ -98,13 +98,13 @@ try {
   await until('native channel subscription receives host content', async () => JSON.stringify(await scry(`channels/v5/${main}/posts/newest/20/post`)).includes(`${slug}-checkpoint`))
   assert.equal(await active(privateChat), false, 'Other restricted channels remain unjoined')
 
-  await client.call('harness/tlon/configure', { enabled: false, owner: peer, trusted: [], mentions: true })
+  await client.call('harness/tlon/configure', { enabled: false, owner: peer, trusted: [], response: 'mentions', allowed: [], channels: [] })
   await role(ship, 'private')
   await until('role granted while hand disabled', async () => (await groups())[group].seats[ship].roles.includes('private'))
   assert.equal(await active(privateChat), false, 'Disabled hand must not join a newly accessible channel')
   await role(ship, 'private', false)
   await until('temporary reader role removed', async () => !(await groups())[group].seats[ship].roles.includes('private'))
-  await client.call('harness/tlon/configure', { enabled: true, owner: peer, trusted: [], mentions: true })
+  await client.call('harness/tlon/configure', { enabled: true, owner: peer, trusted: [], response: 'mentions', allowed: [], channels: [] })
   await role(ship, 'unrelated')
   await until('subsequent self-role update processed', async () => (await groups())[group].seats[ship].roles.includes('unrelated'))
   assert.equal(await active(privateChat), false, 'Removed permissions stay denied on later notifications')

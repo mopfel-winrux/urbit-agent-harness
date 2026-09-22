@@ -82,7 +82,7 @@ try {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)); await client.start()
   defaults = await client.call('harness/defaults'); policy = (await client.call('harness/tlon')).policy
   await client.call('harness/defaults/configure', { config: { url: `http://127.0.0.1:${server.address().port}/completions`, model: 'fixture', key: '', headers: [], system: 'Fixture', 'max-context': 80000, tools: [] } })
-  await client.call('harness/tlon/configure', { enabled: true, owner: peer, mentions: true, trusted: [] })
+  await client.call('harness/tlon/configure', { enabled: true, owner: peer, response: 'mentions', allowed: [], channels: [], trusted: [] })
   await idle()
   await send('first'); await until('first DM reaches inference', () => requests.length === 1)
   ;[sessionId] = (await status()).sessions

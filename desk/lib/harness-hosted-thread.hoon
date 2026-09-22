@@ -5,6 +5,9 @@
 |%
 ++  call
   |=  [action=@t arg=vase]
+  (call-to %harness action arg)
+++  call-to
+  |=  [agent=@tas action=@t arg=vase]
   =/  m  (strand ,vase)
   ^-  form:m
   =/  input  !<((unit json) arg)
@@ -15,10 +18,10 @@
   ;<  now=@da  bind:m  get-time:io
   ;<  entropy=@uvJ  bind:m  get-entropy:io
   =/  id  (scot %uv (sham [our now entropy action]))
-  =?  p.args  &(!=(action 'settings') ?~((optional:j args 'requestId') & |))
+  =?  p.args  &(!(~(has in (silt ~['settings' 'permissions' 'channels'])) action) ?~((optional:j args 'requestId') & |))
     (~(put by p.args) 'requestId' [%s id])
-  ;<  ~  bind:m  (watch:io /response [our %harness] /hosted/[id])
-  ;<  ~  bind:m  (poke:io [our %harness] %harness-hosted !>(`request:hosted`[id action args]))
+  ;<  ~  bind:m  (watch:io /response [our agent] /hosted/[id])
+  ;<  ~  bind:m  (poke:io [our agent] %harness-hosted !>(`request:hosted`[id action args]))
   ;<  result=cage  bind:m  (take-fact:io /response)
   ?>  =(%json p.result)
   (pure:m !>(!<(json q.result)))

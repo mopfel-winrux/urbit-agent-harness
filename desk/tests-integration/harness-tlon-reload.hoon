@@ -6,20 +6,20 @@
 |%
 ++  load
   |=  saved=vase
-  ^-  [(list card:agent:gall) state-0:t]
+  ^-  [(list card:agent:gall) state-1:t]
   =/  attempt
     |.
     =/  bowl=bowl:gall  *bowl:gall
     =.  now.bowl  ~2026.9.6
     =/  out  (~(on-load adapter bowl) saved)
-    [-.out !<(state-0:t ~(on-save +.out bowl))]
+    [-.out !<(state-1:t ~(on-save +.out bowl))]
   =/  out  (mink [attempt %9 2 %0 1] |=([* *] ``%.n))
   ?>  ?=(%0 -.out)
-  ;;([(list card:agent:gall) state-0:t] product.out)
+  ;;([(list card:agent:gall) state-1:t] product.out)
 ++  reload
   |=  phase=?(%fetch %put %grant %hosted-put)
-  ^-  state-0:t
-  =/  state=state-0:t  *state-0:t
+  ^-  state-1:t
+  =/  state=state-1:t  *state-1:t
   =.  uploads.state  (my ~[[0v1 `upload:t`[phase 0v2 'key' 'image/png' 'https://storage.googleapis.com/bucket/key' [2 1]]]])
   =.  tool-receipts.state  (my ~[[0v1 `tool-receipt:t`[['s' 1 ['call' 'tlon_upload_image' '{}']] %sending '' ~2026.9.6]]])
   =/  out  (load !>(state))

@@ -105,7 +105,7 @@ try {
     await until('parent received before activation', async () => (await posts(ctx, false)).some(([, p]) => JSON.stringify(p.essay?.content).includes(`${label(ctx)}-parent`)))
   }
   await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '', url: `http://127.0.0.1:${server.address().port}`, model: 'fixture', headers: [], tools: [] } })
-  await client.call('harness/tlon/configure', { enabled: true, owner: peer, trusted: [], mentions: true })
+  await client.call('harness/tlon/configure', { enabled: true, owner: peer, trusted: [], response: 'mentions', allowed: [], channels: [] })
   for (const ctx of contexts) {
     // Stable heads can predate this run. Discover them with a read-only command
     // and preserve existing notes, usage and per-conversation configuration.

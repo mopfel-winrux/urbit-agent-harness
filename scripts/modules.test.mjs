@@ -45,7 +45,7 @@ test('permission synchronization is change-driven and trust reads stay small', a
 test('Tlon starts listening on install without overriding saved enable choices', async () => {
   const agent = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
   const init = agent.split('++  on-init\n')[1].split('\n++  on-save')[0]
-  assert.match(init, /policy \[& ~ ~ &\]/)
+  assert.match(init, /policy \[& ~ ~ %mentions ~ ~\]/)
   assert.match(init, /initialize-owner:cor[\s\S]+abet:boot:refresh-peers:cor/)
   const reload = agent.split('++  on-load\n')[1].split('\n++  on-poke')[0]
   assert.doesNotMatch(reload, /policy \[|enabled\.policy\s+&/)

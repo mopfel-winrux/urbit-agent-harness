@@ -108,7 +108,7 @@ try {
   await client.call('session/prompt', { sessionId: unbound, prompt: [{ type: 'text', text: 'Unbound fixture' }] })
   assert.deepEqual(failures, []); console.log('PASS unbound sessions cannot borrow Tlon authority')
   await client.call('harness/defaults/configure', { config })
-  await client.call('harness/tlon/configure', { enabled: true, owner: peer, mentions: true, trusted: [] })
+  await client.call('harness/tlon/configure', { enabled: true, owner: peer, response: 'mentions', allowed: [], channels: [], trusted: [] })
   for (const next of ['dm-react', 'dm-unreact', 'channel-react', 'channel-unreact']) {
     mode = next; const inChannel = next.startsWith('channel')
     await send(`${marker}-${mode}`, inChannel)
@@ -120,7 +120,7 @@ try {
   }
   // A trusted actor with zero resource grants has the same in-conversation
   // Tlon abilities as the owner, including scheduled work.
-  await client.call('harness/tlon/configure', { enabled: true, owner: '~bud', mentions: true, trusted: [{ ship: peer, tools: [] }] })
+  await client.call('harness/tlon/configure', { enabled: true, owner: '~bud', response: 'mentions', allowed: [], channels: [], trusted: [{ ship: peer, tools: [] }] })
   mode = 'cron'; await send(`${marker}-cron PRIVATE_SCHEDULING_CONTEXT`)
   await until('schedule creation acknowledged', () => schedules.length === 1)
   const first = (await client.call('harness/cron')).find((j) => j.id === schedules[0]); sourceSid = first.sessionId; scheduledSid = first.runSessionId
@@ -146,7 +146,7 @@ try {
   mode = 'cron-revoke'; await send(`${marker}-cron-revoke PRIVATE_SCHEDULING_CONTEXT`)
   await until('second schedule acknowledged', () => schedules.length === 2)
   await until('scheduled inference is in flight', () => held, 95000)
-  await client.call('harness/tlon/configure', { enabled: true, owner: '~bud', mentions: true, trusted: [] })
+  await client.call('harness/tlon/configure', { enabled: true, owner: '~bud', response: 'mentions', allowed: [], channels: [], trusted: [] })
   answer(held, `${marker}-MUST_NOT_PUBLISH`); held = null
   await until('source revocation pauses schedule', async () => (await client.call('harness/cron')).find((j) => j.id === schedules[1])?.state === 'paused')
   await sleep(2500)

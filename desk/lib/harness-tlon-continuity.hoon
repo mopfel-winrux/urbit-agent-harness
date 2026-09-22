@@ -1,6 +1,6 @@
 ::  Conversation identity is independent of authorization. Only this hand's
 ::  routing generations change; the head retains configuration and evidence.
-/-  t=harness-tlon, h=harness, a=tlon-activity-ver
+/-  t=harness-tlon, h=harness, a=tlon-activity-ver, c=tlon-channels
 /+  p=harness-tlon-policy
 |%
 +$  authority  $%([%denied ~] [%owner ~] [%trusted tools=(set tool-grant:h)])
@@ -25,7 +25,7 @@
   ^-  authority
   ?:  =(`actor owner.policy)  [%owner ~]
   =/  tools  (~(get by trusted.policy) actor)
-  ?~  tools  [%denied ~]
+  ?~  tools  ?:((~(has in allowed.policy) actor) [%trusted (silt ~[%web])] [%denied ~])
   [%trusted (silt u.tools)]
 ++  actor-changed
   |=  [before=policy:t after=policy:t actor=@p]
@@ -44,16 +44,27 @@
   ::  the map by the identity directory and the two policy snapshots.
   =/  actors=(set @p)
     %-  silt
-    :(weld (turn ~(tap by known) |=([[actor=@p to=destination:t] sid=@t] actor)) ~(tap in ~(key by trusted.before)) ~(tap in ~(key by trusted.new)) ?~(owner.before ~ ~[u.owner.before]) ?~(owner.new ~ ~[u.owner.new]))
+    :(weld (turn ~(tap by known) |=([[actor=@p to=destination:t] sid=@t] actor)) ~(tap in ~(key by trusted.before)) ~(tap in ~(key by trusted.new)) ~(tap in allowed.before) ~(tap in allowed.new) ?~(owner.before ~ ~[u.owner.before]) ?~(owner.new ~ ~[u.owner.new]))
   %+  roll  ~(tap in actors)
   |=  [actor=@p out=(map @p @da)]
   =/  cutoff=(unit @da)  ?:((actor-changed before new actor) `now (~(get by prior) actor))
   ?~  cutoff  out
   (~(put by out) actor u.cutoff)
+++  channel-cutoffs
+  |=  [before=policy:t after=policy:t prior=(map nest:c @da) now=@da]
+  ^-  (map nest:c @da)
+  ::  Removed overrides retain a cutoff until a default change covers it.
+  =?  prior  !=(response.before response.after)  ~
+  =/  nests  (~(uni in ~(key by prior)) (~(uni in ~(key by channels.before)) ~(key by channels.after)))
+  %+  roll  ~(tap in nests)
+  |=  [nest=nest:c out=(map nest:c @da)]
+  =/  cutoff=(unit @da)  ?:(!=((channel-rule:p before nest) (channel-rule:p after nest)) `now (~(get by prior) nest))
+  ?~  cutoff  out
+  (~(put by out) nest u.cutoff)
 ++  affected
   |=  [before=policy:t after=policy:t lane=lane:t]
   ^-  ?
-  |((actor-changed before after actor.lane) &(?=(%channel -.to.lane) !=(mentions.before mentions.after)))
+  |((actor-changed before after actor.lane) &(?=(%channel -.to.lane) !=((channel-rule:p before nest.to.lane) (channel-rule:p after nest.to.lane))))
 ++  identity
   |=  [actor=@p to=destination:t]
   ^-  @t

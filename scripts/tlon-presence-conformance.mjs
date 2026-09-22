@@ -64,7 +64,7 @@ try {
   const config = { url: `${url}/first`, model: 'first-model', key: '', headers: [{ name: 'x-fixture', value: 'first' }],
     system: 'Keep these instructions.', 'max-context': 80000, tools: ['web'] }
   await client.call('harness/defaults/configure', { config })
-  await client.call('harness/tlon/configure', { enabled: true, owner: peer, mentions: true, trusted: [] })
+  await client.call('harness/tlon/configure', { enabled: true, owner: peer, response: 'mentions', allowed: [], channels: [], trusted: [] })
   await send('/help')
   await until('slash help delivered through a real DM', async () => JSON.stringify(await scry(`chat/v4/dm/${ship}/writs/newest/8/light`)).includes('/model default'))
   assert.equal(requests.length, 0, 'Tlon commands do not invoke inference')

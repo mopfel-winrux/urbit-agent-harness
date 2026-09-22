@@ -3,7 +3,7 @@
 |%
 ++  policy
   ^-  policy:t
-  [& `~lux (my ~[[~bud ~[%web]]]) &]
+  [& `~lux (my ~[[~bud ~[%web]]]) %mentions ~ ~]
 ++  dm
   ^-  lane:t
   [~bud [%dm ~bud ~] 7 ~[%web]]
@@ -33,7 +33,7 @@
 ++  test-mentions-change-affects-channels-not-dms
   =/  policy  policy
   =/  dm  dm
-  =/  next  policy(mentions |)
+  =/  next  policy(response %all)
   =/  channel  dm(to [%channel [%chat ~nec %test] ~])
   (expect !>(&(!(affected:c policy next dm) (affected:c policy next channel))))
 ++  test-disable-and-enable-fence-all-actors

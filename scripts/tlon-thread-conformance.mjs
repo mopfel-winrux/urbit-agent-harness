@@ -86,7 +86,7 @@ try {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)); await client.start()
   originals = { defaults: await client.call('harness/defaults'), policy: (await client.call('harness/tlon')).policy }
   await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '', url: `http://127.0.0.1:${server.address().port}`, model: 'fixture', headers: [], tools: [] } })
-  const policy = { enabled: true, owner: peer, trusted: [{ ship: extra, tools: [] }], mentions: true }
+  const policy = { enabled: true, owner: peer, trusted: [{ ship: extra, tools: [] }], response: 'mentions', allowed: [], channels: [] }
   await client.call('harness/tlon/configure', policy)
   for (surface of ['dm', 'channel']) {
     mode = 'root'; await send()

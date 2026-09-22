@@ -69,7 +69,7 @@ try {
     await new Promise((resolve) => fixtureServer.listen(0, '127.0.0.1', resolve))
     await client.call('harness/defaults/configure', { config: { ...originalDefaults, url: `http://127.0.0.1:${fixtureServer.address().port}/completions`, model: 'fixture', key: '', tools: [], headers: [] } })
   }
-  await client.call('harness/tlon/configure', { enabled: true, owner: peer, mentions: true, trusted: [] })
+  await client.call('harness/tlon/configure', { enabled: true, owner: peer, response: 'mentions', allowed: [], channels: [], trusted: [] })
   await client.call('harness/tlon/watch')
   console.log('Testing DM admission and remote delivery')
   await poke('chat', 'chat-dm-action-2', { ship, diff: { id: `${peer}/${da()}`, delta: { add: { essay: essay(prompt('dm')), time: null } } } })
@@ -102,7 +102,7 @@ try {
   assert.ok(list.some((s) => s.sessionId.startsWith(`${peer.slice(1)}-dm-`)), 'DM visible to any ACP session client')
   assert.ok(list.some((s) => s.sessionId.includes('-thread-')), 'thread has a separate session')
   console.log('PASS ACP activity and global session discovery')
-  await client.call('harness/tlon/configure', { enabled: true, owner: ship, mentions: true, trusted: [{ ship: peer, tools: [] }] })
+  await client.call('harness/tlon/configure', { enabled: true, owner: ship, response: 'mentions', allowed: [], channels: [], trusted: [{ ship: peer, tools: [] }] })
   assert.equal((await client.call('harness/tlon')).lanes, 0, 'revoked routes do not consume the next policy epoch')
   await poke('chat', 'chat-dm-action-2', { ship, diff: { id: `${peer}/${da()}`, delta: { add: { essay: essay(prompt('trusted')), time: null } } } })
   await until('trusted ship with no tools can still chat', async () => Object.values((await dmPosts()).writs).find((p) => fromBot(p, 'trusted')))
@@ -112,7 +112,7 @@ try {
     const config = await client.call('harness/session/config', { sessionId })
     assert.deepEqual(config.tools, [], 'policy changes clear old grants as well as creating restricted sessions')
   }
-  await client.call('harness/tlon/configure', { enabled: true, owner: ship, mentions: true, trusted: [] })
+  await client.call('harness/tlon/configure', { enabled: true, owner: ship, response: 'mentions', allowed: [], channels: [], trusted: [] })
   const count = (await client.call('harness/tlon')).events.filter((e) => e.kind === 'message').length
   await poke('chat', 'chat-dm-action-2', { ship, diff: { id: `${peer}/${da()}`, delta: { add: { essay: essay(prompt('revoked')), time: null } } } })
   await until('revoked message reached the bot’s Chat agent', async () => has(await scry(`chat/v4/dm/${peer}/writs/newest/4/light`, true), 'revoked'))

@@ -113,9 +113,11 @@ test('owner updates fence both administrator settings and remote access stays se
     await api.read('peers/remote')
     await api.action({ peerCheck: '~nec' })
     assert.deepEqual(seen, [['harness/tlon/owner/set', owner], ['harness/peers/remote'], ['harness/peers/check', { ship: '~nec' }]])
-    const tlon = { owner: '~nec', enabled: true, mentions: true, trusted: [] }
+    const tlon = { owner: '~nec', enabled: true, response: 'mentions', allowed: [], channels: [], trusted: [] }
     await api.action({ tlon })
     assert.deepEqual(seen.at(-1), ['harness/tlon/configure', { ...tlon, expectedOwner: '~nec' }])
+    await api.action({ tlon, tlonRevision: 'draft-revision' })
+    assert.deepEqual(seen.at(-1), ['harness/tlon/configure', { ...tlon, expectedOwner: '~nec', expectedRevision: 'draft-revision' }])
     await api.read('tlon/owner')
     assert.deepEqual(seen.at(-1), ['harness/tlon/owner'])
   } finally { acp.start = start; acp.call = call }

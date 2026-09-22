@@ -44,7 +44,7 @@ try {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)); await client.start()
   originals = { defaults: await client.call('harness/defaults'), policy: (await client.call('harness/tlon')).policy }
   await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '', url: `http://127.0.0.1:${server.address().port}/completions`, model: 'local-only-fixture', tools: [], headers: [] } })
-  const status = await client.call('harness/tlon/configure', { enabled: true, owner: peer, trusted: [], mentions: true })
+  const status = await client.call('harness/tlon/configure', { enabled: true, owner: peer, trusted: [], response: 'mentions', allowed: [], channels: [] })
   assert.equal(Object.hasOwn(status, 'lens'), false)
   await assert.rejects(client.call('harness/tlon/lens/retry'), /Unknown Tlon method/)
   await client.call('harness/tlon/watch')

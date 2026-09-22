@@ -20,7 +20,7 @@
     |=  [ref=* raw=*]
     ^-  (unit (unit noun))
     =/  path  ;;(path raw)
-    ?:  (lien path |=(part=@ta =(%peer-trust part)))  ``[[& `~zod ~ &] |]
+    ?:  (lien path |=(part=@ta =(%peer-trust part)))  ``[[& `~zod ~ %mentions ~ ~] |]
     ?:  (lien path |=(part=@ta =(%authority part)))  ``[allowed ~]
     ?:  (lien path |=(part=@ta =(%admin part)))  ``allowed
     ?:  =(%$ (rear path))  ``&

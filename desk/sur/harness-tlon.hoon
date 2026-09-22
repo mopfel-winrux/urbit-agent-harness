@@ -1,11 +1,15 @@
 ::  Tlon-specific state belongs to a hand, never to the semantic head.
 /-  c=tlon-channels, a=tlon-activity-ver, h=harness, ad=harness-adapter
 |%
++$  response  ?(%off %mentions %all)
++$  channel-rule  [response=response everyone=?]
 +$  policy
   $:  enabled=?
       owner=(unit @p)
       trusted=(map @p (list tool-grant:h))
-      mentions=?
+      response=$~(%mentions response)
+      allowed=(set @p)
+      channels=(map nest:c channel-rule)
   ==
 +$  peer-trust  [policy=policy siblings=?]
 +$  destination
@@ -24,8 +28,8 @@
 +$  upload
   [stage=?(%fetch %put %put-no-acl %grant %hosted-put) storage=@uv key=@t mime=@t public-url=@t bytes=octs]
 +$  route  [binding=@t phase=?(%ready %create %fence %config)]
-+$  state-0
-  $:  %0
++$  state-1
+  $:  %1
       owner-initialized=@ud
       sibling-moon-owners=$~(| ?)
       sibling-owner-after=@da
@@ -35,6 +39,7 @@
       routes=(map @t route)
       cuts=(map @p @da)
       channel-after=@da
+      channel-cuts=(map nest:c @da)
       uploads=(map @uv upload)
       last-sent=@da
       tool-receipts=(map @uv tool-receipt)

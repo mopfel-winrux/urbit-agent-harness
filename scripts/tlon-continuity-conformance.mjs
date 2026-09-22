@@ -140,7 +140,7 @@ try {
     await until('parent arrived before activation', async () => (await posts(ctx, false)).some(([, p]) => JSON.stringify(p.essay?.content).includes(`${tag(ctx)}-parent`)))
   }
   await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '', url, model: 'continuity-fixture', headers: [], tools: ['web', 'subagents'] } })
-  await configure({ enabled: true, owner: peer, trusted: [], mentions: true })
+  await configure({ enabled: true, owner: peer, trusted: [], response: 'mentions', allowed: [], channels: [] })
   for (const ctx of contexts) {
     ctx.saved = await command(ctx, `/remember ${note} ${tag(ctx)}-note`, /Note saved/)
     ctx.cfg = { ...await config(ctx), key: '', model: `${ctx.kind}-chosen-model`, system: `${tag(ctx)} chosen system` }
@@ -163,7 +163,7 @@ try {
   release(h1, 'UNRELATED_WORK_FINISHED'); await finished(dm, first)
   console.log('PASS unrelated actor edit preserves in-flight work, bindings, notes, settings and schedule')
 
-  await configure({ ...policy, mentions: false })
+  await configure({ ...policy, response: 'all' })
   await until('channel timer retired', async () => !(await scry('harness/timers')).some((t) => t.sid === channel.sid))
   assert.ok((await scry('harness/timers')).some((t) => t.sid === dm.sid))
   assert.equal((await bindingStatus(channelBinding)).enabled, false)
@@ -240,7 +240,7 @@ try {
     assert.deepEqual((await command(ctx, '/memory', new RegExp(tag(ctx)))).memory, ctx.saved.memory)
     assert.equal(ctx.binding, binding, 'reload preserves ready bindings')
   }
-  await configure({ ...policy, mentions: !policy.mentions })
+  await configure({ ...policy, response: policy.response === 'mentions' ? 'all' : 'mentions' })
   const beforeRecovery = new Set((await messages(channel)).map((p) => p.id))
   await head(false)
   await send(channel, '/memory')

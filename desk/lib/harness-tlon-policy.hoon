@@ -1,7 +1,7 @@
 ::  Pure social boundary: authentic source nouns -> allowed, addressed input.
 ::  Nicknames are presentation, never identity or authority. Sessions separate
 ::  sender, destination and grant epoch so privilege cannot bleed across chats.
-/-  t=harness-tlon, h=harness, a=tlon-activity-ver, cr=harness-cron, hh=harness-hand
+/-  t=harness-tlon, h=harness, a=tlon-activity-ver, cr=harness-cron, hh=harness-hand, c=tlon-channels
 /+  ht=harness-tools, hj=harness-json, story=harness-tlon-story, input=harness-tlon-input
 |%
 ++  cron-clearable
@@ -20,15 +20,30 @@
 ++  grants
   |=  [policy=policy:t actor=@p owner-tools=(list tool-grant:h)]
   ^-  (unit (list tool-grant:h))
-  ?.  enabled.policy  ~
-  ?:  =(`actor owner.policy)  `owner-tools
-  (~(get by trusted.policy) actor)
+  (grants-owned policy actor owner-tools =(`actor owner.policy))
 ++  grants-owned
   |=  [policy=policy:t actor=@p owner-tools=(list tool-grant:h) owner=?]
   ^-  (unit (list tool-grant:h))
   ?.  enabled.policy  ~
   ?:  owner  `owner-tools
-  (~(get by trusted.policy) actor)
+  =/  explicit  (~(get by trusted.policy) actor)
+  ?^  explicit  explicit
+  ?:  (~(has in allowed.policy) actor)  `~[%web]
+  ~
+++  channel-rule
+  |=  [policy=policy:t nest=nest:c]
+  ^-  channel-rule:t
+  (fall (~(get by channels.policy) nest) [response.policy |])
+++  destination-grants
+  |=  [policy=policy:t actor=@p to=destination:t owner-tools=(list tool-grant:h) owner=?]
+  ^-  (unit (list tool-grant:h))
+  ?.  enabled.policy  ~
+  =/  grant  (grants-owned policy actor owner-tools owner)
+  ?:  ?=(%dm -.to)  grant
+  =/  rule  (channel-rule policy nest.to)
+  ?:  =(%off response.rule)  ~
+  ?^  grant  grant
+  ?:(everyone.rule `~[%web] ~)
 ++  peer-grants
   |=  policy=policy:t
   ^-  (map @p peer-grant:h)
@@ -85,8 +100,8 @@
     ==
   ?~  item  ~
   ?:  =(actor.u.item our)  ~
-  ?~  (grants-owned policy actor.u.item ~ (owner-test actor.u.item))  ~
-  ?:  &(?=(%channel -.to.u.item) mentions.policy !addressed.u.item)  ~
+  ?~  (destination-grants policy actor.u.item to.u.item ~ (owner-test actor.u.item))  ~
+  ?:  ?&(?=(%channel -.to.u.item) =(%mentions response:(channel-rule policy nest.to.u.item)) !addressed.u.item)  ~
   ::  A DM's partner must be its source author, not an asserted third party.
   ?:  &(?=(%dm -.to.u.item) !=(who.to.u.item actor.u.item))  ~
   ?:  |(=('' text.u.item) (gth (met 3 text.u.item) 65.536))  ~
@@ -98,20 +113,51 @@
   %-  pairs:enjs:format
   :~  ['enabled' %b enabled.policy]
       ['owner' ?~(owner.policy ~ [%s (scot %p u.owner.policy)])]
-      ['mentions' %b mentions.policy]
+      ['response' %s response.policy]
+      ['allowed' %a (turn ~(tap in allowed.policy) |=(who=@p [%s (scot %p who)]))]
+      ['channels' (channels-json channels.policy)]
       :-  'trusted'
       :-  %a
       %+  turn  ~(tap by trusted.policy)
       |=  [who=@p tools=(list tool-grant:h)]
       (pairs:enjs:format ~[['ship' %s (scot %p who)] ['tools' %a (turn tools grant-json:hj)]])
   ==
+++  channels-json
+  |=  channels=(map nest:c channel-rule:t)
+  ^-  json
+  :-  %a
+  %+  turn  ~(tap by channels)
+  |=  [nest=nest:c rule=channel-rule:t]
+  (pairs:enjs:format ~[['channel' %s (address [%channel nest ~])] ['response' %s response.rule] ['everyone' %b everyone.rule]])
+++  json-channels
+  |=  jon=json
+  ^-  (map nest:c channel-rule:t)
+  =,  dejs:format
+  =/  rows=(list [channel=@t mode=@t everyone=?])
+    ((ar (ot ~[channel+so response+so everyone+bo])) jon)
+  ?>  (lte (lent rows) 256)
+  =/  out=(map nest:c channel-rule:t)
+    %-  my
+    %+  turn  rows
+    |=  [channel=@t mode=@t everyone=?]
+    ^-  [p=nest:c q=channel-rule:t]
+    ?>  ?=(?(%off %mentions %all) mode)
+    =/  path  (need (rush (cat 3 '/' channel) stap))
+    ?>  ?=([@ @ @ ~] path)
+    ?>  ?=(?(%chat %diary %heap) i.path)
+    [[i.path (slav %p i.t.path) i.t.t.path] [mode everyone]]
+  ?>  =(~(wyt by out) (lent rows))
+  out
 ++  json-policy
   |=  jon=json
   ^-  policy:t
   =,  dejs:format
-  =/  val=[enabled=? owner=(unit @p) mentions=? trusted=(list [p=@p q=(list tool-grant:h)])]
-    ((ot ~[enabled+bo owner+(mu (se %p)) mentions+bo trusted+(ar (ot ~[ship+(se %p) tools+(ar json-grant:hj)]))]) jon)
-  =/  policy=policy:t  [enabled.val owner.val (my trusted.val) mentions.val]
+  =/  val=[enabled=? owner=(unit @p) response=@t allowed=(list @p) channels=(map nest:c channel-rule:t) trusted=(list [p=@p q=(list tool-grant:h)])]
+    ((ot ~[enabled+bo owner+(mu (se %p)) response+so allowed+(ar (se %p)) channels+json-channels trusted+(ar (ot ~[ship+(se %p) tools+(ar json-grant:hj)]))]) jon)
+  ?>  ?=(?(%off %mentions %all) response.val)
+  ?>  (lte (lent allowed.val) 64)
+  ?>  =(~(wyt in (silt allowed.val)) (lent allowed.val))
+  =/  policy=policy:t  [enabled.val owner.val (my trusted.val) response.val (silt allowed.val) channels.val]
   ?>  (lte ~(wyt by trusted.policy) 64)
   ?>  =(~(wyt by trusted.policy) (lent trusted.val))
   ?>  (levy ~(val by trusted.policy) |=(ts=(list tool-grant:h) (levy ts |=(grant=tool-grant:h ?:(?=(^ grant) & (lien all-tools:ht |=(known=term =(grant known))))))))

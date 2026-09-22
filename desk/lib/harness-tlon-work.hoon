@@ -27,7 +27,7 @@
   |=  [a=[at=@da key=@uv] b=[at=@da key=@uv]]
   |((lth at.a at.b) &(=(at.a at.b) (lth key.a key.b)))
 ++  page
-  |=  [state=state-0:t db=state:hh before=@t]
+  |=  [state=state-1:t db=state:hh before=@t]
   ^-  json
   =/  cursor=(unit [at=@da key=@uv])
     ?:  =('' before)  ~

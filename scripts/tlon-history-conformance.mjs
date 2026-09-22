@@ -154,7 +154,7 @@ try {
     await until('70 native history rows seeded', async () => (await texts()).filter((p) => JSON.stringify(p?.content).includes(label())).length === 70)
     // Policy activation after seeding keeps the 70 fixture posts out of inference.
     await sleep(500)
-    await client.call('harness/tlon/configure', { enabled: true, owner: peer, trusted: [], mentions: true })
+    await client.call('harness/tlon/configure', { enabled: true, owner: peer, trusted: [], response: 'mentions', allowed: [], channels: [] })
     await send(`${label()}-trigger`, { mention: true })
     await until('history conversation completed', async () => (await texts()).some((p) => p?.author === ship && JSON.stringify(p.content).includes(`${label()}-done`)))
     assert.equal(failures.length, 0)

@@ -3,7 +3,7 @@
 /-  t=harness-tlon
 |%
 ++  deadline
-  |=  [now=@da state=state-0:t]
+  |=  [now=@da state=state-1:t]
   ^-  (unit @da)
   =/  times=(list @da)
     %+  weld

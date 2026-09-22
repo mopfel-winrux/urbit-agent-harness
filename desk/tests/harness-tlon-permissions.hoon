@@ -1,0 +1,66 @@
+/-  t=harness-tlon, h=harness
+/+  *test, p=harness-tlon-policy, c=harness-tlon-continuity, permissions=harness-tlon-permissions
+|%
+++  policy
+  ^-  policy:t
+  [& `~nec ~ %mentions (silt ~[~bud]) ~]
+++  test-allowed-ships-have-web-without-peer-trust
+  ;:  weld
+    (expect-eq !>(`(unit (list tool-grant:h))`[~ ~[%web]]) !>((grants:p policy ~bud ~)))
+    (expect !>(!(~(has by (peer-grants:p policy)) ~bud)))
+    (expect-eq !>(`(unit (list tool-grant:h))`~) !>((grants:p policy ~zod ~)))
+  ==
+++  test-channel-only-access-does-not-grant-dms
+  =/  policy  policy
+  =.  policy  policy(channels (my ~[[[%chat ~nec %test] [%mentions &]]]))
+  ;:  weld
+    (expect !>(?=(^ (destination-grants:p policy ~zod [%channel [%chat ~nec %test] ~] ~ |))))
+    (expect !>(?=(~ (destination-grants:p policy ~zod [%dm ~zod ~] ~ |))))
+    (expect !>(?=(~ (destination-grants:p policy ~zod [%channel [%chat ~nec %elsewhere] ~] ~ |))))
+  ==
+++  test-off-blocks-owners-and-allowed-ships-in-that-channel
+  =/  policy  policy
+  =.  policy  policy(channels (my ~[[[%chat ~nec %test] [%off &]]]))
+  ;:  weld
+    (expect !>(?=(~ (destination-grants:p policy ~nec [%channel [%chat ~nec %test] ~] ~ &))))
+    (expect !>(?=(~ (destination-grants:p policy ~bud [%channel [%chat ~nec %test] ~] ~ |))))
+    (expect !>(?=(^ (destination-grants:p policy ~bud [%dm ~bud ~] ~ |))))
+  ==
+++  test-channel-revocation-fences-only-affected-lanes
+  =/  policy  policy
+  =/  next  policy(channels (my ~[[[%chat ~nec %test] [%off |]]]))
+  ;:  weld
+    (expect !>((affected:c policy next [~bud [%channel [%chat ~nec %test] ~] 1 ~[%web]])))
+    (expect !>(!(affected:c policy next [~bud [%channel [%chat ~nec %elsewhere] ~] 1 ~[%web]])))
+    (expect !>(!(affected:c policy next [~bud [%dm ~bud ~] 1 ~[%web]])))
+  ==
+++  test-policy-roundtrip
+  =/  policy  policy
+  =.  policy  policy(channels (my ~[[[%chat ~nec %test] [%all &]]]))
+  (expect-eq !>(policy) !>((json-policy:p (policy-json:p policy))))
+++  test-channel-cutoffs-preserve-unrelated-input
+  =/  policy  policy
+  =/  next  policy(channels (my ~[[[%chat ~nec %test] [%off |]]]))
+  =/  cuts  (channel-cutoffs:c policy next (my ~[[[%chat ~nec %other] ~2026.9.1]]) ~2026.9.2)
+  ;:  weld
+    (expect-eq !>(`@da`~2026.9.1) !>((~(got by cuts) [%chat ~nec %other])))
+    (expect-eq !>(`@da`~2026.9.2) !>((~(got by cuts) [%chat ~nec %test])))
+    (expect !>(!(~(has by cuts) [%chat ~nec %untouched])))
+  ==
+++  test-permission-save-rejects-stale-revisions
+  =/  args  (pairs:enjs:format ~[['revision' %s 'stale']])
+  =/  result  (apply:permissions policy 1 args)
+  ?>  ?=(%| -.result)
+  (expect-eq !>(409) !>(status.p.result))
+++  test-permission-save-preserves-explicit-tools-without-granting-new-peer-access
+  =/  policy  policy
+  =.  policy  policy(trusted (my ~[[~bud ~[%skills]]]))
+  =/  args  (pairs:enjs:format ~[['revision' %s (revision:permissions policy 1)] ['enabled' %b &] ['allowedShips' %a ~[[%s '~bud'] [%s '~zod']]] ['response' %s 'mentions'] ['channels' %a ~]])
+  =/  result  (apply:permissions policy 1 args)
+  ?>  ?=(%& -.result)
+  ;:  weld
+    (expect-eq !>(~[%skills]) !>((~(got by trusted.p.result) ~bud)))
+    (expect !>(!(~(has by trusted.p.result) ~zod)))
+    (expect !>((~(has in allowed.p.result) ~zod)))
+  ==
+--

@@ -29,7 +29,7 @@
   =/  escaped=story:d  ~[[%inline ~[[%ship ~lux] ' //remember project no']]]
   (expect !>(&(=(~ (parse:cmd (text:input ~lux path))) =(~ (parse:cmd (text:input ~lux escaped))))))
 ++  test-address-normalization-never-grants-social-admission
-  =/  policy=policy:t  [& `~nec ~ &]
+  =/  policy=policy:t  [& `~nec ~ %mentions ~ ~]
   =/  event=$>(%post incoming-event:v8:a)
     [%post [[~nec ~2026.9.6] ~2026.9.6] [%chat ~nec %test] [~nec %test] ~[[%inline ~[[%ship ~lux] ' /memory']]] |]
   =/  allowed  (normalize:p ~lux policy event(mention &))

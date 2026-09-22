@@ -48,7 +48,7 @@ let search = JSON.parse(sessionStorage.getItem('settings-fixture-search') || 'nu
 let summaryModels = JSON.parse(sessionStorage.getItem('settings-fixture-summary-models') || 'null') || { compaction: null, lcm: null }
 let skills = JSON.parse(sessionStorage.getItem('settings-fixture-skills') || '[]')
 let peerSettings = JSON.parse(sessionStorage.getItem('settings-fixture-peers') || 'null') || { ...emptyPeers(), ship: '~zod', revision: '1', usage: [{ ship: '~nec', used: 1234, total: 1234 }] }
-let tlonPolicy = JSON.parse(sessionStorage.getItem('settings-fixture-tlon') || 'null') || { enabled: false, owner: '~bud', mentions: true, trusted: [{ ship: '~nec', tools: ['web'] }] }
+let tlonPolicy = JSON.parse(sessionStorage.getItem('settings-fixture-tlon') || 'null') || { enabled: false, owner: '~bud', response: 'mentions', allowed: [], channels: [], trusted: [{ ship: '~nec', tools: ['web'] }] }
 let siblingMoonOwners = sessionStorage.getItem('settings-fixture-siblings') === 'true'
 let remoteShips = []
 const tlonSnapshot = () => ({ policy: tlonPolicy, sessions: [], ship: '~zod', isMoon: params.has('moon'), sponsor: params.has('moon') ? '~bud' : null, siblingMoonOwners })

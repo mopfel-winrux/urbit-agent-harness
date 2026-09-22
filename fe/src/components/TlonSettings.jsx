@@ -13,10 +13,12 @@ import TlonWork from './TlonWork'
 import PeerTokenLimit from './PeerTokenLimit'
 import { emptyPeers, effectivePeers, applyPeerLimits } from '../peers'
 
-const initial = { enabled: false, owner: null, mentions: true, trusted: [] }
+const initial = { enabled: false, owner: null, response: 'mentions', allowed: [], channels: [], trusted: [] }
+const responseOptions = <><option value="off">Don’t respond</option><option value="mentions">When mentioned or replied to</option><option value="all">All messages</option></>
 export default function TlonSettings({ onBack, workOpen = false }) {
   const state = useResource('tlon', null, 5000)
   const contacts = useResource('tlon/contacts', [], 30_000)
+  const channels = useResource('tlon/channels', [], 30_000)
   const tools = useResource('tools', [])
   const mcp = useResource('mcp', [])
   const peers = useResource('peers', emptyPeers())
@@ -26,9 +28,10 @@ export default function TlonSettings({ onBack, workOpen = false }) {
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
   const dirty = useRef(false)
+  const revision = useRef(null)
   const unavailable = state.loading || !!state.error
   const peerGrants = new Map(effectivePeers(peers.value).map((grant) => [grant.ship, grant]))
-  useEffect(() => { if (state.value?.policy && !dirty.current) setPolicy(state.value.policy) }, [state.value])
+  useEffect(() => { if (state.value?.policy && !dirty.current) { setPolicy(state.value.policy); revision.current = state.value.revision } }, [state.value])
   const change = (patch) => { dirty.current = true; setSaved(false); setPolicy((old) => ({ ...old, ...patch })) }
   function toggleTool(ship, name) {
     change({ trusted: policy.trusted.map((entry) => entry.ship !== ship ? entry : { ...entry,
@@ -43,7 +46,7 @@ export default function TlonSettings({ onBack, workOpen = false }) {
     try {
       const edits = Object.fromEntries(Object.entries(peerEdits).filter(([ship]) => policy.trusted.some((entry) => entry.ship === ship)))
       if (Object.keys(edits).length) applyPeerLimits(peers.value, edits)
-      const result = await api.action({ tlon: policy })
+      const result = await api.action({ tlon: policy, tlonRevision: revision.current })
       state.setValue(result); setPolicy(result.policy); dirty.current = false; trustSaved = true
       if (Object.keys(edits).length) {
         const current = await api.read('peers')
@@ -63,8 +66,28 @@ export default function TlonSettings({ onBack, workOpen = false }) {
         <fieldset className="memory-model-fields" disabled={busy || unavailable}>
         <section className="panel settings-panel">
           <div className="section-title"><div><h2>Connection</h2><p>{state.value?.connected ? 'Listening to Tlon activity.' : policy.enabled ? 'Connecting to Tlon activity…' : 'Enable when your owner and permissions are ready.'}</p></div></div>
-          <label className="tool-option"><input type="checkbox" checked={policy.enabled} onChange={(e) => change({ enabled: e.target.checked })} /><span><strong>Enable Tlon replies</strong><small>Reply only to your owner and trusted ships.</small></span></label>
-          <label className="tool-option"><input type="checkbox" checked={policy.mentions} onChange={(e) => change({ mentions: e.target.checked })} /><span><strong>Require channel mentions</strong><small>DMs and replies to the bot’s posts do not need a mention.</small></span></label>
+          <label className="tool-option"><input type="checkbox" checked={policy.enabled} onChange={(e) => change({ enabled: e.target.checked })} /><span><strong>Enable Tlon replies</strong><small>Reply according to your ship and channel permissions.</small></span></label>
+          <label>Default channel responses<select value={policy.response} onChange={(e) => change({ response: e.target.value })}>{responseOptions}</select></label>
+        </section>
+        <section className="panel settings-panel">
+          <div className="section-title"><div><h2>Allowed ships</h2><p>Can chat, start DMs, and invite the bot to groups. Includes web search and fetch, plus tools for the current Tlon conversation. No peer or admin access is granted.</p></div></div>
+          <ShipPicker label="Add an allowed ship" contacts={contacts.value || []} exclude={[policy.owner, ...policy.allowed, ...policy.trusted.map(entry => entry.ship)]} onChange={(ship) => change({ allowed: [...policy.allowed, ship] })} />
+          {policy.allowed.map(ship => <div className="peer-grant-fields" key={ship}><span>{ship}</span><button type="button" className="text-button" onClick={() => change({ allowed: policy.allowed.filter(value => value !== ship) })}>Remove {ship}</button></div>)}
+          <p className="field-note">Owners and explicitly trusted ships are also allowed.</p>
+        </section>
+        <section className="panel settings-panel">
+          <div className="section-title"><div><h2>Where the bot responds</h2><p>Channels are discovered automatically. “Don’t respond” stops replies, not separate authorized reads.</p></div></div>
+          {channels.loading && <p role="status">Loading channels…</p>}
+          {channels.error && <p role="alert">{channels.error} <button type="button" className="text-button" onClick={() => void channels.refresh()}>Retry channels</button></p>}
+          {!channels.loading && !channels.error && !channels.value.length && <p>No joined channels yet.</p>}
+          {[...new Map([...policy.channels.map(rule => ({ ...rule, title: rule.channel, group: 'Saved rule' })), ...channels.value].map(row => [row.channel, row])).values()].map(channel => {
+            const rule = policy.channels.find(row => row.channel === channel.channel)
+            const update = next => change({ channels: [...policy.channels.filter(row => row.channel !== channel.channel), ...(next ? [next] : [])] })
+            return <div className="peer-grant-fields" key={channel.channel}>
+              <label>{channel.title} <small>{channel.group}</small><select value={rule?.response ?? 'inherit'} onChange={event => update(event.target.value === 'inherit' ? null : { channel: channel.channel, response: event.target.value, everyone: rule?.everyone ?? false })}><option value="inherit">Use default</option>{responseOptions}</select></label>
+              <label className="tool-option"><input type="checkbox" checked={rule?.everyone ?? false} disabled={(rule?.response ?? policy.response) === 'off'} onChange={event => update({ channel: channel.channel, response: rule?.response ?? policy.response, everyone: event.target.checked })} /><span>Allow everyone in this channel to interact</span></label>
+            </div>
+          })}
         </section>
         <section className="panel settings-panel">
           <div className="section-title"><div><h2>Owner</h2><p>{policy.owner || 'No explicit owner selected.'}{state.value?.siblingMoonOwners ? ' Sibling moons are also full admins.' : ''} Owners can administer Harness through direct requests and owner DMs. Group invitations from owners are accepted automatically.</p></div></div>
@@ -72,7 +95,7 @@ export default function TlonSettings({ onBack, workOpen = false }) {
         </section>
         <section className="panel settings-panel">
           <div className="section-title"><div><h2>Trusted ships</h2><p>Can chat, start DMs, use Tlon actions, and call this ship’s agent with ask_peer. Peer requests have no token cap by default. Resource grants below also apply to inherited peer access. Channel replies are visible to other members.</p></div></div>
-          <ShipPicker label="Add a trusted ship" contacts={contacts.value || []} exclude={[policy.owner, ...policy.trusted.map((entry) => entry.ship)]} onChange={(ship) => change({ trusted: [...policy.trusted, { ship, tools: [] }] })} />
+          <ShipPicker label="Add a trusted ship" contacts={contacts.value || []} exclude={[policy.owner, ...policy.trusted.map((entry) => entry.ship)]} onChange={(ship) => change({ trusted: [...policy.trusted, { ship, tools: ['web'] }] })} />
           {policy.trusted.map((entry) => <details className="trusted-ship" key={entry.ship}>
             <summary>{contacts.value?.find((p) => p.ship === entry.ship)?.nickname || entry.ship} <small>{entry.ship} · {peerGrants.get(entry.ship)?.owner ? 'Owner · full admin' : `${entry.tools.filter((tool) => !['tlon-read', 'tlon-write', 'cron'].includes(tool)).length} resource grants`}</small></summary>
             {peerGrants.get(entry.ship)?.owner ? <p className="field-note">Owners have no peer token cap, use default resources, and can administer Harness through direct requests or owner DMs. These ordinary trusted grants do not restrict ownership. <a href="#/settings?tab=peers">Manage ownership in Peers</a>.</p> : <>

@@ -7,7 +7,7 @@ import Sidebar from '../src/components/Sidebar'
 import '../src/style.css'
 
 const schedulesPage = new URLSearchParams(location.search).has('schedules')
-let state = { policy: { enabled: false, owner: '~zod', mentions: true, trusted: [] }, connected: false, sessions: ['nec-dm-test'] }
+let state = { revision: 'revision-1', policy: { enabled: false, owner: '~zod', response: 'mentions', allowed: [], channels: [], trusted: [] }, connected: false, sessions: ['nec-dm-test'] }
 window.tlonFixture = { saves: [], modelUpdates: [], cron: [], cancelled: [], work: { records: [], next: null, headConnected: true }, workReads: [], recoveries: [], recoveryError: '', profile: { nickname: 'Existing bot', avatar: 'https://example.com/bot.png' }, profileError: '' }
 acp.call = async (method, params) => {
   if (method !== 'harness/session/use-default-model') throw new Error('Unexpected fixture method')
@@ -21,6 +21,7 @@ api.read = async (path) => path === 'tlon/cron' ? structuredClone(window.tlonFix
 ]
 const read = api.read
 api.read = async (path) => {
+  if (path === 'tlon/channels') return [{ channel: 'chat/~zod/general', title: 'General', group: 'Test group' }]
   if (path === 'cron') {
     if (window.tlonFixture.cronError) throw new Error(window.tlonFixture.cronError)
     if (window.tlonFixture.holdCron) await new Promise((resolve) => { window.tlonFixture.releaseCron = resolve })

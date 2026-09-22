@@ -5,7 +5,7 @@ import { acp } from './acp.js'
 async function action(value) {
   await acp.start()
   if (value.owner) return acp.call('harness/tlon/owner/set', value.owner)
-  if (value.tlon) return acp.call('harness/tlon/configure', { ...value.tlon, expectedOwner: value.tlon.owner })
+  if (value.tlon) return acp.call('harness/tlon/configure', { ...value.tlon, expectedOwner: value.tlon.owner, ...(value.tlonRevision ? { expectedRevision: value.tlonRevision } : {}) })
   if (value.tlonProfile) return acp.call('harness/tlon/profile/set', value.tlonProfile)
   if (value.cancelCron) return acp.call('harness/cron/cancel', { id: value.cancelCron })
   if (value.clearCron) return acp.call('harness/cron/clear', { id: value.clearCron })
@@ -29,6 +29,7 @@ export const scryUrl = (path) => `/~/scry/harness/${path}.json`
 async function read(path) {
   await acp.start()
   if (path === 'tlon') return acp.call('harness/tlon')
+  if (path === 'tlon/channels') return acp.call('harness/tlon/channels')
   if (path === 'tlon/owner') return acp.call('harness/tlon/owner')
   if (path === 'tlon/contacts') return acp.call('harness/tlon/contacts')
   if (path === 'tlon/profile') return acp.call('harness/tlon/profile')

@@ -5,10 +5,10 @@
 /=  adapter  /app/harness-tlon
 |%
 ++  fixture
-  ^-  state-0:t
-  =/  s=state-0:t  *state-0:t
+  ^-  state-1:t
+  =/  s=state-1:t  *state-1:t
   =.  owner-initialized.s  1
-  =.  policy.s  [& `~nec ~ &]
+  =.  policy.s  [& `~nec ~ %mentions ~ ~]
   =.  lanes.s  (my ~[['source' [~nec [%dm ~nec ~] 1 ~[%web]]]])
   s(routes (my ~[['source' ['binding' %ready]]]))
 ++  job
@@ -16,7 +16,7 @@
   =/  j=schedule:c  *schedule:c
   j(sid 'source', run-sid 'run', binding 'binding', kind %prompt)
 ++  read
-  |=  [saved=state-0:t sid=@t job=(unit schedule:c) allowed=? admin=?]
+  |=  [saved=state-1:t sid=@t job=(unit schedule:c) allowed=? admin=?]
   ^-  noun
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.10)
@@ -66,7 +66,7 @@
   ==
 ++  test-trusted-lanes-keep-tool-ceilings
   =/  s  fixture
-  =.  policy.s  [& ~ (my ~[[~nec ~[%web]]]) &]
+  =.  policy.s  [& ~ (my ~[[~nec ~[%web]]]) %mentions ~ ~]
   ;:  weld
     (equal !>(`hand-authority:ad`[& `~[%web %tlon-read %tlon-write]]) !>((read s 'source' ~ & |)))
     (equal !>(|) !>((read s 'source' ~ & &)))

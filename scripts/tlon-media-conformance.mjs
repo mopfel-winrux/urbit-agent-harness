@@ -130,7 +130,7 @@ try {
     cred: (await scry('storage/credentials'))['storage-update'].credentials, conf: (await scry('storage/configuration'))['storage-update'].configuration }
   await storageSet({ 'set-endpoint': origin(storage), 'set-access-key-id': 'HARNESSFIXTURE', 'set-secret-access-key': secret, 'set-region': 'us-east-1', 'set-current-bucket': bucket, 'set-public-url-base': '', 'toggle-service': 'credentials' })
   await client.call('harness/defaults/configure', { config: { ...originals.defaults, url: `${origin(model)}/completions`, model: 'fixture', key: '', headers: [], tools: [] } })
-  await client.call('harness/tlon/configure', { enabled: true, owner: peer, mentions: true, trusted: [] })
+  await client.call('harness/tlon/configure', { enabled: true, owner: peer, response: 'mentions', allowed: [], channels: [], trusted: [] })
   await send()
   const dm = await until('real public download, verified binary S3 PUT and native DM image', async () => Object.values((await dmPage()).writs).find((post) => imageIn(post.essay)))
   assert.equal(putCount, 1)
@@ -179,7 +179,7 @@ try {
   }
   mode = 'revoke-put'; heldPut = null; const beforeRevocation = putCount; await send()
   await until('first PUT held before permission revocation', () => heldPut)
-  await client.call('harness/tlon/configure', { enabled: false, owner: peer, mentions: true, trusted: [] })
+  await client.call('harness/tlon/configure', { enabled: false, owner: peer, response: 'mentions', allowed: [], channels: [], trusted: [] })
   if (!heldPut.destroyed) {
     heldPut.writeHead(400, { 'content-type': 'application/xml' })
     heldPut.end('<Error><Code>AccessControlListNotSupported</Code></Error>')

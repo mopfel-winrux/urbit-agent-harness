@@ -1,5 +1,15 @@
 import { expect, test } from '@playwright/test'
 
+test('allowed ships and channel responses save without adding peer trust', async ({ page }) => {
+  await page.goto('/apps/harness/tests/tlon-fixture.html')
+  await page.getByRole('combobox', { name: 'Add an allowed ship' }).fill('alice')
+  await page.getByRole('listbox').getByRole('option').first().click()
+  await page.getByLabel('Default channel responses').selectOption('all')
+  await page.getByRole('button', { name: 'Save Tlon settings' }).click()
+  await expect(page.getByText('Saved.', { exact: true })).toBeVisible()
+  expect(await page.evaluate(() => window.tlonFixture.saves.at(-1))).toMatchObject({ allowed: ['~nec'], trusted: [], response: 'all' })
+})
+
 test('work recovery is explicit, attempt-fenced and never silently retries an uncertain send', async ({ page }) => {
   await page.goto('/apps/harness/tests/tlon-fixture.html')
   expect(await page.evaluate(() => window.tlonFixture.workReads)).toEqual([])
@@ -118,12 +128,12 @@ test('nickname suggestions select concrete ships; tools are explicitly granted',
   await expect(page.getByRole('heading', { name: 'Owner', exact: true }).locator('..')).toContainText('~zod')
   const picker = page.getByRole('combobox', { name: 'Add a trusted ship' })
   await picker.fill('alice')
-  await expect(page.getByRole('option').first()).toContainText('~nec')
-  await page.getByRole('option').first().click()
+  await expect(page.getByRole('listbox').getByRole('option').first()).toContainText('~nec')
+  await page.getByRole('listbox').getByRole('option').first().click()
   await page.locator('.trusted-ship summary').click()
   await expect(page.getByRole('spinbutton', { name: 'Peer token limit for ~nec' })).toHaveValue('0')
   await expect(page.getByRole('checkbox', { name: /tlon-read|tlon-write|cron/i })).toHaveCount(0)
-  await expect(page.getByRole('checkbox', { name: /^Web search & GET/ })).not.toBeChecked()
+  await expect(page.getByRole('checkbox', { name: /^Web search & GET/ })).toBeChecked()
   await page.getByRole('checkbox', { name: /^Web search & GET/ }).check()
   await page.getByRole('checkbox', { name: /^MCP: Calendar/ }).check()
   await expect(page.getByRole('checkbox', { name: /^MCP: Notes/ })).not.toBeChecked()
@@ -131,7 +141,7 @@ test('nickname suggestions select concrete ships; tools are explicitly granted',
   await page.getByRole('button', { name: 'Save Tlon settings' }).click()
   await expect(page.getByText('Saved.', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => window.tlonFixture.saves.at(-1))).toEqual({
-    enabled: true, owner: '~zod', mentions: true, trusted: [{ ship: '~nec', tools: ['web', { mcp: 'calendar' }] }],
+    enabled: true, owner: '~zod', response: 'mentions', allowed: [], channels: [], trusted: [{ ship: '~nec', tools: ['web', { mcp: 'calendar' }] }],
   })
 })
 

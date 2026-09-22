@@ -74,7 +74,7 @@
       'harness/search/configure {config}; harness/summary-models/configure {models}; '
       'harness/peers/configure {revision,grants,limits,config}; '
       'harness/peers/reset {ship,revision}; harness/peers/check {ship}; '
-      'harness/tlon/configure {enabled,owner,mentions,trusted}; '
+      'harness/tlon/configure {enabled,owner,response,allowed,channels,trusted}; '
       'harness/tlon/owner/set {owner,expectedOwner,siblingMoonOwners,expectedSiblingMoonOwners}; '
       'harness/tlon/profile/set (read the profile first); '
       'harness/cron/add {id,binding,actor,kind,args}; '
