@@ -3007,10 +3007,11 @@
     ?>  =(our.bowl src.bowl)
     ?.  (authorized-call sid.act call-id.act 'run_js')  `state
     =/  tid=@ta  (cat 3 'harness_js_' (scot %uv (end [3 16] (shas %js eny.bowl))))
-    ::  per-session CPU-time bound; 0 falls back to the default. drives
-    ::  both the yielding-hang watchdog and the in-thread jinx hint.
+    ::  per-session CPU-time bound; 0 means no limit (no jinx, no
+    ::  watchdog). drives both the yielding-hang watchdog and the
+    ::  in-thread jinx hint.
     =/  cfg  config:(play:hl log:(need-session sid.act))
-    =/  gap=@dr  ?:(=(`@dr`0 js-timeout.cfg) js-timeout js-timeout.cfg)
+    =/  gap=@dr  js-timeout.cfg
     =/  deadline=@da  (add now.bowl gap)
     =.  jobs  (~(put by jobs) tid [sid.act call-id.act deadline])
     [(js-cards:effects tid code.act deadline gap) state]
