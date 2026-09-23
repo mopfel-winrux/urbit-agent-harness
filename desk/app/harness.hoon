@@ -1734,6 +1734,11 @@
 ++  hosted-request
   |=  req=request:hosted-types
   ^-  (quip card _state)
+  ?:  =('models' action.req)
+    =/  parsed  (mole |.((models:hosted-settings defaults provider-keys args.req)))
+    ?~  parsed
+      [~[[%give %fact ~[/hosted/[id.req]] %json !>((error:hosted-auth 400 'Expected a primary model and up to four fallbacks.'))]] state]
+    $(req req(action 'settings', args u.parsed))
   ?:  =('clear-credentials' action.req)
     =.  state  (clear:hosted-cleanup state)
     [~[[%give %fact ~[/hosted/[id.req]] %json !>((envelope:hosted-auth 200 (pairs:enjs:format ~[['cleared' %b &]])))]] state]

@@ -15,6 +15,7 @@
 /+  membership=harness-tlon-membership
 /+  migration=harness-tlon-migrate
 /+  permissions=harness-tlon-permissions
+/+  story=harness-tlon-story, input=harness-tlon-input
 |%
 +$  card  card:agent:gall
 +$  storage-source  $%([%credentials creds=credentials:s3] [%hosted token=@t config=json])
@@ -348,6 +349,12 @@
 ++  permission-request
   |=  [action=@t args=json]
   ^-  [json _cor]
+  ?:  =('chat-config' action)
+    ?:  =([%o ~] args)  [(envelope:permissions 200 (chat-view:permissions policy)) cor]
+    =/  result  (chat-apply:permissions policy args)
+    ?:  ?=(%| -.result)  [(error:permissions status.p.result error.p.result) cor]
+    =.  cor  (configure p.result sibling-moon-owners)
+    [(envelope:permissions 200 (chat-view:permissions policy)) cor]
   ?:  =('channels' action)
     =/  found  (mole |.(channels:~(. directory:permissions bowl)))
     ?~  found  [(error:permissions 503 'Tlon channels are unavailable. Try again.') cor]
@@ -1167,8 +1174,20 @@
     ?~  (actor-grants p.whom.event ~)  cor
     =.  cor  (note 'dm-invite' p.whom.event (scot %p p.whom.event) '')
     (emit [%pass /invite/dm/(scot %p p.whom.event) %agent [our.bowl %chat] %poke %chat-dm-rsvp !>([p.whom.event &])])
-  =/  input  (normalize-owned:p our.bowl policy event actor-owner)
+  =/  introduction=(unit @t)
+    ?.  ?=(?(%dm-post %post) -.event)  ~
+    ?.  (actor-owner p.id.key.event)  ~
+    =/  text=@t
+      ?:  ?=(%dm-post -.event)  (story-to-text:story content.event)
+      (text:input our.bowl content.event)
+    ?.  =('Let\'s get set up.' text)  ~
+    =/  found  (mole |.((onboarding-request:messenger event)))
+    ?~(found ~ u.found)
+  =/  addressed  event
+  =?  addressed  &(?=(^ introduction) ?=(%post -.event))  event(mention &)
+  =/  input  (normalize-owned:p our.bowl policy addressed actor-owner)
   ?~  input  cor
+  =?  text.u.input  ?=(^ introduction)  u.introduction
   =/  cutoff  (max after (fall (~(get by cuts) actor.u.input) `@da`0))
   =?  cutoff  (sibling:~(. ownership bowl) actor.u.input)  (max cutoff sibling-owner-after)
   =?  cutoff  ?=(%channel -.to.u.input)  (max cutoff channel-after)

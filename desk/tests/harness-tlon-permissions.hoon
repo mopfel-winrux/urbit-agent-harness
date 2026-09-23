@@ -63,4 +63,27 @@
     (expect !>(!(~(has by trusted.p.result) ~zod)))
     (expect !>((~(has in allowed.p.result) ~zod)))
   ==
+++  test-mobile-format-reads-and-saves-the-native-policy
+  =/  policy  policy
+  =/  initial  policy(allowed (silt ~[~nec ~bud]), channels (my ~[[[%chat ~nec %test] [%all |]]]))
+  =/  body  (chat-view:permissions initial)
+  ?>  ?=(%o -.body)
+  =.  p.body  (~(del by p.body) 'fromDefaults')
+  =/  result  (chat-apply:permissions initial body)
+  ?>  ?=(%& -.result)
+  (expect-eq !>(initial) !>(p.result))
+++  test-mobile-removal-disables-channel-and-keeps-unrelated-policy
+  =/  policy  policy
+  =/  initial  policy(channels (my ~[[[%chat ~nec %test] [%all |]]]))
+  =/  result  (chat-apply:permissions initial (pairs:enjs:format ~[['channelRules' %o ~]]))
+  ?>  ?=(%& -.result)
+  (expect-eq !>(initial(channels (my ~[[[%chat ~nec %test] [%off |]]]))) !>(p.result))
+++  test-mobile-does-not-promote-channel-only-ships-to-global-access
+  =/  body  (need (de:json:html '{"channelRules":{"chat/~nec/test":{"mode":"allowlist","allowedShips":["~zod"]}}}'))
+  =/  result  (chat-apply:permissions policy body)
+  (expect !>(?=(%| -.result)))
+++  test-mobile-does-not-pretend-to-save-independent-lists
+  =/  body  (need (de:json:html '{"dmAllowlist":["~nec"],"defaultAuthorizedShips":["~zod"]}'))
+  =/  result  (chat-apply:permissions policy body)
+  (expect !>(?=(%| -.result)))
 --

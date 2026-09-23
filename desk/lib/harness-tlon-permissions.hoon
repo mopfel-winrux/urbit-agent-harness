@@ -34,6 +34,61 @@
 ++  envelope
   |=  [status=@ud body=json]
   (pairs:enjs:format ~[['status' (numb:enjs:format status)] ['body' body]])
+++  chat-ships
+  |=  policy=policy:t
+  =/  ships  (~(uni in allowed.policy) ~(key by trusted.policy))
+  ?~(owner.policy ships (~(put in ships) u.owner.policy))
+++  chat-view
+  |=  policy=policy:t
+  ^-  json
+  =/  ships  [%a (turn ~(tap in (chat-ships policy)) |=(who=@p [%s (scot %p who)]))]
+  =/  rules
+    %+  murn  ~(tap by channels.policy)
+    |=  [nest=nest:c rule=channel-rule:t]
+    ?:  =(%off response.rule)  ~
+    `[(address:p [%channel nest ~]) (pairs:enjs:format ~[['mode' %s ?:(everyone.rule 'open' 'allowlist')] ['allowedShips' ?:(everyone.rule [%a ~] ships)]])]
+  (pairs:enjs:format ~[['dmAllowlist' ships] ['defaultAuthorizedShips' ships] ['groupInviteAllowlist' ships] ['autoAcceptDmInvites' %b &] ['autoDiscoverChannels' %b &] ['fromDefaults' %b |] ['channelRules' (pairs:enjs:format rules)] ['groupChannels' %a (turn rules |=([name=@t value=json] [%s name]))]])
+++  chat-apply
+  |=  [policy=policy:t args=json]
+  ^-  (each policy:t [status=@ud error=@t])
+  ::  The mobile wire format describes the same native policy. Unsupported
+  ::  distinctions fail closed instead of silently granting broader access.
+  =/  parsed
+    %-  mole  |.
+    ?>  ?=(%o -.args)
+    ?>  (levy ~(tap by p.args) |=([key=@t value=json] (~(has in (silt ~['dmAllowlist' 'defaultAuthorizedShips' 'groupInviteAllowlist' 'autoAcceptDmInvites' 'autoDiscoverChannels' 'channelRules' 'groupChannels'])) key)))
+    =/  original  (chat-ships policy)
+    =/  selected  (get:j args 'dmAllowlist')
+    =/  ships=(set @p)
+      ?~  selected  original
+      (silt ((ar:dejs:format (se:dejs:format %p)) u.selected))
+    ?>  (lte ~(wyt in ships) 64)
+    ?>  (levy `(list @t)`~['defaultAuthorizedShips' 'groupInviteAllowlist'] |=(key=@t ?~(value=(get:j args key) & =(ships (silt ((ar:dejs:format (se:dejs:format %p)) u.value))))))
+    ?>  (levy `(list @t)`~['autoAcceptDmInvites' 'autoDiscoverChannels'] |=(key=@t ?~(value=(get:j args key) & =(u.value [%b &]))))
+    =/  rules  (get:j args 'channelRules')
+    =/  channels  channels.policy
+    =?  channels  ?=(^ rules)
+      ?>  ?=(%o -.u.rules)
+      =/  rows
+        %+  turn  ~(tap by p.u.rules)
+        |=  [name=@t value=json]
+        =/  mode  (string:j value 'mode')
+        ?>  |(=('open' mode) =('allowlist' mode))
+        ?>  |(=('open' mode) =(ships (silt ((ar:dejs:format (se:dejs:format %p)) (need (get:j value 'allowedShips'))))))
+        (pairs:enjs:format ~[['channel' %s name] ['response' %s 'mentions'] ['everyone' %b =('open' mode)]])
+      =/  wanted  (json-channels:p [%a rows])
+      =/  kept=(list [p=nest:c q=channel-rule:t])
+        %+  turn  ~(tap by channels)
+        |=  [nest=nest:c rule=channel-rule:t]
+        =/  replacement  (~(get by wanted) nest)
+        ?~  replacement  [nest rule(response %off)]
+        [nest u.replacement(response ?:(=(%all response.rule) %all %mentions))]
+      (~(uni by wanted) (my kept))
+    =/  trusted  (my (skim ~(tap by trusted.policy) |=([who=@p tools=*] (~(has in ships) who))))
+    policy(allowed ?:(=(ships original) allowed.policy (~(dif in ships) ~(key by trusted))), trusted trusted, channels channels)
+  ?~  parsed
+    [%| 400 'Harness uses one allowed-ships list for DMs and invitations, with automatic channel discovery. Channel rules allow those ships or everyone; separate ship lists and channel models are unavailable.']
+  [%& u.parsed]
 ++  error
   |=  [status=@ud message=@t]
   (envelope status (pairs:enjs:format ~[['error' %s message]]))

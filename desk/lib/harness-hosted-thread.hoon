@@ -18,7 +18,7 @@
   ;<  now=@da  bind:m  get-time:io
   ;<  entropy=@uvJ  bind:m  get-entropy:io
   =/  id  (scot %uv (sham [our now entropy action]))
-  =?  p.args  &(!(~(has in (silt ~['settings' 'permissions' 'channels'])) action) ?~((optional:j args 'requestId') & |))
+  =?  p.args  &(!(~(has in (silt ~['settings' 'permissions' 'channels' 'chat-config' 'models'])) action) ?~((optional:j args 'requestId') & |))
     (~(put by p.args) 'requestId' [%s id])
   ;<  ~  bind:m  (watch:io /response [our agent] /hosted/[id])
   ;<  ~  bind:m  (poke:io [our agent] %harness-hosted !>(`request:hosted`[id action args]))

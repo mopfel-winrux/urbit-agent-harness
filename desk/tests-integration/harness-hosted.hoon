@@ -4,6 +4,25 @@
 /+  *test, auth=harness-auth, ha=harness-hosted-auth, defaults=harness-defaults, ht=harness-tools, j=harness-workspace-json, settings=harness-hosted-settings
 /=  head  /app/harness
 |%
+++  test-mobile-model-selection-survives-reload
+  (isolated |=(ignored=* mobile-models))
+++  mobile-models
+  =/  bowl=bowl:gall  *bowl:gall
+  =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.23)
+  =/  saved=state-0  *state-0
+  =.  provider-keys.saved  (my ~[['hosted-openrouter' 'fixture-key']])
+  =/  loaded  (~(on-load head bowl) !>(saved))
+  =/  args  (need (de:json:html '{"models":[{"provider":"openrouter","model":"selected","zdr":true}]}'))
+  =/  selected  (~(on-poke +.loaded bowl) %harness-hosted !>(`request:hosted`['mobile' 'models' args]))
+  =/  state  !<(state-0 ~(on-save +.selected bowl))
+  =/  reloaded  (~(on-load head bowl) !>(state))
+  =/  retained  !<(state-0 ~(on-save +.reloaded bowl))
+  ;:  weld
+    (expect !>(model-defaults-set.retained))
+    (expect-eq !>('selected') !>(model.defaults.retained))
+    (expect !>(zdr.defaults.retained))
+    (expect-eq !>(provider-keys.saved) !>(provider-keys.retained))
+  ==
 ++  test-owner-model-selection-survives-first-provision-and-reload
   (isolated |=(ignored=* owner-model-provision))
 ++  owner-model-provision

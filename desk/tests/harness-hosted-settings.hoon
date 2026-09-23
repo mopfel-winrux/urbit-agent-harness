@@ -95,4 +95,27 @@
     (expect-eq !>(`json`[%b &]) !>((need (get:j body 'zdr'))))
     (expect-eq !>(409) !>((number:j response.stale 'status' 0)))
   ==
+++  test-mobile-model-selection-uses-saved-api-key-without-changing-tools
+  =/  config  config
+  =/  keys  (my ~[['hosted-openrouter' 'fixture-key']])
+  =/  body  (need (de:json:html '{"models":[{"provider":"openrouter","model":"primary","zdr":true},{"provider":"openrouter","model":"backup"}]}'))
+  =/  out  (apply:settings config keys (models:settings config keys body))
+  ;:  weld
+    (expect-eq !>(200) !>((number:j response.out 'status' 0)))
+    (expect-eq !>('primary') !>(model.config.out))
+    (expect-eq !>(tools.config) !>(tools.config.out))
+    (expect-eq !>(keys) !>(keys.out))
+    (expect !>(zdr.config.out))
+  ==
+++  test-mobile-model-edit-preserves-subscription-authentication
+  =/  config  config
+  =/  cfg  config(url device-url:auth)
+  =/  keys  (my ~[['openai-device' 'subscription'] ['openai' 'api']])
+  =/  body  (need (de:json:html '{"models":[{"provider":"openai","model":"selected"}]}'))
+  =/  out  (apply:settings cfg keys (models:settings cfg keys body))
+  ;:  weld
+    (expect-eq !>(200) !>((number:j response.out 'status' 0)))
+    (expect-eq !>(device-url:auth) !>(url.config.out))
+    (expect-eq !>('selected') !>(model.config.out))
+  ==
 --
