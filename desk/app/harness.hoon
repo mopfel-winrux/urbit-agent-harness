@@ -3007,14 +3007,9 @@
     ?>  =(our.bowl src.bowl)
     ?.  (authorized-call sid.act call-id.act 'run_js')  `state
     =/  tid=@ta  (cat 3 'harness_js_' (scot %uv (end [3 16] (shas %js eny.bowl))))
-    ::  per-session CPU-time bound; 0 means no limit (no jinx, no
-    ::  watchdog). drives both the yielding-hang watchdog and the
-    ::  in-thread jinx hint.
-    =/  cfg  config:(play:hl log:(need-session sid.act))
-    =/  gap=@dr  js-timeout.cfg
-    =/  deadline=@da  (add now.bowl gap)
+    =/  deadline=@da  (add now.bowl js-timeout)
     =.  jobs  (~(put by jobs) tid [sid.act call-id.act deadline])
-    [(js-cards:effects tid code.act deadline gap) state]
+    [(js-cards:effects tid code.act deadline) state]
   ==
 ::  +js-timeout: watchdog deadline for a run_js thread
 ::
@@ -3034,7 +3029,7 @@
         %spider-stop  !>([tid &])
     ==
   =^  cs  state
-    (finish-js tid 'error: js thread exceeded its time limit')
+    (finish-js tid (rap 3 'error: js thread timed out after ' (scot %ud (div js-timeout ~s1)) 's' ~))
   ::  finish-js queues a %rest for the (already-fired) dog; harmless.
   ::  prepend the stop so the thread is actually killed
   ::

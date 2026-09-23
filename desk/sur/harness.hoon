@@ -55,7 +55,6 @@
 +$  config
   $:  zdr=$~(| ?)       ::  require OpenRouter zero-data-retention routing
       fallbacks=(list model-choice)
-      js-timeout=$~(~s30 @dr)  ::  QuickJS/WASM CPU-time bound per run_js (jinx)
       url=@t              ::  chat-completions endpoint
       model=@t
       key=@t              ::  ingress-only; blanked before the config event

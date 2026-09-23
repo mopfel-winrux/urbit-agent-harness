@@ -390,15 +390,15 @@
       %-  crip
       %-  zing
       ^-  (list tape)
-      :~  "Run JavaScript through QuickJS/WASM on the ship. "
+      :~  "Experimental opt-in: run JavaScript through QuickJS/WASM on the ship. "
           "The code MUST assign a function to module.exports; its return "
           "value (JSON.stringify objects) is the result. Available: "
           "console.*, fetch_sync(url), require('urbit_thread') for file "
           "i/o, including writes. These host APIs have broad ship authority; "
           "other tool grants do not sandbox them. No Node.js or npm. "
-          "The loop guard rejects common unbounded loops, but is not a "
-          "sandbox. A per-conversation CPU-time limit bails runaway "
-          "computation and a watchdog bounds yielding waits."
+          "Use only short, bounded work. The loop guard rejects common "
+          "unbounded loops, but is not a sandbox. A 30-second watchdog "
+          "bounds yielding waits; it cannot interrupt pure computation."
       ==
     :~  ['code' 'the javascript source; must set module.exports to a function']
     ==
