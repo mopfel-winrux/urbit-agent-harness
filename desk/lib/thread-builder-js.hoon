@@ -2476,7 +2476,7 @@
 ::  (JS code => _!>(*[%0 ?([%& p=result=cord] [%| p=how=cord q=where=cord])]))
 ::
 =/  hint  %rand
-|=  code=cord
+|=  [code=cord gap=@dr]
 ^-  shed:khan
 =/  m  (strand vase)
 ;<  res=(each cord (pair cord cord))  bind:m
@@ -2485,7 +2485,15 @@
   |-  ^-  form:m
   =*  restart-loop  $
   =/  =seed:lia-sur:wasm  [quick-js-wasm (return:runnable:wasm ~) ~ imports]
-  =^  [yil=(yield (list lv)) *]  seed  (run:wasm &+(main code) seed hint)
+  ::  A %jinx hint arms a CPU-time timer around each wasm engine step.
+  ::  urwasm interprets Wasm as one uninterrupted Nock computation between
+  ::  host yields, so a non-terminating JS loop would otherwise wedge the
+  ::  ship's event for the whole thread; jinx bails it after `gap` of CPU
+  ::  time, failing the Spider thread cleanly. gap 0 means unbounded (no
+  ::  hint). See urbit/vere pkg/noun/nock.c _n_hint_fore.
+  =^  [yil=(yield (list lv)) *]  seed
+    ?:  =(`@dr`0 gap)  (run:wasm &+(main code) seed hint)
+    ~>(%jinx.gap (run:wasm &+(main code) seed hint))
   |-  ^-  form:m
   =*  block-loop  $
   ?-    -.yil
@@ -2496,12 +2504,16 @@
     ?:  ?=(%restart name.yil)
       ::  free state, run anew
       ::
-      =^  *  seed  (run:wasm |+~ seed hint)
+      =^  *  seed
+        ?:  =(`@dr`0 gap)  (run:wasm |+~ seed hint)
+        ~>(%jinx.gap (run:wasm |+~ seed hint))
       restart-loop
     ::  resolve block, continue
     ::
     ;<  res=(list lv)  bind:m  ((~(got by lia-imports) name.yil) args.yil)
-    =^  [yil1=(yield (list lv)) *]  seed  (run:wasm |+res seed hint)
+    =^  [yil1=(yield (list lv)) *]  seed
+      ?:  =(`@dr`0 gap)  (run:wasm |+res seed hint)
+      ~>(%jinx.gap (run:wasm |+res seed hint))
     block-loop(yil yil1)
   ::
       %2

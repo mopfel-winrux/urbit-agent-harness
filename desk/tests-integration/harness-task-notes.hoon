@@ -15,7 +15,7 @@
   =/  saved=state-0  *state-0
   =.  saved  saved(welcome-seen 1, defaults builtin-config:policy)
   =/  loaded  (~(on-load head bowl) !>(saved))
-  =/  created  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%new 'owner' defaults.saved]))
+  =/  created  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%new 'owner' defaults.saved ~s30]))
   =/  before  !<(state-0 ~(on-save +.created bowl))
   =/  noted  (~(on-poke +.created bowl) %harness-action !>(`action:h`[%send 'owner' '/work task-create {"id":"note","title":"Check the forecast"}']))
   =/  recorded  !<(state-0 ~(on-save +.noted bowl))

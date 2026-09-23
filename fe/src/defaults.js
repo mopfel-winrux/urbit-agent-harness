@@ -21,6 +21,7 @@ export const defaultConfig = (overrides = {}) => ({
   headers: [],
   system: DEFAULT_SYSTEM_PROMPT,
   'max-context': 1_310_720,
+  'js-timeout': 30,
   tools: [{ clay: '/' }, 'web', 'curl', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'corpus', 'workspace', 'tlon'],
   ...overrides,
 })

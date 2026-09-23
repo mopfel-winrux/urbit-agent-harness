@@ -211,7 +211,7 @@
 ::  pokes
 ::
 +$  action
-  $%  [%new sid=session-id =config]
+  $%  [%new sid=session-id =config js-timeout=@dr]
       [%send sid=session-id text=@t]
       [%fork from=session-id to=session-id]
       [%fork-at from=session-id to=session-id at=@ud]
@@ -220,7 +220,7 @@
       [%fence sid=session-id]
       [%delete sid=session-id]
       [%retry sid=session-id]
-      [%config sid=session-id =config]
+      [%config sid=session-id =config js-timeout=@dr]
       [%timer-set sid=session-id name=@ta in=@dr every=(unit @dr) prompt=@t]
       [%timer-cancel sid=session-id name=@ta]
       [%skill-add name=@t desc=@t body=@t]
