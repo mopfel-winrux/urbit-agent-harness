@@ -66,4 +66,25 @@
   ?:  =('' (key:auth keys (credential-for-config:auth next)))
     [cfg keys (error:hosted 409 'Connect this provider before selecting its model.')]
   [next keys (view next keys)]
+++  models
+  |=  [cfg=config:h keys=(map @t @t) args=json]
+  ^-  json
+  =/  entries  (need (get:j args 'models'))
+  ?>  ?=(%a -.entries)
+  ?>  ?=(^ p.entries)
+  ?>  &((gte (lent p.entries) 1) (lte (lent p.entries) 5))
+  =/  choices
+    %+  turn  p.entries
+    |=  entry=json
+    =/  name  (string:j entry 'provider')
+    (pairs:enjs:format ~[['provider' %s name] ['model' %s (string:j entry 'model')]])
+  ?>  ?=(^ choices)
+  =/  name  (string:j i.choices 'provider')
+  =/  current  (provider-for-url:provider url.cfg)
+  =/  method
+    ?:  =(name current)
+      ?:(=(name (credential-for-config:auth cfg)) 'api-key' 'subscription')
+    ?:  !=('' (key:auth keys name))  'api-key'
+    'subscription'
+  (pairs:enjs:format ~[['revision' %s (revision cfg)] ['provider' %s name] ['model' %s (string:j i.choices 'model')] ['auth' %s method] ['zdr' %b (boolean:j i.p.entries 'zdr' |)] ['fallbacks' %a t.choices]])
 --

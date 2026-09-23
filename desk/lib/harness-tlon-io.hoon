@@ -1,7 +1,7 @@
 ::  Messenger effects and contact projection. Only this module knows which
 ::  public Gall marks a DM, channel post, or invitation needs.
 /-  t=harness-tlon, dv=tlon-channels-ver, cv=tlon-chat-ver, ct=tlon-contacts, a=tlon-activity-ver
-/+  story=harness-tlon-story, profile=harness-tlon-profile, ht=harness-tools, publication=harness-tlon-publication, hist=harness-tlon-history
+/+  story=harness-tlon-story, profile=harness-tlon-profile, ht=harness-tools, publication=harness-tlon-publication, hist=harness-tlon-history, onboarding=harness-tlon-onboarding
 |_  bowl=bowl:gall
 +$  card  card:agent:gall
 ++  publish
@@ -65,6 +65,24 @@
   =/  post  +.item
   ?.  &(=(who p.id:-.post) (gth time since) =(chat+/ kind:+.post))  ~
   `[%dm-post [id:-.post time] [%ship who] content:+.post |]
+++  onboarding-request
+  |=  event=incoming-event:v8:a
+  ^-  (unit @t)
+  ::  Activity does not carry blobs. Read only the exact native post, never a
+  ::  conversation-wide search that could attach somebody else's setup data.
+  ?+  -.event  ~
+      %dm-post
+    ?.  ?=(%ship -.whom.event)  ~
+    =/  post=(may:v7:cv writ:v7:cv)
+      .^((may:v7:cv writ:v7:cv) %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/v4/dm/(scot %p p.whom.event)/writs/writ/id/(scot %p p.id.key.event)/(scot %ud q.id.key.event)/chat-writ-4)
+    ?:  ?=(%| -.post)  ~
+    (request:onboarding p.id.key.event blob:+.+.post)
+      %post
+    =/  post=(may:v9:dv post:v9:dv)
+      .^((may:v9:dv post:v9:dv) %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/[kind.channel.event]/(scot %p ship.channel.event)/[name.channel.event]/posts/post/id/(scot %ud time.key.event)/channel-post-4)
+    ?:  ?=(%| -.post)  ~
+    (request:onboarding p.id.key.event blob:+.+.+.post)
+  ==
 ++  history
   |=  to=destination:t
   ^-  (list [id=@t author=@p sent=@da text=@t])
