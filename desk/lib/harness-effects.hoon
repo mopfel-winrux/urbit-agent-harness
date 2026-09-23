@@ -19,9 +19,11 @@
 ::  QuickJS/WASM executor. The head owns the job record
 ::  and authorizes admission; this binding only builds the Spider effects.
 ++  js-cards
-  |=  [tid=@ta code=@t deadline=@da]
+  |=  [tid=@ta code=@t deadline=@da gap=@dr]
   ^-  (list card)
-  =/  =shed:khan  (tbjs code)
+  ::  gap arms an in-thread jinx (CPU-time) bound so a non-yielding loop
+  ::  bails mid-event; deadline is the yielding-hang Behn watchdog.
+  =/  =shed:khan  (tbjs code gap)
   =/  args=inline-args:spider  [~ `tid [our.bowl q.byk.bowl da+now.bowl] shed]
   :~  [%pass `wire`[%jswatch tid ~] %agent [our.bowl %spider] %watch /thread-result/[tid]]
       [%pass `wire`[%jspoke tid ~] %agent [our.bowl %spider] %poke %spider-inline !>(args)]

@@ -62,6 +62,7 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
       headers: Array.isArray(form.headers) ? form.headers : [],
       system: form.system || '',
       'max-context': catalog.contextFor(form.model?.trim() || PROVIDERS.openrouter.model) || 80_000,
+      'js-timeout': Number(form['js-timeout']) > 0 ? Math.floor(Number(form['js-timeout'])) : 30,
       tools: Array.isArray(form.tools) ? form.tools : [],
     }, provider, authMethod(provider, form))
     try {
@@ -94,6 +95,8 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Tools</h2><p>Capabilities for <strong>{resources.chat}</strong>. Grant only what this conversation needs; shared-instruction changes and external actions affect more than this chat.</p></div></div>
       <ToolOptions servers={mcp.value || []} available={tools.value || []} selected={form.tools || []} onChange={toggleTool} />
+      <label><span>JavaScript execution timeout (seconds)</span><input type="number" min="1" step="1" value={form['js-timeout'] ?? 30} onChange={(event) => field('js-timeout', Math.max(1, Math.floor(Number(event.target.value) || 30)))} /></label>
+      <p className="field-note">CPU-time limit for each <code>run_js</code> call. A script that never finishes — including a tight infinite loop — is stopped after this many seconds instead of blocking the ship.</p>
     </section>
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Appearance</h2><p>Use the system color scheme or choose a fixed theme.</p></div></div>
