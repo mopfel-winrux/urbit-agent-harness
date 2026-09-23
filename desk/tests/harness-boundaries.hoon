@@ -53,7 +53,7 @@
   =/  cfg=config:h  builtin-config:policy
   =.  key.cfg  'test-secret'
   =/  config  (config-json:hj cfg)
-  =/  view  (view-json:hj (play:hl ~[[%config-replaced cfg]]))
+  =/  view  (view-json:hj (play:hl ~[[%config-replaced cfg]]) ~s30)
   ?>  ?=([%o *] config)
   ?>  ?=([%o *] view)
   =/  matches

@@ -16,8 +16,9 @@ Tlon conversations can use an explicit `%code` grant. The configured owner's
 conversation settings apply directly; other senders also need the grant in
 their Tlon permissions. Scheduled work and rehearsals cannot use `%code`.
 Owner-session subagents can inherit it within their parent's current grants.
-Do not enable it for untrusted work. The existing static loop check and yielding
-watchdog do not make pure computation interruptible.
+Do not enable it for untrusted work. Beyond the static loop check and the
+yielding watchdog, a per-conversation CPU-time limit (a `%jinx` hint around the
+WASM engine steps) bails runaway pure computation; it is not a security sandbox.
 
 `desk/lib/thread-builder-js.hoon` runs the bundled QuickJS binary.
 Grubbery supplies the WASM/strand libraries; no
@@ -74,7 +75,7 @@ A minimal thread-builder entry point has this shape:
 ^-  thread:spider
 |=  arg=vase
 =+  !<([~ code=@t] arg)
-(tbjs code)
+(tbjs code ~s30)  ::  second arg is the @dr CPU-time (jinx) bound; 0 = no limit
 ```
 
 Host functions determine what scripts can access. Treat additions that poke,
@@ -82,9 +83,11 @@ fetch, or write as permission changes; prompt instructions do not restrict them.
 
 ## Execution limits
 
-- I/O yields to other events. Pure computation does not: the watchdog and
-  Spider stop cannot interrupt it. Hard CPU isolation requires a separate limit
-  such as fuel, preemption, or a process boundary.
+- I/O yields to other events; the watchdog and Spider stop bound those hangs.
+  Pure computation runs as one uninterrupted event, so it is instead bounded by
+  the per-conversation CPU-time limit — a `%jinx` hint that arms a SIGVTALRM
+  timer and bails the computation on expiry. Set the limit to 0 for no bound.
+  This is a liveness guard, not hard CPU isolation or a security boundary.
 - Timeouts end abandoned I/O waits and reject late results.
 - Use short scripts; long loops and retained executor history can grow memory.
 - Measure cold starts, warm runs, code changes, and restarts separately.

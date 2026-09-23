@@ -59,7 +59,7 @@
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.14)
   =/  loaded  (~(on-load head bowl) !>(saved))
-  =/  out  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%config 'peer--~nec' cfg]))
+  =/  out  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%config 'peer--~nec' cfg ~s30]))
   =/  replies
     %+  murn  -.out
     |=  card=card:agent:gall

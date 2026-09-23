@@ -15,7 +15,7 @@
   =/  saved=state-0  *state-0
   =.  saved  saved(welcome-seen 1, defaults builtin-config:policy)
   =/  loaded  (~(on-load head bowl) !>(saved))
-  =/  created  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%new 'help' defaults.saved]))
+  =/  created  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%new 'help' defaults.saved ~s30]))
   =/  inputs=(list @t)  ~['/work' '/work help' '/work help {}' '/work help tasks' '/work projects' '/work tasks' '/work project-new' '/work task-new']
   %-  zing
   %+  turn  inputs
@@ -49,7 +49,7 @@
   =.  defaults.saved  builtin-config:policy
   =.  projects.workspace.saved  (my ~[['fixture' ['Original' '' 1 ~ |]]])
   =/  loaded  (~(on-load head bowl) !>(saved))
-  =/  created  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%new 'work-fixture' defaults.saved]))
+  =/  created  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%new 'work-fixture' defaults.saved ~s30]))
   =/  prepared  (~(on-poke +.created bowl) %harness-action !>(`action:h`[%send 'work-fixture' '/work project-edit {"id":"fixture","version":1,"title":"Human managed"}']))
   =/  before  !<(state-0 ~(on-save +.prepared bowl))
   ?>  =(1 ~(wyt by requests.work-controls.before))
@@ -77,7 +77,7 @@
   =/  saved=state-0  *state-0
   =.  saved  saved(welcome-seen 1, defaults builtin-config:policy)
   =/  loaded  (~(on-load head bowl) !>(saved))
-  =/  created  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%new 'plain-name' defaults.saved]))
+  =/  created  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%new 'plain-name' defaults.saved ~s30]))
   =/  prepared  (~(on-poke +.created bowl) %harness-action !>(`action:h`[%send 'plain-name' '/work project-new Weekend plans']))
   =/  before  !<(state-0 ~(on-save +.prepared bowl))
   ;:  weld

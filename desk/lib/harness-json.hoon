@@ -56,14 +56,15 @@
 ::  json for the ui: full session view (key withheld)
 ::
 ++  view-json
-  |=  v=view:h
+  |=  [v=view:h js-timeout=@dr]
   ^-  json
   ::  Configuration has one projection, including its credential redaction.
   =/  base  (config-json config.v)
   ?>  ?=(%o -.base)
   :-  %o
   %-  ~(gas by p.base)
-  :~  ['summary' ?~(summary.v ~ [%s u.summary.v])]
+  :~  ['js-timeout' (numb:enjs:format (div js-timeout ~s1))]
+      ['summary' ?~(summary.v ~ [%s u.summary.v])]
       ['memory' (memory-json memory.v)]
       ['items' %a (turn items.v item-ui-json)]
       ['pending' %b !=(~ pending.v)]
@@ -309,9 +310,19 @@
   ^-  action:h
   =,  dejs:format
   =/  secs  (cu |=(s=@ud `@dr`(mul s ~s1)) ni)
+  ::  decode [sid config js-timeout] with js-timeout optional (seconds;
+  ::  absent -> ~s30). the timeout persists per-session outside config.
+  =/  timed
+    |=  j=json
+    ^-  [session-id:h config:h @dr]
+    ?>  ?=(%o -.j)
+    =/  jt  (~(get by p.j) 'js-timeout')
+    :+  (so:dejs:format (~(got by p.j) 'sid'))
+      (json-config j)
+    ?~(jt ~s30 (mul (ni:dejs:format u.jt) ~s1))
   %.  jon
   %-  of
-  :~  new+(ot ~[sid+so config+json-config])
+  :~  new+timed
       send+(ot ~[sid+so text+so])
       fork+(ot ~[from+so to+so])
       fork-at+(ot ~[from+so to+so at+ni])
@@ -319,7 +330,7 @@
       cancel+(ot ~[sid+so])
       delete+(ot ~[sid+so])
       retry+(ot ~[sid+so])
-      config+(ot ~[sid+so config+json-config])
+      config+timed
       timer-set+(ot ~[sid+so name+(su sym) in+secs every+(mu secs) prompt+so])
       timer-cancel+(ot ~[sid+so name+(su sym)])
       skill-add+(ot ~[name+so desc+so body+so])
