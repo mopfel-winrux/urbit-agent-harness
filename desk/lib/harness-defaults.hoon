@@ -75,7 +75,6 @@
   ^-  config:h
   :*  |
       ~
-      ~s30
       'https://openrouter.ai/api/v1/chat/completions'
       'z-ai/glm-5.3-flash'
       ''

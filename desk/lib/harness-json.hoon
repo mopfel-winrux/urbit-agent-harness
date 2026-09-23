@@ -51,7 +51,6 @@
       (pairs:enjs:format ~[['name' %s name] ['value' %s value]])
       ['system' %s system.cfg]
       ['max-context' (numb:enjs:format max-context.cfg)]
-      ['js-timeout' (numb:enjs:format (div js-timeout.cfg ~s1))]
       ['tools' %a (turn tools.cfg grant-json)]
   ==
 ::  json for the ui: full session view (key withheld)
@@ -347,12 +346,7 @@
       tools+(ar json-grant)
     ==
   =/  fallbacks  (~(get by p.jon) 'fallbacks')
-  =/  js-to  (~(get by p.jon) 'js-timeout')  ::  seconds; absent -> ~s30
-  :*  ?~(zdr | (bo u.zdr))
-      ?~(fallbacks ~ (parse:routing u.fallbacks))
-      ?~(js-to ~s30 (mul (ni u.js-to) ~s1))
-      (decode jon)
-  ==
+  [?~(zdr | (bo u.zdr)) ?~(fallbacks ~ (parse:routing u.fallbacks)) (decode jon)]
 ++  grant-json
   |=  grant=tool-grant:h
   ^-  json
