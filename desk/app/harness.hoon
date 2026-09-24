@@ -3483,6 +3483,11 @@
     [~[(acp-stream-card:wire-codec connection.u.prompt sid delta)] state]
   =/  streamed  (~(get by streams) [sid req])
   =.  streams  (~(del by streams) [sid req])
+  =/  reasoning=(unit @t)
+    ?.  ?&((responses-route:hp url.request-config) =('openai' (provider-for-url:hp url.request-config)) =(%turn kind))  `''
+    ?:  ?=(%cancel -.res)  `''
+    ?~  full-file.res  `''
+    (mole |.((responses-reasoning:hp q.data.u.full-file.res)))
   =/  ev=event:h
     ?:  ?=(%cancel -.res)
       [%llm-failed req 'request cancelled by runtime']
@@ -3499,6 +3504,7 @@
           (fall body '')
       ==
     ?~  body  [%llm-failed req 'empty response body']
+    ?~  reasoning  [%llm-failed req 'Responses reasoning is missing encrypted continuation content']
     =/  request-url=@t  url.request-config
     =/  responses=?  (responses-route:hp request-url)
     =/  digest
@@ -3531,7 +3537,10 @@
     [cards.u.fallback state(sessions (~(put by sessions) sid session.u.fallback))]
   =?  ev  &(?=(%llm-failed -.ev) =(%compaction kind))
     [%compaction-failed req err.ev [0 0]]
-  =^  cs1  ses  (record-all sid ses ~[ev])
+  =/  events=(list event:h)  ~[ev]
+  =?  events  ?&(?=(%llm-completed -.ev) ?=(^ reasoning) !=('' u.reasoning))
+    [[%llm-reasoning req url.request-config model.request-config u.reasoning] events]
+  =^  cs1  ses  (record-all sid ses events)
   =^  cs2  state  (drive-put sid ses)
   [(weld cs1 cs2) state]
 ::

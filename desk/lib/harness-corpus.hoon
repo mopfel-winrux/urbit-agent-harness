@@ -83,6 +83,7 @@
   |=  it=item:h
   ^-  @t
   ?-  -.it
+    %reasoning  ''
     %user  body.it
     %tool  body.it
     %assistant

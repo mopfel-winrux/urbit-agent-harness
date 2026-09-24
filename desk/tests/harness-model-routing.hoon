@@ -10,7 +10,7 @@
     (expect-eq !>(`expected) !>((get:j (payload:hp v %turn ~) 'provider')))
     (expect-eq !>(`expected) !>((get:j (payload:hp v %compaction ~) 'provider')))
     (expect-eq !>(~) !>((get:j (payload:hp v(zdr.config |) %turn ~) 'provider')))
-    (expect-eq !>(~) !>((get:j (payload:hp v(zdr.config |, url.config 'https://api.openai.com/v1/chat/completions') %turn ~) 'provider')))
+    (expect-eq !>(~) !>((get:j (payload:hp v(zdr.config |, url.config 'https://api.openai.com/v1/responses') %turn ~) 'provider')))
   ==
 ++  test-fallback-consumes-order-and-preserves-privacy-and-authority
   =/  cfg  builtin-config:policy

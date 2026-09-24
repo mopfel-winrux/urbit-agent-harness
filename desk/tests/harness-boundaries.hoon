@@ -2,8 +2,34 @@
 ::  of the reducer. Use fixture credentials only; never inspect real secrets.
 /-  h=harness, w=harness-workspace, hn=harness-notes, ws=harness-workspace-search, pc=harness-project-client, wc=harness-work-control, *harness-store
 /-  hosted=harness-hosted, renew=harness-oauth
+/-  c=harness-corpus
 /+  *test, storage=harness-store, policy=harness-defaults, hj=harness-json, hp=harness-provider, ht=harness-tools, hl=harness
 |%
+++  test-openai-endpoint-migration-preserves-auth-and-transcripts
+  =/  saved=state-0  *state-0
+  =/  cfg  builtin-config:policy
+  =.  cfg  cfg(url 'https://api.openai.com/v1/chat/completions', model 'gpt-6-luna')
+  =.  defaults.saved  cfg
+  =.  peer-base.saved  `cfg
+  =.  summary-models.saved  [`cfg `cfg]
+  =.  sessions.saved  (my ~[['fixture' [~[[%input-admitted [%user 'Keep me']] [%config-replaced cfg]] 3]]])
+  =/  source=conversation:c  *conversation:c
+  =.  source  source(sid 'fixture', seen log:(~(got by sessions.saved) 'fixture'), view (play:hl log:(~(got by sessions.saved) 'fixture')))
+  =.  corpus.saved  corpus.saved(names (my ~[['fixture' 0v1c]]), next 0v33, scopes (my ~[[0v1c source]]))
+  =.  provider-keys.saved  (my ~[['openai' 'fixture-api'] ['openai-device' 'fixture-subscription']])
+  =/  out  (load:storage !>(saved))
+  =/  v  (play:hl log:(~(got by sessions.out) 'fixture'))
+  ;:  weld
+    (expect-eq !>('https://api.openai.com/v1/responses') !>(url.defaults.out))
+    (expect-eq !>(defaults.out) !>(config.v))
+    (expect-eq !>(`defaults.out) !>(peer-base.out))
+    (expect-eq !>(provider-keys.saved) !>(provider-keys.out))
+    (expect-eq !>(names.corpus.saved) !>(names.corpus.out))
+    (expect-eq !>(0v33) !>(next.corpus.out))
+    (expect-eq !>(config.v) !>(config.view:(~(got by scopes.corpus.out) 0v1c)))
+    (expect-eq !>(~[[%user 'Keep me']]) !>(items.v))
+    (expect-eq !>(out) !>((load:storage !>(out))))
+  ==
 ++  test-bootstrap-enables-configurable-local-families
   =/  cfg  builtin-config:policy
   =/  expected=(list tool-grant:h)

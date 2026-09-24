@@ -43,7 +43,7 @@
     [cfg keys (error:hosted 400 'Zero data retention routing requires OpenRouter.')]
   ?.  &(!=('' model) (lte (met 3 model) 256) |(=('api-key' method) =('subscription' method)))  out
   =/  url=@t
-    ?:  =('openai' provider)  ?:(=('subscription' method) device-url:auth 'https://api.openai.com/v1/chat/completions')
+    ?:  =('openai' provider)  ?:(=('subscription' method) device-url:auth 'https://api.openai.com/v1/responses')
     ?:  =('anthropic' provider)  'https://api.anthropic.com/v1/chat/completions'
     ?:  =('xai' provider)  ?:(=('subscription' method) xai-url:auth 'https://api.x.ai/v1/chat/completions')
     ?:  &(=('openrouter' provider) =('api-key' method))  'https://openrouter.ai/api/v1/chat/completions'

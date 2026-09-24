@@ -6,7 +6,7 @@
 ++  endpoint
   |=  name=@t
   ?:  =('openrouter' name)  'https://openrouter.ai/api/v1/chat/completions'
-  ?:  =('openai' name)  'https://api.openai.com/v1/chat/completions'
+  ?:  =('openai' name)  'https://api.openai.com/v1/responses'
   ?:  =('anthropic' name)  'https://api.anthropic.com/v1/chat/completions'
   ?:  =('xai' name)  'https://api.x.ai/v1/chat/completions'
   ''

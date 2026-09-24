@@ -237,7 +237,7 @@ URL. Custom providers allow editable endpoints and headers.
 
 | OpenAI authentication | Credential slot | Inference route |
 | --- | --- | --- |
-| API key | `openai` | `https://api.openai.com/v1/chat/completions` |
+| API key | `openai` | `https://api.openai.com/v1/responses` |
 | Device login | `openai-device` | `https://chatgpt.com/backend-api/codex/responses` |
 
 `harness/credential/set` stores a credential under its `provider` slot. Device

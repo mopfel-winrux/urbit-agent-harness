@@ -48,7 +48,7 @@
           ~
         ~[(msg-json 'system' (skills-catalog skills))]
       ::
-        (turn items.v item-json)
+        (turn (skim items.v |=(it=item:h !?=(%reasoning -.it))) item-json)
       ::
         ?.  =(%compaction kind)  ~
         :_  ~
@@ -74,7 +74,7 @@
   =?  base  &(zdr.config.v =('openrouter' (provider-for-url url.config.v)))
     (snoc base ['provider' (pairs:enjs:format ~[['zdr' %b &] ['data_collection' %s 'deny']])])
   (pairs:enjs:format base)
-::  +responses-body: Responses wire format for subscription inference.
+::  +responses-body: stateless Responses inference with opaque continuation.
 ::
 ++  responses-body
   |=  [v=view:h kind=request-kind:h skills=(map @t skill:h)]
@@ -92,7 +92,7 @@
           ~
         ~[(responses-message 'developer' (skills-catalog skills))]
       ::
-        (zing (turn items.v responses-item))
+        (responses-input config.v items.v =(%turn kind))
       ::
         ?.  =(%compaction kind)  ~
         :_  ~
@@ -112,6 +112,10 @@
         ['store' %b |]
         ['stream' %b &]
     ==
+  =?  base  =('openai' (provider-for-url url.config.v))
+    (snoc base ['include' %a ~[[%s 'reasoning.encrypted_content']]])
+  =?  base  =('https://api.openai.com/v1/responses' url.config.v)
+    (snoc base ['max_output_tokens' (numb:enjs:format (output-budget:context max-context.config.v))])
   =?  base  =(%turn kind)
     (snoc base ['tools' (responses-tool-defs tools.config.v)])
   (pairs:enjs:format base)
@@ -123,10 +127,26 @@
     (pairs:enjs:format ~[['type' %s ?:(=('assistant' role) 'output_text' 'input_text')] ['text' %s text]])
   (pairs:enjs:format ~[['role' %s role] ['content' %a ~[content]]])
 ::
+++  responses-input
+  |=  [cfg=config:h items=(list item:h) replay=?]
+  ^-  (list json)
+  ?~  items  ~
+  =/  it  i.items
+  ?.  ?=(%reasoning -.it)
+    (weld (responses-item it) $(items t.items))
+  ?.  ?&(replay =(url.it url.cfg) =(model.it model.cfg) ?=([[%assistant *] *] t.items))
+    $(items t.items)
+  ::  Keep the exact ordering of reasoning, messages and calls. The following
+  ::  assistant item is their human projection, not a second provider message.
+  =/  output  (need (de:json:html data.it))
+  ?>  ?=(%a -.output)
+  (weld p.output $(items t.t.items))
+::
 ++  responses-item
   |=  it=item:h
   ^-  (list json)
   ?-  -.it
+      %reasoning  ~
       %user  ~[(responses-message 'user' body.it)]
       %assistant
     =/  msg=(list json)
@@ -165,7 +185,7 @@
   =/  description  (~(get by p.u.fun) 'description')
   =/  parameters  (~(get by p.u.fun) 'parameters')
   ?.  &(?=(^ name) ?=(^ description) ?=(^ parameters))  ~
-  `(pairs:enjs:format ~[['type' %s 'function'] ['name' u.name] ['description' u.description] ['parameters' u.parameters]])
+  `(pairs:enjs:format ~[['type' %s 'function'] ['name' u.name] ['description' u.description] ['parameters' u.parameters] ['strict' %b |]])
 ::  +skills-catalog: the system message advertising available skills
 ::
 ++  skills-catalog
@@ -191,6 +211,7 @@
   |=  it=item:h
   ^-  json
   ?-  -.it
+      %reasoning  ~
       %user  (msg-json 'user' body.it)
   ::
       %assistant
@@ -387,6 +408,32 @@
     :-  ?:(?=([~ %n *] pt) (fall (rush p.u.pt dem) 0) 0)
     ?:(?=([~ %n *] ct) (fall (rush p.u.ct dem) 0) 0)
   [%& stop u [%assistant content calls]]
+++  responses-reasoning
+  |=  body=@t
+  ^-  @t
+  =/  items
+    %+  murn  (text-lines body)
+    |=  line=tape
+    ^-  (unit json)
+    ?.  =("data: " (scag 6 line))  ~
+    =/  event  (de:json:html (crip (slag 6 line)))
+    ?.  ?=([~ %o *] event)  ~
+    ?.  =(`[%s 'response.output_item.done'] (~(get by p.u.event) 'type'))  ~
+    =/  item  (~(get by p.u.event) 'item')
+    ?.  ?=([~ %o *] item)  ~
+    item
+  =/  reasoning
+    %+  skim  items
+    |=  item=json
+    ?&(?=(%o -.item) =(`[%s 'reasoning'] (~(get by p.item) 'type')))
+  ?~  reasoning  ''
+  ::  Stateless replay needs the encrypted content, not a server-side item ID.
+  ?>  %+  levy  `(list json)`reasoning
+      |=  item=json
+      ?>  ?=(%o -.item)
+      =/  encrypted  (~(get by p.item) 'encrypted_content')
+      ?&(?=([~ %s *] encrypted) !=('' p.u.encrypted))
+  (en:json:html [%a items])
 ::  +parse-responses-sse: collect completed output items from a Responses
 ::  event stream. The terminal response currently omits its output array on
 ::  the Codex route. Collect output_item.done, but require a terminal response:
@@ -402,6 +449,10 @@
     ^-  (unit json)
     ?.  =("data: " (scag 6 line))  ~
     (de:json:html (crip (slag 6 line)))
+  =/  errors
+    %+  murn  events
+    |=(ev=json ?@(ev ~ (wire-error:failure ev)))
+  ?^  errors  [%| i.errors]
   =/  acc
     %+  roll  events
     |=  [ev=json acc=[text=@t calls=(list tool-call:h) terminal=(unit stop-reason:h) u=usage:h]]
@@ -448,6 +499,7 @@
     acc(calls (snoc calls.acc [p.u.id p.u.name p.u.args]))
   ?~  terminal.acc  [%| 'provider stream ended before completion']
   =/  stop  u.terminal.acc
+  ?:  =(%error stop)  [%| 'provider response failed']
   =?  stop  &(=(%stop stop) ?=(^ calls.acc))  %tool-calls
   [%& stop u.acc [%assistant text.acc calls.acc]]
 ::
@@ -541,11 +593,11 @@
   |=  url=@t
   ^-  @t
   ?:  =('https://openrouter.ai/api/v1/chat/completions' url)  'openrouter'
-  ?:  =('https://api.openai.com/v1/chat/completions' url)     'openai'
+  ?:  =('https://api.openai.com/v1/responses' url)     'openai'
   ?:  =('https://chatgpt.com/backend-api/codex/responses' url)  'openai'
   ?:  =('https://api.anthropic.com/v1/chat/completions' url)  'anthropic'
   ?:  |(=('https://cli-chat-proxy.grok.com/v1/responses' url) =('https://api.x.ai/v1/chat/completions' url))  'xai'
   'custom'
 ++  responses-route
-  |=(url=@t |(=('https://chatgpt.com/backend-api/codex/responses' url) =('https://cli-chat-proxy.grok.com/v1/responses' url)))
+  |=(url=@t |(=('https://api.openai.com/v1/responses' url) =('https://chatgpt.com/backend-api/codex/responses' url) =('https://cli-chat-proxy.grok.com/v1/responses' url)))
 --

@@ -81,6 +81,9 @@
     ::  here also keeps already-recorded config/retry exchanges replayable.
     %llm-requested         v(pending `[req.e kind.e], err ~)
     %llm-routed            v(route `[req.e config.e])
+      %llm-reasoning
+    ?.  =(pending.v `[req.e %turn])  v
+    v(items [[%reasoning url.e model.e data.e] items.v], positions [revision.v positions.v])
     %llm-failed            v(pending ~, compaction ~, lcm-plan ~, err `err.e)
     %tool-requested        v(wait (~(put in wait.v) call-id.e))
     %tool-requested-2      v(wait (~(put in wait.v) call-id.e))
@@ -249,6 +252,8 @@
   ?:  (gte keep n)  items
   =/  sl  (slag (sub n keep) items)
   ?:  ?=([[%tool *] *] sl)  $(keep +(keep))
+  =/  previous  (snag (dec (sub n keep)) items)
+  ?:  ?&(?=([[%assistant *] *] sl) ?=(%reasoning -.previous))  $(keep +(keep))
   sl
 ::  +last-calls: the last assistant item's tool calls,
 ::  and the items that came after it
@@ -314,6 +319,7 @@
   |-  ^-  @ud
   ?~  rev  n
   ?-  -.i.rev
+    %reasoning  $(rev t.rev)
     %assistant  $(rev t.rev)
     %user       n
     %tool       ?.((is-error body.i.rev) n $(rev t.rev, n +(n)))

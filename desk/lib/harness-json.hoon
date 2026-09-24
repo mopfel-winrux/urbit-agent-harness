@@ -66,7 +66,7 @@
   :~  ['js-timeout' (numb:enjs:format (div js-timeout ~s1))]
       ['summary' ?~(summary.v ~ [%s u.summary.v])]
       ['memory' (memory-json memory.v)]
-      ['items' %a (turn items.v item-ui-json)]
+      ['items' %a (turn (skim items.v |=(it=item:h !?=(%reasoning -.it))) item-ui-json)]
       ['pending' %b !=(~ pending.v)]
       ['wait' %a (turn ~(tap in wait.v) |=(id=@t `json`[%s id]))]
       ['err' ?~(err.v ~ [%s u.err.v])]
@@ -94,6 +94,7 @@
   |=  it=item:h
   ^-  json
   ?-  -.it
+      %reasoning  ~
       %user
     (pairs:enjs:format ~[['role' %s 'user'] ['body' %s body.it]])
   ::
@@ -122,6 +123,8 @@
   |=  e=event:h
   ^-  json
   ?-  -.e
+      %llm-reasoning
+    (pairs:enjs:format ~[['type' %s 'llm-reasoning'] ['req' (numb:enjs:format req.e)]])
       %config-replaced
     %-  pairs:enjs:format
     :~  ['type' %s 'config']

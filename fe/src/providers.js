@@ -9,7 +9,7 @@ export const PROVIDERS = {
   },
   openai: {
     title: 'OpenAI',
-    endpoint: 'https://api.openai.com/v1/chat/completions',
+    endpoint: 'https://api.openai.com/v1/responses',
     modelsEndpoint: 'https://api.openai.com/v1/models',
     model: 'gpt-5.6-luna',
     deviceEndpoint: 'https://chatgpt.com/backend-api/codex/responses',

@@ -49,13 +49,15 @@
   $%  [%user body=@t]
       [%assistant body=@t calls=(list tool-call)]
       [%tool call-id=@t name=@t body=@t]
+      ::  Ordered provider output with encrypted reasoning; not a transcript.
+      [%reasoning url=@t model=@t data=@t]
   ==
 ::  config is data; capabilities absent by default (tools=~)
 ::
 +$  config
   $:  zdr=$~(| ?)       ::  require OpenRouter zero-data-retention routing
       fallbacks=(list model-choice)
-      url=@t              ::  chat-completions endpoint
+      url=@t              ::  inference endpoint
       model=@t
       key=@t              ::  ingress-only; blanked before the config event
       headers=(list [name=@t value=@t])
@@ -161,6 +163,7 @@
       [%llm-requested req=@ud kind=request-kind]
       [%llm-routed req=@ud =config]
       [%llm-completed req=@ud stop=stop-reason =usage =item]
+      [%llm-reasoning req=@ud url=@t model=@t data=@t]
       [%llm-failed req=@ud err=@t]
       [%tool-requested call-id=@t name=@t]
       [%tool-requested-2 generation=@ud call-id=@t name=@t]

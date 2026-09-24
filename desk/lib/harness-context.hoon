@@ -22,6 +22,7 @@
   |=  it=item:h
   ^-  @ud
   ?-  -.it
+    %reasoning  (met 3 data.it)
     %user  (met 3 body.it)
     %tool  (met 3 body.it)
     %assistant

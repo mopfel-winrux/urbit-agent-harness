@@ -51,7 +51,7 @@
 ++  test-fresh-token-and-api-cards-do-not-refresh
   =/  request=http-card  req
   =/  fresh  (~(put by keys) 'openai-device' (token 2.000.000.000))
-  =/  out  (filter:oa ~[request request(url.request 'https://api.openai.com/v1/chat/completions')] *state fresh ~2026.1.1 'openai')
+  =/  out  (filter:oa ~[request request(url.request 'https://api.openai.com/v1/responses')] *state fresh ~2026.1.1 'openai')
   (expect !>(&(=(2 (lent cards.out)) =(~ active.oauth.out) =(~ waiting.oauth.out))))
 ++  test-cleared-login-cannot-be-resurrected-by-refresh-token
   =/  cleared  (~(put by keys) 'openai-device' '')

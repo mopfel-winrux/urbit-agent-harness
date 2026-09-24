@@ -1,7 +1,48 @@
 ::  Gall persistence accepts the current tagged envelope.
 /-  *harness-store
+/-  h=harness, c=harness-corpus
 |%
 ++  load
+  |=  saved=vase
+  ^-  state-0
+  =/  state  (envelope saved)
+  =/  sessions
+    %-  ~(run by sessions.state)
+    |=  ses=session:h
+    ses(log (turn log.ses migrate-event))
+  ::  Scope IDs are authority references: preserve them and their index while
+  ::  updating the cached copies of configuration events and projected routes.
+  =.  scopes.corpus.state  (~(run by scopes.corpus.state) migrate-conversation)
+  %=  state
+    sessions  sessions
+    defaults  (migrate-config defaults.state)
+    peer-base  (bind peer-base.state migrate-config)
+    summary-models  [(bind compaction.summary-models.state migrate-config) (bind lcm.summary-models.state migrate-config)]
+  ==
+++  migrate-conversation
+  |=  old=conversation:c
+  =/  view  view.old
+  =/  route  route.view
+  =?  route  ?=(^ route)  `[req.u.route (migrate-config config.u.route)]
+  %=  old
+    seen  (turn seen.old migrate-event)
+    reverse  (turn reverse.old migrate-event)
+    forward  (turn forward.old migrate-event)
+    incoming  (turn incoming.old migrate-event)
+    view  view(config (migrate-config config.view), route route)
+  ==
+++  migrate-config
+  |=  cfg=config:h
+  ?:  =('https://api.openai.com/v1/chat/completions' url.cfg)
+    cfg(url 'https://api.openai.com/v1/responses')
+  cfg
+++  migrate-event
+  |=  e=event:h
+  ^-  event:h
+  ?:  ?=(%config-replaced -.e)  e(config (migrate-config config.e))
+  ?:  ?=(%llm-routed -.e)  e(config (migrate-config config.e))
+  e
+++  envelope
   |=  saved=vase
   ^-  state-0
   ::  new shape loads directly (fresh install or re-load).

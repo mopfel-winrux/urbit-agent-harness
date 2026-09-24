@@ -161,6 +161,7 @@
   |=  item=item:h
   ^-  (list card)
   ?-  -.item
+      %reasoning  ~
       %user
     =/  content=json
       (pairs:enjs:format ~[['type' %s 'text'] ['text' %s body.item]])
