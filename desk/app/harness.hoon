@@ -29,6 +29,7 @@
 /+  hosted-provision=harness-hosted-provision
 /+  hosted-cleanup=harness-hosted-cleanup
 /+  routing=harness-model-routing
+/+  mcp=harness-mcp
 |%
 +$  card  card:agent:gall
 --
@@ -2278,7 +2279,8 @@
       ?.  =(%turn kind.u.pending.v)  ''
       =/  progress  (~(get by streams) [u.sid req.u.pending.v])
       ?~  progress  ''
-      (stream-text:hp body.u.progress (responses-route:hp url.config.v))
+      =/  cfg  (active:routing v req.u.pending.v)
+      (display-text:hp url.cfg body.u.progress)
     =/  result  (snapshot:hs u.current since)
     ?>  ?=(%o -.result)
     =.  result  [%o (~(put by p.result) 'streaming' [%s streaming])]
@@ -3411,10 +3413,12 @@
   ^-  card
   =/  key=@t  (provider-key ?:((xai-route:auth url) 'xai-device' ?:(=('openai' provider) ?:((device-route:auth url) 'openai-device' 'openai') provider)))
   =/  hed=header-list:http  ~[['accept' 'application/json']]
+  =?  hed  |(=('anthropic' provider) =('anthropic-device' provider))
+    [['anthropic-version' '2023-06-01'] hed]
   =?  hed  =('anthropic-device' provider)
-    (weld hed ~[['anthropic-version' '2023-06-01'] ['anthropic-beta' 'oauth-2025-04-20']])
+    [['anthropic-beta' 'oauth-2025-04-20'] hed]
   =?  hed  !=('' key)
-    [['authorization' (cat 3 'Bearer ' key)] hed]
+    [?:(=('anthropic' provider) ['x-api-key' key] ['authorization' (cat 3 'Bearer ' key)]) hed]
   =/  account  (provider-key 'openai-account')
   =?  hed  &(!=('' account) =('openai' provider) (device-route:auth url))
     [['chatgpt-account-id' account] hed]
@@ -3435,11 +3439,7 @@
   =/  =request:http
     :*  %'POST'
         url.config.v
-        =/  hed=header-list:http
-          [['content-type' 'application/json'] (headers:auth provider-keys url.config.v headers.config.v)]
-        =?  hed  !=('' eff-key)
-          [['authorization' (cat 3 'Bearer ' eff-key)] hed]
-        hed
+        [['content-type' 'application/json'] (request-headers:auth provider-keys config.v eff-key)]
         `(as-octs:mimes:html body)
     ==
   :*  %pass  `wire`[%llm `@ta`sid (scot %ud req) kind ~]
@@ -3470,9 +3470,7 @@
     =/  key  [sid req]
     =/  prior=stream-progress  (fall (~(get by streams) key) ['' 0])
     =/  body=@t  (cat 3 body.prior q.u.incremental)
-    =/  responses=?
-      (responses-route:hp url.request-config)
-    =/  text=@t  (stream-text:hp body responses)
+    =/  text=@t  (display-text:hp url.request-config body)
     =/  total=@ud  (met 3 text)
     =/  sent=@ud  sent.prior
     =.  streams  (~(put by streams) key [body total])
@@ -3484,10 +3482,10 @@
   =/  streamed  (~(get by streams) [sid req])
   =.  streams  (~(del by streams) [sid req])
   =/  reasoning=(unit @t)
-    ?.  ?&((responses-route:hp url.request-config) =('openai' (provider-for-url:hp url.request-config)) =(%turn kind))  `''
+    ?.  =(%turn kind)  `''
     ?:  ?=(%cancel -.res)  `''
     ?~  full-file.res  `''
-    (mole |.((responses-reasoning:hp q.data.u.full-file.res)))
+    (mole |.((continuation:hp url.request-config q.data.u.full-file.res)))
   =/  ev=event:h
     ?:  ?=(%cancel -.res)
       [%llm-failed req 'request cancelled by runtime']
@@ -3504,13 +3502,10 @@
           (fall body '')
       ==
     ?~  body  [%llm-failed req 'empty response body']
-    ?~  reasoning  [%llm-failed req 'Responses reasoning is missing encrypted continuation content']
+    ?~  reasoning  [%llm-failed req 'Provider returned an invalid reasoning continuation or incomplete stream']
     =/  request-url=@t  url.request-config
-    =/  responses=?  (responses-route:hp request-url)
     =/  digest
-      ?:  responses
-        (mule |.((parse-responses-sse:hp u.body)))
-      (mule |.((parse-chat-body:hp u.body)))
+      (mule |.((digest:hp request-url u.body)))
     ?:  ?=(%| -.digest)
       [%llm-failed req 'failed to digest response']
     =/  out  p.digest
@@ -3951,6 +3946,8 @@
         ==
     ==
     'rejected: local MCP access or server configuration changed'
+  =?  body  =('list_mcp_tools' name.u.call)
+    (receipt:mcp args.u.call body)
   =^  recorded  u.maybe
     (record-all sid u.maybe ~[[%tool-completed call-id name.u.call (clip:ht body 48.000)]])
   =^  driven  state  (drive-put sid u.maybe)
@@ -3986,7 +3983,10 @@
     =/  server  (~(get by mcp-servers) u.server-id)
     ?~  server  'rejected: MCP server is no longer available'
     ?.  enabled.u.server  'rejected: MCP server is no longer available'
-    body
+    ?.  =('list_mcp_tools' tname)  body
+    ?:  ?=(%cancel -.res)  body
+    ?~  full-file.res  body
+    (receipt:mcp args.u.call (rap 3 'HTTP ' (scot %ud status-code.response-header.res) '\0a\0a' q.data.u.full-file.res ~))
   =?  body  &(!|(=('list_mcp_tools' tname) =('call_mcp_tool' tname)) !(authorized-call sid call-id tname))
     'rejected: tool request is no longer authorized'
   =^  cs1  ses  (record-all sid ses ~[[%tool-completed call-id tname body]])

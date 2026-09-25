@@ -35,6 +35,8 @@
   |=  cfg=config:h
   ?:  =('https://api.openai.com/v1/chat/completions' url.cfg)
     cfg(url 'https://api.openai.com/v1/responses')
+  ?:  =('https://api.anthropic.com/v1/chat/completions' url.cfg)
+    cfg(url 'https://api.anthropic.com/v1/messages')
   cfg
 ++  migrate-event
   |=  e=event:h

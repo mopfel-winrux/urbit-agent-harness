@@ -49,7 +49,7 @@
   $%  [%user body=@t]
       [%assistant body=@t calls=(list tool-call)]
       [%tool call-id=@t name=@t body=@t]
-      ::  Ordered provider output with encrypted reasoning; not a transcript.
+      ::  Provider continuation with reasoning/signatures; not a transcript.
       [%reasoning url=@t model=@t data=@t]
   ==
 ::  config is data; capabilities absent by default (tools=~)

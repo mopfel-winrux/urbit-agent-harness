@@ -10,7 +10,7 @@ import { Client, base, cookie } from './lib/ship-client.mjs'
 
 const expected = process.env.SOAK_EXPECT_SHIP
 const expectedUpstream = process.env.EXPECT_MCP_UPSTREAM
-const expectedRequests = expectedUpstream ? 9 : 7
+const expectedRequests = expectedUpstream ? 10 : 8
 assert.ok(expected?.startsWith('~'), 'Set SOAK_EXPECT_SHIP to the local test ship')
 assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(new URL(base).hostname), 'Use a loopback ship')
 const client = new Client()
@@ -43,7 +43,9 @@ const provider = createServer(async (req, res) => {
     requests++
     assert.ok(requests <= expectedRequests, 'No retry loop')
     assert.ok(body.tools.some(row => row.function.name === 'list_mcp_tools'))
-    const receipts = body.messages.filter(row => row.role === 'tool')
+    const allReceipts = body.messages.filter(row => row.role === 'tool')
+    const schemas = allReceipts.filter(row => row.tool_call_id.startsWith('schema-'))
+    const receipts = allReceipts.filter(row => !row.tool_call_id.startsWith('schema-'))
     let calls = []
     if (!receipts.length) calls = [tool('discover', 'list_mcp_servers', {})]
     else if (receipts.length === 1) {
@@ -54,9 +56,19 @@ const provider = createServer(async (req, res) => {
     } else if (receipts.length === 2) {
       const tools = result(receipts[1]).tools
       assert.deepEqual(tools.map(row => row.name).sort(), ['call', 'describe', 'list_upstreams', 'search'])
-      assert.ok(tools.every(row => row.description && row.inputSchema), 'The discovery workflow is self-describing')
-      listed = true
-      calls = invoke('upstreams', 'list_upstreams')
+      assert.ok(tools.every(row => row.description && !row.inputSchema), 'Discovery returns summaries without schemas')
+      if (!schemas.length) {
+        calls = tools.map(row => tool(`schema-${row.name}`, 'list_mcp_tools', { server: serverId, name: row.name }))
+      } else {
+        assert.equal(schemas.length, tools.length)
+        for (const receipt of schemas) {
+          const [definition] = result(receipt).tools
+          assert.equal(receipt.tool_call_id, `schema-${definition.name}`)
+          assert.equal(definition.inputSchema.type, 'object')
+        }
+        listed = true
+        calls = invoke('upstreams', 'list_upstreams')
+      }
     } else if (receipts.length === 3) {
       const { upstreams } = content(receipts[2])
       assert.ok(upstreams.some(row => row.enabled), 'Enabled upstreams are visible')

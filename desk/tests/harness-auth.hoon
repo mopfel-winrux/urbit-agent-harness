@@ -34,7 +34,7 @@
 ++  test-anthropic-auth-selection-does-not-cross-credential-slots
   =/  cfg=config:h  *config:h
   =.  zdr.cfg  |
-  =.  url.cfg  'https://api.anthropic.com/v1/chat/completions'
+  =.  url.cfg  'https://api.anthropic.com/v1/messages'
   =/  device  cfg(headers ~[['anthropic-beta' 'oauth-2025-04-20']])
   =/  keys  (my ~[['anthropic' 'API_KEY']])
   ;:  weld

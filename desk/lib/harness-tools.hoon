@@ -434,12 +434,16 @@
     :-  (fun-json 'list_mcp_servers' 'Discover enabled MCP servers granted to this conversation. Call this first; you do not need the user to supply a server ID.' ~)
     :~  %^    fun-json
             'list_mcp_tools'
-          'List tools on a server discovered with list_mcp_servers'
-        ~[['server' 'the configured MCP server id']]
+          'Discover tools as names and short descriptions, without schemas. Supply name for a full tool definition before calling it. Follow next using its exact arguments for more tools.'
+        :~  ['server' 'the configured MCP server id']
+            ['name' 'optional exact tool name to retrieve its full description and inputSchema']
+            ['cursor' 'opaque server page cursor from discovery; omit for the first page']
+            ['offset' 'within-page offset from next, as a string; omit for the first page']
+        ==
       ::
         %^    fun-json
             'call_mcp_tool'
-          'Call a tool on a configured MCP server'
+          'Call a tool on a configured MCP server. First retrieve its inputSchema with list_mcp_tools using name; do not guess arguments from the summary.'
         :~  ['server' 'the configured MCP server id']
             ['name' 'the MCP tool name']
             ['arguments' 'tool arguments as a JSON object string; use {} when empty']

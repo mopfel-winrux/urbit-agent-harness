@@ -4,7 +4,7 @@
 ::  result handlers in the agent fence late receipts before appending events.
 ::  Sync reads return a result noun; async helpers describe cards, not a loop.
 /-  h=harness, spider
-/+  ht=harness-tools, tbjs=thread-builder-js, local-mcp=harness-local-mcp, calculator=harness-calculate
+/+  ht=harness-tools, tbjs=thread-builder-js, local-mcp=harness-local-mcp, calculator=harness-calculate, mcp=harness-mcp
 |_  [=bowl:gall mcp-servers=(map mcp-server-id:h mcp-server:h)]
 +$  card  card:agent:gall
 ::  +run-js-poke: a run_js tool call becomes a poke to ourselves
@@ -168,7 +168,7 @@
     ?:(=('list_mcp_tools' name.c) 'tools/list' 'tools/call')
   =/  params=json
     ?:  =('list_mcp_tools' name.c)
-      (pairs:enjs:format ~)
+      (params:mcp args.c)
     =/  tool-name  (tool-str args.c 'name')
     =/  arguments  (tool-str args.c 'arguments')
     ?~  tool-name  ~

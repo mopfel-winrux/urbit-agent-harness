@@ -20,11 +20,11 @@ export const PROVIDERS = {
   },
   anthropic: {
     title: 'Anthropic',
-    endpoint: 'https://api.anthropic.com/v1/chat/completions',
+    endpoint: 'https://api.anthropic.com/v1/messages',
     modelsEndpoint: 'https://api.anthropic.com/v1/models?limit=1000',
     model: 'claude-haiku-4-5',
     placeholder: 'sk-ant-…',
-    copy: 'Anthropic’s OpenAI-compatible endpoint, including function calls.',
+    copy: 'Anthropic’s native Messages API, including tools and thinking.',
   },
   xai: {
     title: 'xAI',

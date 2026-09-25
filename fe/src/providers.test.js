@@ -16,3 +16,8 @@ test('OpenAI API and subscription presets use distinct Responses endpoints', () 
   assert.equal(providerOf(PROVIDERS.openai.endpoint), 'openai')
   assert.equal(providerOf(PROVIDERS.openai.deviceEndpoint), 'openai')
 })
+
+test('Anthropic selects the native Messages API', () => {
+  assert.equal(PROVIDERS.anthropic.endpoint, 'https://api.anthropic.com/v1/messages')
+  assert.equal(providerOf(PROVIDERS.anthropic.endpoint), 'anthropic')
+})

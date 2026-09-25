@@ -72,7 +72,7 @@
 ++  headers
   |=  [keys=(map @t @t) url=@t extra=(list [name=@t value=@t])]
   ^-  (list [name=@t value=@t])
-  ?.  |((device-route url) (xai-route url) =('openai' (provider-for-url:hp url)) =('xai' (provider-for-url:hp url)))  extra
+  ?.  |((device-route url) (xai-route url) =('openai' (provider-for-url:hp url)) =('xai' (provider-for-url:hp url)) (anthropic-route:hp url))  extra
   ::  Built-in auth headers cannot override the route's selected credential or
   ::  leak a ChatGPT account onto the API route. Custom endpoints retain theirs.
   =.  extra
@@ -82,4 +82,15 @@
   =/  account  (key keys 'openai-account')
   ?.  &((device-route url) !=('' account))  extra
   [['chatgpt-account-id' account] extra]
+++  request-headers
+  |=  [keys=(map @t @t) cfg=config:h token=@t]
+  ^-  (list [name=@t value=@t])
+  =/  extra  (headers keys url.cfg headers.cfg)
+  =/  native  (anthropic-route:hp url.cfg)
+  =?  extra  native
+    [['anthropic-version' '2023-06-01'] (skim extra |=([name=@t value=@t] !=('anthropic-version' (crip (cass (trip name))))))]
+  ?:  =('' token)  extra
+  ?:  &(native !=('anthropic-device' (credential-for-config cfg)))
+    [['x-api-key' token] extra]
+  [['authorization' (cat 3 'Bearer ' token)] extra]
 --
