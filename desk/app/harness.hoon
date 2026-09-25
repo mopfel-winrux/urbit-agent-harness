@@ -30,6 +30,7 @@
 /+  hosted-cleanup=harness-hosted-cleanup
 /+  routing=harness-model-routing
 /+  mcp=harness-mcp
+/+  tool-catalog=harness-tool-catalog, wire-json=harness-provider-wire
 |%
 +$  card  card:agent:gall
 --
@@ -3001,7 +3002,7 @@
     =/  id=ask-id:h  `@uv`(end [3 16] (shas %peer-rpc eny.bowl))
     =.  asks  (~(put by asks) id [sid.act call-id.act ship.act])
     =/  msg=peer-rpc:h
-      ?~(name.act [%tools id] [%invoke id now.bowl u.name.act args.act])
+      ?~(name.act [%tools id args.act] [%invoke id now.bowl u.name.act args.act])
     :_  state
     :~  (peer-rpc-card ship.act msg)
         [%pass /a2a-timeout/(scot %uv id) %arvo %b %wait (add now.bowl ~m2)]
@@ -3949,7 +3950,7 @@
   =?  body  =('list_mcp_tools' name.u.call)
     (receipt:mcp args.u.call body)
   =^  recorded  u.maybe
-    (record-all sid u.maybe ~[[%tool-completed call-id name.u.call (clip:ht body 48.000)]])
+    (record-all sid u.maybe ~[[%tool-completed call-id name.u.call body]])
   =^  driven  state  (drive-put sid u.maybe)
   [:(weld cleanup recorded driven) state]
 ++  handle-tool-response
@@ -3983,10 +3984,10 @@
     =/  server  (~(get by mcp-servers) u.server-id)
     ?~  server  'rejected: MCP server is no longer available'
     ?.  enabled.u.server  'rejected: MCP server is no longer available'
-    ?.  =('list_mcp_tools' tname)  body
     ?:  ?=(%cancel -.res)  body
     ?~  full-file.res  body
-    (receipt:mcp args.u.call (rap 3 'HTTP ' (scot %ud status-code.response-header.res) '\0a\0a' q.data.u.full-file.res ~))
+    =/  full  (rap 3 'HTTP ' (scot %ud status-code.response-header.res) '\0a\0a' q.data.u.full-file.res ~)
+    ?:(=('list_mcp_tools' tname) (receipt:mcp args.u.call full) full)
   =?  body  &(!|(=('list_mcp_tools' tname) =('call_mcp_tool' tname)) !(authorized-call sid call-id tname))
     'rejected: tool request is no longer authorized'
   =^  cs1  ses  (record-all sid ses ~[[%tool-completed call-id tname body]])
@@ -4133,9 +4134,21 @@
     [~[(peer-rpc-card src [%result (id:peer-rpc msg) [%| 'no grant for your ship']])] state]
   =/  tools  (rpc-tools src tools.u.grant)
   ?:  ?=(%tools -.msg)
-    =/  catalog=json
-      (pairs:enjs:format ~[['ship' %s (scot %p our.bowl)] ['tools' (tool-defs:ht tools)] ['administrative' %b (is-owner src)]])
-    [~[(peer-rpc-card src [%result id.msg [%& (en:json:html catalog)]])] state]
+    =/  attempted
+      %-  mole  |.
+      ?>  (lte (met 3 query.msg) 4.096)
+      =/  input  (need (de:json:html query.msg))
+      =/  defs  (tool-defs:ht tools)
+      ?>  ?=(%a -.defs)
+      =/  rows
+        %+  turn  p.defs
+        |=  def=json
+        =/  fun  (need (get:wire-json def 'function'))
+        (pairs:enjs:format ~[['name' %s (str:wire-json fun 'name')] ['description' %s (str:wire-json fun 'description')] ['inputSchema' (need (get:wire-json fun 'parameters'))]])
+      (en:json:html (select:tool-catalog (put:wire-json input 'ship' [%s (scot %p our.bowl)]) [%a rows] ''))
+    =/  result=(each @t @t)
+      ?~(attempted [%| 'Invalid discovery arguments'] [%& u.attempted])
+    [~[(peer-rpc-card src [%result id.msg result])] state]
   ?.  (fresh:peer-rpc issued.msg now.bowl)
     [~[(peer-rpc-card src [%result id.msg [%| 'request expired or clock is too far ahead; no tool was started']])] state]
   ?:  |((gth (met 3 name.msg) 128) (gth (met 3 args.msg) 65.536))
@@ -4200,7 +4213,7 @@
   =?  body  !(authorized-call sid call-id u.name)
     'rejected: peer tool access is no longer authorized'
   =^  recorded  u.current
-    (record-all sid u.current ~[[%tool-completed call-id u.name (clip:ht body 48.000)]])
+    (record-all sid u.current ~[[%tool-completed call-id u.name body]])
   =^  driven  state  (drive-put sid u.current)
   [(weld recorded driven) state]
 ++  peer-destination-live

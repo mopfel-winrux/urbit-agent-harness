@@ -28,7 +28,7 @@
   |=  [args=json wire=wire sent=@da]
   ^-  [body=@t effect=(unit card:agent:gall)]
   =/  action  (required:spec args 'action' 32)
-  ?:  =('help' action)  [help:spec ~]
+  ?:  =('help' action)  [(help:spec (string:spec args 'topic' '' 32)) ~]
   ?:  (handles:~(. migration bowl) action)  (run:~(. migration bowl) args wire)
   ?:  &(=('delete_channel' action) =('notes/' (end [3 6] (string:spec args 'channel' '' 256))))
     =/  nest  (group-nest:spec (required:spec args 'channel' 256))

@@ -1,6 +1,30 @@
 /-  h=harness, t=harness-tlon, *harness-store
-/+  *test, ht=harness-tools, hj=harness-json, hl=harness, storage=harness-store, policy=harness-defaults, tp=harness-tlon-policy, effects=harness-effects
+/+  *test, ht=harness-tools, hj=harness-json, hl=harness, storage=harness-store, policy=harness-defaults, tp=harness-tlon-policy, effects=harness-effects, w=harness-provider-wire
 |%
+++  test-read-pages-beyond-the-first-fifty-kilobytes-and-fences-edits
+  =/  body  (rap 3 (reap 60.000 'x'))
+  =/  run  ~(. effects [*bowl:gall ~])
+  =/  attempt
+    |.
+    =/  first  (need (de:json:html (read-desk-file:run '{"path":"/harness/example/hoon"}')))
+    =/  revision  (str:w first 'revision')
+    =/  args  (en:json:html (pairs:enjs:format ~[['path' %s '/harness/example/hoon'] ['offset' %s '54000'] ['revision' %s revision]]))
+    =/  last  (need (de:json:html (read-desk-file:run args)))
+    =/  changed  (read-desk-file:run '{"path":"/harness/example/hoon","offset":"6000","revision":"wrong"}')
+    ;:  weld
+      (expect-eq !>(6.000) !>((met 3 (str:w last 'text'))))
+      (expect-eq !>(`json`~) !>((need (get:w last 'nextOffset'))))
+      (expect !>((find-sub:ht 'file changed' changed)))
+    ==
+  =/  out
+    %+  mink  [attempt %9 2 %0 1]
+    |=  [ref=* raw=*]
+    ^-  (unit (unit noun))
+    =/  path  ;;(path raw)
+    ?:  (lien path |=(part=@ta |(=(%u part) =(%cu part))))  ``&
+    ``body
+  ?>  ?=(%0 -.out)
+  ;;(tang product.out)
 ++  test-tool-path-parses-string-arguments
   =/  run  ~(. effects [*bowl:gall *(map mcp-server-id:h mcp-server:h)])
   (expect-eq !>(`(unit path)`[~ /harness/lib/harness/hoon]) !>((tool-path:run '{"path":"/harness/lib/harness/hoon"}')))

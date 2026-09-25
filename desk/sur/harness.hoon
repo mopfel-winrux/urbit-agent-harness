@@ -109,7 +109,7 @@
 +$  peer-access  [grant=(unit peer-grant) checked=@da]
 +$  admin-result  [connection=@t payload=@t]
 +$  peer-rpc
-  $%  [%tools id=ask-id]
+  $%  [%tools id=ask-id query=@t]
       [%invoke id=ask-id issued=@da name=@t args=@t]
       [%result id=ask-id result=(each @t @t)]
   ==

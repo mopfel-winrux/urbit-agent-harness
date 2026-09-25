@@ -4,7 +4,7 @@
 ::  result handlers in the agent fence late receipts before appending events.
 ::  Sync reads return a result noun; async helpers describe cards, not a loop.
 /-  h=harness, spider
-/+  ht=harness-tools, tbjs=thread-builder-js, local-mcp=harness-local-mcp, calculator=harness-calculate, mcp=harness-mcp
+/+  ht=harness-tools, tbjs=thread-builder-js, local-mcp=harness-local-mcp, calculator=harness-calculate, mcp=harness-mcp, pages=harness-pages
 |_  [=bowl:gall mcp-servers=(map mcp-server-id:h mcp-server:h)]
 +$  card  card:agent:gall
 ::  +run-js-poke: a run_js tool call becomes a poke to ourselves
@@ -138,7 +138,13 @@
     =/  ext  (rear spur)
     ::  %q reads the stored noun without invoking desk-defined marks. Scoped
     ::  reads must not gain authority through a mark's conversion/import code.
-    (clay-text:ht ext .^(noun %cq (weld bas spur)))
+    =/  body  (clay-text:ht ext .^(noun %cq (weld bas spur)))
+    =/  input  (need (de:json:html args))
+    =/  revision  (str:w:pages input 'revision')
+    ?.  |(=('' revision) =(revision (scot %uv (sham body))))
+      'error: file changed; restart at offset 0 to read its current revision'
+    =/  page  (text:pages body (number:pages input 'offset'))
+    (en:json:html (put:w:pages page 'revision' [%s (scot %uv (sham body))]))
   ?~  res  'error: could not read file'
   u.res
 ::
@@ -152,9 +158,8 @@
   =/  res
     %-  mole  |.
     =/  paths  .^((list path) %ct (weld bas t.u.pax))
-    %+  clip:ht
-      (crip (zing (turn paths |=(p=path (weld (spud p) "\0a")))))
-    50.000
+    =/  input  (need (de:json:html args))
+    (en:json:html (directory:pages (sort (turn paths |=(p=path (crip (spud p)))) aor) (number:pages input 'offset')))
   ?~  res  'error: could not list directory'
   u.res
 ::  +mcp-card: a generic MCP discovery/call becomes an iris request.
@@ -296,7 +301,7 @@
   ?:  &(=('call_peer_tool' name.c) ?=(~ name))  ~
   =/  args
     ^-  (unit @t)
-    ?:  =('list_peer_tools' name.c)  `'{}'
+    ?:  =('list_peer_tools' name.c)  `args.c
     =/  jon  (de:json:html args.c)
     ?.  ?=([~ %o *] jon)  ~
     =/  value  (~(get by p.u.jon) 'arguments')

@@ -19,9 +19,16 @@ const server = createServer(async (req, res) => {
     const raw = await readText(req)
     const body = JSON.parse(raw)
     receipts = body.messages.filter((m) => m.role === 'tool')
-    const calls = receipts.length ? [] : cases.map(([id, name, args]) => ({
+    let calls = receipts.length ? [] : cases.map(([id, name, args]) => ({
       id, type: 'function', function: { name, arguments: JSON.stringify(args) },
     }))
+    const listing = receipts.filter((entry) => entry.tool_call_id === 'list' || entry.tool_call_id.startsWith('list-')).at(-1)
+    if (listing) {
+      const { nextOffset } = JSON.parse(listing.content)
+      if (nextOffset !== null) calls = [{ id: `list-${nextOffset}`, type: 'function', function: {
+        name: 'list_desk_files', arguments: JSON.stringify({ path: '/harness/lib', offset: nextOffset }),
+      } }]
+    }
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ choices: [{ finish_reason: calls.length ? 'tool_calls' : 'stop', message: {
       role: 'assistant', content: calls.length ? '' : 'CLAY_OK', ...(calls.length ? { tool_calls: calls } : {}),
@@ -39,8 +46,12 @@ try {
   await client.call('session/prompt', { sessionId: sid, prompt: [{ type: 'text', text: 'Run the fixture.' }] })
   const result = (id) => receipts.find((r) => r.tool_call_id === id)?.content
   assert.deepEqual(JSON.parse(result('scopes')), ['/harness/lib'])
-  assert.match(result('read'), /\+\+  clay-granted/)
-  assert.match(result('list'), /harness-tools/)
+  const file = JSON.parse(result('read'))
+  assert.match(file.text, /Capability catalog/)
+  assert.ok(file.revision)
+  const paths = receipts.filter((entry) => entry.tool_call_id === 'list' || entry.tool_call_id.startsWith('list-'))
+    .flatMap((entry) => JSON.parse(entry.content).items)
+  assert.ok(paths.some((path) => path.includes('harness-tools')))
   for (const id of ['sibling', 'parent', 'other']) assert.match(result(id), /not granted/)
   assert.deepEqual(failures, [])
   console.log(JSON.stringify({ ok: true, rawSource: true, scopedListing: true, parentSiblingOtherDeskDenied: true }))

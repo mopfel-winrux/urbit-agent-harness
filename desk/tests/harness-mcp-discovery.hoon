@@ -1,5 +1,5 @@
 /-  h=harness
-/+  *test, mcp=harness-mcp, w=harness-provider-wire, effects=harness-effects
+/+  *test, mcp=harness-mcp, w=harness-provider-wire, effects=harness-effects, catalog=harness-tool-catalog
 |%
 ++  tool
   |=  n=@ud
@@ -84,5 +84,5 @@
   ==
 ++  test-description-prefix-preserves-utf-eight
   =/  text  (cat 3 (rap 3 (reap 159 'a')) '🙂more')
-  (expect-eq !>((cat 3 (rap 3 (reap 159 'a')) '...')) !>((brief:mcp text)))
+  (expect-eq !>((cat 3 (rap 3 (reap 159 'a')) '...')) !>((brief:catalog text)))
 --
