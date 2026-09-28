@@ -39,7 +39,7 @@ test('the distribution includes its own tests, not the runtime development suite
   assert.deepEqual(shipped, own)
 })
 test('namespaced Tlon imports include every dependency, including multiline hooks imports', async () => {
-  for (const name of ['channel-json', 'groups-json', 'story-json']) await access(new URL(`lib/tlon-${name}.hoon`, desk))
+  for (const name of ['channel-json', 'groups-json', 'story-json', 'logs']) await access(new URL(`lib/tlon-${name}.hoon`, desk))
   const hooks = await readFile(new URL('sur/tlon-hooks.hoon', desk), 'utf8')
   for (const dependency of ['activity-ver', 'chat-ver', 'contacts', 'meta']) assert.ok(hooks.includes(`=tlon-${dependency}`))
   for (const kind of ['sur', 'lib']) {

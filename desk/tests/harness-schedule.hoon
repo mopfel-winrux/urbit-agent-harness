@@ -124,4 +124,50 @@
   (expect-eq !>(1) !>((lent p.result)))
 ++  test-schedules-strip-recursion-delegation-and-administration
   (expect-eq !>(`(list tool-grant:h)`~[%web %workspace]) !>((scheduled-tools:ht ~[%cron %subagents %code %admin %web %workspace])))
+++  test-management-is-owner-or-same-binding-and-actor
+  ;:  weld
+    (expect !>((accessible:schedule job & 'owner-dm' '~zod')))
+    (expect !>((accessible:schedule job | 'source-binding' 'alice')))
+    (expect !>(!(accessible:schedule job | 'source-binding' 'bob')))
+    (expect !>(!(accessible:schedule job | 'other-room' 'alice')))
+    (expect !>((tool-granted:ht 'cron_update' ~[%cron])))
+    (expect !>(!(tool-granted:ht 'cron_retry' (scheduled-tools:ht ~[%cron %web]))))
+  ==
+++  test-edit-keeps-identity-history-and-grants
+  =/  j  job
+  =.  last.j  `0v9
+  =/  args  (pairs:enjs:format ~[['schedule' %s '0 9 * * *'] ['timezone' %s 'UTC'] ['prompt' %s 'Check the deployment status'] ['runs' %s '5']])
+  =/  edited  (editable:schedule 0v1 j args ~2026.9.9)
+  =/  invalid  (mule |.((editable:schedule 0v1 j (pairs:enjs:format ~[['at' %s '2026-09-08T00:00:00Z'] ['prompt' %s 'Past']]) ~2026.9.9)))
+  ;:  weld
+    (expect-eq !>(binding.j) !>(binding.edited))
+    (expect-eq !>(run-sid.j) !>(run-sid.edited))
+    (expect-eq !>(last.j) !>(last.edited))
+    (expect-eq !>(tools.j) !>(tools.edited))
+    (expect-eq !>(fingerprint.j) !>(fingerprint.edited))
+    (expect-eq !>(5) !>(remaining.edited))
+    (expect-eq !>(~2026.9.9..09.00.00) !>(next.edited))
+    (expect !>(?=(%| -.invalid)))
+  ==
+++  test-retry-requires-failed-execution-and-settled-delivery
+  =/  j  job
+  =.  last.j  `0v9
+  =/  db=state:hh  *state:hh
+  =/  obs=observation:hh  [run-sid.j 'event' actor.j prompt.j ~2026.9.9 %failed]
+  =/  pub=publication:hh  [0v9 run-sid.j hand.j destination.j run-sid.j %failure 'Authentication failed' %delivered 'worker' 'post' ~]
+  =.  observations.db  (my ~[[0v9 obs]])
+  =.  outbox.db  (my ~[[0v9 pub]])
+  =/  value  (job-value:schedule j)
+  ;:  weld
+    (expect !>((retryable:schedule value db)))
+    (expect !>((retryable:schedule value(state %complete, remaining 0) db)))
+    (expect !>(!(retryable:schedule value(state %cancelled) db)))
+    (expect !>(!(retryable:schedule value(kind %reminder) db)))
+    (expect !>(!(retryable:schedule value db(outbox ~))))
+    (expect !>(!(retryable:schedule value db(observations (my ~[[0v9 obs(phase %completed)]])))))
+    (expect !>(!(retryable:schedule value db(outbox (my ~[[0v9 pub(kind %reply)]])))))
+    (expect !>(!(retryable:schedule value db(outbox (my ~[[0v9 pub(status %pending)]])))))
+    (expect !>(!(retryable:schedule value db(outbox (my ~[[0v9 pub(status %claimed)]])))))
+    (expect !>(!(retryable:schedule value db(outbox (my ~[[0v9 pub(status %uncertain)]])))))
+  ==
 --

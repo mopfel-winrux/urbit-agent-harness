@@ -78,7 +78,7 @@
       'harness/tlon/owner/set {owner,expectedOwner,siblingMoonOwners,expectedSiblingMoonOwners}; '
       'harness/tlon/profile/set (read the profile first); '
       'harness/cron/add {id,binding,actor,kind,args}; '
-      'harness/cron/cancel {id}; harness/cron/clear {id}.\0a\0a'
+      'harness/cron/edit {id,revision,args} replaces future timing/content; harness/cron/retry {id,input} resumes the failed lastInput with current credentials; harness/cron/cancel {id}; harness/cron/delete {id}; harness/cron/clear {id}. Read schedules first; only retry on an explicit human request, never uncertain delivery.\0a\0a'
       'Skills: harness/skill/save {name,desc,body}; harness/skill/delete {name}. '
       'Sessions: session/new {name,cwd:"/",mcpServers:[]}; session/delete {sessionId}; '
       'session/cancel {sessionId}; harness/session/rename {sessionId,name}; '

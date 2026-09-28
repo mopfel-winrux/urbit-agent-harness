@@ -30,7 +30,14 @@ api.read = async (path) => {
   if (path.startsWith('tlon/work')) { window.tlonFixture.workReads.push(path); return structuredClone(window.tlonFixture.work) }
   return read(path)
 }
-api.action = async ({ tlon, tlonProfile, cancelCron, clearCron, hand, retryAdmission }) => {
+api.action = async ({ tlon, tlonProfile, cancelCron, clearCron, retryCron, hand, retryAdmission }) => {
+  if (retryCron) {
+    if (window.tlonFixture.retryError) throw new Error(window.tlonFixture.retryError)
+    window.tlonFixture.recoveries.push({ retryCron })
+    if (window.tlonFixture.holdRetry) await new Promise(resolve => { window.tlonFixture.releaseRetry = resolve })
+    window.tlonFixture.cron = window.tlonFixture.cron.map(job => job.id === retryCron.id ? { ...job, retryable: false, execution: 'running', delivery: null } : job)
+    return structuredClone(window.tlonFixture.cron)
+  }
   if (hand || retryAdmission) {
     if (window.tlonFixture.recoveryError) throw new Error(window.tlonFixture.recoveryError)
     window.tlonFixture.recoveries.push(hand || { retryAdmission })

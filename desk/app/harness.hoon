@@ -31,6 +31,7 @@
 /+  routing=harness-model-routing
 /+  mcp=harness-mcp
 /+  tool-catalog=harness-tool-catalog, wire-json=harness-provider-wire
+/+  observe=harness-observe
 |%
 +$  card  card:agent:gall
 --
@@ -392,6 +393,8 @@
 ::
 ++  on-agent
   |=  [=wire =sign:agent:gall]
+  ::  Logging is best-effort; even a missing sink must not feed back into work.
+  ?:  =(/telemetry wire)  `this
   %-  flush-auth
   ^-  (quip card _this)
   ?+  wire  (on-agent:def wire sign)
@@ -706,7 +709,9 @@
     [cards this]
   ==
 ::
-++  on-fail  |=([term tang] `this)
+++  on-fail
+  |=  [=term =tang]
+  [~[(crash:observe bowl term tang)] this]
 --
 ::  Stateful lifecycle. Keep state replacement and emitted cards together:
 ::  splitting this into independently driving adapters would create two owners.
@@ -723,6 +728,7 @@
   ?~  obs  ~
   =/  bound  (~(get by bindings.hands) binding.u.obs)
   ?.  ?&(?=(^ bound) enabled.u.bound =(sid sid.u.bound))  ~
+  ?.  (hand-source-live binding.u.obs sid hand.u.bound address.u.bound actor.u.obs)  ~
   `[binding.u.obs actor.u.obs]
 ++  schedule-source-live
   |=  job=schedule:cr
@@ -816,8 +822,54 @@
     ?>  ?=(%& -.bound)
     =.  hands  db.p.bound
     [[%& (one-json:schedule-lib id.act job hands)] created state]
-  =/  job  (~(get by schedules) id.act)
+  =/  key=@uv
+    ?-  -.act
+      %edit    id.act
+      %retry   id.act
+      %delete  id.act
+      %clear   id.act
+      %cancel  id.act
+    ==
+  =/  job  (~(get by schedules) key)
   ?~  job  [[%| 'Unknown schedule ID'] ~ state]
+  ?:  ?=(%edit -.act)
+    ?.  =(revision.act (sham u.job))
+      [[%| 'Schedule changed; list schedules again before editing'] ~ state]
+    ?:  (busy:schedule-lib (job-value:schedule-lib u.job) hands)
+      [[%| 'Work or delivery is still pending; edit after it settles'] ~ state]
+    ?.  (schedule-live u.job)
+      [[%| 'Only an authorized active or completed schedule can be edited'] ~ state]
+    =/  parsed  (mule |.((editable:schedule-lib id.act u.job args.act now.bowl)))
+    ?.  ?=(%& -.parsed)
+      [[%| 'Provide a complete valid future schedule and prompt, or reminder time and text'] ~ state]
+    =.  schedules  (~(put by schedules) id.act p.parsed)
+    [[%& (one-json:schedule-lib id.act p.parsed hands)] ~ state]
+  ?:  ?=(%retry -.act)
+    ?.  ?&  =(last.u.job `input.act)
+            (retryable:schedule-lib (job-value:schedule-lib u.job) hands)
+            (schedule-live u.job)
+        ==
+      [[%| 'Only the current failed run with settled delivery and live authority can be retried; list schedules again'] ~ state]
+    =/  ses  (~(get by sessions) run-sid.u.job)
+    ?.  ?&(?=(^ ses) (retry-session:schedule-lib run-sid.u.job u.ses))
+      [[%| 'The run conversation has changed or cannot safely resume its failed model request'] ~ state]
+    ::  Reserve a fresh publication identity, but resume the existing request
+    ::  history instead of admitting the prompt again or replaying tools.
+    =/  event  (cat 3 'retry-' (scot %uv input.act))
+    =/  input  (input-id:hd run-sid.u.job event)
+    =/  prior  (~(got by observations.hands) input.act)
+    =/  admitted  (apply:hd hands [%observe run-sid.u.job event actor.u.job text.prior] now.bowl)
+    ?:  ?=(%| -.admitted)  [[%| p.admitted] ~ state]
+    =.  hands  (start:hd db.p.admitted run-sid.u.job input)
+    =.  schedules  (~(put by schedules) id.act u.job(last `input))
+    =^  cards  state  (handle-action [%retry run-sid.u.job])
+    [[%& (list-json:schedule-lib schedules hands ~)] cards state]
+  ?:  ?=(%delete -.act)
+    ?:  (busy:schedule-lib (job-value:schedule-lib u.job) hands)
+      [[%| 'Work or delivery is still pending; cancel first and delete after it settles'] ~ state]
+    =^  cards  state  (stop-schedule id.act u.job %cancelled 'Schedule deleted')
+    =.  schedules  (~(del by schedules) id.act)
+    [[%& (list-json:schedule-lib schedules hands ~)] cards state]
   ?:  ?=(%clear -.act)
     ?.  (clearable:schedule-lib (job-value:schedule-lib u.job) hands)
       [[%| 'Only completed or cancelled schedules with no pending or uncertain work can be cleared'] ~ state]
@@ -831,6 +883,13 @@
   ^-  (quip card _state)
   =/  authority  (hand-tool-authority sid.req generation.req id.call.req)
   =/  origin  (schedule-origin sid.req)
+  =/  owner  (session-admin sid.req)
+  =/  visible
+    %-  my
+    %+  skim  ~(tap by schedules)
+    |=  [id=@uv job=schedule:cr]
+    ?~  origin  |
+    (accessible:schedule-lib job owner binding.u.origin actor.u.origin)
   =/  out=[result=(each json @t) cards=(list card) new=_state]
     ?.  ?&(?=(^ authority) =(call.req call.u.authority) ?=(^ origin) =(`%cron (tool-family:ht name.call.req)))
       [[%| 'No authorized outstanding schedule request in this hand conversation'] ~ state]
@@ -841,17 +900,29 @@
     ?:  &(=('cron_add' name.call.req) (~(has by p.u.parsed) 'at'))
       [[%| 'cron_add requires a recurring schedule; use schedule_once for an exact at timestamp'] ~ state]
     ?:  =('cron_list' name.call.req)
-      (schedule-call [%list `binding.u.origin])
-    ?:  =('cron_remove' name.call.req)
+      [[%& (list-json:schedule-lib visible hands ~)] ~ state]
+    ?:  (lien `(list @t)`~['cron_remove' 'cron_update' 'cron_delete' 'cron_retry'] |=(name=@t =(name name.call.req)))
       =/  id
         (mule |.((slav %uv ((ot:dejs:format ~[id+so:dejs:format]) u.parsed))))
       ?.  ?=(%& -.id)  [[%| 'Invalid schedule ID'] ~ state]
-      =/  job  (~(get by schedules) p.id)
-      ?.  ?&(?=(^ job) =(binding.u.origin binding.u.job) =(actor.u.origin actor.u.job))
-        [[%| 'Schedule does not belong to this source binding and actor'] ~ state]
-      =/  cancelled  (schedule-call [%cancel p.id])
-      ?:  ?=(%| -.result.cancelled)  cancelled
-      cancelled(result [%& (list-json:schedule-lib schedules.new.cancelled hands.new.cancelled `binding.u.origin)])
+      ?.  (~(has by visible) p.id)
+        [[%| 'Schedule is not available to this caller in this conversation'] ~ state]
+      =/  act
+        %-  mule  |.
+        ^-  action:cr
+        ?:  =('cron_remove' name.call.req)  [%cancel p.id]
+        ?:  =('cron_delete' name.call.req)  [%delete p.id]
+        ?:  =('cron_retry' name.call.req)
+          [%retry p.id (slav %uv ((ot:dejs:format ~[input+so:dejs:format]) u.parsed))]
+        =/  f=[revision=@t args=json]
+          ((ot:dejs:format ~[revision+so:dejs:format args+|=(a=json a)]) u.parsed)
+        [%edit p.id (slav %uv revision.f) args.f]
+      ?.  ?=(%& -.act)  [[%| 'Invalid schedule change; read cron_list for its current revision and lastInput'] ~ state]
+      =/  out  (schedule-call p.act)
+      ?:  ?=(%| -.result.out)  out
+      ::  Do not return the owner-wide mutation response to a scoped caller.
+      =/  job  (~(get by schedules.new.out) p.id)
+      out(result [%& ?~(job ~ (one-json:schedule-lib p.id u.job hands.new.out))])
     (schedule-call [%add (sham req) binding.u.origin actor.u.origin ?:(=('reminder_add' name.call.req) %reminder %prompt) u.parsed])
   =/  body=@t
     ?:  ?=(%& -.result.out)  (en:json:html p.result.out)
@@ -1596,6 +1667,13 @@
       [%add (slav %uv id.f) binding.f actor.f ?:(=('prompt' kind.f) %prompt %reminder) args.f]
     =/  key  (slav %uv ((ot:dejs:format ~[id+so:dejs:format]) fields))
     ?:  =('harness/cron/cancel' method)  [%cancel key]
+    ?:  =('harness/cron/delete' method)  [%delete key]
+    ?:  =('harness/cron/retry' method)
+      [%retry key (slav %uv ((ot:dejs:format ~[input+so:dejs:format]) fields))]
+    ?:  =('harness/cron/edit' method)
+      =/  f=[revision=@t args=json]
+        ((ot:dejs:format ~[revision+so:dejs:format args+|=(a=json a)]) fields)
+      [%edit key (slav %uv revision.f) args.f]
     ?>  =('harness/cron/clear' method)
     [%clear key]
   ?.  ?=(%& -.parsed)
@@ -2602,7 +2680,11 @@
   =/  body=@t
     ?-  -.u.result
       %cancelled  'Work was cancelled.'
-      %failure    (public-message:failure reason.u.result)
+      %failure
+        =/  failure  (describe:failure reason.u.result)
+        ?:  &(=('authentication' kind.failure) ?=(^ (for-session:schedule-lib schedules sid)))
+          'This scheduled run could not authenticate with the model provider. After updating the provider login or key in Harness settings, ask me to retry the schedule or use Retry failed run in Settings > Schedules.'
+        message.failure
       %reply      body.u.result
     ==
   =.  hands  (finish:hd hands sid -.u.result body)
@@ -3400,6 +3482,9 @@
   =/  next  next-req.ses
   =.  next-req.ses  +(next)
   =^  cards  ses  (record-all sid ses ~[[%llm-requested next kind] [%llm-routed next cfg]])
+  =.  cards
+    %+  snoc  cards
+    (tell:observe bowl sid %warn 'harness.inference.fallback' ~[['request' (numb:enjs:format req)] ['next_request' (numb:enjs:format next)] ['provider' %s (provider-for-url:hp url.cfg)]])
   =?  cards  =(%compaction kind)
     (snoc cards [%pass `wire`[%compact-timeout `@ta`sid (scot %ud next) (scot %uv (sham log.ses)) ~] %arvo %b %wait (add now.bowl ~m3)])
   `[(snoc cards (llm-card sid next kind candidate)) ses]
@@ -3578,6 +3663,7 @@
   =|  cs=(list card)
   |-  ^-  [(list card) session:h]
   ?~  evs  [(flop cs) ses]
+  =.  cs  (weld (event:observe bowl sid i.evs) cs)
   %=  $
     evs      t.evs
     log.ses  [i.evs log.ses]

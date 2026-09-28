@@ -1,7 +1,7 @@
 ::  Transport-independent schedule validation and evidence projection.
 ::  No Gall effects or inference. The head commits each run before dispatch.
 /-  c=harness-cron, h=harness, hh=harness-hand
-/+  calendar=harness-cron, reminder=harness-reminder
+/+  calendar=harness-cron, reminder=harness-reminder, hl=harness
 |%
 ++  maintenance-needed
   |=  [jobs=(map @uv schedule:c) wake=(unit @da) now=@da changed=?]
@@ -61,6 +61,47 @@
   ?|  (lien ~(val by observations.db) |=(o=observation:hh &(=(run-sid.job binding.o) ?=(?(%queued %running) phase.o))))
       (lien ~(val by outbox.db) |=(p=publication:hh &(=(run-sid.job sid.p) ?=(?(%pending %claimed %uncertain) status.p))))
   ==
+++  accessible
+  |=  [job=schedule:c owner=? binding=@t actor=@t]
+  ^-  ?
+  |(owner &(=(binding binding.job) =(actor actor.job)))
+++  editable
+  |=  [id=@uv job=schedule:c args=json now=@da]
+  ^-  schedule:c
+  ::  Creation validation keeps timing future-facing. Identity, grants and
+  ::  admission history remain attached to the same conversation.
+  =/  source=binding:hh  [hand.job destination.job sid.job ~[actor.job] &]
+  =/  next  (create [%add id binding.job actor.job kind.job args] source tools.job now)
+  next(run-sid run-sid.job, last last.job, fingerprint fingerprint.job)
+++  retryable
+  |=  [job=job:c db=state:hh]
+  ^-  ?
+  ?.  ?&  =(%prompt kind.job)
+          ?=(?(%active %complete) state.job)
+          ?=(^ last.job)
+      ==
+    |
+  =/  obs  (~(get by observations.db) u.last.job)
+  =/  pub  (~(get by outbox.db) u.last.job)
+  ?&  ?=(^ obs)
+      =(run-sid.job binding.u.obs)
+      =(%failed phase.u.obs)
+      ?=(^ pub)
+      =(%failure kind.u.pub)
+      !(busy job db)
+  ==
+++  retry-session
+  |=  [binding=@t ses=session:h]
+  ^-  ?
+  =/  v  (play:hl log.ses)
+  ?.  &(?=(^ err.v) ?=(~ pending.v) =(~ wait.v) =(~ (open-calls:hl items.v)))  |
+  =/  log  log.ses
+  |-  ^-  ?
+  ?~  log  |
+  ?:  ?=(%input-admitted -.i.log)  |
+  ?.  ?=(%input-received -.i.log)  $(log t.log)
+  =/  source  source.input.i.log
+  ?&(?=(%hand -.source) =(binding binding.source))
 ++  clearable
   |=  [job=job:c db=state:hh]
   ^-  ?
@@ -91,6 +132,7 @@
   =/  publication  ?~(last.job ~ (~(get by outbox.db) u.last.job))
   %-  pairs:enjs:format
   :~  ['id' %s (scot %uv id)]
+      ['revision' %s (scot %uv (sham job))]
       ['sessionId' %s sid.job]
       ['runSessionId' %s run-sid.job]
       ['sourceBinding' %s binding.job]
@@ -110,6 +152,7 @@
       ['delivery' ?~(publication ~ [%s status.u.publication])]
       ['evidenceAvailable' %b &]
       ['clearable' %b (clearable (job-value job) db)]
+      ['retryable' %b (retryable (job-value job) db)]
   ==
 ++  list-json
   |=  [jobs=(map @uv schedule:c) db=state:hh binding=(unit @t)]
@@ -131,6 +174,9 @@
       list+(ot ~[binding+(mu so)])
       cancel+(ot ~[id+id])
       clear+(ot ~[id+id])
+      edit+(ot ~[id+id revision+id args+|=(a=json a)])
+      delete+(ot ~[id+id])
+      retry+(ot ~[id+id input+id])
   ==
 ++  json-kind
   |=  jon=json

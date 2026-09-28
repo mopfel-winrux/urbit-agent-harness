@@ -212,6 +212,9 @@
     %'reminder_add'       `%cron
     %'cron_list'          `%cron
     %'cron_remove'        `%cron
+    %'cron_update'        `%cron
+    %'cron_delete'        `%cron
+    %'cron_retry'         `%cron
   ==
 ++  tool-hand
   |=  name=@t
@@ -307,8 +310,11 @@
     :~  (fun-json 'cron_add' 'Schedule a bounded recurring prompt through this conversation hand, delivered only to this exact destination. The shared Harness scheduler runs an isolated conversation with the current permission ceiling. UTC only; never guess a local timezone. Each run uses the durable input/publication ledger.' ~[['schedule' 'Five-field cron expression in UTC'] ['timezone' 'Must be UTC'] ['prompt' 'Instruction for each run, at most 4096 bytes'] ['runs' 'Maximum number of runs, decimal integer from 1 to 100']])
         (fun-json 'reminder_add' 'Schedule one requested literal reminder in this exact conversation, without inference at delivery time. Require an explicit timezone/UTC offset from the user; ask if it is unknown. Reports scheduling, not delivery. List or cancel with cron_list/cron_remove.' ~[['at' 'Future RFC3339 timestamp within 365 days, e.g. 2026-09-07T09:00:00-05:00; Z means UTC. No inferred timezone'] ['destination' 'Exact destination address from this conversation instructions; no cross-chat delivery'] ['text' 'Literal reminder text, 1..4096 UTF-8 bytes; delivered without running it as a command or instruction']])
         (fun 'schedule_once' 'Run work once at an exact future time and deliver the useful result here. Use for a one-time follow-up; use cron_add only for recurring work. This runs an isolated agent with current allowed tools, not this transcript. Include source URLs and home task references under internal coordination; separately describe the human deliverable, preserving the user\'s scope and presentation constraints. The final message is delivered directly to the human, not to you. Use current_time for relative times; do not guess a timezone. List or cancel with cron_list/cron_remove.' ~[['at' (argument 'string' 'Future RFC3339 timestamp within 365 days, including Z or an explicit UTC offset')] ['prompt' (argument 'string' 'Self-contained work brief with internal coordination and human deliverable clearly separated, 1..4096 UTF-8 bytes')]] ~['at' 'prompt'])
-        (fun-json 'cron_list' 'List shared scheduled work originating from this exact hand binding, including state and remaining runs.' ~)
+        (fun-json 'cron_list' 'Read schedules before changing or retrying them. Lists your schedules in this authorized conversation; owner administration can see all schedules. Includes prompt, timing, revision, lastInput, execution and delivery. A new chat message does not retry a scheduled run.' ~)
         (fun-json 'cron_remove' 'Cancel a recurring schedule in this conversation. Does not retract already dispatched effects.' ~[['id' 'Schedule ID returned by cron_add or cron_list']])
+        (fun 'cron_update' 'Edit an authorized schedule after its work settles. Read cron_list first. args replaces future timing and content: recurring {schedule,timezone:"UTC",prompt,runs} (runs is a string, 1..100); one-shot {at,prompt}; reminder {at,destination,text}. at requires an explicit timezone offset. Keeps the destination, model configuration, tool grants and history; does not retry a failed run.' ~[['id' (argument 'string' 'Schedule ID')] ['revision' (argument 'string' 'Exact revision from cron_list')] ['args' (argument 'object' 'Complete future timing and content for the existing schedule kind')]] ~['id' 'revision' 'args'])
+        (fun-json 'cron_delete' 'Delete an authorized schedule, stopping future runs. Requires settled work and delivery; cancel first if busy. Retains conversation history and delivery receipts.' ~[['id' 'Schedule ID from cron_list']])
+        (fun-json 'cron_retry' 'Explicitly retry the latest failed model run using current credentials and existing tool results. Requires settled delivery, live permissions and an unchanged lastInput from cron_list. Does not spend a scheduled run or change timing. Never retry uncertain effects. Available only for authorized human requests, not scheduled workers.' ~[['id' 'Schedule ID from cron_list'] ['input' 'Exact lastInput from cron_list']])
     ==
       %skills
     :_  ~

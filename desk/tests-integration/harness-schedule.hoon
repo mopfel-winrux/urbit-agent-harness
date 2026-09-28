@@ -1,7 +1,7 @@
 ::  Full-agent persistence and timer checks; emitted cards are never executed.
 ::  -test /=harness=/tests-integration/harness-schedule
-/-  c=harness-cron, hh=harness-hand, h=harness, ac=acp, *harness-store
-/+  *test, schedule=harness-schedule, defaults=harness-defaults, hl=harness, tools=harness-tools
+/-  c=harness-cron, hh=harness-hand, h=harness, ac=acp, renew=harness-oauth, adapter=harness-adapter, *harness-store
+/+  *test, schedule=harness-schedule, defaults=harness-defaults, hl=harness, tools=harness-tools, auth=harness-auth
 /=  head  /app/harness
 |%
 ++  bowl
@@ -112,5 +112,168 @@
     (expect-eq !>(%active) !>(state:(~(got by schedules.next) 0v1)))
     (expect-eq !>(~[%web]) !>(tools:(~(got by schedules.next) 0v1)))
     (expect-eq !>(%paused) !>(state:(~(got by schedules.revoked) 0v1)))
+  ==
+++  test-edit-is-versioned-and-delete-retains-history
+  %-  isolated  |=  ignored=*
+  =/  s  fixture
+  =.  schedules.s  (my ~[[0v1 job]])
+  =/  loaded  (~(on-load head bowl) !>(s))
+  =/  args  (pairs:enjs:format ~[['schedule' %s '0 9 * * *'] ['timezone' %s 'UTC'] ['prompt' %s 'Check deployment status'] ['runs' %s '5']])
+  =/  request=request:c  ['edit' [%edit 0v1 (sham job) args]]
+  =/  edited  (~(on-poke +.loaded bowl) %harness-cron !>(request))
+  =/  next  !<(state-0 ~(on-save +.edited bowl))
+  =/  stale  (~(on-poke +.edited bowl) %harness-cron !>(request))
+  =/  unchanged  !<(state-0 ~(on-save +.stale bowl))
+  =/  deleted  (~(on-poke +.stale bowl) %harness-cron !>(`request:c`['delete' [%delete 0v1]]))
+  =/  final  !<(state-0 ~(on-save +.deleted bowl))
+  ;:  weld
+    (expect-eq !>('Check deployment status') !>(prompt:(~(got by schedules.next) 0v1)))
+    (expect-eq !>(5) !>(remaining:(~(got by schedules.next) 0v1)))
+    (expect-eq !>(schedules.next) !>(schedules.unchanged))
+    (expect-eq !>(~) !>(schedules.final))
+    (expect !>((~(has by sessions.final) 'schedule-0v1')))
+    (expect !>(!enabled:(~(got by bindings.hands.final) 'schedule-0v1')))
+  ==
+++  requests
+  |=  cards=(list card:agent:gall)
+  ^-  (list http-card:renew)
+  (murn cards |=(c=card:agent:gall ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %i %request *] c) `c ~))))
+++  failed-fixture
+  ^-  state-0
+  =/  s  fixture
+  =/  j  job
+  =.  last.j  `0v9
+  =.  schedules.s  (my ~[[0v1 j]])
+  =/  cfg  defaults.s(url device-url:auth, model 'fixture-model')
+  =/  input=admitted-input:h  [0v9 [%hand run-sid.j hand.j destination.j 'tick' actor.j] ~ `[%hand run-sid.j] ~2026.9.9 [%user prompt.j]]
+  =/  log=(list event:h)
+    :~  [%llm-failed 2 'http error 401: token_expired']
+        [%llm-requested 2 %turn]
+        [%tool-completed 'status' 'current_time' '2026-09-09T00:00:00Z']
+        [%tool-requested 'status' 'current_time']
+        [%llm-completed 1 %tool-calls [0 0] [%assistant '' ~[['status' 'current_time' '{}']]]]
+        [%llm-requested 1 %turn]
+        [%input-received input]
+        [%config-replaced cfg]
+    ==
+  =.  sessions.s  (~(put by sessions.s) run-sid.j [log 3])
+  =.  provider-keys.s  (my ~[['openai-device' 'current-subscription-token']])
+  =.  observations.hands.s  (my ~[[0v9 [run-sid.j 'tick' actor.j prompt.j ~2026.9.9 %failed]]])
+  =.  outbox.hands.s  (my ~[[0v9 [0v9 run-sid.j hand.j destination.j run-sid.j %failure 'Authentication failed' %delivered 'worker' 'failure-post' ~]]])
+  s
+++  test-retry-uses-shared-login-preserves-budget-and-publishes-once
+  %-  isolated  |=  ignored=*
+  =/  s  failed-fixture
+  =/  loaded  (~(on-load head bowl) !>(s))
+  =/  request=request:c  ['retry' [%retry 0v1 0v9]]
+  =/  retried  (~(on-poke +.loaded bowl) %harness-cron !>(request))
+  =/  next  !<(state-0 ~(on-save +.retried bowl))
+  =/  http  (snag 0 (requests -.retried))
+  =/  duplicate  (~(on-poke +.retried bowl) %harness-cron !>(request))
+  =/  success=client-response:iris
+    [%finished [200 ~] `['text/event-stream' (as-octs:mimes:html 'data: {"type":"response.output_item.done","item":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Deployment is healthy."}]}}\0a\0adata: {"type":"response.completed","response":{"usage":{"input_tokens":30,"output_tokens":5}}}\0a\0a')]]
+  =/  completed  (~(on-arvo +.duplicate bowl) wire.http [%iris %http-response success])
+  =/  final  !<(state-0 ~(on-save +.completed bowl))
+  =/  j  (~(got by schedules.final) 0v1)
+  =/  publication  (~(got by outbox.hands.final) (need last.j))
+  =/  late  (~(on-arvo +.completed bowl) wire.http [%iris %http-response success])
+  =/  repeated  !<(state-0 ~(on-save +.late bowl))
+  ;:  weld
+    (expect-eq !>(1) !>((lent (requests -.retried))))
+    (expect !>((lien header-list.request.http |=([key=@t value=@t] &(=('authorization' key) =('Bearer current-subscription-token' value))))))
+    (expect-eq !>(2) !>(remaining.j))
+    (expect-eq !>(next:(~(got by schedules.s) 0v1)) !>(next.j))
+    (expect-eq !>(~) !>((requests -.duplicate)))
+    (expect-eq !>(items:(play:hl log:(~(got by sessions.s) run-sid.j))) !>(items:(play:hl log:(~(got by sessions.next) run-sid.j))))
+    (expect-eq !>(%reply) !>(kind.publication))
+    (expect-eq !>('Deployment is healthy.') !>(body.publication))
+    (expect-eq !>(%pending) !>(status.publication))
+    (expect-eq !>(2) !>(~(wyt by outbox.hands.final)))
+    (expect-eq !>(outbox.hands.final) !>(outbox.hands.repeated))
+  ==
+++  test-retry-refuses-uncertain-delivery-and-revoked-authority
+  %-  isolated  |=  ignored=*
+  %-  zing
+  %+  turn  `(list ?)`~[%.y %.n]
+  |=  uncertain=?
+  ^-  tang
+  =/  s  failed-fixture
+  =/  pub  (~(got by outbox.hands.s) 0v9)
+  =?  outbox.hands.s  uncertain  (my ~[[0v9 pub(status %uncertain)]])
+  =?  bindings.hands.s  !uncertain
+    (~(put by bindings.hands.s) 'source-binding' ['fixture-chat' 'room' 'source' ~['alice'] |])
+  =/  loaded  (~(on-load head bowl) !>(s))
+  =/  retried  (~(on-poke +.loaded bowl) %harness-cron !>(`request:c`['retry' [%retry 0v1 0v9]]))
+  =/  final  !<(state-0 ~(on-save +.retried bowl))
+  ;:  weld
+    (expect-eq !>(~) !>((requests -.retried)))
+    (expect-eq !>(`0v9) !>(last:(~(got by schedules.final) 0v1)))
+  ==
+++  tool-fixture
+  |=  [name=@t args=@t actor=@t]
+  ^-  state-0
+  =/  s  fixture
+  =/  job  job
+  =/  cfg  defaults.s
+  =/  call=tool-call:h  ['control' name args]
+  =/  input=admitted-input:h  [0v8 [%hand 'source-binding' 'fixture-chat' 'room' 'human-request' actor] ~ `[%hand 'source-binding'] ~2026.9.9 [%user 'Manage my schedule']]
+  =/  log=(list event:h)
+    ~[[%tool-requested-2 4 'control' name] [%llm-completed 3 %tool-calls [0 0] [%assistant '' ~[call]]] [%llm-requested 3 %turn] [%input-received input] [%config-replaced cfg]]
+  =.  sessions.s  (~(put by sessions.s) 'source' [log 4])
+  =.  observations.hands.s  (my ~[[0v8 ['source-binding' 'human-request' actor 'Manage my schedule' ~2026.9.9 %running]]])
+  =.  active.hands.s  (my ~[['source' 0v8]])
+  =.  schedules.s  (my ~[[0v1 job] [0v2 job(actor 'bob', run-sid 'schedule-0v2', prompt 'PRIVATE-BOB')] [0v3 job(binding 'elsewhere', run-sid 'schedule-0v3', prompt 'PRIVATE-ROOM')]])
+  s
+++  test-tool-list-hides-other-users-and-other-conversations
+  %-  isolated  |=  ignored=*
+  =/  loaded  (~(on-load head bowl) !>((tool-fixture 'cron_list' '{}' 'alice')))
+  =/  req=tool-request:adapter  ['source' 4 ['control' 'cron_list' '{}']]
+  =/  out  (~(on-poke +.loaded bowl) %harness-tool !>(req))
+  =/  body=@t
+    =/  fact  (need (lien-card -.out))
+    !<(@t q.cage.sign.fact)
+  ;:  weld
+    (expect !>(?=(^ (find "Check status" (trip body)))))
+    (expect !>(?=(~ (find "PRIVATE" (trip body)))))
+  ==
+++  lien-card
+  |=  cards=(list card:agent:gall)
+  ^-  (unit [dt=%give sign=[tag=%fact paths=(list path) cage=cage]])
+  ?~  cards  ~
+  ?:  ?=([%give %fact * *] i.cards)  `i.cards
+  $(cards t.cards)
+++  test-tools-refuse-other-actors-cross-binding-and-revoked-callers
+  %-  isolated  |=  ignored=*
+  %-  zing
+  %+  turn  `(list @t)`~['alice' 'mallory']
+  |=  actor=@t
+  ^-  tang
+  %-  zing
+  %+  turn  `(list @t)`~['cron_remove' 'cron_delete' 'cron_update' 'cron_retry']
+  |=  name=@t
+  ^-  tang
+  =/  args  '{"id":"0v2","revision":"0v0","input":"0v9","args":{}}'
+  =/  initial  (tool-fixture name args actor)
+  =/  loaded  (~(on-load head bowl) !>(initial))
+  =/  before  !<(state-0 ~(on-save +.loaded bowl))
+  =/  req=tool-request:adapter  ['source' 4 ['control' name args]]
+  =/  out  (~(on-poke +.loaded bowl) %harness-tool !>(req))
+  =/  next  !<(state-0 ~(on-save +.out bowl))
+  ;:  weld
+    (expect-eq !>(schedules.before) !>(schedules.next))
+    (expect-eq !>(~) !>((requests -.out)))
+  ==
+++  test-permissioned-human-can-delete-own-schedule
+  %-  isolated  |=  ignored=*
+  =/  args  '{"id":"0v1"}'
+  =/  initial  (tool-fixture 'cron_delete' args 'alice')
+  =/  loaded  (~(on-load head bowl) !>(initial))
+  =/  req=tool-request:adapter  ['source' 4 ['control' 'cron_delete' args]]
+  =/  out  (~(on-poke +.loaded bowl) %harness-tool !>(req))
+  =/  next  !<(state-0 ~(on-save +.out bowl))
+  ;:  weld
+    (expect !>(!(~(has by schedules.next) 0v1)))
+    (expect !>((~(has by schedules.next) 0v2)))
+    (expect !>((~(has by schedules.next) 0v3)))
   ==
 --

@@ -68,6 +68,16 @@ test('skill settings use acknowledged owner ACP operations with literal names an
   } finally { acp.start = start; acp.call = call }
 })
 
+test('schedule retry preserves the failed input fence and never retries transport errors', async () => {
+  const start = acp.start, call = acp.call, seen = []
+  acp.start = async () => {}
+  acp.call = async (...args) => { seen.push(args); throw new Error('Request status unknown') }
+  try {
+    await assert.rejects(api.action({ retryCron: { id: '0v1', input: '0v9' } }), /Request status unknown/)
+    assert.deepEqual(seen, [['harness/cron/retry', { id: '0v1', input: '0v9' }]])
+  } finally { acp.start = start; acp.call = call }
+})
+
 test('corpus and optional summary settings share the owner ACP facade', async () => {
   const start = acp.start, call = acp.call, seen = []
   acp.start = async () => {}

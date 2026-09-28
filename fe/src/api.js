@@ -9,6 +9,7 @@ async function action(value) {
   if (value.tlonProfile) return acp.call('harness/tlon/profile/set', value.tlonProfile)
   if (value.cancelCron) return acp.call('harness/cron/cancel', { id: value.cancelCron })
   if (value.clearCron) return acp.call('harness/cron/clear', { id: value.clearCron })
+  if (value.retryCron) return acp.call('harness/cron/retry', value.retryCron)
   if (value.hand) return acp.call('harness/hand', value.hand)
   if (value.retryAdmission) return acp.call('harness/tlon/admission/retry', { id: value.retryAdmission })
   if (value.config) return acp.call('harness/session/configure', { sessionId: value.config.sid, config: value.config.config })

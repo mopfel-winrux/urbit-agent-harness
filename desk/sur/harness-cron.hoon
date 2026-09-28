@@ -38,6 +38,9 @@
       [%list binding=(unit @t)]
       [%cancel id=@uv]
       [%clear id=@uv]
+      [%edit id=@uv revision=@uvH args=json]
+      [%delete id=@uv]
+      [%retry id=@uv input=@uv]
   ==
 +$  request  [id=@t act=action]
 --

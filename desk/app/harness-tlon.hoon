@@ -16,6 +16,7 @@
 /+  migration=harness-tlon-migrate
 /+  permissions=harness-tlon-permissions
 /+  story=harness-tlon-story, input=harness-tlon-input
+/+  observe=harness-observe
 |%
 +$  card  card:agent:gall
 +$  storage-source  $%([%credentials creds=credentials:s3] [%hosted token=@t config=json])
@@ -95,6 +96,7 @@
   ==
 ++  on-agent
   |=  [=wire =sign:agent:gall]
+  ?:  =(/telemetry wire)  `this
   =^  cards  state  abet:(agent:cor wire sign)
   [cards this]
 ++  on-arvo
@@ -110,7 +112,7 @@
 ++  on-fail
   |=  [=term =tang]
   %-  (slog 'harness-tlon: effect failed' tang)
-  `this(error 'An adapter effect failed; inspect the ship log.')
+  [~[(crash:observe bowl term tang)] this(error 'An adapter effect failed; inspect the ship log.')]
 --
 |_  [=bowl:gall cards=(list card)]
 +*  messenger  ~(. io bowl)
