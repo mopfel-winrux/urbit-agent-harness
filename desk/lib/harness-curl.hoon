@@ -2,6 +2,7 @@
 ::  The head owns grants, durable intent, cancellation and receipt fencing.
 ::  No shell, ambient credentials, destination policy or automatic retries.
 /-  h=harness
+/+  utf=harness-text
 |%
 ++  schema
   ^-  json
@@ -102,6 +103,5 @@
 ++  bounded
   |=  text=@t
   ^-  @t
-  ?:  (lte (met 3 text) 8.000)  text
-  (cat 3 (end [3 8.000] text) ' ...(truncated)')
+  (clip:utf text 8.000)
 --

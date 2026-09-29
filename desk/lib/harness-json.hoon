@@ -2,7 +2,7 @@
 ::  JSON marks, ACP and snapshots. These are views of nouns, not stored state.
 ::  Provider wire messages live separately in harness-provider.
 /-  h=harness
-/+  hl=harness, routing=harness-model-routing
+/+  hl=harness, routing=harness-model-routing, text=harness-text
 |%
 ++  transcript-json
   |=  log=(list event:h)
@@ -114,7 +114,7 @@
     :~  ['role' %s 'tool']
         ['callId' %s call-id.it]
         ['name' %s name.it]
-        ['body' %s body.it]
+        ['body' %s (clean:text body.it)]
     ==
   ==
 ::  json for the ui: one event
@@ -150,7 +150,7 @@
     :~  ['type' %s 'command-completed']
         ['inputId' %s (scot %uv input-id.e)]
         ['name' %s name.e]
-        ['body' %s body.e]
+        ['body' %s (clean:text body.e)]
     ==
   ::
       %memory-set

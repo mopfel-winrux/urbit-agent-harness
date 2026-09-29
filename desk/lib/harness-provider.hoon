@@ -2,7 +2,7 @@
 ::  No I/O, credentials or session mutation. Decode into Harness nouns first;
 ::  only the head may accept a result against its outstanding request identity.
 /-  h=harness
-/+  ht=harness-tools, failure=harness-failure, context=harness-context, memory=harness-memory, w=harness-provider-wire, anthropic=harness-anthropic
+/+  ht=harness-tools, failure=harness-failure, context=harness-context, memory=harness-memory, w=harness-provider-wire, anthropic=harness-anthropic, text=harness-text
 |%
 +$  model-info  [id=@t context=(unit @ud)]
 ::  Estimate the same encoding that dispatch uses, including tools and wrappers.
@@ -167,7 +167,7 @@
     %-  pairs:enjs:format
     :~  ['type' %s 'function_call_output']
         ['call_id' %s call-id.it]
-        ['output' %s body.it]
+        ['output' %s (clean:text body.it)]
     ==
   ==
 ::  Continuations enrich exactly one assistant message. They never become
@@ -307,7 +307,7 @@
     %-  pairs:enjs:format
     :~  ['role' %s 'tool']
         ['tool_call_id' %s call-id.it]
-        ['content' %s body.it]
+        ['content' %s (clean:text body.it)]
     ==
   ==
 ::  +stream-text: project displayable text from an accumulated SSE body.

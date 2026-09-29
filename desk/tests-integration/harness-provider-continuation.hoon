@@ -16,6 +16,43 @@
   |=  cards=(list card:agent:gall)
   ^-  (list http-card:renew)
   (murn cards |=(c=card:agent:gall ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %i %request *] c) `c ~))))
+++  test-failed-history-retries-with-valid-utf8-without-repeating-tools
+  =/  attempt  |.(retry-text)
+  =/  out  (mink [attempt %9 2 %0 1] |=([* *] ``%.n))
+  ?>  ?=(%0 -.out)
+  ;;(tang product.out)
+++  retry-text
+  =/  bowl=bowl:gall  *bowl:gall
+  =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.29)
+  =/  cfg  builtin-config:policy
+  =.  cfg  cfg(url 'https://chatgpt.com/backend-api/codex/responses', model 'fixture', tools ~[%web], key '')
+  =/  broken=@t  (cat 3 (end [3 2] '🐛') ' ...(truncated)')
+  =/  log=(list event:h)
+    :~  [%llm-failed 1 'http error 400: Bad Request']
+        [%llm-requested 1 %turn]
+        [%tool-completed 'fetch' 'http_fetch' broken]
+        [%tool-requested 'fetch' 'http_fetch']
+        [%llm-completed 0 %tool-calls [0 0] [%assistant '' ~[['fetch' 'http_fetch' '{"url":"https://example.com"}']]]]
+        [%llm-requested 0 %turn]
+        [%input-admitted [%user 'Read this page']]
+        [%config-replaced cfg]
+    ==
+  =/  saved=state-0  *state-0
+  =.  saved  saved(local-mcp-seen 1, provider-keys (my ~[['openai-device' 'fixture-token']]), sessions (my ~[['fixture' [log 2]]]))
+  =/  loaded  (~(on-load head bowl) !>(saved))
+  =/  retried  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%retry 'fixture']))
+  =/  sent  (requests -.retried)
+  =/  raw  q:(need body.request:(snag 0 sent))
+  =/  input  (need (get:w (body (snag 0 sent)) 'input'))
+  ?>  ?=(%a -.input)
+  =/  retained  !<(state-0 ~(on-save +.retried bowl))
+  ;:  weld
+    (expect-eq !>(1) !>((lent sent)))
+    (expect !>((sune:de:json:html raw)))
+    (expect-eq !>(`[%s '�� ...(truncated)']) !>((get:w (rear p.input) 'output')))
+    (expect-eq !>(items:(play:hl log)) !>(items:(play:hl log:(~(got by sessions.retained) 'fixture'))))
+    (expect !>(!(lien -.retried |=(c=card:agent:gall ?=([%pass [%tool-2 *] %arvo %i %request *] c)))))
+  ==
 ++  body
   |=  c=http-card:renew
   (need (de:json:html q:(need body.request.c)))

@@ -2,7 +2,7 @@
 ::  Schemas advertise tools; +tool-granted remains the dispatch authority.
 ::  The JavaScript guard is an executor limitation, not head logic.
 /-  h=harness
-/+  curl=harness-curl, tlon=harness-tlon-tool
+/+  curl=harness-curl, tlon=harness-tlon-tool, text=harness-text
 |%
 ::  +js-loop-guard: reject the canonical unbounded-loop spellings.
 ::  the wasm runtime has no preemption, so a tight infinite loop wedges
@@ -56,8 +56,7 @@
 ++  clip
   |=  [t=@t cap=@ud]
   ^-  @t
-  ?:  (lte (met 3 t) cap)  t
-  (cat 3 (end [3 cap] t) ' ...(truncated)')
+  (clip:text t cap)
 ::  +all-tools: the available catalog, not a default grant. Bootstrap policy
 ::  lives in harness-defaults; existing explicit grants remain independent.
 ::
