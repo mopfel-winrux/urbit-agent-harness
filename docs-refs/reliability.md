@@ -10,11 +10,14 @@ multiple independent connections and a separately observed read workload.
 It refuses non-loopback URLs and checks both the host and authenticated ship
 against `SOAK_EXPECT_SHIP` before creating transport connections. Use a disposable
 local ship. Do not run native compilation alongside latency measurements.
+The runner requires `HARNESS_HEAVY_TESTS=1`. Monitor pier size and available disk:
+even read probes produce transport events, and deleting fixture sessions does
+not reclaim the ship event log. The opt-in is not a disk quota.
 
 Start with application reads only:
 
 ```sh
-SHIP_URL=http://127.0.0.1 SHIP_COOKIE=/path/to/local-cookie \
+HARNESS_HEAVY_TESTS=1 SHIP_URL=http://127.0.0.1 SHIP_COOKIE=/path/to/local-cookie \
 SOAK_EXPECT_SHIP='~your-test-ship' node scripts/reliability-soak.mjs
 ```
 
@@ -27,7 +30,7 @@ or browser memory.
 To exercise accepted work and recovery, add `SOAK_WORK=1`:
 
 ```sh
-SHIP_URL=http://127.0.0.1 SHIP_COOKIE=/path/to/local-cookie \
+HARNESS_HEAVY_TESTS=1 SHIP_URL=http://127.0.0.1 SHIP_COOKIE=/path/to/local-cookie \
 SOAK_EXPECT_SHIP='~your-test-ship' SOAK_WORK=1 \
 SOAK_DURATION_MS=120000 SOAK_TURN_INTERVAL_MS=1500 \
 node scripts/reliability-soak.mjs
@@ -57,7 +60,7 @@ heartbeat timeout and 10-second backoff; allow enough time and rounds to cover i
 The same runner supports up to 24 hours:
 
 ```sh
-SHIP_URL=http://127.0.0.1 SHIP_COOKIE=/path/to/local-cookie \
+HARNESS_HEAVY_TESTS=1 SHIP_URL=http://127.0.0.1 SHIP_COOKIE=/path/to/local-cookie \
 SOAK_EXPECT_SHIP='~your-test-ship' SOAK_WORK=1 \
 SOAK_DURATION_MS=86400000 SOAK_MAX_ROUNDS=256 \
 node scripts/reliability-soak.mjs

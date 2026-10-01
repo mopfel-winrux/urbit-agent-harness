@@ -2,6 +2,7 @@
 // No paid provider, global settings changes, or external publication. Deletes
 // only uniquely named fixture sessions; run separately from native compilation.
 // SHIP_URL=http://ship SHIP_COOKIE=/path/to/cookie node scripts/performance-turn-benchmark.mjs
+import './lib/heavy-test-opt-in.mjs'
 import assert from 'node:assert/strict'
 import { text as readText } from 'node:stream/consumers'
 import { createServer } from 'node:http'

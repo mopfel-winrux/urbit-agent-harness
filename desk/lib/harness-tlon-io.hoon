@@ -4,6 +4,17 @@
 /+  story=harness-tlon-story, profile=harness-tlon-profile, ht=harness-tools, publication=harness-tlon-publication, hist=harness-tlon-history, onboarding=harness-tlon-onboarding
 |_  bowl=bowl:gall
 +$  card  card:agent:gall
+++  owner-invitations
+  |=  owner-test=$-(@p ?)
+  ^-  (list card)
+  ?.  .^(? %gu /(scot %p our.bowl)/chat/(scot %da now.bowl)/$)  ~
+  =/  invited=(set @p)
+    .^((set @p) %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/dm/invited/ships)
+  %+  murn  ~(tap in invited)
+  |=  who=@p
+  ^-  (unit card)
+  ?.  (owner-test who)  ~
+  `[%pass /invite/dm/(scot %p who) %agent [our.bowl %chat] %poke %chat-dm-rsvp !>([who &])]
 ++  publish
   |=  [wire=wire to=destination:t text=@t sent=@da blob=(unit @t)]
   ^-  card

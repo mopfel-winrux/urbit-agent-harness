@@ -1,3 +1,4 @@
+import { chooseOption } from './picker'
 import { expect, test } from '@playwright/test'
 
 test('work can be created and updated without a project', async ({ page }) => {
@@ -11,7 +12,7 @@ test('work can be created and updated without a project', async ({ page }) => {
   expect(task.project).toBeNull()
   await page.goto(`/apps/harness/tests/workspace-fixture.html#/tasks/${task.id}`)
   await row.getByRole('button', { name: 'Update task' }).click()
-  await page.getByRole('combobox', { name: 'Status', exact: true }).selectOption('done')
+  await chooseOption(page.getByRole('combobox', { name: 'Status', exact: true }), 'done')
   await page.getByRole('textbox', { name: 'Outcome or next step' }).fill('Answered in the conversation.')
   await page.getByRole('button', { name: 'Save task', exact: true }).click()
   await expect(row).toContainText('Answered in the conversation.')
@@ -24,12 +25,12 @@ test('task editing, project moves, and deletion act on the exact record', async 
   await page.getByRole('button', { name: 'Update task', exact: true }).click()
   await page.getByRole('textbox', { name: 'Task title', exact: true }).fill('Check supplies')
   await page.getByRole('textbox', { name: 'Brief and expected result' }).fill('List the missing items.')
-  await page.getByRole('combobox', { name: 'Project', exact: true }).selectOption('')
+  await chooseOption(page.getByRole('combobox', { name: 'Project', exact: true }), '')
   await page.getByRole('button', { name: 'Save task', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Check supplies', exact: true })).toBeVisible()
   expect(await page.evaluate(() => window.workFixture.db.tasks.research.project)).toBeNull()
   await page.getByRole('button', { name: 'Update task', exact: true }).click()
-  await page.getByRole('combobox', { name: 'Project', exact: true }).selectOption('neighborhood')
+  await chooseOption(page.getByRole('combobox', { name: 'Project', exact: true }), 'neighborhood')
   await page.getByRole('button', { name: 'Save task', exact: true }).click()
   await expect(page.getByRole('dialog')).not.toBeVisible()
   expect(await page.evaluate(() => window.workFixture.db.tasks.research.project)).toBe('neighborhood')

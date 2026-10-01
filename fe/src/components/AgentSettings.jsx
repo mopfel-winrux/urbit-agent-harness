@@ -1,3 +1,4 @@
+import { Select, Combobox } from './Picker'
 import { useEffect, useId, useRef, useState } from 'react'
 import { api } from '../api'
 import { useResource } from '../useResource'
@@ -80,8 +81,8 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Model</h2><p>Provider and model for <strong>{resources.chat}</strong>. Changes affect its next turn.</p></div></div>
       <div className="two-fields">
-        <label><span>Provider</span><select value={provider} onChange={(event) => chooseProvider(event.target.value)}>{Object.entries(PROVIDERS).map(([id, details]) => <option key={id} value={id}>{details.title}{id === 'custom' ? ' endpoint' : ''}</option>)}</select></label>
-        <label><span>Model</span><input list={`models-${provider}`} value={form.model || ''} onChange={(event) => chooseModel(event.target.value)} placeholder={PROVIDERS[provider].model || 'model-name'} /><datalist id={`models-${provider}`}>{catalog.models.map((model) => <option key={model} value={model} />)}</datalist></label>
+        <Select label="Provider" value={provider} onValueChange={(nextValue) => chooseProvider(nextValue)}>{Object.entries(PROVIDERS).map(([id, details]) => <Select.Option key={id} value={id}>{details.title}{id === 'custom' ? ' endpoint' : ''}</Select.Option>)}</Select>
+        {provider !== 'connected' &&         <Combobox label="Model" options={catalog.models} value={form.model || ''} onValueChange={(nextValue) => chooseModel(nextValue)} placeholder={PROVIDERS[provider].model || 'model-name'} />}
       </div>
       <ProviderRoute provider={provider} value={form} onChange={(next) => { setDirty(true); setSaved(false); setForm(next) }} />
       {catalog.loading && <p className="field-note">Loading the provider’s model catalog…</p>}

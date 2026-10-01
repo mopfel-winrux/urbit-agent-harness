@@ -38,6 +38,9 @@ test('the distribution includes its own tests, not the runtime development suite
   const own = (await readdir(new URL('../desk/tests/', import.meta.url))).sort()
   assert.deepEqual(shipped, own)
 })
+test('the default distribution excludes disk-intensive integration tests', async () => {
+  await assert.rejects(access(new URL('tests-integration/', desk)), { code: 'ENOENT' })
+})
 test('namespaced Tlon imports include every dependency, including multiline hooks imports', async () => {
   for (const name of ['channel-json', 'groups-json', 'story-json', 'logs']) await access(new URL(`lib/tlon-${name}.hoon`, desk))
   const hooks = await readFile(new URL('sur/tlon-hooks.hoon', desk), 'utf8')

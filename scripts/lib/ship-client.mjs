@@ -21,7 +21,7 @@ export class Client {
     this.ship = auth.split('=')[0].slice('urbauth-~'.length)
     this.connection = `conformance-${randomUUID()}`
     this.channel = this.connection
-    this.event = 0; this.rpc = 0; this.through = 0
+    this.event = 0; this.rpc = 0; this.through = 0; this.acknowledged = 0
     this.pending = new Map(); this.updates = []; this.running = false
   }
   async poke(json) {
@@ -73,7 +73,11 @@ export class Client {
         } else this.updates.push(frame)
         this.through = Number(message.sequence)
       }
-      if (this.through) await this.poke({ ack: { connection: this.connection, target: 'client', through: this.through } })
+      if (this.through > this.acknowledged) {
+        const through = this.through
+        await this.poke({ ack: { connection: this.connection, target: 'client', through } })
+        this.acknowledged = through
+      }
       await sleep(100)
     }
   }

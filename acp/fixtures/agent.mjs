@@ -67,7 +67,7 @@ for await (const line of createInterface({ input: process.stdin })) {
     update('agent_message_chunk', { type: 'text', text: 'REPLAY MUST NOT LEAK' })
     result(id, {})
   } else if (method === 'session/prompt') {
-    const text = params.prompt.at(-1).text
+    const text = params.prompt.at(-1).text.trimEnd()
     if (text.startsWith('relay-')) {
       pending = id
       void useTools(id, text).catch(error => finish(id, error.message))

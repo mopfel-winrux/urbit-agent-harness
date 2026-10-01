@@ -7,6 +7,7 @@ import { dirname, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { StdioAgent } from './stdio-agent.mjs'
+import { CodexAgent } from './codex-agent.mjs'
 import { migrateProviderState } from './provider-state-migration.mjs'
 
 const MODEL = 'local-acp'
@@ -172,20 +173,27 @@ function output(res, stream, receipt, delta = null, done = false) {
   if (done) res.end('data: [DONE]\n\n')
 }
 
-export async function createProvider({ repo, state, token, command = ['claude-agent-acp'], allow = [], harnessTools = [], port = 8789, timeoutMs = 1_800_000, toolTimeoutMs = 120_000, log = message => process.stderr.write(`${message}\n`), stderr = 'inherit' }) {
+export function validateAgentOptions({ command, agentType, model, sandbox, allow, harnessTools }) {
+  if (!Array.isArray(command) || !command.length || command.some(part => typeof part !== 'string' || !part)) throw new Error('Expected a local agent executable and optional arguments.')
+  if (!Array.isArray(allow) || allow.some(kind => !KINDS.has(kind))) throw new Error(`Allowed permission kinds: ${[...KINDS].join(', ')}.`)
+  if (!Array.isArray(harnessTools) || harnessTools.some(name => name !== '*' && !toolName(name))) throw new Error('Invalid Harness tool allowlist.')
+  if (!['acp', 'codex'].includes(agentType) || !['read-only', 'workspace-write'].includes(sandbox)) throw new Error('Invalid local agent type or sandbox.')
+  if (agentType === 'codex' && allow.length) throw new Error('Codex uses --sandbox, not ACP permission kinds.')
+  if (agentType === 'acp' && (model || sandbox !== 'read-only')) throw new Error('Configure the model in the ACP agent; --model and --sandbox apply to Codex.')
+}
+
+export async function createProvider({ repo, state, token, command = ['claude-agent-acp'], agentType = 'acp', model = '', sandbox = 'read-only', allow = [], harnessTools = [], port = 8789, timeoutMs = 1_800_000, toolTimeoutMs = 120_000, log = message => process.stderr.write(`${message}\n`), stderr = 'inherit' }) {
   if (process.platform === 'win32') throw new Error('This runner requires POSIX process-group cancellation (Linux or macOS).')
   if (typeof token !== 'string' || Buffer.byteLength(token) < 32) throw new Error('Set HARNESS_ACP_TOKEN to a random secret of at least 32 bytes.')
   if (!repo || !state) throw new Error('--repo and --state are required.')
-  if (!Array.isArray(command) || !command.length || command.some(part => typeof part !== 'string' || !part)) throw new Error('Expected an ACP executable and optional arguments.')
+  validateAgentOptions({ command, agentType, model, sandbox, allow, harnessTools })
   if (!Number.isInteger(port) || port < 0 || port > 65535 || !Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || !Number.isSafeInteger(toolTimeoutMs) || toolTimeoutMs < 100) throw new Error('Invalid port or timeout.')
-  if (allow.some(kind => !KINDS.has(kind))) throw new Error(`Allowed permission kinds: ${[...KINDS].join(', ')}.`)
-  if (!Array.isArray(harnessTools) || harnessTools.some(name => name !== '*' && !toolName(name))) throw new Error('Invalid Harness tool allowlist.')
   repo = await realpath(repo)
   if (!(await lstat(repo)).isDirectory()) throw new Error('--repo must be a directory.')
   allow = [...new Set(allow)].sort()
   harnessTools = [...new Set(harnessTools)].sort()
   const relay = harnessTools.length > 0
-  const journal = await Journal.open(resolve(state), digest({ repo, command, allow, ...(relay ? { harnessTools } : {}) }))
+  const journal = await Journal.open(resolve(state), digest({ repo, command, allow, ...(relay ? { harnessTools } : {}), ...(agentType === 'codex' ? { agentType, model, sandbox } : {}) }))
   let agent, turn, currentController, inFlight, closePromise, busy = false, closing = false, catalog = new Map(), relayUrl
   const allowed = new Set(allow)
   const secret = Buffer.from(`Bearer ${token}`)
@@ -238,8 +246,9 @@ export async function createProvider({ repo, state, token, command = ['claude-ag
       if (agent.failure) throw agent.failure
       return
     }
-    agent = new StdioAgent(command, {
-      cwd: repo, stderr,
+    const Agent = agentType === 'codex' ? CodexAgent : StdioAgent
+    agent = new Agent(command, {
+      cwd: repo, stderr, model, sandbox,
       onPermission: params => {
         const kind = params?.toolCall?.kind
         const bridgeTool = relay && ['mcp__harness__list_tools', 'mcp__harness__call_tool'].includes(params?.toolCall?.name)

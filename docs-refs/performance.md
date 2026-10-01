@@ -118,9 +118,11 @@ wall times, not CPU-only measurements or production latency guarantees.
 
 Build and install Harness on a development ship before running the fixture.
 Do not run native compilation or other live workloads alongside measurements.
+Live benchmarks require `HARNESS_HEAVY_TESTS=1` and a dedicated test ship with a
+monitored disk budget. Fixture cleanup does not reclaim retained ship events.
 
 ```sh
-SHIP_URL=http://127.0.0.1 SHIP_COOKIE=/path/to/private-cookie \
+HARNESS_HEAVY_TESTS=1 SHIP_URL=http://127.0.0.1 SHIP_COOKIE=/path/to/private-cookie \
   node scripts/performance-turn-benchmark.mjs
 ```
 
@@ -144,7 +146,9 @@ an empty scheduler does not exercise live job-authority checks.
 Pure native benchmarks cover mark dispatch, publication selection, session
 replay, history projections, session indexing and corpus synchronization.
 Comparisons include output-equivalence assertions; their timing ratios apply
-to the measured operations, not the entire runtime. Run them from Dojo:
+to the measured operations, not the entire runtime. These files require an
+explicit `zig build -Dheavy-tests=true` and are absent from the default desk.
+On a dedicated test ship, run one named test from Dojo at a time:
 
 ```text
 -test /=harness=/tests-integration/harness-performance

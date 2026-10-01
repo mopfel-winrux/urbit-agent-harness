@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { Select, Combobox } from './Picker'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { defaultConfig } from '../defaults'
 import { useResource } from '../useResource'
@@ -29,7 +30,6 @@ export default function PeerSettings() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const dirty = useRef(false)
-  const modelId = useId()
   const config = form.config || defaults.value
   const provider = providerOf(config.url)
   const unavailable = stored.loading || defaults.loading || !!stored.error || !!defaults.error
@@ -95,8 +95,8 @@ export default function PeerSettings() {
         <label className="tool-option"><input type="checkbox" checked={!form.config} onChange={(event) => change({ ...form, config: event.target.checked ? null : { ...defaults.value, key: '', tools: [] } })} /><span><strong>Use global defaults</strong><small>{defaults.value.model || 'No default model selected'}. Follows future default model changes.</small></span></label>
         {form.config && <>
           <div className="two-fields">
-            <label><span>Provider</span><select value={provider} onChange={(event) => modelChange(chooseProvider(config, event.target.value, event.target.value === 'openai' ? openai.value?.['auth-method'] : 'api-key'))}>{Object.entries(PROVIDERS).map(([id, item]) => <option key={id} value={id}>{item.title}</option>)}</select></label>
-            <label><span>Serving model</span><input required list={modelId} value={config.model} onChange={(event) => modelChange({ ...config, model: event.target.value, 'max-context': catalog.contextFor(event.target.value) || 80_000 })} /><datalist id={modelId}>{catalog.models.map((model) => <option key={model} value={model} />)}</datalist></label>
+            <Select label="Provider" value={provider} onValueChange={(nextValue) => modelChange(chooseProvider(config, nextValue, nextValue === 'openai' ? openai.value?.['auth-method'] : 'api-key'))}>{Object.entries(PROVIDERS).map(([id, item]) => <Select.Option key={id} value={id}>{item.title}</Select.Option>)}</Select>
+            <Combobox label="Serving model" options={catalog.models} required value={config.model} onValueChange={(nextValue) => modelChange({ ...config, model: nextValue, 'max-context': catalog.contextFor(nextValue) || 80_000 })} />
           </div>
           <ProviderRoute provider={provider} value={config} onChange={modelChange} />
           {catalog.error && <p className="field-note">Model catalog unavailable; you can enter a model ID.</p>}

@@ -1,3 +1,4 @@
+import { Select } from './Picker'
 import { useRef, useState } from 'react'
 import { useWorkspace } from '../useWorkspace'
 import { workId } from '../workspace'
@@ -43,7 +44,7 @@ function NewClientKey({ project, onClose }) {
     </> : <form onSubmit={attempt}>
       <p>This key will read all current and future documents, accepted history, proposals, and task records in <strong>{project.title}</strong>. It grants no conversation access, tool execution, changes, approvals, or publication.</p>
       <label><span>Client label</span><input autoFocus required maxLength={128} value={label} disabled={mutation.busy || !!request.current} onChange={(event) => setLabel(event.target.value)} placeholder="For example, my project dashboard" /></label>
-      <label><span>Key expires after</span><select value={days} disabled={mutation.busy || !!request.current} onChange={(event) => setDays(event.target.value)}><option value="1">1 day</option><option value="7">7 days</option><option value="30">30 days</option></select></label>
+      <Select label="Key expires after" value={days} disabled={mutation.busy || !!request.current} onValueChange={(nextValue) => setDays(nextValue)}><Select.Option value="1">1 day</Select.Option><Select.Option value="7">7 days</Select.Option><Select.Option value="30">30 days</Select.Option></Select>
       <p className="field-note">Expiry is fixed at creation. Archiving suspends the key; restoring the project restores an unexpired, unrevoked key. Revoking is permanent. Previously read or copied material cannot be recalled.</p>
       <label className="project-key-confirm"><input type="checkbox" checked={confirmed} disabled={mutation.busy || !!request.current} onChange={(event) => setConfirmed(event.target.checked)} /><span>I want anyone holding this key to have read access to this project.</span></label>
       {changed && !request.current && <p className="inline-error" role="alert">Project settings or access changed. Close this dialog and review the project before creating a key.</p>}

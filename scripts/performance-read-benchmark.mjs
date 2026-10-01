@@ -2,6 +2,7 @@
 // writes, or onboarding creation. Each temporary connection is closed afterward.
 // SHIP_URL=http://ship SHIP_COOKIE=/path/to/cookie node scripts/performance-read-benchmark.mjs
 // Optional BENCH_BASE=HEAD compares the previous transport against this worktree.
+import './lib/heavy-test-opt-in.mjs'
 import { readFile } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'

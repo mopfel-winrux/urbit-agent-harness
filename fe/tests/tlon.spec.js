@@ -1,3 +1,4 @@
+import { chooseOption } from './picker'
 import { expect, test } from '@playwright/test'
 
 for (const width of [390, 1280]) test(`allowed ships use compact removable rows at ${width}px`, async ({ page }, testInfo) => {
@@ -31,7 +32,7 @@ test('allowed ships and channel responses save without adding peer trust', async
   await page.goto('/apps/harness/tests/tlon-fixture.html')
   await page.getByRole('combobox', { name: 'Add an allowed ship' }).fill('alice')
   await page.getByRole('listbox').getByRole('option').first().click()
-  await page.getByLabel('Default channel responses').selectOption('all')
+  await chooseOption(page.getByLabel('Default channel responses'), 'all')
   await page.getByRole('button', { name: 'Save Tlon settings' }).click()
   await expect(page.getByText('Saved.', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => window.tlonFixture.saves.at(-1))).toMatchObject({ allowed: ['~nec'], trusted: [], response: 'all' })
@@ -47,7 +48,7 @@ test('work recovery is explicit, attempt-fenced and never silently retries an un
   await page.getByRole('button', { name: 'Resolve delivery', exact: true }).click()
   const form = page.getByRole('form', { name: 'Delivery recovery' })
   await expect(form.getByRole('button', { name: 'Record outcome' })).toBeDisabled()
-  await form.getByLabel('Recorded outcome').selectOption('delivered')
+  await chooseOption(form.getByLabel('Recorded outcome'), 'delivered')
   await form.getByLabel('Evidence or reason').fill('Verified the native message.')
   await form.getByRole('checkbox').check()
   await page.evaluate(() => { window.tlonFixture.recoveryError = 'Wrong hand or stale recovery attempt' })

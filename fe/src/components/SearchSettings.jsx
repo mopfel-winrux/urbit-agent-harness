@@ -1,3 +1,4 @@
+import { Select } from './Picker'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useResource } from '../useResource'
@@ -42,7 +43,7 @@ export default function SearchSettings() {
     {(error || status.error || stored.error) && <div className="inline-error" role="alert">{error || status.error || stored.error}</div>}
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Web search provider</h2><p>Shared by conversations with the Web capability, through any client.</p></div></div>
-      <label><span>Search provider</span><select value={config.provider} onChange={(event) => field('provider', event.target.value)}><option value="brave">Brave Search</option><option value="searxng">SearXNG</option></select></label>
+      <Select label="Search provider" value={config.provider} onValueChange={(nextValue) => field('provider', nextValue)}><Select.Option value="brave">Brave Search</Select.Option><Select.Option value="searxng">SearXNG</Select.Option></Select>
       {config.provider === 'searxng' && <>
         <label><span>SearXNG instance URL</span><input type="url" required value={config['instance-url']} onChange={(event) => field('instance-url', event.target.value)} placeholder="https://search.example.org" /></label>
         <p className="field-note">Use the instance base URL, including any hosting path prefix. The harness appends /search. The instance must allow JSON output in search.formats; many public instances do not. <a href="https://docs.searxng.org/dev/search_api.html" target="_blank" rel="noreferrer">SearXNG API setup</a></p>

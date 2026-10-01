@@ -133,6 +133,7 @@
 ++  boot
   ^+  cor
   ?.  enabled.policy  cor
+  =.  cor  accept-owner-invitations
   =.  cor  watch-head
   ::  Gall owns the subscription. An acknowledged watch survives even when
   ::  processing its acknowledgement crashes before saving our local flag.
@@ -158,6 +159,14 @@
   =?  cor  (~(has by wex.bowl) /publications our.bowl %channels)
     (emit [%pass /publications %agent [our.bowl %channels] %leave ~])
   (emit [%pass /publications %agent [our.bowl %channels] %watch /v3])
+++  accept-owner-invitations
+  ^+  cor
+  ?.  enabled.policy  cor
+  ::  Native pending requests survive Activity cursors and owner changes.
+  ::  Acceptance does not replay input from before the authority cutoff.
+  =/  effects  (mole |.((owner-invitations:messenger actor-owner)))
+  ?~  effects  cor(error 'Could not inspect pending owner DM requests.')
+  (roll u.effects |=([effect=card c=_cor] (emit:c effect)))
 ++  publications-connected
   ^-  ?
   =/  sub  (~(get by wex.bowl) /publications our.bowl %channels)
@@ -846,7 +855,7 @@
   =.  epoch  +(epoch)
   =.  error  ''
   =.  cor  (sync-presence db)
-  ?:  =(enabled.before enabled.new)  schedule
+  ?:  =(enabled.before enabled.new)  schedule:accept-owner-invitations
   ?:  enabled.new  boot
   =?  cor  (~(has by wex.bowl) /activity our.bowl %activity)
     (emit [%pass /activity %agent [our.bowl %activity] %leave ~])

@@ -1,3 +1,4 @@
+import { Select } from './Picker'
 import { useState } from 'react'
 import { useWorkspace } from '../useWorkspace'
 import { projectRoles, roleDescriptions } from '../projectAccess'
@@ -26,14 +27,14 @@ export default function ProjectAccess({ project }) {
       })}</div>
       {!members.length && <p className="work-empty">Only you have access. Add a conversation to start sharing project work.</p>}
       <form className="work-access-form" onSubmit={(event) => { event.preventDefault(); const session = byScope.get(scope); if (session) review({ scope, role, label: session.sessionId }) }}>
-        <h3>Add a conversation</h3><div className="field-grid"><label><span>Conversation</span><select value={scope} disabled={mutation.busy || project.archived} onChange={(event) => setScope(event.target.value)}><option value="">Choose a conversation</option>{sessions.filter((session) => !members.some((member) => member.scope === session.scope)).map((session) => <option value={session.scope} key={session.scope}>{session.sessionId}{!session.workspaceTools ? ' · enable Workspace tools separately' : ''}</option>)}</select></label><label><span>Access level</span><select value={role} disabled={mutation.busy || project.archived} onChange={(event) => setRole(event.target.value)}>{projectRoles.map((value) => <option value={value} key={value}>{value[0].toUpperCase() + value.slice(1)}</option>)}</select></label></div>
+        <h3>Add a conversation</h3><div className="field-grid"><Select label="Conversation" value={scope} disabled={mutation.busy || project.archived} onValueChange={(nextValue) => setScope(nextValue)}><Select.Option value="">Choose a conversation</Select.Option>{sessions.filter((session) => !members.some((member) => member.scope === session.scope)).map((session) => <Select.Option value={session.scope} key={session.scope}>{session.sessionId}{!session.workspaceTools ? ' · enable Workspace tools separately' : ''}</Select.Option>)}</Select><Select label="Access level" value={role} disabled={mutation.busy || project.archived} onValueChange={(nextValue) => setRole(nextValue)}>{projectRoles.map((value) => <Select.Option value={value} key={value}>{value[0].toUpperCase() + value.slice(1)}</Select.Option>)}</Select></div>
         <p className="field-note">{roleDescriptions[role]}</p>
         {query.value?.nextOffset != null && <button className="text-button" type="button" onClick={() => { setRetained(sessions); setOffset(query.value.nextOffset) }}>Load more conversations</button>}
         <div className="form-actions"><button className="button primary" disabled={!scope || mutation.busy || project.archived}>Review access…</button></div>
       </form>
       {pending && <WorkDialog title={pending.role ? 'Share project access?' : 'Remove project access?'} busy={mutation.busy} onClose={() => setPending(null)}>
         <p>{pending.role ? `“${pending.label}” will have ${pending.role} access to all current and future documents, history, proposals, and task records in “${project.title}”.` : `“${pending.label}” will lose project access. Existing proposals from this source cannot be accepted without current contributor access. Previously copied material cannot be recalled.`}</p>
-        {pending.existing && <label><span>New access level</span><select value={pending.role} disabled={mutation.busy} onChange={(event) => setPending({ ...pending, role: event.target.value })}>{projectRoles.map((value) => <option value={value} key={value}>{value[0].toUpperCase() + value.slice(1)}</option>)}</select></label>}
+        {pending.existing && <Select label="New access level" value={pending.role} disabled={mutation.busy} onValueChange={(nextValue) => setPending({ ...pending, role: nextValue })}>{projectRoles.map((value) => <Select.Option value={value} key={value}>{value[0].toUpperCase() + value.slice(1)}</Select.Option>)}</Select>}
         {pending.role && <p>{roleDescriptions[pending.role]}</p>}
         <p className="field-note">Conversation identity survives renames; deleting and recreating a conversation does not retain its membership. Live delegated children use their parent’s current access. Private transcripts and resource tool grants are unchanged.</p>
         {changed && <p className="inline-error" role="alert">Project settings or access changed. Close this dialog and review the current access before confirming.</p>}

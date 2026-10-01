@@ -69,15 +69,31 @@ In Dojo on a development desk:
 ```
 
 Full-agent reload, endpoint fixtures and the 32K-document benchmark live in
-`tests-integration`. Run them one at a time, for example:
+`tests-integration` and are excluded from the default assembled desk. Including
+them requires an explicit build on a dedicated test ship:
+
+```sh
+zig build -Dheavy-tests=true -Ddesk=/path/to/test-pier/harness
+```
+
+Commit the mounted desk, then run only one named test at a time, for example:
 
 ```text
 -test /=harness=/tests-integration/harness-reload
 ```
 
-These tests use virtualized agent evaluation and can be slow and memory-intensive
-on a 2 GB loom. Pure policy, persistence and media checks remain in the default
-suite. Avoid running heavy compilation concurrently with timing measurements.
+These tests use virtualized agent evaluation and can consume substantial memory
+and disk through compilation caches and retained ship events. Do not run the
+whole integration directory or use a working ship. Monitor pier size and free
+disk space; stop issuing test work if either exceeds the allocated budget.
+Deleting fixture conversations does not reclaim the ship event log, and stopping
+the test client does not interrupt an event already executing on the ship.
+Pure policy, persistence and media checks remain in the default suite. Avoid
+running heavy compilation concurrently with timing measurements.
+
+Live hosting, turn and read benchmarks, and the reliability soak, refuse to run
+without `HARNESS_HEAVY_TESTS=1`. This opt-in does not impose a disk quota: choose
+and monitor a dedicated test ship explicitly. Offline Node tests need no opt-in.
 
 For runtime performance characteristics and benchmark instructions, see
 [performance](performance.md).

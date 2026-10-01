@@ -637,6 +637,7 @@
 ++  provider-for-url
   |=  url=@t
   ^-  @t
+  ?:  =('connected://' (end [3 12] url))  'connected'
   ?:  =('https://openrouter.ai/api/v1/chat/completions' url)  'openrouter'
   ?:  =('https://api.openai.com/v1/responses' url)     'openai'
   ?:  =('https://chatgpt.com/backend-api/codex/responses' url)  'openai'

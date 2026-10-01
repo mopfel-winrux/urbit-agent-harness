@@ -1,3 +1,4 @@
+import { chooseOption } from './picker'
 import { expect, test } from '@playwright/test'
 
 for (const surface of ['global', 'conversation']) for (const width of [390, 1280]) {
@@ -8,14 +9,14 @@ for (const surface of ['global', 'conversation']) for (const width of [390, 1280
     const status = page.locator('.save-bar').getByRole('status')
     await save.click()
     await expect(status).toHaveText('Saved.')
-    await page.getByLabel('Model', { exact: true }).fill('changed-model')
+    await page.getByRole('combobox', { name: 'Model', exact: true }).fill('changed-model')
     await expect(status).toContainText('Unsaved changes')
     await save.click()
     await expect(status).toHaveText('Saved.')
-    await page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('openai')
+    await chooseOption(page.getByRole('combobox', { name: 'Provider', exact: true }), 'openai')
     await expect(status).toContainText('Unsaved changes')
     await save.click()
-    await page.getByLabel('Authentication').selectOption('device')
+    await chooseOption(page.getByRole('combobox', { name: 'Authentication', exact: true }), 'device')
     await expect(status).toContainText('Unsaved changes')
     await page.getByLabel('System instructions', { exact: true }).fill('Keep my revised instructions.')
     await page.evaluate(() => { window.settingsFixture.failSave = true })
@@ -53,7 +54,7 @@ test('replacing a provider key clears the old save confirmation', async ({ page 
 test('search credential feedback does not claim unsaved provider changes were saved', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/apps/harness/tests/settings-fixture.html?page=search')
-  await page.getByRole('combobox', { name: 'Search provider', exact: true }).selectOption('searxng')
+  await chooseOption(page.getByRole('combobox', { name: 'Search provider', exact: true }), 'searxng')
   await page.getByLabel('SearXNG instance URL').fill('https://search.example.org')
   await page.getByLabel('Brave Search API key').fill('fixture-brave-key')
   await page.getByRole('button', { name: 'Save search key', exact: true }).click()

@@ -9,6 +9,7 @@ export function authMethod(provider, config = {}) {
 }
 
 export function withAuth(config, provider, method) {
+  if (provider === 'connected') return { ...config, model: '', headers: [], key: '', fallbacks: [], zdr: false }
   if (provider === 'custom') return config
   const details = PROVIDERS[provider]
   const headers = (config.headers || []).filter((h) => !['authorization', 'x-api-key', 'chatgpt-account-id'].includes(h.name.toLowerCase())

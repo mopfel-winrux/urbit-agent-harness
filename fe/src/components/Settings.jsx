@@ -9,6 +9,7 @@ import SkillSettings from './SkillSettings'
 import MemorySettings from './MemorySettings'
 import PeerSettings from './PeerSettings'
 import CronSettings from './CronSettings'
+import ConnectedRunners from './ConnectedRunners'
 
 const baseTabs = [
   ['defaults', 'Defaults'],
@@ -19,7 +20,7 @@ const baseTabs = [
   ['mcp', 'MCP'],
   ['search', 'Search'],
 ]
-const providerTabs = [['openrouter', 'OpenRouter'], ['openai', 'OpenAI'], ['anthropic', 'Anthropic'], ['xai', 'xAI'], ['custom', 'Custom']]
+const providerTabs = [['openrouter', 'OpenRouter'], ['openai', 'OpenAI'], ['anthropic', 'Anthropic'], ['xai', 'xAI'], ['connected', 'Connected agent'], ['custom', 'Custom']]
 
 export default function Settings({ resources, theme, onThemeChange, onBack, initialTab }) {
   const [tab, setTab] = useState(() => [...baseTabs, ['providers']].some(([id]) => id === initialTab) ? initialTab : resources.chat ? 'conversation' : 'defaults')
@@ -44,7 +45,7 @@ export default function Settings({ resources, theme, onThemeChange, onBack, init
       {tab === 'search' && <SearchSettings />}
       {tab === 'providers' && <>
         <nav className="provider-options segmented" aria-label="Provider settings">{providerTabs.map(([id, label]) => <button key={id} className={provider === id ? 'active' : ''} aria-current={provider === id ? 'page' : undefined} onClick={() => setProvider(id)}>{label}</button>)}</nav>
-        <ProviderSettings key={provider} provider={provider} resources={resources} />
+        {provider === 'connected' ? <ConnectedRunners resources={resources} /> : <ProviderSettings key={provider} provider={provider} resources={resources} />}
       </>}
     </div>
   </main>

@@ -7,7 +7,7 @@ for (const [name, width, height] of [['desktop', 1440, 1000], ['mobile', 390, 84
     await mkdir('../.impeccable/review/project-access', { recursive: true })
     await page.setViewportSize({ width, height })
     await page.goto('/apps/harness/tests/workspace-fixture.html#/projects/neighborhood')
-    await page.getByRole('button', { name: 'Access', exact: true }).click()
+    await page.getByRole('button', { name: 'Sharing', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Read-only client access' })).toBeVisible()
     await page.evaluate(() => { window.workFixture.db.projects.neighborhood.members[0].role = 'maintainer'; window.workFixture.changed() })
     await expect(page.getByText('maintainer · Workspace tools enabled', { exact: true })).toBeVisible()

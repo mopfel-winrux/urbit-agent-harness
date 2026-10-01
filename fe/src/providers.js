@@ -36,6 +36,10 @@ export const PROVIDERS = {
     placeholder: 'xai-…',
     copy: 'Use an API key or sign in with your Grok subscription.',
   },
+  connected: {
+    title: 'Connected agent', endpoint: 'connected://', modelsEndpoint: '', model: '',
+    copy: 'Use an agent on your computer. The runner connects to your ship; no inbound port is needed.',
+  },
   custom: {
     title: 'Custom', endpoint: '', modelsEndpoint: '', model: '',
     placeholder: 'optional bearer token', copy: 'Any OpenAI-compatible Chat Completions endpoint.',
@@ -43,5 +47,6 @@ export const PROVIDERS = {
 }
 
 export function providerOf(url = '') {
+  if (url.startsWith('connected://')) return 'connected'
   return Object.entries(PROVIDERS).find(([id, provider]) => id !== 'custom' && (provider.endpoint === url || provider.deviceEndpoint === url))?.[0] || 'custom'
 }

@@ -1,3 +1,4 @@
+import { chooseOption } from './picker'
 import { expect, test } from '@playwright/test'
 
 test('uncertain Notes recovery observes without replay and requires an explicit release', async ({ page }) => {
@@ -151,7 +152,7 @@ test('sharing copies one saved revision, with an explicit project confirmation',
   await open(page, 'artifacts/private')
   await page.getByRole('button', { name: 'Copy saved revision to project…' }).click()
   const dialog = page.getByRole('dialog')
-  await dialog.getByRole('combobox', { name: 'Project', exact: true }).selectOption('neighborhood')
+  await chooseOption(dialog.getByRole('combobox', { name: 'Project', exact: true }), 'neighborhood')
   await expect(dialog.getByRole('button', { name: 'Copy and share revision' })).toBeDisabled()
   await dialog.getByRole('checkbox').check()
   await dialog.getByRole('button', { name: 'Copy and share revision' }).click()
@@ -166,8 +167,8 @@ test('sharing copies one saved revision, with an explicit project confirmation',
 test('project access uses conversation identity and never modifies resource grants', async ({ page }) => {
   await open(page, 'projects/neighborhood')
   await page.getByRole('button', { name: 'Sharing', exact: true }).click()
-  await page.getByRole('combobox', { name: 'Conversation', exact: true }).selectOption('0v2')
-  await page.getByRole('combobox', { name: 'Access level', exact: true }).selectOption('contributor')
+  await chooseOption(page.getByRole('combobox', { name: 'Conversation', exact: true }), '0v2')
+  await chooseOption(page.getByRole('combobox', { name: 'Access level', exact: true }), 'contributor')
   await page.getByRole('button', { name: 'Review access…' }).click()
   await expect(page.getByRole('dialog')).toContainText('current and future documents')
   await page.getByRole('dialog').getByRole('button', { name: 'Confirm access' }).click()
@@ -181,7 +182,7 @@ test('shared task notes update directly with the current version', async ({ page
   await expect(page.getByRole('button', { name: 'Claim for myself', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Update task', exact: true }).click()
   const dialog = page.getByRole('dialog')
-  await dialog.getByRole('combobox', { name: 'Status', exact: true }).selectOption('done')
+  await chooseOption(dialog.getByRole('combobox', { name: 'Status', exact: true }), 'done')
   await dialog.getByLabel('Outcome or next step').fill('Prepared the guide.')
   await dialog.getByLabel('Result artifact ID (optional)').fill('guide')
   await dialog.getByRole('button', { name: 'Save task' }).click()

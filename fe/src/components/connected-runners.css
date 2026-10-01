@@ -1,0 +1,9 @@
+.runner-list { list-style: none; margin: 0; padding: 0; }
+.runner-list > li { padding: 16px 0; border-top: 1px solid var(--line); }
+.runner-list > li:first-child { border-top: 0; }
+.runner-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.runner-row strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.runner-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.runner-confirm { margin-top: 16px; }
+.runner-command { margin: 0; padding: 16px; background: var(--code); border: 1px solid var(--line); border-radius: 7px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
+@media (max-width: 470px) { .runner-row strong { flex-basis: 100%; } .runner-row .button { margin-left: auto; } }

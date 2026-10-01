@@ -28,7 +28,7 @@ test('workspace desktop and mobile visual evidence', async ({ page }) => {
     await page.getByRole('button', { name: 'Tasks', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Gather the practical details' })).toBeVisible()
     await page.screenshot({ path: `${directory}/tasks-${name}.png`, fullPage: true })
-    await page.getByRole('button', { name: 'Access', exact: true }).click()
+    await page.getByRole('button', { name: 'Sharing', exact: true }).click()
     await expect(page.getByRole('combobox', { name: 'Conversation', exact: true })).toBeVisible()
     await page.screenshot({ path: `${directory}/access-${name}.png`, fullPage: true })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

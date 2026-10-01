@@ -1,6 +1,7 @@
 ::  Gall persistence accepts the current tagged envelope.
 /-  *harness-store
 /-  h=harness, c=harness-corpus
+/-  runner=harness-runner
 |%
 ++  load
   |=  saved=vase
@@ -50,9 +51,12 @@
   ::  new shape loads directly (fresh install or re-load).
   =/  cur  (mole |.(!<(state-0 saved)))
   ?^  cur  u.cur
+  =/  runnerless  (mole |.(!<(state-r0 saved)))
+  ?^  runnerless  [%0 *state:runner +.u.runnerless]
   ::  migrate pre-js-timeouts state: carry every field, default the new map.
   =/  o  !<(state-le saved)
   :*  %0
+      *state:runner
       model-defaults-set.o  xai-auth.o  hosted.o  workspace.o  work-controls.o
       project-clients.o  workspace-search.o  workspace-notes.o  schedules.o  schedule-wake.o
       local-mcp-seen.o  local-mcp.o  peer-receipts.o  peer-active.o  remote-access.o

@@ -11,6 +11,7 @@ const DeskStep = struct {
     action: Action,
     install_path: []const u8,
     desk_path: ?[]const u8,
+    heavy_tests: bool = false,
 
     fn create(b: *std.Build, name: []const u8, action: Action, desk_path: ?[]const u8) *DeskStep {
         const self = b.allocator.create(DeskStep) catch @panic("OOM");
@@ -31,7 +32,7 @@ const DeskStep = struct {
     fn make(step: *std.Build.Step, _: std.Build.Step.MakeOptions) !void {
         const self: *DeskStep = @fieldParentPtr("step", step);
         switch (self.action) {
-            .build => try buildDesk(step, self.install_path, self.desk_path),
+            .build => try buildDesk(step, self.install_path, self.desk_path, self.heavy_tests),
             .clean => try deleteTree(self.install_path),
             .clear => {
                 try deleteTree(self.install_path);
@@ -45,6 +46,7 @@ pub fn build(b: *std.Build) void {
     const desk_path = b.option([]const u8, "desk", "Replace this mounted desk after building");
 
     const assemble = DeskStep.create(b, "assemble desk", .build, desk_path);
+    assemble.heavy_tests = b.option(bool, "heavy-tests", "Include disk-intensive full-agent tests and benchmarks (dedicated test ships only)") orelse false;
     b.default_step.dependOn(&assemble.step);
     b.step("build", "Assemble Grubbery and the harness overlay").dependOn(&assemble.step);
 
@@ -55,7 +57,7 @@ pub fn build(b: *std.Build) void {
     b.step("clear", "Remove assembled output and dependency checkouts").dependOn(&clear.step);
 }
 
-fn buildDesk(step: *std.Build.Step, install_path: []const u8, desk_path: ?[]const u8) !void {
+fn buildDesk(step: *std.Build.Step, install_path: []const u8, desk_path: ?[]const u8, heavy_tests: bool) !void {
     const allocator = step.owner.allocator;
     try run(step, &.{ "npm", "ci", "--prefix", "fe", "--no-audit", "--no-fund" });
     try run(step, &.{ "npm", "run", "build", "--prefix", "fe" });
@@ -66,6 +68,10 @@ fn buildDesk(step: *std.Build.Step, install_path: []const u8, desk_path: ?[]cons
     try pruneRuntimeDesk(allocator, install_path);
     try adaptRuntimeDesk(allocator, install_path);
     try copyDir(allocator, "desk", install_path);
+    if (!heavy_tests) {
+        const tests = try std.fs.path.join(allocator, &.{ install_path, "tests-integration" });
+        try deleteTree(tests);
+    }
     // Tlon protocol and JSON dependencies share one pinned namespace.
     // No Groups applications, desk bill, UI or runtime are installed here.
     try run(step, &.{ "node", "scripts/stage-tlon.mjs", install_path });

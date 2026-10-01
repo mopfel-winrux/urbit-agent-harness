@@ -5,6 +5,7 @@ import { defaultConfig } from '../src/defaults'
 import GlobalSettings from '../src/components/GlobalSettings'
 import AgentSettings from '../src/components/AgentSettings'
 import ProviderSettings from '../src/components/ProviderSettings'
+import ConnectedRunners from '../src/components/ConnectedRunners'
 import SearchSettings from '../src/components/SearchSettings'
 import MemorySettings from '../src/components/MemorySettings'
 import McpSettings from '../src/components/McpSettings'
@@ -54,6 +55,19 @@ let remoteShips = []
 const tlonSnapshot = () => ({ policy: tlonPolicy, sessions: [], ship: '~zod', isMoon: params.has('moon'), sponsor: params.has('moon') ? '~bud' : null, siblingMoonOwners })
 const peerSnapshot = () => ({ ...peerSettings, owners: [...(tlonPolicy.owner ? [newPeerGrant(tlonPolicy.owner, config.tools)] : []), ...(params.has('trusted-owner') ? [newPeerGrant('~nec', config.tools)] : [])], trusted: [...(tlonPolicy.owner ? [newPeerGrant(tlonPolicy.owner)] : []), ...tlonPolicy.trusted.map((entry) => newPeerGrant(entry.ship, entry.tools))] })
 window.settingsFixture = { requests: [], reads: [], calls: [], saves: [], credentials: [], resolve: (id, value) => pending.get(id)(value) }
+let runners = []
+api.runners = async (action, args) => {
+  window.settingsFixture.calls.push({ action, ...args })
+  if (window.settingsFixture.failRunnerWrite) throw new Error('Runner service unavailable. Try again.')
+  if (action === 'create') {
+    const row = { id: args.id, label: args.label, status: 'offline' }
+    runners.push(row)
+    return row
+  }
+  if (action === 'revoke') { runners = runners.map(row => row.id === args.id ? { ...row, status: 'revoked' } : row); return runners.find(row => row.id === args.id) }
+  throw new Error('Unexpected runner action')
+}
+window.settingsFixture.setRunners = rows => { runners = rows }
 window.settingsFixture.sessionsChanged = () => acp.dispatchEvent(new Event('harness/sessions/changed'))
 acp.start = async () => {}
 acp.call = async (method) => {
@@ -66,6 +80,7 @@ acp.call = async (method) => {
 }
 api.read = async (path) => {
   window.settingsFixture.reads.push(path)
+  if (path === 'runners') return runners
   if (path === 'summary-models') {
     if (params.has('hold-memory')) await new Promise((resolve) => { window.settingsFixture.releaseMemory = resolve })
     if (window.settingsFixture.failMemoryRead) throw new Error('Memory settings unavailable in fixture')
@@ -194,7 +209,7 @@ api.action = async (action) => {
 function SettingsFixture() {
   const [theme, setTheme] = useState('system')
   const changeTheme = (next) => { document.documentElement.dataset.theme = next; setTheme(next) }
-  const component = params.get('page') === 'memory' ? <MemorySettings /> : params.get('page') === 'peers' ? <PeerSettings /> : params.get('page') === 'tlon' ? <TlonSettings onBack={() => {}} /> : params.get('page') === 'skills' ? <SkillSettings /> : params.get('page') === 'mcp' ? <McpSettings resources={resourcesFor('')} /> : params.get('page') === 'search' ? <SearchSettings /> : params.get('page') === 'provider'
+  const component = params.get('page') === 'connected' ? <ConnectedRunners resources={resourcesFor('')} /> : params.get('page') === 'memory' ? <MemorySettings /> : params.get('page') === 'peers' ? <PeerSettings /> : params.get('page') === 'tlon' ? <TlonSettings onBack={() => {}} /> : params.get('page') === 'skills' ? <SkillSettings /> : params.get('page') === 'mcp' ? <McpSettings resources={resourcesFor('')} /> : params.get('page') === 'search' ? <SearchSettings /> : params.get('page') === 'provider'
   ? <ProviderSettings provider={params.get('provider') || 'openai'} resources={resourcesFor('')} />
   : params.get('page') === 'conversation'
     ? <AgentSettings resources={resourcesFor('fixture')} theme={theme} onThemeChange={changeTheme} />

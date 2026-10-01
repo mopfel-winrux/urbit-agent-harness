@@ -1,3 +1,4 @@
+import { Select } from './Picker'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useWorkspace } from '../useWorkspace'
 import { workspaceWrite } from '../workspace'
@@ -58,11 +59,11 @@ export function ProjectSelect({ value, onChange, disabled, emptyLabel = 'Private
   const [retained, setRetained] = useState([])
   const projects = [...new Map([...retained, ...(query.value?.items || [])].map((item) => [item.id, item])).values()].filter((item) => !item.archived)
   return <>
-    <label><span>Project</span><select value={value || ''} disabled={disabled} onChange={(event) => onChange(event.target.value || null)}>
-      <option value="">{emptyLabel}</option>
-      {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
-      {value && !projects.some((project) => project.id === value) && <option value={value}>{value}</option>}
-    </select></label>
+    <Select label="Project" value={value || ''} disabled={disabled} onValueChange={(nextValue) => onChange(nextValue || null)}>
+      <Select.Option value="">{emptyLabel}</Select.Option>
+      {projects.map((project) => <Select.Option key={project.id} value={project.id}>{project.title}</Select.Option>)}
+      {value && !projects.some((project) => project.id === value) && <Select.Option value={value}>{value}</Select.Option>}
+    </Select>
     <WorkFeedback query={query} />
     {query.value?.nextOffset != null && <button type="button" className="text-button" onClick={() => { setRetained(projects); setOffset(query.value.nextOffset) }}>Load more projects</button>}
   </>

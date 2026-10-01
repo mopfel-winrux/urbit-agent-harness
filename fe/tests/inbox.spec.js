@@ -1,3 +1,4 @@
+import { chooseOption } from './picker'
 import { expect, test } from '@playwright/test'
 
 const open = (page, path = 'inbox') => page.goto(`/apps/harness/tests/workspace-fixture.html#/${path}`)
@@ -43,7 +44,7 @@ test('source counts, stale pagination recovery, and exact tasks beyond the first
     window.workFixture.changed()
   })
   await page.getByRole('button', { name: 'Refresh inbox', exact: true }).click()
-  await page.getByRole('combobox', { name: 'Source', exact: true }).selectOption('task')
+  await chooseOption(page.getByRole('combobox', { name: 'Source', exact: true }), 'task')
   await expect(page.getByRole('button', { name: /^Needs attention\s*31$/ })).toBeVisible()
   await expect(page.locator('.inbox-record')).toHaveCount(24)
   await page.getByRole('button', { name: 'Next page', exact: true }).click()
@@ -71,7 +72,7 @@ test('failed, loading, and empty reads cannot report a false all-clear', async (
   await expect(page.getByRole('alert')).toContainText('Showing the last successful read, not current status.')
   await expect(page.getByText('No retained records need attention', { exact: true })).toHaveCount(0)
   await page.evaluate(() => { window.workFixture.failInbox = false; window.workFixture.holdInbox = true })
-  await page.getByRole('combobox', { name: 'Source', exact: true }).selectOption('task')
+  await chooseOption(page.getByRole('combobox', { name: 'Source', exact: true }), 'task')
   await expect(page.getByText('Loading work records…', { exact: true })).toBeVisible()
   await expect(page.locator('.inbox-record')).toHaveCount(0)
   await page.evaluate(() => { window.workFixture.emptyInbox = true; window.workFixture.holdInbox = false; window.workFixture.releaseInbox() })

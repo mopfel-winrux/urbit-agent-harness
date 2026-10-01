@@ -1,6 +1,7 @@
 // Reproducible hosted-ship workload, with no model calls or external effects.
 // Creates and deletes only its own uniquely named conversations. Latencies are
 // client-observed, including transport; they are not CPU-only reducer timings.
+import './lib/heavy-test-opt-in.mjs'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'

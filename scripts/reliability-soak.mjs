@@ -14,7 +14,8 @@ import { options, Metric, deadline, until, pause, journal, processMemory } from 
 import { fixture, faultModes } from './lib/reliability-fixture.mjs'
 
 if (process.argv.includes('--help')) {
-  console.log(`Required: SHIP_URL=http://127.0.0.1 SHIP_COOKIE=/path/to/cookie SOAK_EXPECT_SHIP=~ship
+  console.log(`Required: HARNESS_HEAVY_TESTS=1 SHIP_URL=http://127.0.0.1 SHIP_COOKIE=/path/to/cookie SOAK_EXPECT_SHIP=~ship
+Live test traffic remains in the ship event log after fixture cleanup. Monitor disk use.
 Optional: SOAK_WORK=1 (creates/removes only unique fixture sessions)
 SOAK_DURATION_MS=60000 (120000 with work; max 86400000), SOAK_INTERVAL_MS=5000,
 SOAK_TURN_INTERVAL_MS=10000, SOAK_WORKERS=2 (max 4), SOAK_MAX_ROUNDS=256 (max 1024),
@@ -28,6 +29,7 @@ Reports go to a new private temporary directory, printed before connecting.`)
   process.exit(0)
 }
 
+await import('./lib/heavy-test-opt-in.mjs')
 const config = options(), log = await journal(), stop = new AbortController()
 const runId = `soak-${randomUUID().slice(0, 8)}`, clients = new Set(), owned = []
 const metrics = new Map(), transportCounts = {}, highWater = new Map(), modes = {}

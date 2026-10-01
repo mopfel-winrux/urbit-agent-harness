@@ -65,6 +65,21 @@ test('default native tests do not construct full Gall agents', async () => {
   }
 })
 
+test('pending owner DM requests reconcile at boot and permission changes, not periodic maintenance', async () => {
+  const agent = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const boot = agent.split('++  boot\n')[1].split('\n++  watch-head')[0]
+  assert.match(boot, /\?\.  enabled\.policy  cor\s+=\.  cor  accept-owner-invitations/)
+  const reconcile = agent.split('++  accept-owner-invitations\n')[1].split('\n++  publications-connected')[0]
+  assert.match(reconcile, /owner-invitations:messenger actor-owner/)
+  const configure = agent.split('++  configure\n')[1].split('\n++  agent')[0]
+  assert.match(configure, /policy  new[\s\S]+schedule:accept-owner-invitations/)
+  const maintenance = agent.split('++  maintain\n')[1].split('\n++  recover')[0]
+  assert.doesNotMatch(maintenance, /accept-owner-invitations/)
+  const projection = code('harness-tlon-io').split('++  owner-invitations\n')[1].split('\n++  publish')[0]
+  assert.match(projection, /dm\/invited\/ships/)
+  assert.match(projection, /\?\.  \(owner-test who\)  ~/)
+})
+
 test('semantic head depends on nouns, not providers or transports', () => {
   for (const name of ['harness', 'harness-context', 'harness-memory', 'harness-lcm']) {
     assert.deepEqual(dependencies(name), name === 'harness' ? ['harness-lcm'] : [])

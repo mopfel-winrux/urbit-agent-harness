@@ -1,3 +1,4 @@
+import { Select } from './Picker'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useResource } from '../useResource'
@@ -14,7 +15,7 @@ import PeerTokenLimit from './PeerTokenLimit'
 import { emptyPeers, effectivePeers, applyPeerLimits } from '../peers'
 
 const initial = { enabled: false, owner: null, response: 'mentions', allowed: [], channels: [], trusted: [] }
-const responseOptions = <><option value="off">Don’t respond</option><option value="mentions">When mentioned or replied to</option><option value="all">All messages</option></>
+const responseOptions = <><Select.Option value="off">Don’t respond</Select.Option><Select.Option value="mentions">When mentioned or replied to</Select.Option><Select.Option value="all">All messages</Select.Option></>
 export default function TlonSettings({ onBack, workOpen = false }) {
   const state = useResource('tlon', null, 5000)
   const contacts = useResource('tlon/contacts', [], 30_000)
@@ -67,7 +68,7 @@ export default function TlonSettings({ onBack, workOpen = false }) {
         <section className="panel settings-panel">
           <div className="section-title"><div><h2>Connection</h2><p>{state.value?.connected ? 'Listening to Tlon activity.' : policy.enabled ? 'Connecting to Tlon activity…' : 'Enable when your owner and permissions are ready.'}</p></div></div>
           <label className="tool-option"><input type="checkbox" checked={policy.enabled} onChange={(e) => change({ enabled: e.target.checked })} /><span><strong>Enable Tlon replies</strong><small>Reply according to your ship and channel permissions.</small></span></label>
-          <label>Default channel responses<select value={policy.response} onChange={(e) => change({ response: e.target.value })}>{responseOptions}</select></label>
+          <Select label="Default channel responses" value={policy.response} onValueChange={(nextValue) => change({ response: nextValue })}>{responseOptions}</Select>
         </section>
         <section className="panel settings-panel">
           <div className="section-title"><div><h2>Allowed ships</h2><p>Can chat, start DMs, and invite the bot to groups. Includes web search and fetch, plus tools for the current Tlon conversation. No peer or admin access is granted.</p></div></div>
@@ -89,7 +90,7 @@ export default function TlonSettings({ onBack, workOpen = false }) {
             const rule = policy.channels.find(row => row.channel === channel.channel)
             const update = next => change({ channels: [...policy.channels.filter(row => row.channel !== channel.channel), ...(next ? [next] : [])] })
             return <div className="peer-grant-fields" key={channel.channel}>
-              <label>{channel.title} <small>{channel.group}</small><select value={rule?.response ?? 'inherit'} onChange={event => update(event.target.value === 'inherit' ? null : { channel: channel.channel, response: event.target.value, everyone: rule?.everyone ?? false })}><option value="inherit">Use default</option>{responseOptions}</select></label>
+              <Select label={<>{channel.title} <small>{channel.group}</small></>} value={rule?.response ?? 'inherit'} onValueChange={nextValue => update(nextValue === 'inherit' ? null : { channel: channel.channel, response: nextValue, everyone: rule?.everyone ?? false })}><Select.Option value="inherit">Use default</Select.Option>{responseOptions}</Select>
               <label className="tool-option"><input type="checkbox" checked={rule?.everyone ?? false} disabled={(rule?.response ?? policy.response) === 'off'} onChange={event => update({ channel: channel.channel, response: rule?.response ?? policy.response, everyone: event.target.checked })} /><span>Allow everyone in this channel to interact</span></label>
             </div>
           })}

@@ -1,3 +1,4 @@
+import { Combobox } from './Picker'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useResource } from '../useResource'
@@ -121,7 +122,7 @@ export default function ProviderSettings({ provider, resources }) {
       {provider === 'anthropic' && method === 'device' && !session.loading && <AnthropicDeviceLogin key={resources.chat || 'defaults'} onCredential={acceptCredential} />}
       {provider === 'xai' && method === 'device' && !session.loading && <XaiDeviceLogin key={resources.chat || 'defaults'} onConnected={acceptLogin} connected={!!configured} />}
       {method === 'api-key' && <label><span>{provider === 'custom' ? 'Bearer token (optional)' : 'API key'}</span><input type="password" autoComplete="off" value={key} onChange={(event) => { dirty.current = true; setSaved(false); setKey(event.target.value) }} placeholder={details.placeholder} /></label>}
-      <label><span>Model</span><input list={`provider-models-${provider}`} value={form.model || ''} onChange={(event) => edit({ ...form, model: event.target.value })} placeholder={details.model || 'model-name'} /><datalist id={`provider-models-${provider}`}>{catalog.models.map((name) => <option key={name} value={name} />)}</datalist></label>
+      <Combobox label="Model" options={catalog.models} value={form.model || ''} onValueChange={(nextValue) => edit({ ...form, model: nextValue })} placeholder={details.model || 'model-name'} />
       {catalog.loading && <p className="field-note">Loading the provider’s model catalog…</p>}
       {catalog.error && provider !== 'custom' && <p className="field-note">Catalog unavailable: {catalog.error}. You can still type a model name.</p>}
       {catalog.contextFor(form.model) && <p className="field-note">Provider reports a {catalog.contextFor(form.model).toLocaleString()} token context window. It will be applied when you save.</p>}

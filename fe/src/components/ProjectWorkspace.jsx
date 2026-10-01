@@ -1,3 +1,4 @@
+import { Select } from './Picker'
 import { useEffect, useState } from 'react'
 import { useWorkspace } from '../useWorkspace'
 import { workId } from '../workspace'
@@ -36,7 +37,7 @@ function TaskEditor({ task, onClose, onDeleted }) {
       <label><span>Task title</span><input autoFocus required maxLength={256} value={title} disabled={mutation.busy} onChange={(event) => setTitle(event.target.value)} /></label>
       <label><span>Brief and expected result</span><textarea rows={3} maxLength={4096} value={description} disabled={mutation.busy} onChange={(event) => setDescription(event.target.value)} /></label>
       <ProjectSelect value={project} onChange={setProject} disabled={mutation.busy} emptyLabel="No project" />
-      <label><span>Status</span><select value={status} disabled={mutation.busy} onChange={(event) => setStatus(event.target.value)}><option value="open">Open</option><option value="claimed">Assigned</option><option value="blocked">Needs attention</option><option value="done">Complete</option></select></label>
+      <Select label="Status" value={status} disabled={mutation.busy} onValueChange={(nextValue) => setStatus(nextValue)}><Select.Option value="open">Open</Select.Option><Select.Option value="claimed">Assigned</Select.Option><Select.Option value="blocked">Needs attention</Select.Option><Select.Option value="done">Complete</Select.Option></Select>
       <label><span>Outcome or next step</span><textarea rows={4} maxLength={4096} value={outcome} disabled={mutation.busy} onChange={(event) => setOutcome(event.target.value)} /></label>
       <label><span>Result artifact ID (optional)</span><input value={artifact} maxLength={96} disabled={mutation.busy} onChange={(event) => setArtifact(event.target.value)} placeholder="An accessible result document" /></label>
       <p className="field-note">Reopening makes the task available to another agent. Marking it done records a result; it does not verify external actions.</p>

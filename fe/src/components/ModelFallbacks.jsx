@@ -1,3 +1,4 @@
+import { Select } from './Picker'
 import { PROVIDERS } from '../providers'
 
 export default function ModelFallbacks({ value = [], zdr = false, onChange }) {
@@ -6,7 +7,7 @@ export default function ModelFallbacks({ value = [], zdr = false, onChange }) {
   return <section className="settings-grid" aria-label="Fallback models">
     <div className="section-title"><div><h3>Fallback models</h3><p>Try these in order if the model cannot respond. Uses saved API keys; does not retry after response text is delivered.</p></div></div>
     {value.map((entry, index) => <div className="model-fallback-row" key={index}>
-      <label><span>Fallback {index + 1} provider</span><select value={entry.provider} onChange={(event) => change(index, 'provider', event.target.value)}>{[...new Set([...providers, entry.provider])].map((id) => <option key={id} value={id}>{PROVIDERS[id]?.title || id}{zdr && id !== 'openrouter' ? ' (not eligible for ZDR)' : ''}</option>)}</select></label>
+      <Select label={<>Fallback {index + 1} provider</>} value={entry.provider} onValueChange={(nextValue) => change(index, 'provider', nextValue)}>{[...new Set([...providers, entry.provider])].map((id) => <Select.Option key={id} value={id}>{PROVIDERS[id]?.title || id}{zdr && id !== 'openrouter' ? ' (not eligible for ZDR)' : ''}</Select.Option>)}</Select>
       <label><span>Fallback {index + 1} model</span><input required value={entry.model} maxLength={256} onChange={(event) => change(index, 'model', event.target.value)} placeholder="provider/model-name" /></label>
       <button className="button" type="button" aria-label={`Remove fallback ${index + 1}`} onClick={() => onChange(value.filter((_, at) => at !== index))}>Remove</button>
     </div>)}

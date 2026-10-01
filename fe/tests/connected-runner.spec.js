@@ -1,0 +1,88 @@
+import { chooseOption } from './picker'
+import { expect, test } from '@playwright/test'
+
+test('pairs a named runner, downloads its key, and selects it without changing tool grants', async ({ page }) => {
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=connected')
+  await expect(page.getByText('No agents connected.', { exact: false })).toBeVisible()
+  await page.getByLabel('Connection name').fill('My development laptop')
+  await page.getByRole('button', { name: 'Create runner key' }).click()
+  await expect(page.getByRole('heading', { name: 'Start your runner' })).toBeVisible()
+  await expect(page.getByText('Use the ACP runner script. Replace the paths and run:', { exact: true })).toBeVisible()
+  const creation = await page.evaluate(() => window.settingsFixture.calls.find(call => call.action === 'create'))
+  expect(creation.key).toMatch(/^hrr_[a-f0-9]{64}$/)
+  await expect(page.locator('body')).not.toContainText(creation.key)
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download runner key' }).click()
+  expect((await downloadPromise).suggestedFilename()).toBe(`harness-${creation.id}.key`)
+  await chooseOption(page.getByRole('combobox', { name: 'Local agent', exact: true }), 'codex')
+  await expect(page.locator('.runner-command')).toContainText('--agent codex')
+  await chooseOption(page.getByRole('combobox', { name: 'Connected runner', exact: true }), creation.id)
+  await page.getByRole('button', { name: 'Use connected agent' }).click()
+  const saved = await page.evaluate(() => window.settingsFixture.saves.at(-1))
+  expect(saved.url).toBe(`connected://${creation.id}`)
+  expect(saved.model).toBe('')
+  expect(saved.key).toBe('')
+  expect(saved.headers).toEqual([])
+  expect(saved.tools.length).toBeGreaterThan(0)
+  await expect(page.getByRole('status').filter({ hasText: 'selected for new conversations' })).toBeVisible()
+})
+
+test('revocation requires a deliberate confirmation and makes the runner unavailable', async ({ page }) => {
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=connected')
+  await page.evaluate(() => window.settingsFixture.setRunners([{ id: 'laptop', label: 'Laptop', status: 'online' }]))
+  await page.getByRole('button', { name: 'Refresh status' }).click()
+  await page.getByRole('button', { name: 'Revoke Laptop' }).click()
+  expect(await page.evaluate(() => window.settingsFixture.calls.filter(call => call.action === 'revoke'))).toEqual([])
+  await page.getByRole('button', { name: 'Keep access' }).click()
+  await page.getByRole('button', { name: 'Revoke Laptop' }).click()
+  await page.getByRole('button', { name: 'Revoke access', exact: true }).click()
+  await expect(page.getByText('revoked', { exact: true })).toBeVisible()
+  await page.getByRole('combobox', { name: 'Connected runner', exact: true }).click()
+  await expect(page.getByRole('option', { name: 'Laptop · revoked', exact: true })).toHaveAttribute('aria-disabled', 'true')
+})
+
+test('failed pairing is retryable with the same key and identity', async ({ page }) => {
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=connected')
+  await page.evaluate(() => { window.settingsFixture.failRunnerWrite = true })
+  await page.getByLabel('Connection name').fill('Laptop')
+  await page.getByRole('button', { name: 'Create runner key' }).click()
+  await expect(page.getByRole('alert')).toContainText('Try again')
+  await page.evaluate(() => { window.settingsFixture.failRunnerWrite = false })
+  await page.getByRole('button', { name: 'Create runner key' }).click()
+  const calls = await page.evaluate(() => window.settingsFixture.calls.filter(call => call.action === 'create'))
+  expect(calls[0]).toEqual(calls[1])
+})
+
+for (const surface of ['global', 'conversation']) test(`${surface} uses a runner picker without a magic model or endpoint`, async ({ page }) => {
+  await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}`)
+  await page.evaluate(() => window.settingsFixture.setRunners([{ id: 'laptop', label: 'Laptop', status: 'offline' }]))
+  await chooseOption(page.getByRole('combobox', { name: 'Provider', exact: true }), 'connected')
+  await chooseOption(page.getByRole('combobox', { name: 'Connected runner', exact: true }), 'laptop')
+  await expect(page.getByRole('combobox', { name: 'Model', exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('Endpoint', { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: surface === 'global' ? 'Save defaults' : 'Save conversation' }).click()
+  const saved = await page.evaluate(() => window.settingsFixture.saves.at(-1))
+  expect(saved.url).toBe('connected://laptop')
+  expect(saved.model).toBe('')
+})
+
+test('Claude Code and Codex have separate keys and selectable conversation routes', async ({ page }) => {
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=connected')
+  for (const name of ['Claude Code · laptop', 'Codex · laptop']) {
+    await page.getByLabel('Connection name').fill(name)
+    await page.getByRole('button', { name: 'Create runner key' }).click()
+    await page.getByRole('button', { name: 'Done with setup' }).click()
+  }
+  const created = await page.evaluate(() => window.settingsFixture.calls.filter(call => call.action === 'create'))
+  expect(created[0].id).not.toBe(created[1].id)
+  expect(created[0].key).not.toBe(created[1].key)
+  await expect(page.locator('.runner-list li')).toHaveCount(2)
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=conversation')
+  await page.evaluate(rows => window.settingsFixture.setRunners(rows.map(row => ({ ...row, status: 'online' }))), created)
+  await chooseOption(page.getByRole('combobox', { name: 'Provider', exact: true }), 'connected')
+  for (const row of created) {
+    await chooseOption(page.getByRole('combobox', { name: 'Connected runner', exact: true }), row.id)
+    await page.getByRole('button', { name: 'Save conversation' }).click()
+    await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)?.url)).toBe(`connected://${row.id}`)
+  }
+})

@@ -11,7 +11,7 @@ for (const surface of ['global', 'conversation']) test(`${surface}: no speculati
   expect(await page.evaluate(() => window.settingsFixture.requests)).toEqual([])
   await page.evaluate(() => window.settingsFixture.releaseConfig())
   await expect.poll(() => page.evaluate(() => window.settingsFixture.requests.map((r) => r.provider))).toEqual(['anthropic'])
-  await expect(page.getByRole('combobox', { name: 'Provider', exact: true })).toHaveValue('anthropic')
+  await expect(page.getByRole('combobox', { name: 'Provider', exact: true })).toHaveText('Anthropic')
 })
 
 test('conversation reads use notifications with a fifteen-second safety poll', async ({ page }) => {

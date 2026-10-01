@@ -1,3 +1,4 @@
+import { Select } from './Picker'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useResource } from '../useResource'
@@ -26,12 +27,12 @@ function Recovery({ record, mode, onClose, onSaved }) {
   return <form aria-label="Delivery recovery" onSubmit={submit}>
     <p className="field-note">Check the native conversation before changing its delivery record. A timeout is not proof that a message was not sent. Recovery never reruns the model.</p>
     {mode === 'resolve' ? <>
-      <label><span>Recorded outcome</span><select value={outcome} disabled={busy} onChange={(event) => setOutcome(event.target.value)}>
-        <option value="abandoned">Abandon without resending</option>
-        <option value="delivered">Confirmed delivered</option>
-        <option value="failed">Confirmed not delivered</option>
-        <option value="uncertain">Still uncertain</option>
-      </select></label>
+      <Select label="Recorded outcome" value={outcome} disabled={busy} onValueChange={(nextValue) => setOutcome(nextValue)}>
+        <Select.Option value="abandoned">Abandon without resending</Select.Option>
+        <Select.Option value="delivered">Confirmed delivered</Select.Option>
+        <Select.Option value="failed">Confirmed not delivered</Select.Option>
+        <Select.Option value="uncertain">Still uncertain</Select.Option>
+      </Select>
       <label><span>Evidence or reason</span><textarea required maxLength={1024} disabled={busy} value={reason} onChange={(event) => setReason(event.target.value)} /></label>
       <label><span>Native message reference (optional)</span><input maxLength={2048} disabled={busy} value={external} onChange={(event) => setExternal(event.target.value)} /></label>
       <p className="field-note">This records your decision and fences the previous worker attempt. Marking a send failed does not resend it. Abandonment is terminal; history and receipts remain.</p>

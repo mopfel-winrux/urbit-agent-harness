@@ -1,3 +1,4 @@
+import { Select, Combobox } from './Picker'
 import { useEffect, useId, useRef, useState } from 'react'
 import { api } from '../api'
 import { defaultConfig } from '../defaults'
@@ -72,14 +73,14 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>New conversation defaults</h2><p>Every new thread takes a snapshot of this policy, then may diverge independently.</p></div></div>
       <div className="two-fields">
-        <label><span>Provider</span><select value={provider} onChange={(event) => chooseProvider(event.target.value)}>{Object.entries(PROVIDERS).map(([id, value]) => <option key={id} value={id}>{value.title}</option>)}</select></label>
-        <label><span>Model</span><input list={`global-models-${provider}`} value={form.model || ''} onChange={(event) => chooseModel(event.target.value)} placeholder={details.model || 'model-name'} /><datalist id={`global-models-${provider}`}>{catalog.models.map((model) => <option key={model} value={model} />)}</datalist></label>
+        <Select label="Provider" value={provider} onValueChange={(nextValue) => chooseProvider(nextValue)}>{Object.entries(PROVIDERS).map(([id, value]) => <Select.Option key={id} value={id}>{value.title}</Select.Option>)}</Select>
+        {provider !== 'connected' &&         <Combobox label="Model" options={catalog.models} value={form.model || ''} onValueChange={(nextValue) => chooseModel(nextValue)} placeholder={details.model || 'model-name'} />}
       </div>
       <ProviderRoute provider={provider} value={form} onChange={(next) => { dirty.current = true; setSaved(false); setForm(next) }} />
       {catalog.loading && <p className="field-note">Loading the provider’s model catalog…</p>}
       {catalog.error && provider !== 'custom' && <p className="field-note">Catalog unavailable: {catalog.error}. You can still type a model name.</p>}
       {catalog.contextFor(form.model) && <p className="field-note">Provider reports {catalog.contextFor(form.model).toLocaleString()} tokens; applied automatically on save.</p>}
-      <HeaderEditor value={form.headers || []} onChange={(value) => field('headers', value)} />
+      {provider !== 'connected' && <HeaderEditor value={form.headers || []} onChange={(value) => field('headers', value)} />}
     </section>
     <section className="panel settings-panel">
       <div className="section-title"><div><h2>Instructions</h2><p>Initial operating policy for new threads.</p></div></div>

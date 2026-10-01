@@ -1,8 +1,9 @@
+import { chooseOption } from './picker'
 import { expect, test } from '@playwright/test'
 
 const open = async (page) => {
   await page.goto('/apps/harness/tests/workspace-fixture.html#/projects/neighborhood')
-  await page.getByRole('button', { name: 'Access', exact: true }).click()
+  await page.getByRole('button', { name: 'Sharing', exact: true }).click()
 }
 const calls = (page, action) => page.evaluate((action) => window.workFixture.calls.filter((call) => call.action === action), action)
 const create = async (page) => {
@@ -18,7 +19,7 @@ test('maintainer changes are explicit, versioned and reversible without resource
   await open(page)
   for (const role of ['maintainer', 'reader', 'contributor']) {
     await page.getByRole('button', { name: 'Change role…', exact: true }).click()
-    await page.getByRole('combobox', { name: 'New access level', exact: true }).selectOption(role)
+    await chooseOption(page.getByRole('combobox', { name: 'New access level', exact: true }), role)
     await page.getByRole('button', { name: 'Confirm access', exact: true }).click()
     await expect(page.getByText(`${role} · Workspace tools enabled`, { exact: true })).toBeVisible()
   }

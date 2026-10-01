@@ -82,7 +82,122 @@ Start the adapter and enter:
 The prompt first yields a `user_message_chunk`, then an assistant update and a
 terminal result.
 
-## Local coding agent behind a bot DM
+## Connected agents: Claude Code, Codex, and ACP
+
+`connected-runner.mjs` connects **outbound** to the ship over HTTPS and SSE.
+The ship never connects to your computer. Model authentication stays local;
+the runner uses a dedicated key, not a ship login code or browser cookie.
+Requirements: Node 22+, Linux or macOS, the ACP runner script, and a locally installed,
+authenticated agent. Claude Code uses `claude-agent-acp`; Codex uses
+[`codex app-server`](https://learn.chatgpt.com/docs/app-server).
+
+In **Settings → Providers → Connected agent**, create a named connection,
+download its key, and follow the generated command. Keep the key and state
+outside the coding repository. For example:
+
+```sh
+chmod 600 /private/claude-laptop.key
+node acp/connected-runner.mjs \
+  --ship https://your-ship.example \
+  --runner YOUR_RUNNER_ID \
+  --key-file /private/claude-laptop.key \
+  --repo /absolute/path/to/project \
+  --state /private/claude-laptop.json \
+  --agent acp \
+  --harness-tool current_time
+```
+
+For Codex, create another connection and run another process with its own key
+and state, using `--agent codex`. Both can run on the same computer. Each
+conversation/channel chooses **Connected agent → its named connection** in
+its conversation settings. Global defaults apply to new conversations only.
+Pairing a connection does not change any conversation's provider or tool grants.
+The runtime and repository belong to the local connection; remote prompts
+cannot choose an executable, working directory, model, or local permission policy.
+
+Codex accepts `--model MODEL` and `--sandbox read-only|workspace-write`, with
+read-only as the default and approval requests declined. ACP accepts repeated
+`--allow` permission kinds as described below; configure its model locally.
+Append `-- your-acp-command args...` for another ACP executable. A repo working
+directory is not an ACP sandbox. Local credentials, agent configuration and
+hooks are inherited; runner and loopback bearer environment variables are
+removed from the agent environment.
+
+`--harness-tool NAME` is a local ceiling, intersected with the conversation's
+current Harness tools. With no flags, no Harness tools are exposed. The local
+agent sees the `harness` MCP wrappers described below. Tool calls execute
+through Harness's normal dispatcher and ledger; the matching result resumes
+the same local coding turn. A runner key accesses only that runner's assigned
+prompts and replies, never owner configuration or arbitrary ship tools.
+
+### Connection and recovery
+
+Each conversation has a separate local agent session and journal. Several
+connections and conversations can run concurrently. One process owns each
+runner identity and journal. Use distinct keys, IDs, and state paths for
+independent processes. The ship retains up to 64 runner identities; revocation
+is permanent for an identity. The runner loads at most 16 conversations per
+process and retains 4096 attempt receipts. Limits fail explicitly without
+evicting safety records. Per-conversation provider receipts retain 64 responses.
+
+SSE reconnects from a durable cursor. Replies use an ordered, persisted POST
+outbox; a lost acknowledgement retries the same event, not the coding prompt.
+A crash with uncertain execution reports an interruption instead of rerunning
+work. Stop, changed session lineage, timeout, and key revocation fence replies;
+Stop also cancels a local agent waiting on a Harness tool. Cancellation is
+best-effort and cannot roll back edits or completed external effects.
+
+On interruption, inspect the repository, local agent and ship tool effects.
+Keep the journals; use a fresh conversation for further work. Do not erase
+uncertainty markers or replay a task blindly. A stale `.lock` file may be removed
+only after checking that its recorded process is gone. A changed connection
+or execution policy requires a separately paired runner and state path.
+
+Do not edit/fork a connected conversation's transcript or change its system
+instructions mid-session: follow-ups must extend its saved history exactly.
+Compaction rewrites that history; use a fresh conversation when the context
+budget is reached. A connected agent cannot itself serve as a summary provider.
+
+The registry stores a key digest, but the creation event can remain in the
+ship's event log and backups. Protect those as credentials. The UI keeps a new
+key only until setup is dismissed or the page closes; it is not recoverable
+from the registry. Revoking prevents new claims and replies immediately; an
+already-running disconnected process discovers revocation on its next request.
+
+### Runner protocol
+
+`GET /harness/runners/:id/events` takes `Authorization: Bearer hrr_…` and
+`Last-Event-ID`. It returns SSE `event: harness`, a decimal sequence `id`, and
+JSON `{version:1,type:"prompt"|"cancel",conversationId,turnId,attemptId,kind,request}`.
+Prompts contain ordinary Chat Completions messages and tool schemas. Cancellation
+uses the exact attempt identity and a null request. Heartbeat comments arrive
+every 15 seconds; the client reconnects after 45 seconds without activity.
+
+`POST` to the same endpoint uses `application/json` with `version:1`, a strictly
+increasing `sequence`, and `type`: `ack` with `through`, or `claim`, `delta`,
+`complete`, `failed` with the three attempt identity fields. `delta` adds `text`;
+`complete` adds the ordinary Chat Completions `response`. Claim before execution.
+Only an identical retry of the last accepted POST receives its saved receipt.
+An inactive attempt is acknowledged and discarded, never dispatched again.
+The client durably accepts delivery before advancing its cursor and acknowledges
+delivery independently of execution. HTTP 4xx errors fence the runner except
+408/429; transport failures retry with bounded backoff.
+
+HTTPS is mandatory except loopback. Cookies do not authenticate these endpoints;
+browser Origin headers and query parameters are rejected. Prompt bodies are
+bounded to 1 MiB, POST events to 256 KiB, reply text to 128 KiB, and retained
+delivery to 256 events / 4 MiB with reserved control capacity. Active requests
+time out after 30 minutes. Streams close on reload and reconnect from the
+retained queue; reload never resubmits local execution.
+
+Run `SHIP_URL=http://127.0.0.1:PORT SHIP_COOKIE=/private/cookie SOAK_EXPECT_SHIP='~your-ship' node scripts/connected-runner-conformance.mjs`
+against an isolated development ship to verify two concurrent connections and
+native clock/math tool continuation. It creates and removes its fixture
+conversations, revokes its test keys, and retains the revoked registry identities.
+Both transport fixtures use a deterministic ACP process; Codex's adapter has
+separate protocol tests. No model calls or real repository edits occur.
+
+## Loopback coding-agent provider
 
 `local-agent-provider.mjs` runs the opposite direction: one Harness conversation
 uses a local ACP coding agent as its custom model provider. The ship receives
@@ -101,7 +216,7 @@ npm install -g @agentclientprotocol/claude-agent-acp
 
 ### Start the runner
 
-Run from this repository. Keep the state file outside the coding checkout.
+Use the ACP runner script. Keep the state file outside the coding project.
 Generate a private token once and retain it securely for restarts:
 
 ```sh

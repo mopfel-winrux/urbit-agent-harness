@@ -11,6 +11,7 @@ export class StdioAgent {
     this.buffer = Buffer.alloc(0)
     const env = { ...process.env }
     delete env.HARNESS_ACP_TOKEN
+    delete env.HARNESS_RUNNER_KEY
     this.child = spawn(command[0], command.slice(1), {
       cwd, env, stdio: ['pipe', 'pipe', stderr], detached: true, shell: false,
     })

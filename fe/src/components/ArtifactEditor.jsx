@@ -1,3 +1,4 @@
+import { Select } from './Picker'
 import { useEffect, useRef, useState } from 'react'
 import { useWorkspace } from '../useWorkspace'
 import { changedContent, documentDiff, draftKey, persistDraft, readDraft, workId } from '../workspace'
@@ -36,7 +37,7 @@ function Publication({ artifact, onClose }) {
   return <WorkDialog title={published ? 'Page published' : 'Publish a saved revision'} onClose={onClose} busy={mutation.busy} className="publication-dialog">
     {published ? <><p>Revision {published.revision} is public. Further edits stay private until you publish again.</p><a className="work-public-url" href={publicURL(published.path)} target="_blank" rel="noopener noreferrer">{publicURL(published.path)}</a><div className="form-actions"><button className="button primary" onClick={onClose}>Done</button></div></> : <>
       <p>Anyone with this URL can read and copy the page without signing in. Publish only content you intend to share.</p>
-      <label><span>Saved revision</span><select value={revision} disabled={mutation.busy} onChange={(event) => { setRevision(Number(event.target.value)); setConfirmed(false) }}>{Array.from({ length: artifact.head }, (_, index) => artifact.head - index).map((number) => <option key={number} value={number}>Revision {number}{number === artifact.head ? ' · latest' : ''}</option>)}</select></label>
+      <Select label="Saved revision" value={revision} disabled={mutation.busy} onValueChange={(nextValue) => { setRevision(Number(nextValue)); setConfirmed(false) }}>{Array.from({ length: artifact.head }, (_, index) => artifact.head - index).map((number) => <Select.Option key={number} value={number}>Revision {number}{number === artifact.head ? ' · latest' : ''}</Select.Option>)}</Select>
       <p className="field-note">Published by Notes at this fixed URL:</p>
       {path ? <p className="field-note work-public-url">{publicURL(path)}</p> : <p className="inline-error" role="alert">The Notes URL is unavailable. Close this dialog and reload the document.</p>}
       <WorkFeedback query={query} />

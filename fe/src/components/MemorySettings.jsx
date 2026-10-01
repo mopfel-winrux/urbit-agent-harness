@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { Select, Combobox } from './Picker'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { defaultConfig } from '../defaults'
 import { useResource } from '../useResource'
@@ -9,7 +10,6 @@ import ProviderRoute from './ProviderRoute'
 import HeaderEditor from './HeaderEditor'
 
 function ModelOverride({ name, title, description, value, defaults, onChange, disabled }) {
-  const id = useId()
   const config = value || defaults
   const provider = providerOf(config.url)
   const catalog = useProviderModels(provider, catalogEndpoint(provider, config), !disabled && !!value)
@@ -20,8 +20,8 @@ function ModelOverride({ name, title, description, value, defaults, onChange, di
       <label className="tool-option"><input type="checkbox" checked={!value} onChange={(event) => onChange(event.target.checked ? null : { ...defaults, key: '', system: '', tools: [] })} /><span><strong>Use global default</strong><small>Follows the current default: {defaults.model || 'no model selected'}.</small></span></label>
       {value && <>
         <div className="two-fields">
-          <label><span>Provider</span><select value={provider} onChange={(event) => onChange(chooseProvider(config, event.target.value, 'api-key'))}>{Object.entries(PROVIDERS).map(([key, item]) => <option key={key} value={key}>{item.title}</option>)}</select></label>
-          <label><span>Model</span><input required list={id} value={config.model || ''} onChange={(event) => update({ ...config, model: event.target.value, 'max-context': catalog.contextFor(event.target.value) || 80_000 })} /><datalist id={id}>{catalog.models.map((model) => <option key={model} value={model} />)}</datalist></label>
+          <Select label="Provider" value={provider} onValueChange={(nextValue) => onChange(chooseProvider(config, nextValue, 'api-key'))}>{Object.entries(PROVIDERS).map(([key, item]) => <Select.Option key={key} value={key}>{item.title}</Select.Option>)}</Select>
+          <Combobox label="Model" options={catalog.models} required value={config.model || ''} onValueChange={(nextValue) => update({ ...config, model: nextValue, 'max-context': catalog.contextFor(nextValue) || 80_000 })} />
         </div>
         <ProviderRoute provider={provider} value={config} onChange={update} />
         {catalog.loading && <p className="field-note">Loading models…</p>}

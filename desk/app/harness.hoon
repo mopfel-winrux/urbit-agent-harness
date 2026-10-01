@@ -7,6 +7,7 @@
 ::
 /-  h=harness, hh=harness-hand, sh=harness-shadow, adapter=harness-adapter, spider, ac=acp, t=harness-tlon, *harness-store
 /-  cr=harness-cron
+/-  runner-types=harness-runner
 /-  work=harness-workspace
 /-  wc=harness-work-control
 /-  hosted-types=harness-hosted
@@ -19,6 +20,7 @@
 /+  workspace-index=harness-workspace-search, unified-search=harness-unified-search
 /+  inbox=harness-inbox
 /+  project-client=harness-project-client
+/+  runner-lib=harness-runner
 /+  work-control=harness-work-control
 /+  tlon-work=harness-tlon-work-card
 /+  work-help=harness-work-help
@@ -77,6 +79,8 @@
         =^  waking  state  wake-schedules:hc
         [(weld started waking) state]
       =.  cards  (weld cards scheduled)
+      =^  runner-cards  state  runner-maintain:hc
+      =.  cards  (weld cards runner-cards)
       =?  modified  !=(before-sessions sessions)
         (update:index before-sessions sessions modified now.bowl)
       =?  corpus  |(!=(before-sessions sessions) ?=(~ built-at.index.corpus))
@@ -104,6 +108,7 @@
   ^-  (quip card _this)
   :_  this(defaults builtin-config:policy, search-config [%brave ''])
   :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
+      [%pass /eyre/connect %arvo %e %connect [~ /harness/runners] dap.bowl]
       [%pass /eyre/connect %arvo %e %connect [~ /harness-project] dap.bowl]
       [%pass /peer-access/refresh %agent [our.bowl dap.bowl] %poke %harness-action !>(`action:h`[%peer-refresh ~])]
       acp-open-card:wire-codec
@@ -117,6 +122,7 @@
   |=  old-vase=vase
   =/  new=state-0  (load:storage old-vase)
   =.  state  new(corpus-wake ~, schedule-wake ~)
+  =.  runners  runners(wake ~, registry (~(run by registry.runners) |=(r=runner:runner-types r(stream ~))))
   %-  flush-auth
   ^-  (quip card _this)
   :_  this
@@ -124,11 +130,14 @@
     ::  Refresh after reload, when the adapter can expose its updated trust.
     :~  [%pass /peer-access/refresh %agent [our.bowl dap.bowl] %poke %harness-action !>(`action:h`[%peer-refresh ~])]
         [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
+        [%pass /eyre/connect %arvo %e %connect [~ /harness/runners] dap.bowl]
         [%pass /eyre/connect %arvo %e %connect [~ /harness-project] dap.bowl]
         acp-open-card:wire-codec
     ==
   =?  base  ?=(^ schedule-wake.new)
     (snoc base [%pass /schedules/(scot %da u.schedule-wake.new) %arvo %b %rest u.schedule-wake.new])
+  =.  base
+    (weld base (close-streams:runner-lib runners.new))
   ::  Gall retains subscriptions across code reloads. A new mirror watch
   ::  reprojects on acknowledgement. Refresh a surviving watch only after our
   ::  self-poke completes: Tlon may still be old code during this +on-load.
@@ -161,6 +170,10 @@
   %-  flush-auth
   ^-  (quip card _this)
   ?+  mark  (on-poke:def mark vase)
+      %harness-runner-request
+    ?>  =(src.bowl our.bowl)
+    =^  cards  state  (runner-begin:hc !<(request:runner-types vase))
+    [cards this]
       %harness-hosted
     ?>  =(src.bowl our.bowl)
     =/  req  !<(request:hosted-types vase)
@@ -225,6 +238,9 @@
   ::
       %handle-http-request
     =+  !<([eyre-id=@ta req=inbound-request:eyre] vase)
+    ?:  =('/harness/runners' (end [3 16] url.request.req))
+      =^  cards  state  (serve-runner:hc eyre-id req)
+      [cards this]
     =^  cards  state  (serve:hc eyre-id req)
     [cards this]
   ::
@@ -260,7 +276,15 @@
     [%tools @ ~]         `this
   ==
 ::
-++  on-leave  |=(path `this)
+++  on-leave
+  |=  =path
+  ?.  ?=([%http-response @ ~] path)  `this
+  =.  registry.runners
+    %-  ~(run by registry.runners)
+    |=  r=runner:runner-types
+    ?:  =(`i.t.path stream.r)  r(stream ~)
+    r
+  `this
 ::
 ++  on-peek
   |=  =path
@@ -595,6 +619,13 @@
   %-  flush-auth
   ^-  (quip card _this)
   ?+  wire  (on-arvo:def wire sign)
+      [%runner-wake @ ~]
+    ?.  ?=([%behn %wake *] sign)  `this
+    ?.  =(`(slav %da i.t.wire) wake.runners)  `this
+    %-  flush-auth
+    =.  wake.runners  ~
+    =^  cards  state  runner-tick:hc
+    [cards this]
       [%hosted-auth @ @ ~]
     ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
     =/  out  (receive:hosted-auth hosted provider-keys i.t.wire (slav %ud i.t.t.wire) client-response.sign now.bowl)
@@ -2010,6 +2041,21 @@
   ?+  p.u.method
     ?~  id  `state
     [~[(acp-error-card:wire-codec connection u.id '-32601' 'Method not found')] state]
+  ::
+      %'harness/runners'
+    ?~  id  `state
+    ?^  (decode:admin connection)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Runner credentials are owner-only')] state]
+    =/  args  (fall params [%o ~])
+    =/  action  (str:wire-json args 'action')
+    =/  attempted  (mule |.((owner:runner-lib runners action args now.bowl)))
+    ?.  ?=(%& -.attempted)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Invalid runner request')] state]
+    =/  out  p.attempted
+    ?:  ?=(%| -.out)
+      [~[(acp-error-card:wire-codec connection u.id '-32602' p.out)] state]
+    =.  runners  db.p.out
+    [~[(acp-result-card:wire-codec connection u.id result.p.out)] state]
   ::
       %initialize
     ?~  id  `state
@@ -3431,7 +3477,7 @@
   =/  req  next-req.ses
   =.  next-req.ses  +(req)
   =^  cs  ses  (record-all sid ses ~[[%lcm-planned req p.planned] [%llm-routed req cfg]])
-  :-  :+  (llm-card sid req %compaction (request:lcm-context v p.planned cfg))
+  :-  :+  (llm-card sid req %compaction (request:lcm-context v p.planned cfg) (sham log.ses))
           [%pass `wire`[%compact-timeout `@ta`sid (scot %ud req) (scot %uv (sham log.ses)) ~] %arvo %b %wait (add now.bowl ~m3)]
           cs
   ses
@@ -3474,7 +3520,7 @@
   =/  req  next-req.ses
   =.  next-req.ses  +(req)
   =^  cs  ses  (record-all sid ses ~[[%llm-requested req kind] [%llm-routed req config.v]])
-  [(snoc cs (llm-card sid req kind v)) ses]
+  [(snoc cs (llm-card sid req kind v (sham log.ses))) ses]
 ++  try-fallback
   |=  [sid=session-id:h ses=session:h req=@ud kind=request-kind:h]
   ^-  (unit [cards=(list card) session=session:h])
@@ -3498,7 +3544,7 @@
     (tell:observe bowl sid %warn 'harness.inference.fallback' ~[['request' (numb:enjs:format req)] ['next_request' (numb:enjs:format next)] ['provider' %s (provider-for-url:hp url.cfg)]])
   =?  cards  =(%compaction kind)
     (snoc cards [%pass `wire`[%compact-timeout `@ta`sid (scot %ud next) (scot %uv (sham log.ses)) ~] %arvo %b %wait (add now.bowl ~m3)])
-  `[(snoc cards (llm-card sid next kind candidate)) ses]
+  `[(snoc cards (llm-card sid next kind candidate (sham log.ses))) ses]
 ++  provider-key
   |=  provider=@t
   ^-  @t
@@ -3524,11 +3570,18 @@
   ==
 ::
 ++  llm-card
-  |=  [sid=session-id:h req=@ud kind=request-kind:h v=view:h]
+  |=  [sid=session-id:h req=@ud kind=request-kind:h v=view:h checkpoint=@uvH]
   ^-  card
   =/  payload=json
     (payload:hp v kind (skills-visible sid skills))
   =/  body=@t  (en:json:html payload)
+  =/  runner  (route:runner-lib url.config.v)
+  ?^  runner
+    =/  attempt  (scot %uv (sham [now.bowl sid req payload]))
+    :*  %pass  /runner/submit
+        %agent  [our.bowl dap.bowl]  %poke  %harness-runner-request
+        !>(`request:runner-types`[u.runner sid req kind attempt checkpoint payload])
+    ==
   ::  blank session key falls back to the agent-level default
   ::
   =/  eff-key=@t
@@ -3623,7 +3676,7 @@
   ::  No failover after user-visible output, explicit cancellation, or a
   ::  semantic completion. Each attempt gets a fresh fenced request ID.
   =/  fallback
-    ?.  ?&(?=(%llm-failed -.ev) !?=(%cancel -.res) |(?=(~ streamed) =(0 sent.u.streamed)))  ~
+    ?.  ?&(?=(%llm-failed -.ev) ?=(~ (route:runner-lib url.request-config)) !?=(%cancel -.res) |(?=(~ streamed) =(0 sent.u.streamed)))  ~
     (try-fallback sid ses req kind)
   ?^  fallback
     [cards.u.fallback state(sessions (~(put by sessions) sid session.u.fallback))]
@@ -4579,10 +4632,219 @@
   =/  siblings  siblings.trust
   ?:  &(?=(~ owner) !siblings)  revision
   (scot %uv (sham [revision owner siblings effective]))
-::  A separate read-only client binding; no cookie promotion, session creation,
-::  ACP queue, or effect dispatch. The registry stores a digest; inbound events
+::  A scoped provider transport; no cookie promotion, session creation, or
+::  owner-control access. The registry stores a digest; inbound events
 ::  may still retain secrets in ship logs/backups and need operator protection.
 ::
+++  runner-data
+  |=  [id=@ta text=@t]
+  ^-  card
+  [%give %fact ~[/http-response/[id]] %http-response-data !>(`(unit octs)`(some (as-octs:mimes:html text)))]
+++  runner-close
+  |=  id=@ta
+  ^-  (list card)
+  :~  [%give %fact ~[/http-response/[id]] %http-response-data !>(`(unit octs)`~)]
+      [%give %kick ~[/http-response/[id]] ~]
+  ==
+++  runner-current
+  |=  req=request:runner-types
+  ^-  ?
+  =/  ses  (~(get by sessions) sid.req)
+  ?~  ses  |
+  ?.  (runner-lineage req log.u.ses)  |
+  =/  v  (play:hl log.u.ses)
+  ?~  pending.v  |
+  =/  cfg  (active:routing v req.req)
+  &(=(req.req req.u.pending.v) =(kind.req kind.u.pending.v) =(`runner.req (route:runner-lib url.cfg)))
+++  runner-lineage
+  |=  [req=request:runner-types events=(list event:h)]
+  ^-  ?
+  ?~  events  |
+  ?:  ?=(%cancelled -.i.events)  |
+  ?:  ?&(?=(%llm-routed -.i.events) =(req.req req.i.events))
+    =(checkpoint.req (sham events))
+  $(events t.events)
+++  runner-parked
+  |=  req=request:runner-types
+  ^-  ?
+  =/  ses  (~(get by sessions) sid.req)
+  ?~  ses  |
+  ?.  (runner-lineage req log.u.ses)  |
+  =/  v  (play:hl log.u.ses)
+  &(?=(~ err.v) ?=(~ cancelled.v) =(`runner.req (route:runner-lib url.config.v)))
+++  runner-send
+  |=  [id=@t value=json]
+  ^-  (quip card _state)
+  =/  old  (~(got by registry.runners) id)
+  =/  out  (enqueue:runner-lib old value)
+  ?>  ?=(%& -.out)
+  =.  registry.runners  (~(put by registry.runners) id p.out)
+  ?~  stream.old  `state
+  [~[(runner-data u.stream.old (frame:runner-lib next.old value))] state]
+++  runner-error
+  |=  [req=request:runner-types message=@t]
+  ^-  (quip card _state)
+  (handle-llm-response sid.req req.req kind.req [%finished [503 ~] `['text/plain' (as-octs:mimes:html message)]])
+++  runner-begin
+  |=  req=request:runner-types
+  ^-  (quip card _state)
+  ?.  (runner-current req)  `state
+  ?:  (~(has by jobs.runners) attempt.req)  `state
+  =/  runner  (~(get by registry.runners) runner.req)
+  ?~  runner  (runner-error req 'Connected runner not found. Select a runner in Settings.')
+  ?:  revoked.u.runner  (runner-error req 'Connected runner key is revoked.')
+  ?:  =(%compaction kind.req)  (runner-error req 'Connected agents require a fresh conversation when the context budget is reached.')
+  ?:  |((gte ~(wyt by jobs.runners) 64) (gte ~(wyt by events.u.runner) 192) (gth (met 3 (en:json:html body.req)) 1.048.576) (gth (add (queued-bytes:runner-lib u.runner) (met 3 (en:json:html body.req))) 3.145.728))
+    (runner-error req 'Connected runner request capacity reached.')
+  =/  value  (envelope:runner-lib req 'prompt')
+  =/  room  (enqueue:runner-lib u.runner value)
+  ?:  ?=(%| -.room)  (runner-error req p.room)
+  =.  jobs.runners
+    (my (skim ~(tap by jobs.runners) |=([@t job=job:runner-types] !&(parked.job =(sid.req sid.request.job) =(runner.req runner.request.job)))))
+  =.  jobs.runners  (~(put by jobs.runners) attempt.req [req now.bowl | |])
+  (runner-send runner.req value)
+++  runner-maintain
+  ^-  (quip card _state)
+  =/  active  ~(tap by jobs.runners)
+  =|  cards=(list card)
+  |-  ^-  (quip card _state)
+  ?~  active
+    ?:  ?=(^ wake.runners)  [cards state]
+    ?.  |(?=(^ jobs.runners) (lien ~(val by registry.runners) |=(r=runner:runner-types ?=(^ stream.r))))
+      [cards state]
+    =/  at  (add now.bowl ~s15)
+    [(snoc cards [%pass /runner-wake/(scot %da at) %arvo %b %wait at]) state(runners runners(wake `at))]
+  =/  [attempt=@t job=job:runner-types]  i.active
+  =/  r  (~(got by registry.runners) runner.request.job)
+  ?:  &(!revoked.r ?:(parked.job (runner-parked request.job) (runner-current request.job)))  $(active t.active)
+  =.  jobs.runners  (~(del by jobs.runners) attempt)
+  =^  more  state  (runner-send runner.request.job (envelope:runner-lib request.job(body ~) 'cancel'))
+  =^  failed  state
+    ?.  revoked.r  `state
+    (runner-error request.job 'Connected runner key revoked. Inspect any local effects before retrying.')
+  $(active t.active, cards :(weld cards more failed))
+++  runner-tick
+  ^-  (quip card _state)
+  =/  expired
+    (skim ~(tap by jobs.runners) |=([@t job=job:runner-types] (gte (sub now.bowl created.job) ~m30)))
+  =|  cards=(list card)
+  =/  rows  ~(tap by registry.runners)
+  |-  ^-  (quip card _state)
+  ?^  rows
+    =/  [id=@t r=runner:runner-types]  i.rows
+    ?~  stream.r  $(rows t.rows)
+    ?:  |(revoked.r (gth (sub now.bowl seen.r) ~s45))
+      =.  registry.runners  (~(put by registry.runners) id r(stream ~))
+      $(rows t.rows, cards (weld cards (runner-close u.stream.r)))
+    $(rows t.rows, cards (snoc cards (runner-data u.stream.r ': heartbeat\0a\0a')))
+  ?~  expired  [cards state]
+  =/  [attempt=@t job=job:runner-types]  i.expired
+  =.  jobs.runners  (~(del by jobs.runners) attempt)
+  =^  more  state  (runner-send runner.request.job (envelope:runner-lib request.job(body ~) 'cancel'))
+  =^  failed  state  (runner-error request.job 'Connected runner timed out. Inspect local and ship effects before retrying.')
+  $(expired t.expired, cards :(weld cards more failed))
+++  serve-runner
+  |=  [eyre-id=@ta req=inbound-request:eyre]
+  ^-  (quip card _state)
+  ?.  (local-or-secure:project-client req)  (runner-reply eyre-id 403 'Use HTTPS or loopback')
+  ?:  (lien header-list.request.req |=([key=@t value=@t] =('origin' (crip (cass (trip key))))))  (runner-reply eyre-id 403 'Runner endpoints do not accept browser origins')
+  =/  parsed=(unit [[ext=(unit @ta) site=(list @t)] args=(list [@t @t])])
+    %+  rush  url.request.req
+    ;~(plug apat:de-purl:html yque:de-purl:html)
+  ?~  parsed  (runner-reply eyre-id 404 'Not found')
+  ?.  &(?=(~ ext.u.parsed) ?=(~ args.u.parsed))  (runner-reply eyre-id 404 'Not found')
+  =/  site  site.u.parsed
+  ?.  ?=([%'harness' %runners @ %events ~] site)  (runner-reply eyre-id 404 'Not found')
+  =/  id=@t  i.t.t.site
+  ?.  (authenticate:runner-lib runners id header-list.request.req)  (runner-reply eyre-id 401 'Runner key unavailable')
+  =/  r  (~(got by registry.runners) id)
+  ?:  =(%'GET' method.request.req)
+    =/  cursor-text  (fall (header:runner-lib header-list.request.req 'last-event-id') '0')
+    =/  cursor  (rush cursor-text dem)
+    ?~  cursor  (runner-reply eyre-id 400 'Invalid Last-Event-ID')
+    ?.  &((gte u.cursor acknowledged.r) (lth u.cursor next.r))  (runner-reply eyre-id 409 'Delivery cursor unavailable; inspect the runner journal')
+    =/  queued  (sort ~(tap by events.r) |=([a=[@ud json] b=[@ud json]] (lth -.a -.b)))
+    =/  data  (rap 3 (turn (skim queued |=([seq=@ud json] (gth seq u.cursor))) frame:runner-lib))
+    =/  cards  ?~(stream.r ~ (runner-close u.stream.r))
+    =.  registry.runners  (~(put by registry.runners) id r(stream `eyre-id, seen now.bowl))
+    :_  state
+    %+  weld  cards
+    ^-  (list card)
+    :~  [%give %fact ~[/http-response/[eyre-id]] %http-response-header !>(`response-header:http`[200 ~[['content-type' 'text/event-stream'] ['cache-control' 'no-store'] ['x-accel-buffering' 'no']]])]
+        (runner-data eyre-id (cat 3 ': connected\0a\0a' data))
+    ==
+  ?.  =(%'POST' method.request.req)  (runner-reply eyre-id 405 'Use GET or POST')
+  ?.  =(`'application/json' (header:runner-lib header-list.request.req 'content-type'))  (runner-reply eyre-id 415 'Use application/json')
+  ?~  body.request.req  (runner-reply eyre-id 400 'Expected JSON event')
+  ?.  &((lte p.u.body.request.req 262.144) (lte (met 3 q.u.body.request.req) 262.144))  (runner-reply eyre-id 413 'Runner event exceeds 256 KiB')
+  =/  decoded  (de:json:html q.u.body.request.req)
+  ?~  decoded  (runner-reply eyre-id 400 'Expected JSON event')
+  =/  value  u.decoded
+  ?.  =(1 (num:wire-json value 'version'))  (runner-reply eyre-id 400 'Use protocol version 1')
+  =/  sequence  (num:wire-json value 'sequence')
+  ?:  (gth sequence 9.007.199.254.740.991)  (runner-reply eyre-id 400 'Invalid event sequence')
+  =/  hash  (sham value)
+  ?:  &((gth sequence 0) =(sequence sequence.r) =(hash receipt.r))
+    ?:  &(=('claim' (str:wire-json value 'type')) !(~(has by jobs.runners) (str:wire-json value 'attemptId')))
+      (runner-reply eyre-id 200 'Inactive attempt; event discarded')
+    (runner-reply eyre-id 200 'Acknowledged')
+  ?.  =(sequence +(sequence.r))  (runner-reply eyre-id 409 'Expected the next event sequence')
+  =/  type  (str:wire-json value 'type')
+  =/  next  r(sequence sequence, receipt hash, seen now.bowl)
+  ?:  =('ack' type)
+    =/  through  (num:wire-json value 'through')
+    ?.  &((gte through acknowledged.r) (lth through next.r))  (runner-reply eyre-id 409 'Invalid delivery acknowledgement')
+    =.  next  next(acknowledged through, events (my (skim ~(tap by events.r) |=([seq=@ud json] (gth seq through)))))
+    =.  registry.runners  (~(put by registry.runners) id next)
+    (runner-reply eyre-id 200 'Acknowledged')
+  =/  attempt  (str:wire-json value 'attemptId')
+  =/  pending  (~(get by jobs.runners) attempt)
+  ?~  pending
+    ?.  (lien `(list @t)`~['claim' 'delta' 'complete' 'failed'] |=(item=@t =(type item)))
+      (runner-reply eyre-id 409 'Attempt is not active')
+    =.  registry.runners  (~(put by registry.runners) id next)
+    (runner-reply eyre-id 200 'Inactive attempt; event discarded')
+  =/  job  u.pending
+  ?:  parked.job
+    =.  registry.runners  (~(put by registry.runners) id next)
+    (runner-reply eyre-id 200 'Inactive attempt; event discarded')
+  ?.  &(=(id runner.request.job) (runner-current request.job))  (runner-reply eyre-id 409 'Attempt is not active on this runner')
+  =/  sid  sid.request.job
+  =/  turn  req.request.job
+  ?.  &(=(sid (str:wire-json value 'conversationId')) =((scot %ud turn) (str:wire-json value 'turnId')))  (runner-reply eyre-id 409 'Attempt identity does not match')
+  ?:  =('claim' type)
+    ?:  claimed.job  (runner-reply eyre-id 409 'Attempt is already claimed; inspect the runner journal')
+    =.  registry.runners  (~(put by registry.runners) id next)
+    =.  jobs.runners  (~(put by jobs.runners) attempt job(claimed &))
+    (runner-reply eyre-id 200 'Claimed')
+  ?.  |(claimed.job =('failed' type))  (runner-reply eyre-id 409 'Claim the attempt before executing')
+  ?.  (lien `(list @t)`~['delta' 'complete' 'failed'] |=(item=@t =(type item)))  (runner-reply eyre-id 400 'Unknown event type')
+  =/  text  (str:wire-json value 'text')
+  ?:  =('delta' type)
+    =/  progress=stream-progress  (fall (~(get by streams) [sid turn]) ['' 0])
+    =/  size  (add sent.progress (met 3 text))
+    ?:  (gth size 131.072)  (runner-reply eyre-id 413 'Reply exceeds 128 KiB')
+    =.  streams  (~(put by streams) [sid turn] ['' size])
+    =.  registry.runners  (~(put by registry.runners) id next)
+    =^  cards  state  (runner-reply eyre-id 200 'Acknowledged')
+    =/  prompt  (~(get by acp-prompts) sid)
+    ?~  prompt  [cards state]
+    [(snoc cards (acp-stream-card:wire-codec connection.u.prompt sid text)) state]
+  =/  response  (get:wire-json value 'response')
+  ?:  &(!=('failed' type) ?=(~ response))  (runner-reply eyre-id 400 'Expected completion response')
+  =.  registry.runners  (~(put by registry.runners) id next)
+  =.  jobs.runners  (~(del by jobs.runners) attempt)
+  =?  jobs.runners  ?&(!=('failed' type) (continuation:runner-lib (need response)))
+    (~(put by jobs.runners) attempt job(parked &, request request.job(body ~)))
+  =^  cards  state
+    ?:  =('failed' type)  (runner-error request.job 'Connected agent interrupted. Inspect its local journal and effects before retrying.')
+    (handle-llm-response sid turn kind.request.job [%finished [200 ~] `['application/json' (as-octs:mimes:html (en:json:html (need response)))]])
+  =^  answered  state  (runner-reply eyre-id 200 'Acknowledged')
+  [(weld cards answered) state]
+++  runner-reply
+  |=  [eyre-id=@ta code=@ud message=@t]
+  ^-  (quip card _state)
+  [(give-http:effects eyre-id [code ~[['content-type' 'application/json'] ['cache-control' 'no-store']]] `(as-octs:mimes:html (en:json:html (pairs:enjs:format ~[['message' %s message]])))) state]
 ++  serve-project-read
   |=  [eyre-id=@ta req=inbound-request:eyre]
   ^-  (quip card _state)

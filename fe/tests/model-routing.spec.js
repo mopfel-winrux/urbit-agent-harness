@@ -1,3 +1,4 @@
+import { chooseOption } from './picker'
 import { test, expect } from '@playwright/test'
 
 test('OpenRouter routing saves ZDR and ordered fallbacks and survives reload', async ({ page }) => {
@@ -26,7 +27,7 @@ test('OpenRouter routing saves ZDR and ordered fallbacks and survives reload', a
 test('ZDR blocks a non-OpenRouter fallback without silently changing it', async ({ page }) => {
   await page.goto('/apps/harness/tests/settings-fixture.html?page=provider&provider=openrouter')
   await page.getByRole('button', { name: 'Add fallback model' }).click()
-  await page.getByLabel('Fallback 1 provider').selectOption('openai')
+  await chooseOption(page.getByLabel('Fallback 1 provider'), 'openai')
   await page.getByLabel('Fallback 1 model').fill('gpt-5.6-luna')
   await page.getByRole('checkbox', { name: /^Zero data retention/ }).check()
   await page.getByRole('button', { name: 'Save OpenRouter' }).click()

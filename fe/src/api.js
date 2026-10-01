@@ -29,6 +29,7 @@ async function action(value) {
 export const scryUrl = (path) => `/~/scry/harness/${path}.json`
 async function read(path) {
   await acp.start()
+  if (path === 'runners') return acp.call('harness/runners', { action: 'list' })
   if (path === 'tlon') return acp.call('harness/tlon')
   if (path === 'tlon/channels') return acp.call('harness/tlon/channels')
   if (path === 'tlon/owner') return acp.call('harness/tlon/owner')
@@ -84,7 +85,12 @@ const login = async (action, params = {}) => {
   return response.body
 }
 
-export const api = { read, action, models, corpus, search, inbox, login }
+const runners = async (action, params = {}) => {
+  await acp.start()
+  return acp.call('harness/runners', { ...params, action })
+}
+
+export const api = { read, action, models, corpus, search, inbox, login, runners }
 
 export function resourcesFor(chat) {
   return {
