@@ -95,7 +95,7 @@ export default function App() {
   }
 
   async function deleteChat(name) {
-    if (!confirm(`Delete “${name}” and its transcript?`)) return
+    if (!confirm(`Delete “${name}” and its transcript? This also stops its work and schedules.`)) return
     setError('')
     try {
       await conversations.remove(name)

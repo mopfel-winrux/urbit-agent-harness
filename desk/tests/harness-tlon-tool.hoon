@@ -14,6 +14,60 @@
   =/  args  (pairs:enjs:format ~[['ship' %s '~nec'] ['parent' %s parent]])
   =/  ambiguous  (pairs:enjs:format ~[['ship' %s '~nec'] ['channel' %s 'chat/~nec/test']])
   (expect !>(&(=(`destination:t`[%dm ~nec `[~nec ~2026.9.9]] (destination:spec args)) =(~ (mole |.((destination:spec ambiguous)))) =(~ (mole |.((timestamp:spec '123')))) =(~ (mole |.((dm-id:spec '~nec/~2026.9.9/extra')))))))
+++  blank-arguments
+  ^-  json
+  =/  schema  schema:spec
+  ?>  ?=(%o -.schema)
+  =/  function  (~(got by p.schema) 'function')
+  ?>  ?=(%o -.function)
+  =/  parameters  (~(got by p.function) 'parameters')
+  ?>  ?=(%o -.parameters)
+  =/  properties  (~(got by p.parameters) 'properties')
+  ?>  ?=(%o -.properties)
+  [%o (~(run by p.properties) |=(value=json `json`[%s '']))]
+++  test-send-dm-with-empty-unused-arguments
+  =/  args  blank-arguments
+  ?>  ?=(%o -.args)
+  =.  p.args  (~(put by p.args) 'action' [%s 'send_dm'])
+  =.  p.args  (~(put by p.args) 'ship' [%s '~malmur-halmex'])
+  =.  p.args  (~(put by p.args) 'text' [%s 'Hello!'])
+  =/  clean  (pairs:enjs:format ~[['action' %s 'send_dm'] ['ship' %s '~malmur-halmex'] ['text' %s 'Hello!']])
+  =/  lib  ~(. ops *bowl:gall)
+  =/  result  (run:lib args /tlon-tool/1 ~2026.9.9)
+  (expect !>(&(?=(^ effect.result) =((run:lib clean /tlon-tool/1 ~2026.9.9) result) =(`destination:t`[%dm ~malmur-halmex ~] (destination:spec args)))))
+++  test-send-channel-with-empty-unused-arguments
+  =/  args  blank-arguments
+  ?>  ?=(%o -.args)
+  =.  p.args  (~(put by p.args) 'action' [%s 'send_channel'])
+  =.  p.args  (~(put by p.args) 'channel' [%s 'chat/~nec/test'])
+  =.  p.args  (~(put by p.args) 'text' [%s 'Hello!'])
+  =.  p.args  (~(put by p.args) 'parent' [%s (scot %da ~2026.9.8)])
+  =/  clean  (pairs:enjs:format ~[['action' %s 'send_channel'] ['channel' %s 'chat/~nec/test'] ['text' %s 'Hello!'] ['parent' %s (scot %da ~2026.9.8)]])
+  =/  lib  ~(. ops *bowl:gall)
+  (expect-eq !>((run:lib clean /tlon-tool/1 ~2026.9.9)) !>((run:lib args /tlon-tool/1 ~2026.9.9)))
+++  test-optional-argument-defaults
+  =/  args  blank-arguments
+  =/  nulls  (pairs:enjs:format ~[['ship' ~] ['channel' ~] ['parent' ~] ['offset' ~]])
+  =/  rows=(list json)  ~[[%s 'contact']]
+  (expect !>(&(=(0 (offset:spec args)) =(0 (offset:spec nulls)) =('secret' (string:spec args 'privacy' 'secret' 16)) =('chat' (string:spec args 'kind' 'chat' 16)) !(has:spec args 'path') !(has:spec nulls 'ship') =((directory:spec [%o ~] rows) (directory:spec args rows)))))
+++  test-null-unused-destination
+  =/  args  (pairs:enjs:format ~[['ship' %s '~nec'] ['channel' ~] ['parent' ~]])
+  (expect-eq !>(`destination:t`[%dm ~nec ~]) !>((destination:spec args)))
+++  test-empty-arguments-do-not-bypass-validation
+  =/  empty  blank-arguments
+  =/  bad-offset  (pairs:enjs:format ~[['offset' %s 'abc']])
+  =/  bad-type  (pairs:enjs:format ~[['ship' %s '~nec'] ['channel' %b |]])
+  =/  null-required  (pairs:enjs:format ~[['text' ~]])
+  (expect !>(&(=(~ (mole |.((destination:spec empty)))) =(~ (mole |.((required:spec empty 'text' 16.384)))) =(~ (mole |.((required:spec null-required 'text' 16.384)))) =(~ (mole |.((offset:spec bad-offset)))) =(~ (mole |.((destination:spec bad-type)))))))
+++  test-empty-content-is-explicit
+  =/  args  blank-arguments
+  =/  keys=(list @t)  ~['text' 'title' 'description' 'nickname' 'bio' 'status' 'avatar' 'cover' 'source' 'html']
+  =/  okay  (levy keys |=(key=@t &((has:spec args key) =('' (string:spec args key 'fallback' 16)))))
+  (expect !>(okay))
+++  test-null-profile-fields-are-omitted
+  =/  args  (pairs:enjs:format ~[['nickname' ~] ['bio' %s ''] ['avatar' ~]])
+  =/  edits  (decode:contact args)
+  (expect !>(&(=(1 ~(wyt by edits)) =(`~ (~(get by edits) %bio)) !(~(has by edits) %nickname) !(~(has by edits) %avatar))))
 ++  test-profile-patch-preserves-omitted-fields
   =/  args  (pairs:enjs:format ~[['nickname' %s 'Test'] ['bio' %s '']])
   =/  edits  (decode:contact args)

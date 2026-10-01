@@ -1,6 +1,25 @@
-/-  t=harness-tlon, h=harness, cr=harness-cron
+/-  t=harness-tlon, h=harness, cr=harness-cron, hh=harness-hand
 /+  *test, c=harness-tlon-continuity
 |%
+++  test-detached-route-keeps-receipts-and-starts-a-fresh-conversation
+  =/  saved=state-1:t  *state-1:t
+  =.  saved
+    saved(epoch 7, lanes (my ~[['s' dm] ['other' dm]]), routes (my ~[['s' ['binding' %ready]] ['other' ['other-binding' %ready]]]), identities (my ~[[[~bud [%dm ~bud ~]] 's']]), deliveries (my ~[[0v1 [1 %send %uncertain 'external']]]))
+  =.  jobs.saved  (my ~[[0v1 [[~bud 'event' [%dm ~bud ~] 'Hello'] 's' %observe '']]])
+  =/  db=state:hh  *state:hh
+  =.  bindings.db  (my ~[['binding' ['tlon' 'dm/~bud' 's' ~['~bud'] |]] ['other-binding' ['tlon' 'dm/~bud' 'other' ~['~bud'] &]]])
+  =/  next  (detach-routes:c saved db)
+  ;:  weld
+    (expect-eq !>(8) !>(epoch.next))
+    (expect !>(!=('s' (~(got by identities.next) [~bud [%dm ~bud ~]]))))
+    (expect-eq !>(1) !>(~(wyt by identities.next)))
+    (expect-eq !>(deliveries.saved) !>(deliveries.next))
+    (expect-eq !>(~) !>(jobs.next))
+    (expect-eq !>((my ~[['other' dm]])) !>(lanes.next))
+    (expect !>(!(~(has by routes.next) 's')))
+    (expect-eq !>(next) !>((detach-routes:c next db)))
+    (expect !>(!=((binding:c 's' 7) (binding:c 's' epoch.next))))
+  ==
 ++  policy
   ^-  policy:t
   [& `~lux (my ~[[~bud ~[%web]]]) %mentions ~ ~]

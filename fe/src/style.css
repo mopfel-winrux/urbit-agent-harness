@@ -669,6 +669,12 @@ input:focus, select:focus, .settings-panel textarea:focus, .modal-card textarea:
 .trusted-ship summary small { margin-left: 8px; }
 .trusted-ship .tool-options { margin: 18px 0; }
 .peer-grant-fields { display: grid; gap: 16px; margin-top: 16px; }
+.allowed-ships { list-style: none; margin: 12px 0 0; padding: 0; }
+.allowed-ships > li { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+.allowed-ships > li:last-child { border-bottom: 0; }
+.allowed-ships > li > span { min-width: 0; overflow-wrap: anywhere; }
+.allowed-ships .icon-button { flex-shrink: 0; color: var(--muted); }
+.allowed-ships .icon-button:hover { color: var(--danger); }
 .grant-all-available { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .grant-all-available > .field-note { flex: 1 1 240px; }
 .peer-token-limit { min-width: 0; display: grid; gap: 8px; align-content: start; }

@@ -1,8 +1,29 @@
-::  Conversation identity is independent of authorization. Only this hand's
-::  routing generations change; the head retains configuration and evidence.
-/-  t=harness-tlon, h=harness, a=tlon-activity-ver, c=tlon-channels
+::  Authorization changes rotate routes without discarding conversation
+::  history. Detaching a conversation gives subsequent input a fresh identity.
+/-  t=harness-tlon, h=harness, a=tlon-activity-ver, c=tlon-channels, hh=harness-hand
 /+  p=harness-tlon-policy
 |%
+++  detach-routes
+  |=  [saved=state-1:t db=state:hh]
+  ^-  state-1:t
+  ::  Disabled bindings cannot authorize new input. Keep send receipts, but
+  ::  start a fresh conversation so late results cannot enter its new history.
+  =/  detached
+    %-  silt
+    %+  murn  ~(tap by routes.saved)
+    |=  [sid=@t route=route:t]
+    =/  binding  (~(get by bindings.db) binding.route)
+    ?:(?&(?=(^ binding) !enabled.u.binding) `sid ~)
+  ?:  =(~ detached)  saved
+  =.  epoch.saved  +(epoch.saved)
+  =.  identities.saved
+    %+  roll  ~(tap by identities.saved)
+    |=  [[key=[actor=@p to=destination:t] sid=@t] out=(map [@p destination:t] @t)]
+    (~(put by out) key ?:((~(has in detached) sid) (cat 3 (session-id:p epoch.saved actor.key to.key) '-stable') sid))
+  =.  routes.saved  (my (skip ~(tap by routes.saved) |=([sid=@t route=route:t] (~(has in detached) sid))))
+  =.  lanes.saved  (my (skip ~(tap by lanes.saved) |=([sid=@t lane=lane:t] (~(has in detached) sid))))
+  =.  jobs.saved  (my (skip ~(tap by jobs.saved) |=([id=@uv job=job:t] (~(has in detached) sid.job))))
+  saved
 +$  authority  $%([%denied ~] [%owner ~] [%trusted tools=(set tool-grant:h)])
 ++  actor
   |=  event=incoming-event:v8:a

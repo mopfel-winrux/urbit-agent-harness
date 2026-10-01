@@ -2116,8 +2116,6 @@
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Unknown session')] state]
     ?.  (~(has by sessions) u.sid)
       [~[(acp-error-card:wire-codec connection u.id '-32602' 'Unknown session')] state]
-    ?:  (lien ~(val by bindings.hands) |=(b=binding:hh =(sid.b u.sid)))
-      [~[(acp-error-card:wire-codec connection u.id '-32602' 'Remove hand bindings before deleting the session')] state]
     =^  deleted  state  (handle-action [%delete u.sid])
     [:(weld deleted ~[(acp-result-card:wire-codec connection u.id (pairs:enjs:format ~))]) state]
   ::
@@ -2812,7 +2810,6 @@
     [:(weld cards withdrawn auxiliary ~[(shadow-put-card sid.act ses)] settled) state]
   ::
       %delete
-    ?>  !(lien ~(val by bindings.hands) |=(b=binding:hh =(sid.b sid.act)))
     ::  drop the session and everything scoped to it: pending timers
     ::  (cancel their behn), subagent links (as child or parent),
     ::  peer-serving queue, in-flight js jobs (stop the thread), and
@@ -2821,10 +2818,24 @@
     ::
     =/  sid  sid.act
     ?.  (~(has by sessions) sid)  `state
-    ::  Complete the durable direct-tool receipt before removing its log.
+    ::  Stop work before dropping history. Hand receipts outlive the view;
+    ::  deletion never retries or pretends to recall an external send.
     =^  stopped  state
       ?.  (~(has by peer-active) sid)  `state
       (handle-action [%cancel sid])
+    =^  fenced  state  (handle-action [%fence sid])
+    =.  stopped  (weld stopped fenced)
+    =.  hands  (detach-session:hd hands sid now.bowl)
+    =^  scheduled  state
+      =/  pending  ~(tap by schedules)
+      =|  cards=(list card)
+      |-  ^-  (quip card _state)
+      ?~  pending  [cards state]
+      =/  [id=@uv job=schedule:cr]  i.pending
+      ?.  |(=(sid sid.job) =(sid run-sid.job))  $(pending t.pending)
+      =^  more  state  (stop-schedule id job %cancelled 'Conversation deleted')
+      $(pending t.pending, cards (weld cards more))
+    =.  stopped  (weld stopped scheduled)
     ::  A fresh peer session must not inherit a deleted session's baseline.
     =.  peer-budget-resets
       ?.  =('peer--' (end [3 6] sid))  peer-budget-resets

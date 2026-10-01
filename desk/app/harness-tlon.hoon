@@ -441,7 +441,7 @@
         ==
       (finish-tool id 'error: another native hook change is pending; inspect it before changing hooks again')
     ?:  |(=(`[%s 'upload_image'] action) =(`[%s 'upload_file'] action))
-      ?:  (~(has by p.u.parsed) 'path')  (start-file-upload id u.parsed)
+      ?:  (has:tlon-spec u.parsed 'path')  (start-file-upload id u.parsed)
       (start-upload id u.parsed)
     =.  last-sent  (next-message-stamp:p now.bowl last-sent)
     =/  built
@@ -571,7 +571,7 @@
   |=  [id=@uv args=json]
   ^+  cor
   ?>  ?=(%o -.args)
-  ?:  (~(has by p.args) 'path')  (finish-tool id 'error: use either url or path, not both')
+  ?:  (has:tlon-spec args 'path')  (finish-tool id 'error: use either url or path, not both')
   ?:  (gte ~(wyt by uploads) 4)
     (finish-tool id 'error: four image uploads are already in progress')
   =/  creds  storage-credentials
@@ -1422,6 +1422,7 @@
   ?.  head-live  schedule
   =.  cor  poll-tools
   =/  db  ledger
+  =.  state  (detach-routes:continuity state db)
   =.  cor  (sync-presence db)
   =.  cor  schedule
   ::  Honor explicit reconciliation and retirement in the shared ledger.

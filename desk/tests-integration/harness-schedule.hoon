@@ -28,8 +28,50 @@
   =/  out  (mink [attempt %9 2 %0 1] |=([* *] ``%.n))
   ?>  ?=(%0 -.out)
   ;;(tang product.out)
+++  test-delete-detaches-hands-and-cancels-source-and-run-schedules
+  %-  isolated  |=  ignored=*
+  %-  zing
+  %+  turn  `(list @t)`~['source' 'schedule-0v1']
+  |=  sid=@t
+  =/  s  fixture
+  =.  schedules.s  (my ~[[0v1 job]])
+  =/  loaded  (~(on-load head bowl) !>(s))
+  =/  payload
+    %-  en:json:html
+    (pairs:enjs:format ~[['jsonrpc' %s '2.0'] ['id' %n '1'] ['method' %s 'session/delete'] ['params' (pairs:enjs:format ~[['sessionId' %s sid]])]])
+  =/  update=update:v1:ac  [%messages 'fixture' %agent ~[[1 ~2026.9.9 payload]]]
+  =/  out  (~(on-agent +.loaded bowl) /acp/watch [%fact %acp-update-1 !>(update)])
+  =/  next  !<(state-0 ~(on-save +.out bowl))
+  ;:  weld
+    (expect !>(!(~(has by sessions.next) sid)))
+    (expect-eq !>(%cancelled) !>(state:(~(got by schedules.next) 0v1)))
+    (expect !>(!enabled:(~(got by bindings.hands.next) 'schedule-0v1')))
+    (expect !>(!(lien ~(val by bindings.hands.next) |=(b=binding:hh &(=(sid sid.b) enabled.b)))))
+    (expect-eq !>(~) !>((requests -.out)))
+  ==
 ++  test-reload-replaces-one-timer-without-spending-budget
   (isolated |=(ignored=* reload-timer))
+++  test-delete-cancels-running-and-queued-input-without-publishing
+  %-  isolated  |=  ignored=*
+  =/  s  fixture
+  =.  sessions.s
+    (~(put by sessions.s) 'source' [~[[%llm-requested 0 %turn] [%input-admitted [%user 'Running input']] [%config-replaced defaults.s]] 1])
+  =.  observations.hands.s
+    (my ~[[0v1 ['source-binding' 'running' 'alice' 'Running input' ~2026.9.9 %running]] [0v2 ['source-binding' 'queued' 'alice' 'Queued input' ~2026.9.9 %queued]]])
+  =.  active.hands.s  (my ~[['source' 0v1]])
+  =.  queue.hands.s  ~[0v2]
+  =/  loaded  (~(on-load head bowl) !>(s))
+  =/  out  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%delete 'source']))
+  =/  next  !<(state-0 ~(on-save +.out bowl))
+  ;:  weld
+    (expect !>(!(~(has by sessions.next) 'source')))
+    (expect-eq !>(~) !>(active.hands.next))
+    (expect-eq !>(~) !>(queue.hands.next))
+    (expect-eq !>(%cancelled) !>(phase:(~(got by observations.hands.next) 0v1)))
+    (expect-eq !>(%cancelled) !>(phase:(~(got by observations.hands.next) 0v2)))
+    (expect-eq !>(%abandoned) !>(status:(~(got by outbox.hands.next) 0v1)))
+    (expect-eq !>(~) !>((requests -.out)))
+  ==
 ++  test-scheduled-work-keeps-bookkeeping-and-human-reply-context
   %-  isolated  |=  ignored=*
   =/  s  fixture

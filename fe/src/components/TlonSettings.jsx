@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useResource } from '../useResource'
-import { BackIcon } from './Icons'
+import { BackIcon, CloseIcon } from './Icons'
 import ShipPicker from './ShipPicker'
 import ToolOptions, { toggleGrant } from './ToolOptions'
 import GrantAllAvailable from './GrantAllAvailable'
@@ -72,7 +72,12 @@ export default function TlonSettings({ onBack, workOpen = false }) {
         <section className="panel settings-panel">
           <div className="section-title"><div><h2>Allowed ships</h2><p>Can chat, start DMs, and invite the bot to groups. Includes web search and fetch, plus tools for the current Tlon conversation. No peer or admin access is granted.</p></div></div>
           <ShipPicker label="Add an allowed ship" contacts={contacts.value || []} exclude={[policy.owner, ...policy.allowed, ...policy.trusted.map(entry => entry.ship)]} onChange={(ship) => change({ allowed: [...policy.allowed, ship] })} />
-          {policy.allowed.map(ship => <div className="peer-grant-fields" key={ship}><span>{ship}</span><button type="button" className="text-button" onClick={() => change({ allowed: policy.allowed.filter(value => value !== ship) })}>Remove {ship}</button></div>)}
+          {!!policy.allowed.length && <ul className="allowed-ships" aria-label="Allowed ships">
+            {policy.allowed.map(ship => <li key={ship}>
+              <span>{ship}</span>
+              <button type="button" className="icon-button" aria-label={`Remove ${ship}`} title={`Remove ${ship}`} onClick={() => change({ allowed: policy.allowed.filter(value => value !== ship) })}><CloseIcon /></button>
+            </li>)}
+          </ul>}
           <p className="field-note">Owners and explicitly trusted ships are also allowed.</p>
         </section>
         <section className="panel settings-panel">

@@ -105,7 +105,6 @@ try {
   await chat.enable(one, false)
   await assert.rejects(chat.observe(one, { event: 'disabled', actor: 'alice', text: 'No' }), /disabled/)
   await chat.enable(one, true)
-  await assert.rejects(first.call('session/delete', { sessionId: one }), /bindings/)
   await assert.rejects(first.call('harness/session/rename', { sessionId: one, name: `${one}-renamed` }), /bindings/)
 
   // Cancellation is session-wide, including work waiting in the hand queue.
@@ -127,6 +126,10 @@ try {
   assert.equal(cancellationOutput.length, 1, 'queued cancellation does not fabricate a publication')
   assert.equal(cancellationOutput[0].kind, 'cancelled')
   await chat.deliver(cancellationOutput[0].effectId, async () => 'cancellation-notice')
+  await first.call('session/delete', { sessionId: one })
+  sessions.splice(sessions.indexOf(one), 1)
+  assert.equal((await chat.status(one)).enabled, false)
+  assert.deepEqual(await resumed.effect(effect), terminal, 'deletion retains delivery evidence')
   console.log(JSON.stringify({ ok: true, admissionMs, elapsedMs: Date.now() - start,
     checks: ['actor grants', 'deduplicated admission', 'native/ACP parity', 'queued turn continuity', 'independent hands', 'exclusive claims', 'uncertain delivery', 'receipt recovery', 'delivery retry without inference', 'bound-session lifecycle', 'active and queued cancellation', 'webhook isolation'] }, null, 2))
 } finally {

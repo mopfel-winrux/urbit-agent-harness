@@ -21,6 +21,28 @@
   =/  res  (apply:hd completed [%claim 'chat' id 'worker-1'] ~2000.1.1)
   ?>  ?=(%& -.res)
   db.p.res
+++  test-detach-cancels-queued-work-and-disables-admission
+  =/  db  (detach-session:hd admitted 'session' ~2000.1.2)
+  =/  res  (apply:hd db [%observe 'binding' 'new' 'alice' 'Hello'] ~2000.1.2)
+  ;:  weld
+    (expect-eq !>(~) !>(queue.db))
+    (expect-eq !>(%cancelled) !>(phase:(~(got by observations.db) id)))
+    (expect !>(!enabled:(~(got by bindings.db) 'binding')))
+    (expect !>(?=(%| -.res)))
+  ==
+++  test-detach-abandons-only-undispatched-output
+  =/  completed  completed
+  =/  claimed  claimed
+  =/  db  (detach-session:hd completed 'session' ~2000.1.2)
+  =/  in-flight  (detach-session:hd claimed 'session' ~2000.1.2)
+  ;:  weld
+    (expect-eq !>(%abandoned) !>(status:(~(got by outbox.db) id)))
+    (expect-eq !>(observations.completed) !>(observations.db))
+    (expect-eq !>(outbox.claimed) !>(outbox.in-flight))
+    (expect-eq !>(controls.claimed) !>(controls.in-flight))
+    (expect-eq !>(db) !>((detach-session:hd db 'session' ~2000.1.3)))
+    (expect-eq !>(completed) !>((detach-session:hd completed 'unrelated' ~2000.1.2)))
+  ==
 ++  test-deduplicates-source-events
   =/  res  (apply:hd admitted [%observe 'binding' 'message-1' 'alice' 'Hello'] ~2000.1.2)
   ?>  ?=(%& -.res)

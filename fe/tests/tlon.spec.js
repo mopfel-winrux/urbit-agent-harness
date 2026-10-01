@@ -1,5 +1,32 @@
 import { expect, test } from '@playwright/test'
 
+for (const width of [390, 1280]) test(`allowed ships use compact removable rows at ${width}px`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: 900 })
+  await page.goto('/apps/harness/tests/tlon-fixture.html')
+  const picker = page.getByRole('combobox', { name: 'Add an allowed ship' })
+  for (const ship of ['~nec', '~bud', '~tomhec-wolper-sitful-hatred']) {
+    await picker.fill(ship)
+    await page.getByRole('listbox').getByRole('option').first().click()
+  }
+  const list = page.getByRole('list', { name: 'Allowed ships', exact: true })
+  await expect(list.getByRole('listitem')).toHaveCount(3)
+  const row = list.getByRole('listitem').last()
+  const name = await row.locator('span').boundingBox()
+  const remove = row.getByRole('button', { name: 'Remove ~tomhec-wolper-sitful-hatred', exact: true })
+  const button = await remove.boundingBox()
+  expect(button.x).toBeGreaterThanOrEqual(name.x + name.width)
+  expect(Math.abs(button.y + button.height / 2 - name.y - name.height / 2)).toBeLessThan(1)
+  expect(button.height).toBeGreaterThanOrEqual(width === 390 ? 44 : 36)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await list.screenshot({ path: testInfo.outputPath('allowed-ships.png') })
+  await remove.focus()
+  await page.keyboard.press('Enter')
+  await expect(list.getByRole('listitem')).toHaveCount(2)
+  await page.getByRole('button', { name: 'Save Tlon settings' }).click()
+  await expect(page.getByText('Saved.', { exact: true })).toBeVisible()
+  expect(await page.evaluate(() => window.tlonFixture.saves.at(-1).allowed)).toEqual(['~nec', '~bud'])
+})
+
 test('allowed ships and channel responses save without adding peer trust', async ({ page }) => {
   await page.goto('/apps/harness/tests/tlon-fixture.html')
   await page.getByRole('combobox', { name: 'Add an allowed ship' }).fill('alice')

@@ -466,6 +466,25 @@
   =.  observations.db  (~(put by observations.db) id obs(phase %cancelled))
   =.  queue.db  (skip queue.db |=(i=input-id:h =(i id)))
   $(waiting t.waiting)
+++  detach-session
+  |=  [db=state:hh sid=session-id:h now=@da]
+  ^-  state:hh
+  ::  The caller fences execution first. Keep delivery evidence, including
+  ::  claimed or uncertain sends; only undispatched output can be abandoned.
+  ?>  !(~(has by active.db) sid)
+  =.  db  (cancel-queued db sid)
+  =.  bindings.db
+    %+  roll  ~(tap by bindings.db)
+    |=  [[id=@t b=binding:hh] acc=(map @t binding:hh)]
+    (~(put by acc) id ?:(=(sid sid.b) b(enabled |) b))
+  %+  roll  ~(tap by outbox.db)
+  |=  [[id=input-id:h pub=publication:hh] acc=_db]
+  ?.  &(=(sid sid.pub) =(%pending status.pub))  acc
+  =/  ctl  (get-control acc id)
+  =.  outbox.acc  (~(put by outbox.acc) id pub(status %abandoned, receipts [[now %abandoned '' ''] receipts.pub]))
+  =.  controls.acc
+    (~(put by controls.acc) id ctl(resolutions [[now attempt.ctl %abandoned 'Conversation deleted before dispatch'] resolutions.ctl]))
+  acc
 ++  json-action
   |=  jon=json
   ^-  action:hh
