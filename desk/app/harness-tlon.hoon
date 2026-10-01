@@ -43,15 +43,10 @@
   =.  state  (load:migration old)
   =.  state  initialize-owner:cor
   =?  watching  !enabled.policy  |
-  ::  Gall keeps acknowledged subscriptions across reloads. Re-watching that
-  ::  same duct raises a false adapter failure; only create a missing watch.
   =^  cards  state
     ::  A saved timestamp is not evidence of a surviving Behn subscription.
     ::  Maintenance gets fresh actual deadlines.
-    =/  c  refresh-peers:retire-uploads:reset-wake:cor
-    ?:  &(watching (~(has by wex.bowl) /activity our.bowl %activity))
-      abet:watch-head:c
-    abet:boot:c
+    abet:boot:refresh-peers:retire-uploads:reset-wake:cor
   [cards this]
 ++  on-poke
   |=  [=mark =vase]
@@ -139,6 +134,14 @@
   ^+  cor
   ?.  enabled.policy  cor
   =.  cor  watch-head
+  ::  Gall owns the subscription. An acknowledged watch survives even when
+  ::  processing its acknowledgement crashes before saving our local flag.
+  =/  sub  (~(get by wex.bowl) /activity our.bowl %activity)
+  ?^  sub
+    =.  watching  acked.u.sub
+    ?.  watching  schedule
+    schedule:catch-up(error '')
+  =.  watching  |
   =.  cor  (emit [%pass /activity %agent [our.bowl %activity] %watch /v4])
   schedule
 ++  watch-head
@@ -844,9 +847,11 @@
   =.  error  ''
   =.  cor  (sync-presence db)
   ?:  =(enabled.before enabled.new)  schedule
-  =.  cor  (emit [%pass /activity %agent [our.bowl %activity] %leave ~])
+  ?:  enabled.new  boot
+  =?  cor  (~(has by wex.bowl) /activity our.bowl %activity)
+    (emit [%pass /activity %agent [our.bowl %activity] %leave ~])
   =.  watching  |
-  boot
+  schedule
 ++  agent
   |=  [wire=wire sign=sign:agent:gall]
   ^+  cor

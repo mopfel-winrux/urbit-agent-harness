@@ -130,6 +130,9 @@ commands, commits, pushes, or network access.
 `--port` defaults to `8789`; `--timeout-ms` defaults to `1800000` (30 minutes).
 To use another ACP executable, append `-- /absolute/path/to/agent args...`.
 The command runs without a shell, in the fixed `--repo` directory.
+Do not start `claude-agent-acp` separately: it waits for ACP JSON-RPC on stdin,
+not interactive terminal input. The runner starts it when a conversation first
+needs it and manages its lifetime. The Harness MCP facade also starts automatically.
 
 ### Configure one Harness conversation
 
@@ -141,7 +144,7 @@ global defaults**, with:
 | Custom provider endpoint | `http://127.0.0.1:8789/v1/chat/completions` |
 | Model | `local-acp` |
 | Provider header | `Authorization: Bearer <the value of HARNESS_ACP_TOKEN>` |
-| Harness tools | None |
+| Harness tools | Only the grants needed for this conversation; see the relay below |
 | Provider fallback routes | None |
 
 The runner binds only to IPv4 loopback. A ship in a VM or container has a
@@ -152,13 +155,34 @@ reuse it for other conversations.
 
 Send a small read-only request first, such as “Describe this repo's test setup.”
 Follow-up DMs continue the same ACP session. Replies stream as text; Claude's
-tool calls execute locally and are not projected into Harness tool cards.
-Harness tools are not exposed to the local agent. Harness includes implicit
-helpers even with no configured grants; their schemas are accepted as provider
-metadata but never forwarded to ACP. Additional granted tool schemas are also
-ignored. Requests requiring a Harness tool call are rejected.
+local coding tools execute locally and are not projected into Harness tool cards.
 
-The endpoint accepts text-only Chat Completions requests. The `local-acp` model
+### Enable Harness tools for the coding agent
+
+The relay is disabled by default. Enable an explicit local ceiling when starting
+the runner, for example `--harness-tool current_time --harness-tool calculate`.
+Use `--harness-tool '*'` only to allow all tools advertised for the conversation.
+The available set is the intersection of this ceiling and the current request's
+tool schemas. Harness still checks current authority when executing each call;
+the local ceiling never grants ship permissions. Changing the ceiling requires
+a separate state file and conversation.
+
+Claude sees one MCP server, `harness`, with two wrappers: `list_tools` returns
+names and descriptions, or the exact input schema when given a name;
+`call_tool` takes that name and an arguments object. A call pauses the MCP
+request and emits an ordinary Harness tool call. Harness executes it through
+its existing dispatcher and tool ledger. The next provider request supplies
+the matching result, resuming the **same ACP prompt**. Concurrent tool requests
+are serialized into separate provider responses. Harness tool calls appear in
+the conversation's normal tool history.
+
+The facade uses a separate ephemeral loopback token, not the provider bearer
+token or a ship login. The runner approves ACP permission requests for these
+two exact wrapper names with `allow_once`; local coding tools remain governed
+by `--allow`. With no relay enabled, advertised Harness schemas are ignored.
+
+The endpoint accepts text Chat Completions requests, including tool history
+when the relay is enabled. The `local-acp` model
 name selects the bridge, not Claude's underlying model; configure that in the
 local agent. Sampling/output-budget fields do not configure the ACP agent.
 The bridge does not report model token usage or cost. It does not acquire agent
@@ -167,8 +191,10 @@ credentials, supply client filesystem/terminal methods, or install dependencies.
 ### Continuity, cancellation, and recovery
 
 The private state file stores the ACP session ID, conversation history, and up
-to 64 completed-turn receipts. An exact repeated request returns its saved
-response without executing the task again, including after a runner restart.
+to 64 provider-response receipts. An exact repeated completed text request
+returns its saved response without executing the task again, including after a
+runner restart. Tool-call responses are never replayed. A continuation requires
+the exact saved transcript plus the matching tool result ID.
 Follow-ups must extend the saved transcript. Do not share this endpoint/state
 between conversations, fork or edit its history, change its system instructions,
 or use it as a summary provider. Compaction changes the transcript and requires
@@ -181,9 +207,15 @@ with its process group. Stopping the runner also cancels active work. This is
 best-effort cancellation: it cannot undo edits, stop detached external jobs, or
 guarantee an in-progress external operation did not complete.
 
+Between a tool-call response and its result, there is no open provider HTTP
+request for a ship-side stop to close. Use authenticated `POST /cancel`, or stop
+the runner, to cancel that parked turn immediately. `--tool-timeout-ms` bounds
+the wait for a tool result (default 120000); the 30-minute coding deadline spans
+all tool rounds. Cancellation does not clear the uncertainty marker.
+
 An interrupted, crashed, or failed turn leaves a durable uncertainty marker.
 The runner refuses further coding turns, even across restarts. Inspect the repo
-and the local agent session before proceeding. Keep the original state file,
+and the local agent session, plus any ship tool effects, before proceeding. Keep the original state file,
 then use a **new state file and new Harness conversation** for further work;
 do not delete the uncertainty marker and blindly resend the task.
 
@@ -194,7 +226,9 @@ Restarting requires the agent's ACP `loadSession` capability; the runner never
 reconstructs an agent session by replaying old coding prompts.
 
 `GET /health` and `GET /v1/models` require the same bearer token and do not start
-the agent. Requests are limited to 1 MiB and replies to 128 KiB. Invalid requests,
+the agent. Health reports `waitingForTool`, `needsInspection`, and
+`completedResponses`. Requests are limited to 1 MiB and total text per ACP turn
+to 128 KiB. Invalid requests,
 concurrent turns, and incompatible transcript changes are rejected before a
 coding prompt is dispatched.
 
@@ -204,6 +238,12 @@ coding prompt is dispatched.
 node --test acp/*.test.mjs
 ```
 
-The tests launch a deterministic ACP subprocess. They exercise HTTP/SSE,
+The tests launch a deterministic ACP subprocess and the real stdio MCP facade.
+They exercise HTTP/SSE, tool discovery and continuation, catalog revocation,
 permissions, session loading, duplicate protection, cancellation, process
 failures, and state locks without model calls or real repository edits.
+
+To verify real ship dispatch on a local development ship, run
+`SHIP_URL=http://127.0.0.1 SHIP_COOKIE=/private/cookie SOAK_EXPECT_SHIP=~your-ship node scripts/local-agent-provider-conformance.mjs`.
+This creates and deletes one isolated fixture conversation, calls only
+`current_time` and `calculate`, and makes no paid model calls or bot changes.

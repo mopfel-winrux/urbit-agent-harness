@@ -47,6 +47,106 @@ async function waitFor(check) {
   assert.fail('Timed out waiting for fixture state')
 }
 
+const shipTools = ['current_time', 'calculate'].map(name => ({ type: 'function', function: { name, description: `Ship ${name}`, parameters: { type: 'object', properties: {} } } }))
+const toolResult = (message, content = 'ship result') => ({ role: 'tool', tool_call_id: message.tool_calls[0].id, content })
+const relayBody = (messages, extra = {}) => request('', { messages, tools: shipTools, ...extra })
+const health = async provider => (await (await fetch(provider.url + '/health', { headers: { authorization: `Bearer ${token}` } })).json())
+
+test('MCP discovers the intersection of local ceiling and current conversation schemas', async t => {
+  const f = await fixture(t, { harnessTools: ['current_time'] })
+  const result = await (await f.post(relayBody([user('relay-discover')]))).json()
+  const { catalog, schema } = JSON.parse(result.choices[0].message.content)
+  assert.deepEqual(JSON.parse(catalog.content[0].text).map(tool => tool.name), ['current_time'])
+  assert.deepEqual(JSON.parse(schema.content[0].text).inputSchema, shipTools[0].function.parameters)
+  const server = (await f.frames()).find(frame => frame.method === 'session/new').params.mcpServers[0]
+  const relayToken = server.env.find(item => item.name === 'HARNESS_TOOL_RELAY_TOKEN').value
+  assert.notEqual(relayToken, token)
+  assert.equal((await fetch(f.provider.url + '/cancel', { method: 'POST', headers: { authorization: `Bearer ${relayToken}` } })).status, 401)
+  assert.equal((await fetch(f.provider.url + '/internal/harness-tools', { method: 'POST', headers: { authorization: `Bearer ${token}` } })).status, 401)
+})
+
+for (const mode of ['relay-once', 'relay-twice', 'relay-parallel']) {
+  test(`MCP ${mode} resumes one ACP prompt through native Harness tool results`, async t => {
+    const f = await fixture(t, { harnessTools: ['*'] })
+    let messages = [user(mode)]
+    const firstRequest = relayBody(messages)
+    let response = await (await f.post(firstRequest)).json()
+    assert.equal(response.choices[0].finish_reason, 'tool_calls')
+    assert.equal(response.choices[0].message.content, 'Checking ship. ')
+    let count = 0
+    while (response.choices[0].finish_reason === 'tool_calls') {
+      const message = response.choices[0].message
+      assert.equal(message.tool_calls.length, 1)
+      assert.equal(message.tool_calls[0].function.name, count === 0 ? 'current_time' : 'calculate')
+      assert.equal((await health(f.provider)).waitingForTool, true)
+      messages = [...messages, message, toolResult(message, `result-${++count}`)]
+      response = await (await f.post(relayBody(messages))).json()
+    }
+    assert.equal(count, mode === 'relay-once' ? 1 : 2)
+    assert.match(response.choices[0].message.content, /result-1/)
+    assert.deepEqual(await (await f.post(relayBody(messages))).json(), response)
+    assert.equal((await f.post(firstRequest)).status, 409)
+    assert.equal((await f.frames()).filter(frame => frame.method === 'session/prompt').length, 1)
+    assert.equal((await health(f.provider)).needsInspection, false)
+    assert.equal(JSON.parse(await readFile(f.state)).pending, null)
+  })
+}
+
+test('tool-call SSE matches the persisted continuation, and invalid results do not consume the call', async t => {
+  const f = await fixture(t, { harnessTools: ['current_time'] })
+  const input = [user('relay-once')]
+  const text = await (await f.post(relayBody(input, { stream: true }))).text()
+  const frames = text.split('\n').filter(line => line.startsWith('data: {')).map(line => JSON.parse(line.slice(6)))
+  assert.equal(frames.at(-1).choices[0].finish_reason, 'tool_calls')
+  assert.ok(text.endsWith('data: [DONE]\n\n'))
+  const persisted = JSON.parse(await readFile(f.state))
+  const message = persisted.history.at(-1)
+  assert.equal(frames.map(frame => frame.choices[0].delta.content || '').join(''), message.content)
+  const call = frames.flatMap(frame => frame.choices[0].delta.tool_calls || [])[0]
+  assert.equal(call.id, message.tool_calls[0].id)
+  assert.equal((await f.post(relayBody([...persisted.history, { ...toolResult(message), tool_call_id: 'wrong' }]))).status, 409)
+  assert.equal((await f.post(relayBody([user('changed'), message, toolResult(message)]))).status, 409)
+  assert.equal((await f.post(relayBody(input))).status, 409)
+  assert.equal((await health(f.provider)).waitingForTool, true)
+  const response = await f.post(relayBody([...persisted.history, toolResult(message, 'error: permission revoked')]))
+  assert.match((await response.json()).choices[0].message.content, /permission revoked/)
+})
+
+test('queued tools use the refreshed catalog and revoked tools never reach Harness', async t => {
+  const f = await fixture(t, { harnessTools: ['*'] })
+  const input = [user('relay-parallel')]
+  const message = (await (await f.post(relayBody(input))).json()).choices[0].message
+  const response = await (await f.post(relayBody([...input, message, toolResult(message)], { tool_choice: 'none' }))).json()
+  assert.equal(response.choices[0].finish_reason, 'stop')
+  assert.match(response.choices[0].message.content, /isError/)
+  assert.match(response.choices[0].message.content, /not available|unavailable/)
+  assert.equal(JSON.parse(await readFile(f.state)).receipts.filter(receipt => receipt.calls.length).length, 1)
+})
+
+for (const action of ['cancel', 'timeout', 'restart']) {
+  test(`parked tool ${action} fences the conversation without replay`, async t => {
+    const f = await fixture(t, { harnessTools: ['current_time'], ...(action === 'timeout' ? { toolTimeoutMs: 150 } : {}) })
+    const input = [user('relay-once')]
+    const message = (await (await f.post(relayBody(input))).json()).choices[0].message
+    let target = f.provider
+    if (action === 'cancel') assert.equal((await fetch(target.url + '/cancel', { method: 'POST', headers: { authorization: `Bearer ${token}` } })).status, 200)
+    else if (action === 'timeout') await waitFor(async () => (await health(target)).needsInspection)
+    else { await target.close(); target = await f.start() }
+    assert.equal((await f.post(relayBody([...input, message, toolResult(message)]), { target })).status, 409)
+    assert.equal((await f.post(relayBody(input), { target })).status, 409)
+    assert.ok(JSON.parse(await readFile(f.state)).pending)
+    assert.equal((await f.frames()).filter(frame => frame.method === 'session/prompt').length, 1)
+  })
+}
+
+for (const [name, outcome] of [['mcp__harness__list_tools', 'selected'], ['mcp__harness__call_tool', 'selected'], ['mcp__other__call_tool', 'cancelled']]) {
+  test(`relay permission is scoped to exact wrapper name: ${name}`, async t => {
+    const f = await fixture(t, { harnessTools: ['current_time'] })
+    const response = await (await f.post(request(`permission:other:${name}`))).json()
+    assert.equal(JSON.parse(response.choices[0].message.content).outcome.outcome, outcome)
+  })
+}
+
 test('text JSON response, fixed cwd, minimal capabilities, and private journal', async t => {
   const f = await fixture(t)
   const response = await f.post(request('hello'))
