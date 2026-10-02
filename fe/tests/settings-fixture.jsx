@@ -120,6 +120,7 @@ api.models = (provider, url) => new Promise((resolve) => {
   const id = window.settingsFixture.requests.length
   pending.set(id, resolve)
   window.settingsFixture.requests.push({ id, provider, url })
+  if (!params.has('hold-models')) resolve({ models: [], modelInfo: [] })
 })
 api.action = async (action) => {
   if (action['set-key']) {

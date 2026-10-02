@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { defaultConfig } from '../defaults'
 import { useResource } from '../useResource'
-import { useProviderModels } from '../useProviderModels'
+import { useProviderModels, resolveModelConfig } from '../useProviderModels'
 import { PROVIDERS, providerOf } from '../providers'
 import { authMethod, withAuth, chooseProvider, catalogEndpoint } from '../providerConfig'
 import ProviderRoute from './ProviderRoute'
@@ -21,7 +21,7 @@ function ModelOverride({ name, title, description, value, defaults, onChange, di
       {value && <>
         <div className="two-fields">
           <Select label="Provider" value={provider} onValueChange={(nextValue) => onChange(chooseProvider(config, nextValue, 'api-key'))}>{Object.entries(PROVIDERS).map(([key, item]) => <Select.Option key={key} value={key}>{item.title}</Select.Option>)}</Select>
-          <Combobox label="Model" options={catalog.models} required value={config.model || ''} onValueChange={(nextValue) => update({ ...config, model: nextValue, 'max-context': catalog.contextFor(nextValue) || 80_000 })} />
+          <Combobox label="Model" options={catalog.models} required value={config.model || ''} onValueChange={(nextValue) => update({ ...config, model: nextValue })} />
         </div>
         <ProviderRoute provider={provider} value={config} onChange={update} />
         {catalog.loading && <p className="field-note">Loading models…</p>}
@@ -47,7 +47,7 @@ export default function MemorySettings() {
     event.preventDefault(); setBusy(true); setError(''); setSaved(false)
     if (unavailable) { setBusy(false); return }
     try {
-      const clean = Object.fromEntries(Object.entries(form).map(([name, value]) => [name, value ? { ...value, model: value.model.trim(), url: value.url.trim(), key: '', system: '', tools: [], headers: (value.headers || []).filter((header) => header.name.trim()) } : null]))
+      const clean = Object.fromEntries(await Promise.all(Object.entries(form).map(async ([name, value]) => [name, value ? await resolveModelConfig({ ...value, model: value.model.trim(), url: value.url.trim(), key: '', system: '', tools: [], headers: (value.headers || []).filter((header) => header.name.trim()) }, models.value[name]) : null])))
       const applied = await api.action({ summaryModels: clean })
       models.setValue(applied); setForm(applied); dirty.current = false; setSaved(true)
     } catch (cause) { setError(cause.message) } finally { setBusy(false) }

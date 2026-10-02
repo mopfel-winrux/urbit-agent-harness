@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
-import { PROVIDERS } from './providers.js'
-import { createModelCatalogs } from './modelCatalogs.js'
+import { PROVIDERS, providerOf } from './providers.js'
+import { authMethod, catalogEndpoint, credentialSlot } from './providerConfig.js'
+import { createModelCatalogs, resolveContextWindow } from './modelCatalogs.js'
 
 const cache = createModelCatalogs(async (provider, endpoint) => normalizeCatalog(await api.models(provider, endpoint)))
 export const invalidateModelCatalogs = () => cache.invalidate()
 const emptyCatalog = () => ({ models: [], contexts: {} })
+
+export async function resolveModelConfig(config, saved) {
+  const provider = providerOf(config.url)
+  const source = provider === 'anthropic' ? credentialSlot(provider, authMethod(provider, config)) : provider
+  const window = await resolveContextWindow(config, saved,
+    () => cache.load(source, catalogEndpoint(provider, config)))
+  return { ...config, 'max-context': window }
+}
 
 export function normalizeCatalog(result = {}) {
   const contexts = {}

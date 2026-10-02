@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { api } from '../api'
 import { useResource } from '../useResource'
 import { PROVIDERS, providerOf } from '../providers'
-import { useProviderModels } from '../useProviderModels'
+import { useProviderModels, resolveModelConfig } from '../useProviderModels'
 import ToolOptions, { toggleGrant } from './ToolOptions'
 import ProviderRoute from './ProviderRoute'
 import { authMethod, withAuth, chooseProvider as providerConfig, catalogEndpoint } from '../providerConfig'
@@ -62,12 +62,12 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
       key: '',
       headers: Array.isArray(form.headers) ? form.headers : [],
       system: form.system || '',
-      'max-context': catalog.contextFor(form.model?.trim() || PROVIDERS[provider].model) || 80_000,
       'js-timeout': Number.isFinite(Number(form['js-timeout'])) && Number(form['js-timeout']) >= 0 ? Math.floor(Number(form['js-timeout'])) : 30,
       tools: Array.isArray(form.tools) ? form.tools : [],
     }, provider, authMethod(provider, form))
     try {
-      const applied = await api.action({ config: { sid: resources.chat, config } })
+      const resolved = await resolveModelConfig(config, session.value)
+      const applied = await api.action({ config: { sid: resources.chat, config: resolved } })
       session.setValue(applied); setForm(applied); setDirty(false); setSaved(true)
     } catch (cause) { setError(cause.message) } finally { setBusy(false) }
   }

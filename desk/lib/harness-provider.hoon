@@ -668,6 +668,13 @@
 ++  model-context
   |=  row=(map @t json)
   ^-  (unit @ud)
+  ::  Subscription catalogs distinguish their default working budget from
+  ::  the supported ceiling. Capacity uses the ceiling; policy reserves
+  ::  response space and starts compaction before the request reaches it.
+  =/  maximum  (json-ud (~(get by row) 'max_context_window'))
+  ?^  maximum
+    ?:  (gth u.maximum 0)  maximum
+    $(row (~(del by row) 'max_context_window'))
   =/  direct
     %+  first-json  row
     :~  'context_length'  'context_window'  'contextWindow'
@@ -691,8 +698,8 @@
   |=  value=(unit json)
   ^-  (unit @ud)
   ?~  value  ~
-  ?:  ?=(%n -.u.value)  (rush p.u.value dem)
-  ?:  ?=(%s -.u.value)  (rush p.u.value dem)
+  ?:  ?=([%n *] u.value)  (rush p.u.value dem)
+  ?:  ?=([%s *] u.value)  (rush p.u.value dem)
   ~
 ::
 ++  provider-for-url

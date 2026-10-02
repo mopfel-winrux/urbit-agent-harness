@@ -1,6 +1,28 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createModelCatalogs } from './modelCatalogs.js'
+import { createModelCatalogs, resolveContextWindow } from './modelCatalogs.js'
+
+test('saving a typed model awaits its advertised capacity', async () => {
+  let complete
+  const loading = new Promise((resolve) => { complete = resolve })
+  let settled = false
+  const config = { url: '/responses', model: 'gpt-6-luna', 'max-context': 80_000 }
+  const result = resolveContextWindow(config, config, () => loading).then((value) => { settled = true; return value })
+  await Promise.resolve()
+  assert.equal(settled, false)
+  complete({ contexts: { 'gpt-6-luna': 872_000 } })
+  assert.equal(await result, 872_000)
+})
+
+test('missing catalog metadata preserves only the same saved model and route', async () => {
+  const saved = { url: '/responses', model: 'luna', headers: [], 'max-context': 872_000 }
+  for (const read of [async () => ({ contexts: {} }), async () => { throw Error('unavailable') }]) {
+    assert.equal(await resolveContextWindow(saved, saved, read), 872_000)
+    assert.equal(await resolveContextWindow({ ...saved, model: 'unknown' }, saved, read), 80_000)
+    assert.equal(await resolveContextWindow({ ...saved, url: '/other' }, saved, read), 80_000)
+    assert.equal(await resolveContextWindow({ ...saved, headers: [{ name: 'auth-mode', value: 'other' }] }, saved, read), 80_000)
+  }
+})
 
 test('concurrent consumers, remounts and expiry share one request per catalog', async () => {
   let reads = 0, now = 0

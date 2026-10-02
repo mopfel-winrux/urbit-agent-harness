@@ -4,7 +4,7 @@ import { api } from '../api'
 import { defaultConfig } from '../defaults'
 import { PROVIDERS, providerOf } from '../providers'
 import { useResource } from '../useResource'
-import { useProviderModels } from '../useProviderModels'
+import { useProviderModels, resolveModelConfig } from '../useProviderModels'
 import HeaderEditor from './HeaderEditor'
 import ToolOptions, { toggleGrant } from './ToolOptions'
 import ProviderRoute from './ProviderRoute'
@@ -57,12 +57,11 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
     event.preventDefault()
     setBusy(true); setError(''); setSaved(false)
     try {
-      const clean = withAuth({
+      const clean = await resolveModelConfig(withAuth({
         ...form,
         url: form.url.trim(), model: form.model.trim(), key: '',
         headers: (form.headers || []).filter((header) => header.name.trim()),
-        'max-context': catalog.contextFor(form.model.trim()) || 80_000,
-      }, provider, authMethod(provider, form))
+      }, provider, authMethod(provider, form)), defaults.value)
       const applied = await api.action({ defaults: clean })
       defaults.setValue(applied); setForm(applied); dirty.current = false; setSaved(true)
     } catch (cause) { setError(cause.message) } finally { setBusy(false) }

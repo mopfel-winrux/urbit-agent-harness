@@ -110,4 +110,10 @@
 ++  test-provider-catalog-retains-context-metadata
   =/  jon  (need (de:json:html '{"data":[{"id":"fixture","context_length":12345}]}'))
   (expect-eq !>(`(list model-info:hp)`~[['fixture' `12.345]]) !>((parse-model-list:hp jon)))
+++  test-provider-catalog-uses-supported-maximum-not-default-working-window
+  =/  jon  (need (de:json:html '{"models":[{"slug":"gpt-6-luna","context_window":272000,"max_context_window":872000}]}'))
+  (expect-eq !>(`(list model-info:hp)`~[['gpt-6-luna' `872.000]]) !>((parse-model-list:hp jon)))
+++  test-invalid-maximum-does-not-hide-valid-context-metadata
+  =/  jon  (need (de:json:html '{"data":[{"id":"zero","context_length":12345,"max_context_window":0},{"id":"null","context_window":12345,"max_context_window":null}]}'))
+  (expect-eq !>(`(list model-info:hp)`~[['zero' `12.345] ['null' `12.345]]) !>((parse-model-list:hp jon)))
 --

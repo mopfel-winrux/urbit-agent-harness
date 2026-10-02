@@ -32,6 +32,27 @@
   =/  items=(list item:h)
     ~[[%user 'ask'] [%assistant '' ~[['call' 'http_fetch' '{}']]] [%tool 'call' 'http_fetch' 'result'] [%assistant 'done' ~]]
   (expect-eq !>(`(list @ud)`~[4]) !>((boundaries:ctx items)))
+++  test-tool-batches-close-only-after-every-parallel-result
+  =/  items=(list item:h)
+    ~[[%user 'Read both'] [%assistant '' ~[['a' 'http_fetch' '{}'] ['b' 'http_fetch' '{}']]] [%tool 'a' 'http_fetch' 'first'] [%tool 'a' 'http_fetch' 'duplicate'] [%tool 'b' 'http_fetch' 'second'] [%user 'Next']]
+  ;:  weld
+    (expect-eq !>(`(list @ud)`~[5]) !>((tool-boundaries:ctx items)))
+    (expect-eq !>(`(list @ud)`~) !>((tool-boundaries:ctx (scag 4 items))))
+    (expect-eq !>(`(list @ud)`~[0]) !>((preserved-input:ctx items 5)))
+  ==
+++  test-unfinished-turn-can-compact-settled-tool-batches
+  =/  v  fixture
+  =/  evidence  (rap 3 (reap 110.000 'x'))
+  =.  max-context.config.v  60.000
+  =.  items.v
+    ~[[%user 'Original request'] [%assistant '' ~[['a' 'http_fetch' '{}']]] [%tool 'a' 'http_fetch' evidence] [%assistant '' ~[['b' 'http_fetch' '{}']]] [%tool 'b' 'http_fetch' evidence] [%user 'Additional constraint']]
+  =/  result  (plan:ctx v 20 ~ |=(candidate=view:h (estimate:hp candidate %compaction ~)))
+  ?>  ?=(%& -.result)
+  ;:  weld
+    (expect !>(?=([~ %compact ~] (next:hs v ~))))
+    (expect-eq !>(3) !>(count.p.result))
+    (expect-eq !>(`(list @ud)`~[0]) !>((preserved-input:ctx items.v count.p.result)))
+  ==
 ++  test-short-history-does-not-summarize-only-a-trivial-prefix
   =/  items=(list item:h)
     ~[[%user '/remember project small'] [%assistant 'Saved' ~] [%user 'older project evidence'] [%assistant 'older decision' ~] [%user 'recent'] [%assistant 'recent answer' ~]]

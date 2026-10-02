@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { defaultConfig } from '../defaults'
 import { useResource } from '../useResource'
-import { useProviderModels } from '../useProviderModels'
+import { useProviderModels, resolveModelConfig } from '../useProviderModels'
 import { PROVIDERS, providerOf } from '../providers'
 import { authMethod, withAuth, chooseProvider, catalogEndpoint } from '../providerConfig'
 import { emptyPeers, effectivePeers, editPeer, peerPayload } from '../peers'
@@ -49,7 +49,9 @@ export default function PeerSettings() {
     if (busy || unavailable) return
     setBusy(true); setError(''); setSaved(false)
     try {
-      const applied = await api.action({ peers: peerPayload(form) })
+      const payload = peerPayload(form)
+      if (payload.config) payload.config = await resolveModelConfig(payload.config, stored.value.config)
+      const applied = await api.action({ peers: payload })
       stored.setValue(applied); setForm(applied); dirty.current = false; setSaved(true)
     } catch (cause) { setError(cause.message) } finally { setBusy(false) }
   }
@@ -96,7 +98,7 @@ export default function PeerSettings() {
         {form.config && <>
           <div className="two-fields">
             <Select label="Provider" value={provider} onValueChange={(nextValue) => modelChange(chooseProvider(config, nextValue, nextValue === 'openai' ? openai.value?.['auth-method'] : 'api-key'))}>{Object.entries(PROVIDERS).map(([id, item]) => <Select.Option key={id} value={id}>{item.title}</Select.Option>)}</Select>
-            <Combobox label="Serving model" options={catalog.models} required value={config.model} onValueChange={(nextValue) => modelChange({ ...config, model: nextValue, 'max-context': catalog.contextFor(nextValue) || 80_000 })} />
+            <Combobox label="Serving model" options={catalog.models} required value={config.model} onValueChange={(nextValue) => modelChange({ ...config, model: nextValue })} />
           </div>
           <ProviderRoute provider={provider} value={config} onChange={modelChange} />
           {catalog.error && <p className="field-note">Model catalog unavailable; you can enter a model ID.</p>}

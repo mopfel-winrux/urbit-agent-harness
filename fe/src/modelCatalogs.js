@@ -1,4 +1,16 @@
-// Catalogs are advisory provider metadata, never authorization/configuration.
+// Catalogs supply model capacity, never credentials or capability grants.
+export async function resolveContextWindow(config, saved, read) {
+  try {
+    const catalog = await read()
+    const capacity = catalog.contexts?.[config.model]
+    if (Number.isSafeInteger(capacity) && capacity > 0) return capacity
+  } catch { /* A catalog outage must not lower an unchanged model's capacity. */ }
+  const unchanged = config.model === saved?.model && config.url === saved?.url
+    && JSON.stringify(config.headers || []) === JSON.stringify(saved?.headers || [])
+  const previous = saved?.['max-context']
+  return unchanged && Number.isSafeInteger(previous) && previous > 0 ? previous : 80_000
+}
+
 export function createModelCatalogs(read, { ttl = 300_000, now = Date.now, limit = 32 } = {}) {
   const cache = new Map()
   const pending = new Map()

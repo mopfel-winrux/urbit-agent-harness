@@ -4,7 +4,7 @@ import { api } from '../api'
 import { useResource } from '../useResource'
 import { PROVIDERS } from '../providers'
 import { authMethod, withAuth, chooseProvider, catalogEndpoint, credentialSlot } from '../providerConfig'
-import { useProviderModels, invalidateModelCatalogs } from '../useProviderModels'
+import { useProviderModels, invalidateModelCatalogs, resolveModelConfig } from '../useProviderModels'
 import { AnthropicDeviceLogin, OpenAIDeviceLogin, XaiDeviceLogin } from './ProviderLogin'
 import ProviderRoute from './ProviderRoute'
 import HeaderEditor from './HeaderEditor'
@@ -44,12 +44,11 @@ export default function ProviderSettings({ provider, resources }) {
 
   async function persist(next) {
     const selectedModel = next.model.trim() || details.model
-    const config = withAuth({
+    const config = await resolveModelConfig(withAuth({
       ...next, url: next.url.trim(), model: selectedModel, key: '',
       headers: (next.headers || []).filter((h) => h.name.trim()).map((h) => ({ ...h, name: h.name.trim() })),
       system: session.value?.system || '', tools: session.value?.tools || [],
-      'max-context': catalog.contextFor(selectedModel) || 80_000,
-    }, provider, authMethod(provider, next))
+    }, provider, authMethod(provider, next)), session.value)
     const applied = resources.chat
       ? await api.action({ config: { sid: resources.chat, config } })
       : await api.action({ defaults: config })

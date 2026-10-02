@@ -43,6 +43,7 @@
 /+  hosted-provision=harness-hosted-provision
 /+  hosted-cleanup=harness-hosted-cleanup
 /+  routing=harness-model-routing
+/+  model-context=harness-model-context
 /+  mcp=harness-mcp
 /+  tool-catalog=harness-tool-catalog, wire-json=harness-provider-wire
 /+  observe=harness-observe
@@ -168,6 +169,7 @@
     (snoc base [%pass /schedules/(scot %da u.schedule-wake.new) %arvo %b %rest u.schedule-wake.new])
   =.  base
     (weld base (close-streams:runner-lib runners.new))
+  =.  base  (weld base refresh-model-contexts:hc)
   ::  Gall retains subscriptions across code reloads. A new mirror watch
   ::  reprojects on acknowledgement. Refresh a surviving watch only after our
   ::  self-poke completes: Tlon may still be old code during this +on-load.
@@ -715,6 +717,12 @@
     =/  req=@ud  (slav %ud i.t.wire)
     ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
     =^  cards  state  (handle-model-response:hc req client-response.sign)
+    [cards this]
+  ::
+      [%model-context @ @ ~]
+    ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
+    =^  cards  state
+      (handle-model-context:hc i.t.wire (slav %uv i.t.t.wire) client-response.sign)
     [cards this]
   ::  Bounded summary lifetime; request identity makes a late wake harmless.
       [%compact-timeout @ @ @ ~]
@@ -2175,7 +2183,7 @@
     =.  defaults  config.p.attempted
     =.  model-defaults-set  &
     =.  provider-keys  keys.p.attempted
-    [~[(reply (envelope:hosted-auth 200 (pairs:enjs:format ~[['ready' %b &]])))] state]
+    [(snoc refresh-model-contexts (reply (envelope:hosted-auth 200 (pairs:enjs:format ~[['ready' %b &]])))) state]
   ?:  =('settings' action.request)
     =/  attempted
       %-  mule  |.
@@ -2193,7 +2201,7 @@
     =?  api-key  !=((~(get by provider-keys) 'openrouter') (~(get by keys.result) 'openrouter'))
       (fall (~(get by keys.result) 'openrouter') '')
     =.  provider-keys  keys.result
-    [~[(reply response.result)] state]
+    [(snoc ?:(=(200 (number:workspace-json response.result 'status' 0)) refresh-model-contexts ~) (reply response.result)) state]
   =/  attempted
     %-  mule  |.
     ?:  =('status' action.request)
@@ -2220,8 +2228,11 @@
     (~(put by catalogs.hosted) provider u.catalog(identity (identity:hosted-auth keys.renewal provider)))
   =?  openai-auth  =('openai' provider)  oauth.renewal
   =?  xai-auth  =('xai' provider)  oauth.renewal
+  =/  changed  !=(provider-keys keys.renewal)
   =.  provider-keys  keys.renewal
   =/  cards  cards.renewal
+  =?  cards  changed
+    (weld cards (request:model-context provider-keys (cat 3 provider '-device')))
   =/  failed  failed.renewal
   ::  Renewal failures return through the same request identities as HTTP
   ::  responses. Ignore requests that have already finished or been replaced.
@@ -2646,7 +2657,7 @@
     =.  peers  -.p.decoded
     =.  peer-base  +<.p.decoded
     =.  peer-limits  +>.p.decoded
-    (respond ~ peer-settings)
+    (respond ?~(peer-base ~ (refresh-model-config u.peer-base)) peer-settings)
   ::
       %'harness/summary-models'
     (respond ~ (models-json:corpus-json summary-models))
@@ -2658,7 +2669,7 @@
     ?:  ?=(%| -.decoded)
       (fail '-32602' 'Invalid summary model settings')
     =.  summary-models  p.decoded
-    (respond ~ (models-json:corpus-json summary-models))
+    (respond refresh-model-contexts (models-json:corpus-json summary-models))
   ::
       %'harness/corpus/rebuild'
     =.  corpus  (rebuild:corpus-lib corpus now.bowl)
@@ -3328,7 +3339,7 @@
     =^  recorded  session
       (record-all sid.action session ~[[%config-replaced config]])
     =^  driven  state  (drive-put sid.action session)
-    [(weld recorded driven) state]
+    [:(weld recorded driven (refresh-model-config config)) state]
   ::
       %spawn
     ::  The drive loop delegates with the parent's current grants. Removing
@@ -3455,13 +3466,13 @@
     =/  =config:h  config.action
     =?  provider-keys  !=('' key.config)
       (put-key:auth provider-keys (credential-for-url:auth url.config) key.config)
-    `state(peer-base `config(key ''))
+    [(refresh-model-config config) state(peer-base `config(key ''))]
   ::
       %defaults
     =/  =config:h  config.action
     =?  provider-keys  !=('' key.config)
       (put-key:auth provider-keys (credential-for-url:auth url.config) key.config)
-    `state(defaults config(key ''), model-defaults-set &)
+    [(refresh-model-config config) state(defaults config(key ''), model-defaults-set &)]
   ::
       %mcp-config
     =/  next=(map mcp-server-id:h mcp-server:h)
@@ -3933,6 +3944,54 @@
   =/  stored=@t  (key:auth provider-keys provider)
   ?:  !=('' stored)  stored
   ?:(=('openrouter' provider) api-key '')
+++  refresh-model-config
+  |=  config=config:h
+  ^-  (list card)
+  (request:model-context provider-keys (credential-for-config:auth config))
+::
+++  refresh-model-contexts
+  ^-  (list card)
+  ::  Reload resolves every configured route once, including conversations
+  ::  whose model differs from the defaults. Unknown models retain their cap.
+  =/  configs=(list config:h)
+    ;:  weld
+      ~[defaults]
+      (murn ~[peer-base compaction.summary-models lcm.summary-models] |=(value=(unit config:h) value))
+      (turn ~(val by sessions) |=(session=session:h config:(play:hl log.session)))
+    ==
+  =/  credentials  (silt (turn configs credential-for-config:auth))
+  %-  zing
+  %+  turn  ~(tap in credentials)
+  |=(credential=@t (request:model-context provider-keys credential))
+::
+++  handle-model-context
+  |=  [credential=@t identity=@uvH response=client-response:iris]
+  ^-  (quip card _state)
+  ?:  ?=(%progress -.response)  `state
+  ?.  =(identity (identity:model-context provider-keys credential))  `state
+  =/  windows  (parse:model-context response)
+  ?~  windows
+    ~&  [%harness-model-context-unavailable credential]
+    `state
+  =/  apply  |=(config=config:h (apply:model-context config credential u.windows))
+  =.  defaults  (apply defaults)
+  =.  peer-base  (bind peer-base apply)
+  =.  compaction.summary-models  (bind compaction.summary-models apply)
+  =.  lcm.summary-models  (bind lcm.summary-models apply)
+  ::  Record capacity changes without retrying failed work or touching an
+  ::  in-flight request's frozen route, source coverage or decoder.
+  =|  cards=(list card)
+  =/  remaining  ~(tap by sessions)
+  |-  ^-  (quip card _state)
+  ?~  remaining  [cards state]
+  =/  [sid=session-id:h session=session:h]  i.remaining
+  =/  before  config:(play:hl log.session)
+  =/  after  (apply before)
+  ?:  =(before after)  $(remaining t.remaining)
+  =^  recorded  session  (record-all sid session ~[[%config-replaced after]])
+  =.  sessions  (~(put by sessions) sid session)
+  $(remaining t.remaining, cards (weld cards recorded))
+::
 ++  model-list-card
   |=  [req=@ud provider=@t url=@t]
   ^-  card

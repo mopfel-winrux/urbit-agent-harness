@@ -83,7 +83,7 @@ test('pending owner DM requests reconcile at boot and permission changes, not pe
 
 test('semantic head depends on nouns, not providers or transports', () => {
   for (const name of ['harness', 'harness-context', 'harness-memory', 'harness-lcm']) {
-    assert.deepEqual(dependencies(name), name === 'harness' ? ['harness-lcm'] : [])
+    assert.deepEqual(dependencies(name), name === 'harness' ? ['harness-lcm', 'harness-context'] : [])
     assert.doesNotMatch(code(name), /\bjson\b|\.\^\(|%pass|bowl:gall/)
   }
 })

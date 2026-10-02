@@ -31,9 +31,8 @@
       |=  [call=tool-call:h total=@ud]
       (add total (met 3 args.call))
   ==
-::  Boundaries follow final assistant replies, never an unfinished tool group.
-::  Keep the latest complete exchange and the current unanswered input. A
-::  single enormous exchange cannot be split across compaction source spans.
+::  Prefer complete exchanges. Tool batches provide additional safe cuts when
+::  an unfinished exchange grows beyond the conversation's working budget.
 ++  boundaries
   |=  items=(list item:h)
   =|  at=@ud
@@ -42,6 +41,33 @@
   ?~  items  (flop reversed-cuts)
   =?  reversed-cuts  ?=([%assistant * ~] i.items)
     [+(at) reversed-cuts]
+  $(items t.items, at +(at))
+::  Every call in a batch must have its result before that batch can be cut.
+++  tool-boundaries
+  |=  items=(list item:h)
+  =|  at=@ud
+  =|  pending=(set @t)
+  =|  cuts=(list @ud)
+  |-  ^-  (list @ud)
+  ?~  items  (flop cuts)
+  =/  item  i.items
+  =?  pending  ?=(%assistant -.item)
+    (silt (turn calls.item |=(call=tool-call:h id.call)))
+  =?  cuts  ?=([%assistant * ~] item)  [+(at) cuts]
+  =?  cuts  ?&(?=(%tool -.item) (~(has in pending) call-id.item) =(1 ~(wyt in pending)))
+    [+(at) cuts]
+  =?  pending  ?=(%tool -.item)  (~(del in pending) call-id.item)
+  $(items t.items, at +(at))
+::  A checkpoint inside a turn retains that turn's user input verbatim.
+::  These zero-based positions also retain its original source addresses.
+++  preserved-input
+  |=  [items=(list item:h) count=@ud]
+  =|  at=@ud
+  =|  keep=(list @ud)
+  |-  ^-  (list @ud)
+  ?:  |(=(at count) ?=(~ items))  (flop keep)
+  =?  keep  ?=(%user -.i.items)  [at keep]
+  =?  keep  ?=([%assistant * ~] i.items)  ~
   $(items t.items, at +(at))
 ::  Walk item sizes once to find the preferred retained-tail boundary. Do not
 ::  serialize every growing prefix or repeatedly scan every remaining suffix.
@@ -87,12 +113,16 @@
   ?:  (gte compact-attempts.view 4)
     [%| 'Compaction attempt limit reached; change the model or reduce the request.']
   =/  cuts  (boundaries items.view)
-  ?:  (lth (lent cuts) 2)
-    [%| 'No completed historical exchange can be compacted while preserving the recent turn.']
-  =.  cuts  (scag (dec (lent cuts)) cuts)
+  ::  Prefer older completed exchanges. If none remain, summarize settled
+  ::  tool batches while preserving the current request and all source data.
+  =.  cuts
+    ?:  (gte (lent cuts) 2)  (scag (dec (lent cuts)) cuts)
+    (tool-boundaries items.view)
+  ?~  cuts
+    [%| 'No completed exchange or settled tool batch is available for compaction.']
   =/  limit  (input-budget max-context.config.view)
   =/  goal  (preferred items.view cuts (tail-budget conversation-window))
-  =.  cuts  (skim cuts |=(cut=@ud (lte cut goal)))
+  =/  cuts=(list @ud)  (skim `(list @ud)`cuts |=(cut=@ud (lte cut goal)))
   ::  If the desired source prefix cannot fit, halve the number of complete
   ::  exchanges until it can. This is local planning, not provider retries.
   ::  It avoids a quadratic sequence of ever-larger request encodings.
@@ -102,7 +132,7 @@
   =/  size  (estimate view(items (scag count items.view)))
   ?:  (gth size limit)
     ?~  t.cuts
-      [%| 'A complete historical exchange exceeds the compaction input budget.']
+      [%| 'A complete exchange or tool batch exceeds the compaction input budget.']
     $(cuts (scag (div (lent cuts) 2) `(list @ud)`cuts))
   :*  %&
       through

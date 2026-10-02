@@ -8,8 +8,8 @@ back to the event log.
 
 `harness-lcm` stores immutable nodes with either original event addresses or
 ordered child-node addresses. Active roots form a chronological forest. Leaf
-compaction summarizes complete older exchanges without re-summarizing prior
-roots. Four contiguous roots of equal depth become one parent before eligible
+compaction summarizes older exchanges and completed tool batches without
+re-summarizing prior roots. Four contiguous roots of equal depth become one parent before eligible
 inference; an oversized group may shrink to two. Edges must point backward and
 replace exactly the selected contiguous roots. Descendant lists are never
 copied into every ancestor.
@@ -78,6 +78,16 @@ receives the output cap; the Codex subscription route manages its own output.
 `/context` labels the estimate and window as catalog-or-fallback without
 identifying a specific catalog source.
 
+Model catalogs supply the selected route's capacity. `max_context_window` takes
+precedence over a catalog's default `context_window`; the request budget still
+reserves output and safety headroom. Saving a model selection waits for its
+catalog lookup. Reloading the agent refreshes configured provider catalogs and
+updates saved defaults, peer and summary models, and existing conversations.
+Unavailable metadata preserves saved limits, and a new model with no reported
+capacity uses 80,000 tokens. A capacity update does not retry failed work or
+change an in-flight request's frozen route. The Codex subscription catalog
+requires a concrete `client_version` in its URL.
+
 Before inference, compaction compares the encoded request estimate with
 `window - output-budget - floor(window / 10)`. Requests above this threshold
 are summarized first. The window follows the session's model configuration,
@@ -87,13 +97,15 @@ Selection aims to retain recent exchanges using one third of the input budget,
 alongside summaries and other prompt material. The resulting request is measured
 again. There is no separate fixed context cap or UI context-size control.
 
-Selection keeps the latest completed exchange and unanswered input. It chooses
-complete historical exchanges using a recent-tail budget target and chunks the
-eligible prefix to fit the summary request's own budget. Tool calls/results are
-never split. On already-short history, explicit compaction selects the older
-exchanges together instead of summarizing only a potentially trivial first pair.
-An indivisible oversized exchange fails locally; there is no automatic
-large-artifact projection to make it fit.
+Selection first chooses complete historical exchanges while keeping the latest
+completed exchange and unanswered input. If no older exchange is available, it
+can summarize through a completed tool batch in the active turn, retaining that
+turn's user input verbatim. A parallel tool batch is eligible only after every
+call has a result. Tool calls and their results stay together. A recent-tail
+budget target selects the prefix, which must fit the summary request's budget.
+On already-short history, explicit compaction selects the older exchanges
+together. An indivisible oversized tool batch fails locally; there is no
+automatic large-artifact projection to make it fit.
 
 `checkpoint-completed` records the replacement and reported usage. The reducer
 checks outstanding identity and the frozen source digest before replacing the

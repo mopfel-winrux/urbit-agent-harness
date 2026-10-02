@@ -31,7 +31,7 @@ test('conversation reads use notifications with a fifteen-second safety poll', a
 
 for (const surface of ['global', 'conversation']) test(`${surface}: idle refresh retains the visible model catalog`, async ({ page }) => {
   await page.clock.install()
-  await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}`)
+  await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}&hold-models`)
   await expect.poll(() => page.evaluate(() => window.settingsFixture.requests.length)).toBe(1)
   await page.evaluate((model) => window.settingsFixture.resolve(0, {
     models: [model], modelInfo: [{ id: model, contextWindow: 128_000 }],
@@ -51,4 +51,21 @@ for (const surface of ['global', 'conversation']) test(`${surface}: idle refresh
   await expect(page.getByText(/Provider reports .*128,000.*applied automatically on save/)).toBeVisible()
   expect(await page.evaluate(() => window.catalogRemovals)).toEqual([])
   expect(await page.evaluate(() => window.settingsFixture.requests.length)).toBe(1)
+})
+
+for (const surface of ['global', 'conversation']) test(`${surface}: saving a typed model waits for its reported capacity`, async ({ page }) => {
+  await page.addInitScript((config) => sessionStorage.setItem('settings-fixture-config', JSON.stringify(config)), {
+    ...defaultConfig(), url: PROVIDERS.openai.deviceEndpoint, model: 'gpt-6-astra', 'max-context': 80_000,
+  })
+  await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}&device&hold-models`)
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.requests.length)).toBe(1)
+  await page.getByRole('combobox', { name: 'Model', exact: true }).fill('gpt-6-luna')
+  await page.getByRole('button', { name: surface === 'global' ? 'Save defaults' : 'Save conversation' }).click()
+  await expect(page.getByRole('button', { name: 'Saving…', exact: true })).toBeDisabled()
+  expect(await page.evaluate(() => window.settingsFixture.saves)).toEqual([])
+  await page.evaluate(() => window.settingsFixture.resolve(0, {
+    models: ['gpt-6-luna'], modelInfo: [{ id: 'gpt-6-luna', contextWindow: 872_000 }],
+  }))
+  await expect(page.locator('.save-bar').getByRole('status')).toHaveText('Saved.')
+  expect(await page.evaluate(() => window.settingsFixture.saves.at(-1))).toMatchObject({ model: 'gpt-6-luna', 'max-context': 872_000 })
 })

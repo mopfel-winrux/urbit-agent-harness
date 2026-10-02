@@ -5,7 +5,7 @@
 /+  hp=harness-provider
 |%
 ++  device-url  'https://chatgpt.com/backend-api/codex/responses'
-++  device-models  'https://chatgpt.com/backend-api/codex/models?client_version=0.153.0'
+++  device-models  'https://chatgpt.com/backend-api/codex/models?client_version=0.159.2'
 ++  xai-url  'https://cli-chat-proxy.grok.com/v1/responses'
 ++  xai-models  'https://cli-chat-proxy.grok.com/v1/models'
 ++  xai-route

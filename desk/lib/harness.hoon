@@ -4,7 +4,7 @@
 ::  +decide returns an intention; it never performs the intended operation.
 ::
 /-  h=harness
-/+  lcm=harness-lcm
+/+  lcm=harness-lcm, context=harness-context
 |%
 ::  Shared libraries are not private conversation memory. Durable source
 ::  provenance also protects an operator-created fork of a social transcript.
@@ -254,15 +254,18 @@
     ?:  &(?=(^ lcm-plan.view) =(forest lcm.view))  view
     =/  tail  (slag count.plan chronological)
     =/  positions  (slag count.plan addresses)
+    =/  preserved  (preserved-input:context chronological count.plan)
+    =.  tail  (weld (turn preserved |=(at=@ud (snag at chronological))) tail)
+    =.  positions  (weld (turn preserved |=(at=@ud (snag at addresses))) positions)
     ::  A manual command's reply belongs at its admitted boundary. Input
     ::  arriving during summarization stays after it and still needs a turn.
     ::
     =?  tail  ?=(^ reply.result)
-      =/  at  (sub length.plan count.plan)
+      =/  at  (add (lent preserved) (sub length.plan count.plan))
       %+  weld  (scag at tail)
       [`item:h`[%assistant body.u.reply.result ~] (slag at tail)]
     =?  positions  ?=(^ reply.result)
-      =/  at  (sub length.plan count.plan)
+      =/  at  (add (lent preserved) (sub length.plan count.plan))
       (weld (scag at positions) [revision.view (slag at positions)])
     %=  view
       pending  ~

@@ -169,7 +169,7 @@
   =.  mcp-servers.saved  (my ~[['local' ['Local' 'urbit://~zod/mcp-proxy' ~ &]]])
   =/  loaded  (~(on-load head bowl) !>(saved))
   =/  cfg  builtin-config:defaults
-  =.  tools.cfg  ~
+  =.  cfg  cfg(tools ~, url 'https://openrouter.ai/api/v1/chat/completions', key 'fixture-key')
   =/  created  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%new 'owner' cfg ~s30]))
   =/  sent  (~(on-poke +.created bowl) %harness-action !>(`action:h`[%send 'owner' 'What tools can you use?']))
   =/  requests

@@ -13,7 +13,7 @@ export const PROVIDERS = {
     modelsEndpoint: 'https://api.openai.com/v1/models',
     model: 'gpt-6-luna',
     deviceEndpoint: 'https://chatgpt.com/backend-api/codex/responses',
-    deviceModelsEndpoint: 'https://chatgpt.com/backend-api/codex/models?client_version=0.153.0',
+    deviceModelsEndpoint: 'https://chatgpt.com/backend-api/codex/models?client_version=0.159.2',
     deviceModel: 'gpt-6-luna',
     placeholder: 'sk-…',
     copy: 'Use an API key or your ChatGPT device login. Authentication selects the model service.',
