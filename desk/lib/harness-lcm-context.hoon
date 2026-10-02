@@ -4,7 +4,7 @@
 /+  context=harness-context, lcm=harness-lcm
 |%
 ++  plan
-  |=  $:  v=view:h
+  |=  $:  view=view:h
           through=@ud
           command=(unit input-id:h)
           leaf=config:h
@@ -12,48 +12,69 @@
           estimate=$-(view:h @ud)
       ==
   ^-  (each lcm-plan:h @t)
-  ?:  |(?=(^ pending.v) !=(~ wait.v))
+  ?:  |(?=(^ pending.view) !=(~ wait.view))
     [%| 'Compaction waits for inference and tools to settle.']
-  ?:  (gte compact-attempts.v 4)
+  ?:  (gte compact-attempts.view 4)
     [%| 'Compaction attempt limit reached; change the model or reduce the request.']
-  =/  children  (group:lcm lcm.v)
+  =/  children  (group:lcm lcm.view)
   ?:  !=(~ children)
     |-  ^-  (each lcm-plan:h @t)
-    =/  source  (text:lcm lcm.v children)
-    =/  candidate  v(config branch, summary ~, items ~[[%user source]])
+    =/  source  (text:lcm lcm.view children)
+    =/  candidate  view(config branch, summary ~, items ~[[%user source]])
     =/  input  (estimate candidate)
     ?:  (gth input (input-budget:context max-context.branch))
       ?:  (lte (lent children) 2)
         [%| 'Summary nodes exceed the LCM model input budget; choose a larger LCM model.']
       $(children (scag 2 `(list @ud)`children))
-    [%& [through 0 (lent items.v) (source-hash:context v 0) input (output-budget:context max-context.branch) url.branch model.branch command] ~ children]
+    =/  checkpoint=compaction-plan:h
+      :*  through
+          0
+          (lent items.view)
+          (source-hash:context view 0)
+          input
+          (output-budget:context max-context.branch)
+          url.branch
+          model.branch
+          command
+      ==
+    [%& checkpoint ~ children]
   =/  selected
-    (plan-for:context v(config leaf, summary ~) through command max-context.config.v estimate)
+    (plan-for:context view(config leaf, summary ~) through command max-context.config.view estimate)
   ?:  ?=(%| -.selected)  selected
-  =/  p  p.selected
-  =/  sources  (scag count.p positions.v)
-  ?.  =(count.p (lent sources))
+  =/  checkpoint  p.selected
+  =/  sources  (scag count.checkpoint positions.view)
+  ?.  =(count.checkpoint (lent sources))
     [%| 'Compaction source addresses are unavailable; the previous context was retained.']
-  [%& p(source (source-hash:context v count.p)) sources ~]
+  [%& checkpoint(source (source-hash:context view count.checkpoint)) sources ~]
 ::  Reconstruct exactly the selected request, using the frozen sources. The
-::  existing provider codec labels it as reference material and removes tools.
+::  provider codec labels the source as reference material and removes tools.
 ++  request
-  |=  [v=view:h p=lcm-plan:h cfg=config:h]
+  |=  [view=view:h plan=lcm-plan:h config=config:h]
   ^-  view:h
   =/  items
-    ?~  children.p  (scag count.checkpoint.p items.v)
-    `(list item:h)`~[[%user (text:lcm lcm.v children.p)]]
-  v(config cfg, summary ~, items items, memory ~)
+    ?~  children.plan  (scag count.checkpoint.plan items.view)
+    `(list item:h)`~[[%user (text:lcm lcm.view children.plan)]]
+  %=  view
+    config   config
+    summary  ~
+    items    items
+    memory   ~
+  ==
 ++  validate
-  |=  [v=view:h p=lcm-plan:h stop=stop-reason:h it=item:h]
+  |=  [view=view:h plan=lcm-plan:h stop=stop-reason:h item=item:h]
   ^-  (unit @t)
-  ?.  =(source.checkpoint.p (source-hash:context v count.checkpoint.p))
+  ?.  =(source.checkpoint.plan (source-hash:context view count.checkpoint.plan))
     `'Compaction source coverage changed; the previous context was retained.'
-  ?.  =(sources.p (scag count.checkpoint.p positions.v))
+  ?.  =(sources.plan (scag count.checkpoint.plan positions.view))
     `'Compaction source addresses changed; the previous context was retained.'
-  =/  source  (request v p config.v)
+  =/  source  (request view plan config.view)
   =/  count  (lent items.source)
   ::  Validate reduction against the selected source only, not unrelated
   ::  summaries that happen to share the conversation's active context.
-  (validate:context source checkpoint.p(count count, source (source-hash:context source count)) stop it)
+  =/  selected
+    %=  checkpoint.plan
+      count   count
+      source  (source-hash:context source count)
+    ==
+  (validate:context source selected stop item)
 --

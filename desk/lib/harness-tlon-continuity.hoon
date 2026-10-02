@@ -3,8 +3,9 @@
 /-  t=harness-tlon, h=harness, a=tlon-activity-ver, c=tlon-channels, hh=harness-hand
 /+  p=harness-tlon-policy
 |%
+::
 ++  detach-routes
-  |=  [saved=state-1:t db=state:hh]
+  |=  [saved=state-1:t hands=state:hh]
   ^-  state-1:t
   ::  Disabled bindings cannot authorize new input. Keep send receipts, but
   ::  start a fresh conversation so late results cannot enter its new history.
@@ -12,19 +13,39 @@
     %-  silt
     %+  murn  ~(tap by routes.saved)
     |=  [sid=@t route=route:t]
-    =/  binding  (~(get by bindings.db) binding.route)
+    =/  binding  (~(get by bindings.hands) binding.route)
     ?:(?&(?=(^ binding) !enabled.u.binding) `sid ~)
   ?:  =(~ detached)  saved
   =.  epoch.saved  +(epoch.saved)
   =.  identities.saved
     %+  roll  ~(tap by identities.saved)
-    |=  [[key=[actor=@p to=destination:t] sid=@t] out=(map [@p destination:t] @t)]
-    (~(put by out) key ?:((~(has in detached) sid) (cat 3 (session-id:p epoch.saved actor.key to.key) '-stable') sid))
-  =.  routes.saved  (my (skip ~(tap by routes.saved) |=([sid=@t route=route:t] (~(has in detached) sid))))
-  =.  lanes.saved  (my (skip ~(tap by lanes.saved) |=([sid=@t lane=lane:t] (~(has in detached) sid))))
-  =.  jobs.saved  (my (skip ~(tap by jobs.saved) |=([id=@uv job=job:t] (~(has in detached) sid.job))))
+    |=  [[key=[actor=@p to=destination:t] sid=@t] identities=(map [@p destination:t] @t)]
+    =/  replacement
+      ?.  (~(has in detached) sid)  sid
+      (cat 3 (session-id:p epoch.saved actor.key to.key) '-stable')
+    (~(put by identities) key replacement)
+  =.  routes.saved
+    %-  my
+    %+  skip  ~(tap by routes.saved)
+    |=  [sid=@t route=route:t]
+    (~(has in detached) sid)
+  =.  lanes.saved
+    %-  my
+    %+  skip  ~(tap by lanes.saved)
+    |=  [sid=@t lane=lane:t]
+    (~(has in detached) sid)
+  =.  jobs.saved
+    %-  my
+    %+  skip  ~(tap by jobs.saved)
+    |=  [id=@uv job=job:t]
+    (~(has in detached) sid.job)
   saved
-+$  authority  $%([%denied ~] [%owner ~] [%trusted tools=(set tool-grant:h)])
++$  authority
+  $%  [%denied ~]
+      [%owner ~]
+      [%trusted tools=(set tool-grant:h)]
+  ==
+::
 ++  actor
   |=  event=incoming-event:v8:a
   ^-  (unit @p)
@@ -41,6 +62,7 @@
     %contact       `who.event
     %dm-invite     ?:(?=(%ship -.whom.event) `p.whom.event ~)
   ==
+::
 ++  authority-for
   |=  [policy=policy:t actor=@p]
   ^-  authority
@@ -48,10 +70,12 @@
   =/  tools  (~(get by trusted.policy) actor)
   ?~  tools  ?:((~(has in allowed.policy) actor) [%trusted (silt ~[%web])] [%denied ~])
   [%trusted (silt u.tools)]
+::
 ++  actor-changed
   |=  [before=policy:t after=policy:t actor=@p]
   ^-  ?
   |(!=(enabled.before enabled.after) !=((authority-for before actor) (authority-for after actor)))
+::
 ++  cutoffs
   |=  $:  before=policy:t
           new=policy:t
@@ -65,12 +89,23 @@
   ::  the map by the identity directory and the two policy snapshots.
   =/  actors=(set @p)
     %-  silt
-    :(weld (turn ~(tap by known) |=([[actor=@p to=destination:t] sid=@t] actor)) ~(tap in ~(key by trusted.before)) ~(tap in ~(key by trusted.new)) ~(tap in allowed.before) ~(tap in allowed.new) ?~(owner.before ~ ~[u.owner.before]) ?~(owner.new ~ ~[u.owner.new]))
+    ;:  weld
+      (turn ~(tap by known) |=([[actor=@p to=destination:t] sid=@t] actor))
+      ~(tap in ~(key by trusted.before))
+      ~(tap in ~(key by trusted.new))
+      ~(tap in allowed.before)
+      ~(tap in allowed.new)
+      ?~(owner.before ~ ~[u.owner.before])
+      ?~(owner.new ~ ~[u.owner.new])
+    ==
   %+  roll  ~(tap in actors)
-  |=  [actor=@p out=(map @p @da)]
-  =/  cutoff=(unit @da)  ?:((actor-changed before new actor) `now (~(get by prior) actor))
-  ?~  cutoff  out
-  (~(put by out) actor u.cutoff)
+  |=  [actor=@p cutoffs=(map @p @da)]
+  =/  cutoff=(unit @da)
+    ?:  (actor-changed before new actor)  `now
+    (~(get by prior) actor)
+  ?~  cutoff  cutoffs
+  (~(put by cutoffs) actor u.cutoff)
+::
 ++  channel-cutoffs
   |=  [before=policy:t after=policy:t prior=(map nest:c @da) now=@da]
   ^-  (map nest:c @da)
@@ -78,22 +113,32 @@
   =?  prior  !=(response.before response.after)  ~
   =/  nests  (~(uni in ~(key by prior)) (~(uni in ~(key by channels.before)) ~(key by channels.after)))
   %+  roll  ~(tap in nests)
-  |=  [nest=nest:c out=(map nest:c @da)]
-  =/  cutoff=(unit @da)  ?:(!=((channel-rule:p before nest) (channel-rule:p after nest)) `now (~(get by prior) nest))
-  ?~  cutoff  out
-  (~(put by out) nest u.cutoff)
+  |=  [nest=nest:c cutoffs=(map nest:c @da)]
+  =/  cutoff=(unit @da)
+    ?:  !=((channel-rule:p before nest) (channel-rule:p after nest))  `now
+    (~(get by prior) nest)
+  ?~  cutoff  cutoffs
+  (~(put by cutoffs) nest u.cutoff)
+::
 ++  affected
   |=  [before=policy:t after=policy:t lane=lane:t]
   ^-  ?
-  |((actor-changed before after actor.lane) &(?=(%channel -.to.lane) !=((channel-rule:p before nest.to.lane) (channel-rule:p after nest.to.lane))))
+  ?|  (actor-changed before after actor.lane)
+      ?&  ?=(%channel -.to.lane)
+          !=((channel-rule:p before nest.to.lane) (channel-rule:p after nest.to.lane))
+      ==
+  ==
+::
 ++  identity
   |=  [actor=@p to=destination:t]
   ^-  @t
   (cat 3 (session-id:p 0 actor to) '-stable')
+::
 ++  binding
   |=  [sid=@t generation=@ud]
   ^-  @t
   (cat 3 'tlon-binding-' (scot %uv (sham [sid generation])))
+::
 ++  posted-at
   |=  event=incoming-event:v8:a
   ^-  @da

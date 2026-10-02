@@ -9,7 +9,11 @@
 +$  result  [cards=(list card) oauth=state keys=(map @t @t) failed=(list [=wire error=@t])]
 ++  identity
   |=  [keys=(map @t @t) provider=@t]
-  (sham [(key:auth keys (cat 3 provider '-device')) (key:auth keys (cat 3 provider '-refresh')) (key:auth keys (cat 3 provider '-account'))])
+  %-  sham
+  :*  (key:auth keys (cat 3 provider '-device'))
+      (key:auth keys (cat 3 provider '-refresh'))
+      (key:auth keys (cat 3 provider '-account'))
+  ==
 ++  client-id
   |=(provider=@t ?:(=('xai' provider) 'b1a00492-073a-47ea-816f-4c329264a828' 'app_EMoamEEZ73f0CkXaXp7hrann'))
 ++  token-url
@@ -37,11 +41,11 @@
   ?.  =(3 (lent u.parts))  ~
   =/  decoded  (~(de base64:mimes:html | &) (snag 1 u.parts))
   ?~  decoded  ~
-  =/  jon  (de:json:html q.u.decoded)
-  ?.  ?=([~ %o *] jon)  ~
-  =/  exp  (~(get by p.u.jon) 'exp')
-  ?.  ?=([~ %n *] exp)  ~
-  =/  seconds  (rush p.u.exp dem)
+  =/  claims  (de:json:html q.u.decoded)
+  ?.  ?=([~ %o *] claims)  ~
+  =/  expires  (~(get by p.u.claims) 'exp')
+  ?.  ?=([~ %n *] expires)  ~
+  =/  seconds  (rush p.u.expires dem)
   ?~  seconds  ~
   ?.  (lte u.seconds 253.402.300.799)  ~
   `(add ~1970.1.1 (mul u.seconds ~s1))
@@ -51,26 +55,45 @@
   |=  [name=@t value=@t]
   !(~(has in (silt ~['authorization' 'chatgpt-account-id'])) (crip (cass (trip name))))
 ++  authorize
-  |=  [c=http-card keys=(map @t @t) provider=@t]
+  |=  [outgoing=http-card keys=(map @t @t) provider=@t]
   ^-  card
-  =.  header-list.request.c
-    (headers:auth keys url.request.c (clear-headers header-list.request.c))
-  =.  header-list.request.c
-    [['authorization' (cat 3 'Bearer ' (key:auth keys (cat 3 provider '-device')))] header-list.request.c]
-  c
+  =.  header-list.request.outgoing
+    (headers:auth keys url.request.outgoing (clear-headers header-list.request.outgoing))
+  =.  header-list.request.outgoing
+    [['authorization' (cat 3 'Bearer ' (key:auth keys (cat 3 provider '-device')))] header-list.request.outgoing]
+  outgoing
 ++  fail-waiting
   |=  [out=result message=@t]
   =.  failed.out
-    (weld failed.out (turn ~(tap by waiting.oauth.out) |=([w=wire http-card] [w message])))
+    %+  weld  failed.out
+    %+  turn  ~(tap by waiting.oauth.out)
+    |=  [=wire http-card]
+    [wire message]
   out(waiting.oauth ~)
 ++  filter
-  |=  [incoming=(list card) oauth=state keys=(map @t @t) now=@da provider=@t]
+  |=  $:  incoming=(list card)
+          oauth=state
+          keys=(map @t @t)
+          now=@da
+          provider=@t
+      ==
   ^-  result
   =/  out=result  [~ oauth keys ~]
   =/  id  (identity keys provider)
   =?  out  !=(id identity.oauth)
     =.  out  (fail-waiting out 'authentication_error: Provider login changed while waiting. Send the message again.')
-    out(oauth [id serial.oauth ~ (saved-expiry keys provider) *@da '' | ~])
+    %=  out
+      oauth
+        %=  oauth
+          identity  id
+          active  ~
+          expires  (saved-expiry keys provider)
+          retry-at  *@da
+          error  ''
+          terminal  |
+          waiting  ~
+        ==
+    ==
   ::  Also check the deadline on ordinary events, so a missed wake cannot wedge
   ::  requests across reload. A timeout fences a late token response.
   =?  out  ?&(?=(^ active.oauth.out) (gte now deadline.u.active.oauth.out))
@@ -84,28 +107,38 @@
     =/  nonce  +(serial.oauth.out)
     =/  deadline=@da  (add now ~s30)
     =/  started=state
-      [identity.oauth.out nonce `[nonce deadline] expires.oauth.out retry-at.oauth.out error.oauth.out terminal.oauth.out waiting.oauth.out]
-    =/  body  (rap 3 'grant_type=refresh_token&client_id=' (client-id provider) '&refresh_token=' (crip (en-urlt:html (trip (key:auth keys (cat 3 provider '-refresh'))))) ~)
-    =/  request=request:http
-      [%'POST' (token-url provider) ~[['content-type' 'application/x-www-form-urlencoded'] ['accept' 'application/json']] `(as-octs:mimes:html body)]
-    ::  A rotating refresh token must not be retried by Iris or redirected.
-    =/  fresh=(list card)
-      ~[[%pass /[(cat 3 provider '-renew')]/(scot %ud nonce) %arvo %i %request request [0 0]] [%pass /[(cat 3 provider '-timeout')]/(scot %ud nonce) %arvo %b %wait deadline]]
+      %=  oauth.out
+        serial  nonce
+        active  `[nonce deadline]
+      ==
+    =/  fresh  (refresh-cards keys provider nonce deadline)
     :*  (weld cards.out fresh)
         started
         keys.out
         failed.out
     ==
-  =/  c  i.incoming
-  ?:  ?=([%pass * %arvo %i %cancel-request *] c)
-    $(incoming t.incoming, out out(waiting.oauth (~(del by waiting.oauth.out) p.c), cards (snoc cards.out c)))
-  ?.  ?=([%pass * %arvo %i %request *] c)
-    $(incoming t.incoming, out out(cards (snoc cards.out c)))
-  =/  http=http-card  c
-  ?.  &(?:(=('xai' provider) (xai-route:auth url.request.http) (device-route:auth url.request.http)) |(?=([%llm *] wire.http) ?=([%models *] wire.http)))
-    $(incoming t.incoming, out out(cards (snoc cards.out c)))
+  =/  incoming-card  i.incoming
+  ?:  ?=([%pass * %arvo %i %cancel-request *] incoming-card)
+    %=  $
+      incoming  t.incoming
+      out
+        %=  out
+          waiting.oauth  (~(del by waiting.oauth.out) p.incoming-card)
+          cards  (snoc cards.out incoming-card)
+        ==
+    ==
+  ?.  ?=([%pass * %arvo %i %request *] incoming-card)
+    $(incoming t.incoming, out out(cards (snoc cards.out incoming-card)))
+  =/  http=http-card  incoming-card
+  =/  device-route
+    ?:  =('xai' provider)
+      (xai-route:auth url.request.http)
+    (device-route:auth url.request.http)
+  ?.  &(device-route |(?=([%llm *] wire.http) ?=([%models *] wire.http)))
+    $(incoming t.incoming, out out(cards (snoc cards.out incoming-card)))
   ?:  =('' (key:auth keys (cat 3 provider '-device')))
-    $(incoming t.incoming, out out(failed (snoc failed.out [wire.http 'authentication_error: No device login is saved. Sign in in provider settings.'])))
+    =/  failure  [wire.http 'authentication_error: No device login is saved. Sign in in provider settings.']
+    $(incoming t.incoming, out out(failed (snoc failed.out failure)))
   ?:  |(terminal.oauth.out (lth now retry-at.oauth.out))
     $(incoming t.incoming, out out(failed (snoc failed.out [wire.http error.oauth.out])))
   ?.  expired
@@ -114,52 +147,114 @@
     ::  An opaque imported token without a refresh token may still be usable.
     ?:  ?~(expires.oauth.out & (lth now u.expires.oauth.out))
       $(incoming t.incoming, out out(cards (snoc cards.out (authorize http keys provider))))
-    $(incoming t.incoming, out out(failed (snoc failed.out [wire.http 'authentication_error: Device login expired. Sign in again to enable automatic renewal.'])))
+    =/  failure  [wire.http 'authentication_error: Device login expired. Sign in again to enable automatic renewal.']
+    $(incoming t.incoming, out out(failed (snoc failed.out failure)))
   ?:  (gte (lent ~(tap by waiting.oauth.out)) 64)
-    $(incoming t.incoming, out out(failed (snoc failed.out [wire.http 'Login renewal is busy. Try again shortly.'])))
+    =/  failure  [wire.http 'Login renewal is busy. Try again shortly.']
+    $(incoming t.incoming, out out(failed (snoc failed.out failure)))
   =.  header-list.request.http  (clear-headers header-list.request.http)
   $(incoming t.incoming, out out(waiting.oauth (~(put by waiting.oauth.out) wire.http http)))
+::  Dispatch once: Iris must neither retry nor redirect a rotating token.
+++  refresh-cards
+  |=  [keys=(map @t @t) provider=@t nonce=@ud deadline=@da]
+  ^-  (list card)
+  =/  token  (key:auth keys (cat 3 provider '-refresh'))
+  =/  body
+    %+  rap  3
+    :~  'grant_type=refresh_token&client_id='
+        (client-id provider)
+        '&refresh_token='
+        (crip (en-urlt:html (trip token)))
+    ==
+  =/  request=request:http
+    :*  %'POST'
+        (token-url provider)
+        ~[['content-type' 'application/x-www-form-urlencoded'] ['accept' 'application/json']]
+        `(as-octs:mimes:html body)
+    ==
+  :~  [%pass /[(cat 3 provider '-renew')]/(scot %ud nonce) %arvo %i %request request [0 0]]
+      [%pass /[(cat 3 provider '-timeout')]/(scot %ud nonce) %arvo %b %wait deadline]
+  ==
 ++  failed-refresh
   |=  [out=result now=@da message=@t terminal=?]
   =.  out  (fail-waiting out message)
-  out(active.oauth ~, retry-at.oauth `@da`(add now ~m1), error.oauth message, terminal.oauth terminal)
+  %=  out
+    active.oauth  ~
+    retry-at.oauth  `@da`(add now ~m1)
+    error.oauth  message
+    terminal.oauth  terminal
+  ==
 ++  receive
-  |=  [oauth=state keys=(map @t @t) now=@da nonce=@ud res=client-response:iris provider=@t]
+  |=  $:  oauth=state
+          keys=(map @t @t)
+          now=@da
+          nonce=@ud
+          response=client-response:iris
+          provider=@t
+      ==
   ^-  result
   =/  out=result  [~ oauth keys ~]
   ?.  &(=(identity.oauth (identity keys provider)) ?=(^ active.oauth))  out
   ?.  =(nonce serial.u.active.oauth)  out
   ?:  (gte now deadline.u.active.oauth)
     (failed-refresh out now 'Login renewal timed out. Sign in again.' &)
-  ?:  ?=(%progress -.res)  out
-  ?:  ?=(%cancel -.res)
+  ?:  ?=(%progress -.response)  out
+  ?:  ?=(%cancel -.response)
     (failed-refresh out now 'Login renewal was interrupted. Sign in again.' &)
-  =/  status  status-code.response-header.res
+  =/  status  status-code.response-header.response
   ?.  =(200 status)
     ::  Never publish the raw token response, even when the provider fails.
-    =/  terminal=?  |(=(400 status) =(401 status) =(403 status) &(=('xai' provider) !=(429 status)))
-    (failed-refresh out now ?:(terminal 'authentication_error: Device login can no longer be renewed. Sign in again in provider settings.' 'Login renewal is temporarily unavailable. Try again shortly.') terminal)
-  =/  parsed
-    %-  mole  |.
-    ?>  ?=(^ full-file.res)
-    ?>  (lte p.data.u.full-file.res 262.144)
-    =/  jon  (need (de:json:html q.data.u.full-file.res))
-    ?>  ?=([%o *] jon)
-    =/  token  (need (~(get by p.jon) 'access_token'))
-    ?>  ?=([%s *] token)
-    ?>  &(!=('' p.token) (lte (met 3 p.token) 16.384))
-    =/  refresh  (~(get by p.jon) 'refresh_token')
-    ?>  ?~(refresh & ?&(?=(%s -.u.refresh) !=('' p.u.refresh) (lte (met 3 p.u.refresh) 16.384)))
-    =/  expires  (token-expiry jon p.token now)
-    ?>  ?=(^ expires)
-    ?>  (gth u.expires (add now ~m5))
-    [p.token ?:(?=([~ %s *] refresh) p.u.refresh '') expires]
+    =/  terminal=?
+      ?|  =(400 status)
+          =(401 status)
+          =(403 status)
+          &(=('xai' provider) !=(429 status))
+      ==
+    =/  message
+      ?:  terminal
+        'authentication_error: Device login can no longer be renewed. Sign in again in provider settings.'
+      'Login renewal is temporarily unavailable. Try again shortly.'
+    (failed-refresh out now message terminal)
+  =/  parsed  (parse-response response now)
   ?~  parsed
     (failed-refresh out now 'Login renewal returned an invalid response. Sign in again.' &)
   =/  data=[token=@t refresh=@t expires=(unit @da)]  u.parsed
   =.  keys.out  (~(put by keys) (cat 3 provider '-device') token.data)
   =?  keys.out  !=('' refresh.data)  (~(put by keys.out) (cat 3 provider '-refresh') refresh.data)
   =.  keys.out  (~(put by keys.out) (cat 3 provider '-expires') (scot %da (need expires.data)))
-  =.  cards.out  (turn ~(val by waiting.oauth) |=(c=http-card (authorize c keys.out provider)))
-  out(oauth [(identity keys.out provider) serial.oauth ~ expires.data *@da '' | ~])
+  =.  cards.out
+    %+  turn  ~(val by waiting.oauth)
+    |=  outgoing=http-card
+    (authorize outgoing keys.out provider)
+  %=  out
+    oauth
+      %=  oauth
+        identity  (identity keys.out provider)
+        active  ~
+        expires  expires.data
+        retry-at  *@da
+        error  ''
+        terminal  |
+        waiting  ~
+      ==
+  ==
+::  Treat the response as untrusted input before rotating either credential.
+++  parse-response
+  |=  [response=client-response:iris now=@da]
+  ^-  (unit [token=@t refresh=@t expires=(unit @da)])
+  %-  mole  |.
+  ?>  ?=(%finished -.response)
+  ?>  ?=(^ full-file.response)
+  ?>  (lte p.data.u.full-file.response 262.144)
+  =/  object  (need (de:json:html q.data.u.full-file.response))
+  ?>  ?=([%o *] object)
+  =/  token  (need (~(get by p.object) 'access_token'))
+  ?>  ?=([%s *] token)
+  ?>  &(!=('' p.token) (lte (met 3 p.token) 16.384))
+  =/  refresh  (~(get by p.object) 'refresh_token')
+  ?>  ?~(refresh & ?&(?=(%s -.u.refresh) !=('' p.u.refresh) (lte (met 3 p.u.refresh) 16.384)))
+  =/  expires  (token-expiry object p.token now)
+  ?>  ?=(^ expires)
+  ?>  (gth u.expires (add now ~m5))
+  [p.token ?:(?=([~ %s *] refresh) p.u.refresh '') expires]
 --

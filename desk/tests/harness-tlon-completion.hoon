@@ -1,4 +1,5 @@
 /-  g=tlon-groups-ver, s=tlon-story
+/+  message-tool=harness-tlon-message-tool
 /+  *test, spec=harness-tlon-tool, hp=harness-tlon-history-page, policy=harness-tlon-group-policy, media=harness-tlon-media, story=harness-tlon-story
 |%
 ++  test-full-body-search-retains-a-bounded-preview
@@ -34,4 +35,37 @@
 ++  test-citations-retain-resolvable-native-identity
   =/  content=story:s  ~[[%block %cite %group ~lux %test]]
   (expect-eq !>('[citation: /1/group/~lux/test]') !>((story-to-text:story content)))
+::
+++  test-directory-byte-limit-counts-escaped-json-and-keeps-whole-rows
+  =/  row=json  [%s (crip (reap 9.000 '"'))]
+  =/  first  (directory:spec [%o ~] ~[row row])
+  =/  second  (directory:spec (pairs:enjs:format ~[['offset' %s '1']]) ~[row row])
+  ?>  ?=(%o -.first)
+  ?>  ?=(%o -.second)
+  =/  oversized=json  [%s (crip (reap 10.000 '"'))]
+  ;:  weld
+    (expect-eq !>([%a ~[row]]) !>((~(got by p.first) 'items')))
+    (expect-eq !>([%s '1']) !>((~(got by p.first) 'next_offset')))
+    (expect-eq !>([%a ~[row]]) !>((~(got by p.second) 'items')))
+    (expect-eq !>([%b |]) !>((~(got by p.second) 'has_more')))
+    (expect-eq !>(~) !>((mole |.((directory:spec [%o ~] ~[oversized])))))
+  ==
+::
+++  test-message-chunks-preserve-utf8-and-reject-interior-byte-offsets
+  =/  prefix  (crip (reap 1.999 'x'))
+  =/  text  (cat 3 prefix 'éz')
+  =/  message=message:hp  ['id' ~lux ~2026.10.1 text |]
+  =/  lib  ~(. message-tool *bowl:gall)
+  =/  first  (render:lib [%o ~] message)
+  =/  next  (render:lib (pairs:enjs:format ~[['offset' %s '1.999']]) message)
+  ?>  ?=(%o -.first)
+  ?>  ?=(%o -.next)
+  =/  invalid  (pairs:enjs:format ~[['offset' %s '2.000']])
+  ;:  weld
+    (expect-eq !>([%s prefix]) !>((~(got by p.first) 'text')))
+    (expect-eq !>([%s '1.999']) !>((~(got by p.first) 'next_offset')))
+    (expect-eq !>([%s 'éz']) !>((~(got by p.next) 'text')))
+    (expect-eq !>(~) !>((~(got by p.next) 'next_offset')))
+    (expect-eq !>(~) !>((mole |.((render:lib invalid message)))))
+  ==
 --

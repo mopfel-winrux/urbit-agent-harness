@@ -18,10 +18,14 @@
   ?:  (xai-route url)  'xai-device'
   (provider-for-url:hp url)
 ++  credential-for-config
-  |=  cfg=config:h
-  ?:  ?&(=('anthropic' (provider-for-url:hp url.cfg)) (lien headers.cfg |=([name=@t value=@t] &(=('anthropic-beta' name) =('oauth-2025-04-20' value)))))
+  |=  config=config:h
+  ?:  ?&  =('anthropic' (provider-for-url:hp url.config))
+          %+  lien  headers.config
+          |=  [name=@t value=@t]
+          &(=('anthropic-beta' name) =('oauth-2025-04-20' value))
+      ==
     'anthropic-device'
-  (credential-for-url url.cfg)
+  (credential-for-url url.config)
 ::  Compatibility for device tokens already saved in the shared OpenAI slot.
 ::  This recognizes token shape only, not validity or authorization. New device
 ::  credentials have a dedicated slot and do not need shape inference.
@@ -51,28 +55,34 @@
     (~(put by keys) 'openai-device' shared)
   (~(put by keys) provider token)
 ++  missing
-  |=  [keys=(map @t @t) cfg=config:h]
+  |=  [keys=(map @t @t) config=config:h]
   ^-  (unit @t)
-  =/  provider  (provider-for-url:hp url.cfg)
-  ?:  &(zdr.cfg !=('openrouter' provider))
+  =/  provider  (provider-for-url:hp url.config)
+  ?:  &(zdr.config !=('openrouter' provider))
     `'Zero data retention routing requires OpenRouter. Change the provider or privacy setting.'
   ?.  |(=('openai' provider) =('anthropic' provider) =('xai' provider))  ~
-  ?:  |(!=('' key.cfg) !=('' (key keys (credential-for-config cfg))))  ~
+  ?:  |(!=('' key.config) !=('' (key keys (credential-for-config config))))  ~
   ?:  =('xai' provider)
-    ?:  (xai-route url.cfg)
+    ?:  (xai-route url.config)
       `'authentication_error: Connect your Grok subscription in xAI settings.'
     `'authentication_error: Enter an xAI API key in provider settings.'
   ?:  =('anthropic' provider)
-    ?:  =('anthropic-device' (credential-for-config cfg))
+    ?:  =('anthropic-device' (credential-for-config config))
       `'authentication_error: Connect an Anthropic subscription in provider settings.'
     `'authentication_error: Enter an Anthropic API key in provider settings.'
-  ?:  (device-route url.cfg)
+  ?:  (device-route url.config)
     `'authentication_error: Device login is selected but no OpenAI device credential is saved. Sign in in OpenAI settings.'
   `'authentication_error: API key is selected but no OpenAI API key is saved. Enter a key or select Device login in model settings.'
 ++  headers
   |=  [keys=(map @t @t) url=@t extra=(list [name=@t value=@t])]
   ^-  (list [name=@t value=@t])
-  ?.  |((device-route url) (xai-route url) =('openai' (provider-for-url:hp url)) =('xai' (provider-for-url:hp url)) (anthropic-route:hp url))  extra
+  ?.  ?|  (device-route url)
+          (xai-route url)
+          =('openai' (provider-for-url:hp url))
+          =('xai' (provider-for-url:hp url))
+          (anthropic-route:hp url)
+      ==
+    extra
   ::  Built-in auth headers cannot override the route's selected credential or
   ::  leak a ChatGPT account onto the API route. Custom endpoints retain theirs.
   =.  extra
@@ -83,14 +93,17 @@
   ?.  &((device-route url) !=('' account))  extra
   [['chatgpt-account-id' account] extra]
 ++  request-headers
-  |=  [keys=(map @t @t) cfg=config:h token=@t]
+  |=  [keys=(map @t @t) config=config:h token=@t]
   ^-  (list [name=@t value=@t])
-  =/  extra  (headers keys url.cfg headers.cfg)
-  =/  native  (anthropic-route:hp url.cfg)
+  =/  extra  (headers keys url.config headers.config)
+  =/  native  (anthropic-route:hp url.config)
   =?  extra  native
-    [['anthropic-version' '2023-06-01'] (skim extra |=([name=@t value=@t] !=('anthropic-version' (crip (cass (trip name))))))]
+    :-  ['anthropic-version' '2023-06-01']
+    %+  skim  extra
+    |=  [name=@t value=@t]
+    !=('anthropic-version' (crip (cass (trip name))))
   ?:  =('' token)  extra
-  ?:  &(native !=('anthropic-device' (credential-for-config cfg)))
+  ?:  &(native !=('anthropic-device' (credential-for-config config)))
     [['x-api-key' token] extra]
   [['authorization' (cat 3 'Bearer ' token)] extra]
 --

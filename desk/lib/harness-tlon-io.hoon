@@ -1,9 +1,13 @@
 ::  Messenger effects and contact projection. Only this module knows which
 ::  public Gall marks a DM, channel post, or invitation needs.
-/-  t=harness-tlon, dv=tlon-channels-ver, cv=tlon-chat-ver, ct=tlon-contacts, a=tlon-activity-ver
-/+  story=harness-tlon-story, profile=harness-tlon-profile, ht=harness-tools, publication=harness-tlon-publication, hist=harness-tlon-history, onboarding=harness-tlon-onboarding
+/-  t=harness-tlon, dv=tlon-channels-ver, cv=tlon-chat-ver,
+    ct=tlon-contacts, a=tlon-activity-ver
+/+  story=harness-tlon-story, profile=harness-tlon-profile,
+    ht=harness-tools, publication=harness-tlon-publication,
+    hist=harness-tlon-history, onboarding=harness-tlon-onboarding
 |_  bowl=bowl:gall
 +$  card  card:agent:gall
+::
 ++  owner-invitations
   |=  owner-test=$-(@p ?)
   ^-  (list card)
@@ -15,6 +19,7 @@
   ^-  (unit card)
   ?.  (owner-test who)  ~
   `[%pass /invite/dm/(scot %p who) %agent [our.bowl %chat] %poke %chat-dm-rsvp !>([who &])]
+::
 ++  publish
   |=  [wire=wire to=destination:t text=@t sent=@da blob=(unit @t)]
   ^-  card
@@ -30,11 +35,12 @@
       %channel
     ::  Use the versioned client action: Groups owns host negotiation. Its
     ::  later channel-response confirms the host-assigned post/reply identity.
-    =/  act=a-channels:v10:dv
+    =/  action=a-channels:v10:dv
       ?~  parent.to  [%channel nest.to %post %add [memo [kind.nest.to ~] ~ blob]]
       [%channel nest.to %post %reply u.parent.to %add [memo blob]]
-    [%pass wire %agent [our.bowl %channels] %poke %channel-action-2 !>(act)]
+    [%pass wire %agent [our.bowl %channels] %poke %channel-action-2 !>(action)]
   ==
+::
 ++  published
   |=  [to=destination:t external=@t]
   ^-  (unit publication-proof:t)
@@ -51,16 +57,21 @@
       %+  murn  (top:mo-v-posts:v9:dv posts.u.channel 64)
       |=  [id=@da value=(may:v9:dv v-post:v9:dv)]
       ?:  ?=(%| -.value)  ~
-      (proof:publication our.bowl to author:+.+.+.value sent:+.+.+.value id)
+      =/  post  +.value
+      (proof:publication our.bowl to author:+.+.post sent:+.+.post id)
     =/  parent  (get:on-v-posts:v9:dv posts.u.channel u.parent.to)
     ?.  ?=([~ %& *] parent)  ~
     %+  murn  (top:mo-v-replies:v9:dv replies.u.parent 64)
     |=  [id=@da value=(may:v9:dv v-reply:v9:dv)]
     ?:  ?=(%| -.value)  ~
-    (proof:publication our.bowl to author:+.+.+.value sent:+.+.+.value id)
+    =/  reply  +.value
+    (proof:publication our.bowl to author:+.+.reply sent:+.+.reply id)
   =/  found
-    (skim candidates |=(p=publication-proof:t =(external (rap 3 (scot %p our.bowl) '/' (scot %da sent.p) ~))))
+    %+  skim  candidates
+    |=  proof=publication-proof:t
+    =(external (rap 3 (scot %p our.bowl) '/' (scot %da sent.proof) ~))
   ?~(found ~ `i.found)
+::
 ++  invitation-posts
   |=  [who=@p since=@da]
   ^-  (list incoming-event:v8:a)
@@ -74,8 +85,13 @@
   ^-  (unit incoming-event:v8:a)
   ?.  ?=(%& -.item)  ~
   =/  post  +.item
-  ?.  &(=(who p.id:-.post) (gth time since) =(chat+/ kind:+.post))  ~
+  ?.  ?&  =(who p.id:-.post)
+          (gth time since)
+          =(chat+/ kind:+.post)
+      ==
+    ~
   `[%dm-post [id:-.post time] [%ship who] content:+.post |]
+::
 ++  onboarding-request
   |=  event=incoming-event:v8:a
   ^-  (unit @t)
@@ -94,6 +110,7 @@
     ?:  ?=(%| -.post)  ~
     (request:onboarding p.id.key.event blob:+.+.+.post)
   ==
+::
 ++  history
   |=  to=destination:t
   ^-  (list [id=@t author=@p sent=@da text=@t])
@@ -112,7 +129,12 @@
     ?.  ?=(%& -.item)  ~
     =/  post  +.item
     =/  author  author:+.post
-    `[(rap 3 (scot %p p.id:-.post) '/' (scot %da q.id:-.post) ~) ?@(author author ship.author) sent:+.post (clip:ht (story-to-text:story content:+.post) 800)]
+    :-  ~
+    :*  (rap 3 (scot %p p.id:-.post) '/' (scot %da q.id:-.post) ~)
+        ?@(author author ship.author)
+        sent:+.post
+        (clip:ht (story-to-text:story content:+.post) 800)
+    ==
       %channel
     ?^  parent.to
       ::  Fetch one outline around the exact parent, never all thread replies.
@@ -131,21 +153,35 @@
     ?.  ?=(%& -.item)  ~
     =/  post  +.item
     =/  author  author:+.+.post
-    `[(scot %da id:-.post) ?@(author author ship.author) sent:+.+.post (clip:ht (story-to-text:story content:+.+.post) 800)]
+    :-  ~
+    :*  (scot %da id:-.post)
+        ?@(author author ship.author)
+        sent:+.+.post
+        (clip:ht (story-to-text:story content:+.+.post) 800)
+    ==
   ==
+::
 ++  history-json
   |=  to=destination:t
   ^-  json
   :-  %a
   %+  turn  (history to)
   |=  [id=@t author=@p sent=@da text=@t]
-  (pairs:enjs:format ~[['message_id' %s id] ['author' %s (scot %p author)] ['sent' %s (scot %da sent)] ['text' %s text]])
+  %-  pairs:enjs:format
+  :~  ['message_id' %s id]
+      ['author' %s (scot %p author)]
+      ['sent' %s (scot %da sent)]
+      ['text' %s text]
+  ==
+::
 ++  reaction
   |=  [wire=wire to=destination:t message=@t emoji=(unit @t)]
   ^-  card
   ::  Match a concrete message in the bounded current-chat projection. A
   ::  guessed ID or a model-supplied destination cannot expand this effect.
-  ?>  (lien (history to) |=([id=@t author=@p sent=@da text=@t] =(id message)))
+  ?>  %+  lien  (history to)
+      |=  [id=@t author=@p sent=@da text=@t]
+      =(id message)
   ?-  -.to
       %dm
     =/  parts  (need (rush (cat 3 '/' message) stap))
@@ -160,20 +196,23 @@
     [%pass wire %agent [our.bowl %chat] %poke %chat-dm-action-2 !>(`action:dm:v7:cv`[who.to root delta])]
       %channel
     =/  id=@da  (slav %da message)
-    =/  act=a-channels:v9:dv
+    =/  action=a-channels:v9:dv
       ?:  |(?=(~ parent.to) =(id u.parent.to))
         [%channel nest.to %post ?~(emoji [%del-react id our.bowl] [%add-react id our.bowl u.emoji])]
       [%channel nest.to %post %reply u.parent.to ?~(emoji [%del-react id our.bowl] [%add-react id our.bowl u.emoji])]
-    [%pass wire %agent [our.bowl %channels] %poke %channel-action-1 !>(act)]
+    [%pass wire %agent [our.bowl %channels] %poke %channel-action-1 !>(action)]
   ==
+::
 ++  self-profile
   ^-  json
   %-  encode:profile
   .^(contact:ct %gx /(scot %p our.bowl)/contacts/(scot %da now.bowl)/v1/self/contact-1)
+::
 ++  edit-profile
   |=  [wire=wire fields=contact:ct]
   ^-  card
   [%pass wire %agent [our.bowl %contacts] %poke %contact-action-1 !>(`action:ct`[%self fields])]
+::
 ++  contacts
   ^-  json
   =/  directory=directory:ct
@@ -181,7 +220,7 @@
   :-  %a
   %+  turn  ~(tap by directory)
   |=  [who=@p leaf=leaf:ct]
-  ::  Local overlays take priority over the remote self-description.
+  ::  Remote fields take priority; local fields fill gaps in the profile.
   =/  merged  (~(uni by mod.leaf) con.leaf)
   =/  nick  (~(get by merged) %nickname)
   %-  pairs:enjs:format

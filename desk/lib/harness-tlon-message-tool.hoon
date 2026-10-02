@@ -1,7 +1,10 @@
 ::  Exact native message reads and edits; preserve metadata and original identity.
 /-  t=harness-tlon, cv=tlon-chat-ver, dv=tlon-channels-ver
-/+  spec=harness-tlon-tool, hp=harness-tlon-history-page, hist=harness-tlon-history, story=harness-tlon-story, conversation=harness-tlon-conversation-tool
+/+  spec=harness-tlon-tool, hp=harness-tlon-history-page,
+    hist=harness-tlon-history, story=harness-tlon-story,
+    conversation=harness-tlon-conversation-tool
 |_  bowl=bowl:gall
+::
 ++  dm-post
   |=  [who=@p id=[@p @da]]
   ^-  writ:v7:cv
@@ -9,6 +12,7 @@
     .^((may:v7:cv writ:v7:cv) %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/v4/dm/(scot %p who)/writs/writ/id/(scot %p -.id)/(scot %ud +.id)/chat-writ-4)
   ?>  ?=(%& -.value)
   +.value
+::
 ++  dm-reply
   |=  [post=writ:v7:cv id=[@p @da]]
   ^-  reply:v7:cv
@@ -19,6 +23,7 @@
   ?~  found  !!
   ?>  ?=(%& -.value.i.found)
   +.value.i.found
+::
 ++  channel-post
   |=  [nest=[kind=@tas ship=@p name=@tas] id=@da]
   ^-  post:v10:dv
@@ -27,6 +32,7 @@
   =/  value  (get:on-posts:v10:dv posts.page id)
   ?>  ?=([~ %& *] value)
   +.u.value
+::
 ++  channel-reply
   |=  [nest=[kind=@tas ship=@p name=@tas] parent=@da id=@da]
   ^-  reply:v10:dv
@@ -35,6 +41,7 @@
   =/  value  (get:on-replies:v10:dv replies id)
   ?>  ?=([~ %& *] value)
   +.u.value
+::
 ++  get
   |=  args=json
   ^-  message:hp
@@ -54,22 +61,35 @@
     =/  reply  (channel-reply nest.to u.parent.to id)
     (make-message:hp (scot %da id) author:+.+.reply sent:+.+.reply content:+.+.reply)
   ==
+::
 ++  read
   |=  args=json
   ^-  json
-  =/  msg  (get args)
-  (render args msg)
+  (render args (get args))
+::
 ++  render
-  |=  [args=json msg=message:hp]
+  |=  [args=json message=message:hp]
   ^-  json
   =/  offset  (offset:spec args)
-  ?>  (lte offset (met 3 text.msg))
+  =/  total  (met 3 text.message)
+  ?>  (lte offset total)
   ::  Offsets returned here always land on a UTF-8 boundary.
-  =/  rest  (rsh [3 offset] text.msg)
-  ?>  |(=('' rest) (lth (end [3 1] rest) 128) (gte (end [3 1] rest) 192))
+  =/  rest  (rsh [3 offset] text.message)
+  ?>  ?|  =('' rest)
+          (lth (end [3 1] rest) 128)
+          (gte (end [3 1] rest) 192)
+      ==
   =/  chunk  (clip-text:hp rest 2.000)
-  =/  next  (add offset (met 3 chunk))
-  (pairs:enjs:format ~[['message_id' %s id.msg] ['author' %s (scot %p author.msg)] ['sent' %s (scot %da sent.msg)] ['text' %s chunk] ['total_bytes' (numb:enjs:format (met 3 text.msg))] ['next_offset' ?:((lth next (met 3 text.msg)) [%s (scot %ud next)] ~)]])
+  =/  next-offset  (add offset (met 3 chunk))
+  %-  pairs:enjs:format
+  :~  ['message_id' %s id.message]
+      ['author' %s (scot %p author.message)]
+      ['sent' %s (scot %da sent.message)]
+      ['text' %s chunk]
+      ['total_bytes' (numb:enjs:format total)]
+      ['next_offset' ?:((lth next-offset total) [%s (scot %ud next-offset)] ~)]
+  ==
+::
 ++  around
   |=  args=json
   ^-  json
@@ -83,11 +103,20 @@
       ?^  parent.to
         =/  reply  (dm-reply post id)
         =/  at  time.reply
-        =/  rows  (weld (bat:dm-replies:hist replies.post `+(at) 6) (tab:on:dm-replies:hist replies.post `at 5))
-        (murn rows |=([at=@da value=(may:v7:cv reply:v7:cv)] ?:(?=(%| -.value) ~ `(dm-reply:hp +.value))))
+        =/  rows
+          %+  weld
+            (bat:dm-replies:hist replies.post `+(at) 6)
+          (tab:on:dm-replies:hist replies.post `at 5)
+        %+  murn  rows
+        |=  [at=@da value=(may:v7:cv reply:v7:cv)]
+        ?:  ?=(%| -.value)  ~
+        `(dm-reply:hp +.value)
       =/  page=paged-writs:v7:cv
         .^(paged-writs:v7:cv %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/v4/dm/(scot %p who.to)/writs/around/(scot %ud time.post)/5/light/chat-paged-writs-4)
-      (murn (tap:on:writs:v7:cv writs.page) |=([at=@da value=(may:v7:cv writ:v7:cv)] ?:(?=(%| -.value) ~ `(dm-post:hp +.value))))
+      %+  murn  (tap:on:writs:v7:cv writs.page)
+      |=  [at=@da value=(may:v7:cv writ:v7:cv)]
+      ?:  ?=(%| -.value)  ~
+      `(dm-post:hp +.value)
         %channel
       =/  id  (timestamp:spec id.focus)
       ?^  parent.to
@@ -95,14 +124,31 @@
         =/  older=replies:v9:dv  .^(replies:v9:dv %gx (weld prefix /older/(scot %ud +(id))/6/channel-replies-4))
         =/  newer=replies:v9:dv  .^(replies:v9:dv %gx (weld prefix /newer/(scot %ud id)/5/channel-replies-4))
         =/  rows  (weld (tap:on-replies:v9:dv older) (tap:on-replies:v9:dv newer))
-        (murn rows |=([at=@da value=(may:v9:dv reply:v9:dv)] ?:(?=(%| -.value) ~ `(channel-reply:hp +.value))))
+        %+  murn  rows
+        |=  [at=@da value=(may:v9:dv reply:v9:dv)]
+        ?:  ?=(%| -.value)  ~
+        `(channel-reply:hp +.value)
       =/  page=paged-posts:v9:dv
         .^(paged-posts:v9:dv %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/[kind.nest.to]/(scot %p ship.nest.to)/[name.nest.to]/posts/around/(scot %ud id)/5/outline/channel-posts-4)
-      (murn (tap:on-posts:v9:dv posts.page) |=([at=@da value=(may:v9:dv post:v9:dv)] ?:(?=(%| -.value) ~ `(channel-post:hp +.value))))
+      %+  murn  (tap:on-posts:v9:dv posts.page)
+      |=  [at=@da value=(may:v9:dv post:v9:dv)]
+      ?:  ?=(%| -.value)  ~
+      `(channel-post:hp +.value)
     ==
   ::  Shorter previews leave room for escaped text in eleven context rows.
-  =/  rows  (turn rows |=(msg=message:hp msg(text (clip-text:hp text.msg 200), clipped |(clipped.msg (gth (met 3 text.msg) 200)))))
-  (pairs:enjs:format ~[['focus' %s id.focus] ['messages' %a (turn rows message-json:hp)] ['context_each_side' %n '5']])
+  =/  rows
+    %+  turn  rows
+    |=  message=message:hp
+    %*  .  message
+      text     (clip-text:hp text.message 200)
+      clipped  |(clipped.message (gth (met 3 text.message) 200))
+    ==
+  %-  pairs:enjs:format
+  :~  ['focus' %s id.focus]
+      ['messages' %a (turn rows message-json:hp)]
+      ['context_each_side' %n '5']
+  ==
+::
 ++  change
   |=  [args=json wire=wire]
   ^-  card:agent:gall
@@ -128,7 +174,7 @@
       %channel
     =/  id  (timestamp:spec id)
     =/  post  (channel-post nest.to ?~(parent.to id u.parent.to))
-    =/  act=a-channels:v10:dv
+    =/  command=a-channels:v10:dv
       ?~  parent.to
         ?:  delete  [%channel nest.to %post %del id]
         ?>  =(our.bowl author:+.+.post)
@@ -137,6 +183,6 @@
       ?:  delete  [%channel nest.to %post %reply u.parent.to %del id]
       ?>  =(our.bowl author:+.+.reply)
       [%channel nest.to %post %reply u.parent.to %edit id +.+.reply(content content)]
-    [%pass wire %agent [our.bowl %channels] %poke %channel-action-2 !>(act)]
+    [%pass wire %agent [our.bowl %channels] %poke %channel-action-2 !>(command)]
   ==
 --

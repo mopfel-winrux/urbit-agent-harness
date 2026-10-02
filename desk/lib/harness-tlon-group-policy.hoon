@@ -2,6 +2,7 @@
 /-  g=tlon-groups-ver, meta=tlon-meta
 /+  spec=harness-tlon-tool
 |%
+::
 ++  admin
   |=  [who=@p host=@p group=group:v9:g]
   ^-  ?
@@ -9,6 +10,7 @@
   =/  seat  (~(get by seats.group) who)
   ?~  seat  |
   !=(~ (~(int in roles.u.seat) admins.group))
+::
 ++  create
   |=  [args=json our=@p known=groups:v9:g]
   ^-  create-group:v8:g
@@ -25,9 +27,11 @@
       [(required:spec args 'title' 128) (string:spec args 'description' '' 1.024) '' '']
       privacy  [~ ~]  members
   ==
+::
 ++  manage
   |=  [args=json our=@p flag=[@p @tas] group=group:v9:g]
   ^-  a-group:v8:g
+  ::  Every management command starts from current native admin membership.
   ?>  (admin our -.flag group)
   =/  action  (required:spec args 'action' 32)
   ?:  =('delete_group' action)
@@ -40,7 +44,10 @@
     ?>  !(~(has in admins.group) role)
     ?>  =(role (required:spec args 'confirm' 256))
     [%role (silt ~[role]) %del ~]
-  ?:  |(=('delete_channel' action) =('add_channel_readers' action) =('remove_channel_readers' action))
+  ?:  ?|  =('delete_channel' action)
+          =('add_channel_readers' action)
+          =('remove_channel_readers' action)
+      ==
     =/  nest  (group-nest:spec (required:spec args 'channel' 256))
     ?>  (~(has by channels.group) nest)
     ?:  =('delete_channel' action)
@@ -57,18 +64,28 @@
     [%entry %privacy privacy]
   ?:  |(=('create_role' action) =('update_role' action))
     =/  role  (slug:spec (required:spec args 'role' 64))
-    =/  old  (~(get by roles.group) role)
+    =/  existing  (~(get by roles.group) role)
     ?:  =('create_role' action)
-      ?>  ?=(~ old)
-      [%role (silt ~[role]) %add [(required:spec args 'title' 128) (string:spec args 'description' '' 1.024) '' '']]
-    ?>  ?=(^ old)
+      ?>  ?=(~ existing)
+      =/  metadata=data:meta
+        [(required:spec args 'title' 128) (string:spec args 'description' '' 1.024) '' '']
+      [%role (silt ~[role]) %add metadata]
+    ?>  ?=(^ existing)
     ?>  |((has:spec args 'title') (has:spec args 'description'))
-    =/  title  (string:spec args 'title' title.meta.u.old 128)
+    =/  title  (string:spec args 'title' title.meta.u.existing 128)
     ?>  !=('' title)
-    [%role (silt ~[role]) %edit meta.u.old(title title, description (string:spec args 'description' description.meta.u.old 1.024))]
+    =/  metadata
+      %*  .  meta.u.existing
+        title        title
+        description  (string:spec args 'description' description.meta.u.existing 1.024)
+      ==
+    [%role (silt ~[role]) %edit metadata]
   =/  who  (ship:spec (required:spec args 'ship' 128))
   =/  ships  (silt ~[who])
-  ?:  |(=('kick_member' action) =('ban_member' action) =('unban_member' action))
+  ?:  ?|  =('kick_member' action)
+          =('ban_member' action)
+          =('unban_member' action)
+      ==
     ?>  !=(who -.flag)
     ?>  =(who (ship:spec (required:spec args 'confirm' 128)))
     ?:  =('kick_member' action)
@@ -80,7 +97,9 @@
     ?>  (~(has by requests.admissions.group) who)
     [%entry %ask ships ?:(=('approve_join_request' action) %approve %deny)]
   ?:  =('revoke_group_invite' action)
-    ?>  |((~(has by pending.admissions.group) who) (~(has by invited.admissions.group) who))
+    ?>  ?|  (~(has by pending.admissions.group) who)
+            (~(has by invited.admissions.group) who)
+        ==
     [%entry %pending ships %del ~]
   ?>  (~(has by seats.group) who)
   ?:  =('demote_member' action)

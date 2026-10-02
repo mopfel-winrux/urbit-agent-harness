@@ -165,6 +165,20 @@
     (expect !>(?=(^ (find "top-level action" (trip i.replies)))))
     (expect !>(?=(^ (find (trip '{"action":"help","args":{}}') (trip i.replies)))))
   ==
+::
+++  test-direct-request-replay-keeps-its-receipt-and-cannot-change-the-work
+  %-  isolated  |=  ignored=*
+  =/  first  (receive (fixture ~nec) ~zod ~nec 0v1 'task-claim' '{"id":"task","version":1}' |)
+  =/  repeated  (receive first ~zod ~nec 0v1 'task-claim' '{"id":"task","version":1}' |)
+  =/  changed  (receive first ~zod ~nec 0v1 'task-update' '{"id":"task","version":2,"status":"done"}' |)
+  ;:  weld
+    (expect-eq !>(workspace.first) !>(workspace.repeated))
+    (expect-eq !>(workspace.first) !>(workspace.changed))
+    (expect-eq !>(sessions.first) !>(sessions.repeated))
+    (expect-eq !>(sessions.first) !>(sessions.changed))
+    (expect-eq !>(peer-receipts.first) !>(peer-receipts.repeated))
+    (expect-eq !>(peer-receipts.first) !>(peer-receipts.changed))
+  ==
 ++  outgoing
   |=  [saved=state-0 name=@t args=@t act=action:h]
   ^-  state-0

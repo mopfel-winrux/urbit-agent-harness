@@ -15,9 +15,9 @@
   ^-  card
   [%pass /acp/watch %agent [our %acp] %watch /v1/agent]
 ++  acp-action-card
-  |=  [=wire act=action:v1:ac]
+  |=  [=wire action=action:v1:ac]
   ^-  card
-  [%pass wire %agent [our %acp] %poke %acp-action-1 !>(act)]
+  [%pass wire %agent [our %acp] %poke %acp-action-1 !>(action)]
 ++  acp-send-card
   |=  [connection=connection-id:v1:ac payload=@t]
   ^-  card
@@ -34,9 +34,16 @@
 ++  acp-initialize-result
   ^-  json
   =/  prompt-capabilities=json
-    (pairs:enjs:format ~[['image' %b |] ['audio' %b |] ['embeddedContext' %b |]])
+    %-  pairs:enjs:format
+    :~  ['image' %b |]
+        ['audio' %b |]
+        ['embeddedContext' %b |]
+    ==
   =/  mcp-capabilities=json
-    (pairs:enjs:format ~[['http' %b |] ['sse' %b |]])
+    %-  pairs:enjs:format
+    :~  ['http' %b |]
+        ['sse' %b |]
+    ==
   =/  capabilities=json
     %-  pairs:enjs:format
     :~  ['loadSession' %b &]
@@ -62,7 +69,19 @@
       ['agentCapabilities' capabilities]
       ['authMethods' %a ~]
       ['agentInfo' info]
-      ['_meta' (pairs:enjs:format ~[['harness/hand' (pairs:enjs:format ~[['version' (numb:enjs:format 2)] ['capabilities' %a ~[[%s 'publish']]]])] ['harness/cron' (pairs:enjs:format ~[['version' (numb:enjs:format 1)] ['capabilities' %a ~[[%s 'prompt'] [%s 'reminder']]]])]])]
+      :-  '_meta'
+      %-  pairs:enjs:format
+      :~  :-  'harness/hand'
+          %-  pairs:enjs:format
+          :~  ['version' (numb:enjs:format 2)]
+              ['capabilities' %a ~[[%s 'publish']]]
+          ==
+          :-  'harness/cron'
+          %-  pairs:enjs:format
+          :~  ['version' (numb:enjs:format 1)]
+              ['capabilities' %a ~[[%s 'prompt'] [%s 'reminder']]]
+          ==
+      ==
   ==
 ::
 ++  acp-result-card
@@ -79,7 +98,10 @@
   |=  [connection=connection-id:v1:ac id=json code=@t message=@t]
   ^-  card
   =/  error=json
-    (pairs:enjs:format ~[['code' %n code] ['message' %s message]])
+    %-  pairs:enjs:format
+    :~  ['code' %n code]
+        ['message' %s message]
+    ==
   =/  frame=json
     %-  pairs:enjs:format
     :~  ['jsonrpc' %s '2.0']
@@ -90,30 +112,36 @@
 ++  acp-update-card
   |=  [connection=connection-id:v1:ac sid=session-id:h text=@t]
   ^-  card
-  =/  content=json
-    (pairs:enjs:format ~[['type' %s 'text'] ['text' %s text]])
-  =/  update=json
-    %-  pairs:enjs:format
-    :~  ['sessionUpdate' %s 'agent_message_chunk']
-        ['content' content]
-    ==
+  =/  update  (acp-text-update 'agent_message_chunk' text)
   (acp-session-update-card connection sid update)
 ++  acp-stream-card
   |=  [connection=connection-id:v1:ac sid=session-id:h text=@t]
   ^-  card
-  =/  content=json
-    (pairs:enjs:format ~[['type' %s 'text'] ['text' %s text]])
-  =/  update=json
-    %-  pairs:enjs:format
-    :~  ['sessionUpdate' %s 'harness_agent_stream_chunk']
-        ['content' content]
-    ==
+  =/  update  (acp-text-update 'harness_agent_stream_chunk' text)
   (acp-session-update-card connection sid update)
+::  Message chunks share a text payload; their update tags remain distinct.
+++  acp-text-content
+  |=  text=@t
+  ^-  json
+  %-  pairs:enjs:format
+  :~  ['type' %s 'text']
+      ['text' %s text]
+  ==
+++  acp-text-update
+  |=  [kind=@t text=@t]
+  ^-  json
+  %-  pairs:enjs:format
+  :~  ['sessionUpdate' %s kind]
+      ['content' (acp-text-content text)]
+  ==
 ++  acp-session-update-card
   |=  [connection=connection-id:v1:ac sid=session-id:h update=json]
   ^-  card
   =/  params=json
-    (pairs:enjs:format ~[['sessionId' %s sid] ['update' update]])
+    %-  pairs:enjs:format
+    :~  ['sessionId' %s sid]
+        ['update' update]
+    ==
   =/  frame=json
     %-  pairs:enjs:format
     :~  ['jsonrpc' %s '2.0']
@@ -142,9 +170,12 @@
   |=  [connection=connection-id:v1:ac sid=session-id:h call-id=@t body=@t]
   ^-  card
   =/  text=json
-    (pairs:enjs:format ~[['type' %s 'text'] ['text' %s body]])
+    (acp-text-content body)
   =/  content=json
-    (pairs:enjs:format ~[['type' %s 'content'] ['content' text]])
+    %-  pairs:enjs:format
+    :~  ['type' %s 'content']
+        ['content' text]
+    ==
   =/  update=json
     %-  pairs:enjs:format
     :~  ['sessionUpdate' %s 'tool_call_update']
@@ -163,18 +194,15 @@
   ?-  -.item
       %reasoning  ~
       %user
-    =/  content=json
-      (pairs:enjs:format ~[['type' %s 'text'] ['text' %s body.item]])
-    =/  update=json
-      %-  pairs:enjs:format
-      :~  ['sessionUpdate' %s 'user_message_chunk']
-          ['content' content]
-      ==
+    =/  update  (acp-text-update 'user_message_chunk' body.item)
     ~[(acp-session-update-card connection sid update)]
       %assistant
     =/  message-cards=(list card)
       ?:(=(0 body.item) ~ ~[(acp-update-card connection sid body.item)])
-    (weld message-cards (turn calls.item |=(call=tool-call:h (acp-tool-call-card connection sid call))))
+    %+  weld  message-cards
+    %+  turn  calls.item
+    |=  call=tool-call:h
+    (acp-tool-call-card connection sid call)
       %tool
     ~[(acp-tool-result-card connection sid call-id.item body.item)]
   ==

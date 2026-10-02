@@ -1,80 +1,118 @@
 ::  Pure session services: compose the head with the chosen budget policy and
 ::  JSON snapshot projection. Gall and the Grubbery verifier share these gates,
 ::  with no I/O authority or second scheduler.
+::
 /-  h=harness
-/+  hl=harness, hp=harness-provider, hj=harness-json, failure=harness-failure, context=harness-context, lcm=harness-lcm
+/+  head=harness, provider=harness-provider, codec=harness-json,
+    failure=harness-failure, context=harness-context, lcm=harness-lcm
 |%
 ::  Keep provider byte accounting out of the semantic reducer. This gate is
 ::  evaluated only if replay says inference can run, preserving cheap polls.
+::
 ++  next
-  |=  [v=view:h skills=(map @t skill:h)]
+  |=  [=view:h skills=(map @t skill:h)]
   ^-  (unit step:h)
   ::  The current model's window determines the trigger, including after a
   ::  model switch. Idle polls and tool waits never evaluate the lazy estimate.
+  ::
+  =/  budget  (input-budget:context max-context.config.view)
   =/  next
-    (decide:hl v(max-context.config (input-budget:context max-context.config.v)) |=(~ (est-tokens:hp v skills)))
+    %+  decide:head  view(max-context.config budget)
+    |=(~ (est-tokens:provider view skills))
   ?.  ?=([~ %turn *] next)  next
   ::  Finish a ready hierarchy group before the next real model turn, never
   ::  on idle polling. The per-input attempt budget also bounds this work.
-  ?:  &((lth compact-attempts.v 4) !=(~ (group:lcm lcm.v)))  `[%compact ~]
+  ::
+  ?:  &((lth compact-attempts.view 4) !=(~ (group:lcm lcm.view)))  `[%compact ~]
   next
+::
 ++  inspect
-  |=  [ses=session:h skills=(map @t skill:h)]
-  ^-  [revision=@ud view=view:h next=(unit step:h)]
-  =/  view  (play:hl log.ses)
-  [(lent log.ses) view (next view skills)]
+  |=  [=session:h skills=(map @t skill:h)]
+  ^-  [revision=@ud =view:h next=(unit step:h)]
+  =/  =view:h  (play:head log.session)
+  [(lent log.session) view (next view skills)]
+::
 ++  branch
-  |=  [from=session-id:h ses=session:h at=@ud]
+  |=  [from=session-id:h =session:h at=@ud]
   ^-  (each session:h @t)
-  ?.  &((gth at 0) (lte at (lent log.ses)))
+  ?.  &((gth at 0) (lte at (lent log.session)))
     [%| 'Invalid branch point']
   ::  Retain the noun tail directly; no serialization or history rewriting.
-  =/  prefix  (slag (sub (lent log.ses) at) log.ses)
+  ::
+  =/  prefix  (slag (sub (lent log.session) at) log.session)
   =/  complete=?
     ?~  prefix  |
     ?+  -.i.prefix  |
       %command-completed  &
-      %checkpoint-completed  &(?=(^ reply.i.prefix) ?=([~ %reply *] (outcome:hl (play:hl prefix))))
+        %checkpoint-completed
+      ?&  ?=(^ reply.i.prefix)
+          ?=([~ %reply *] (outcome:head (play:head prefix)))
+      ==
       %llm-completed      ?=([%assistant * ~] item.i.prefix)
     ==
   ?.  complete  [%| 'Branch after a completed assistant reply']
-  [%& [[%forked from at ~ ~] prefix] next-req.ses]
+  [%& [[%forked from at ~ ~] prefix] next-req.session]
+::
 ++  snapshot
-  |=  [ses=session:h since=(unit @ud)]
+  |=  [=session:h since=(unit @ud)]
   ^-  json
-  =/  revision=@ud  (lent log.ses)
-  =/  v  (play:hl log.ses)
+  =/  revision=@ud  (lent log.session)
+  =/  =view:h  (play:head log.session)
   =/  phase=@t
-    ?^  pending.v  ?:(=(%compaction kind.u.pending.v) 'compacting' 'thinking')
-    ?:  !=(~ wait.v)  'tools'
-    ?^  err.v  'error'
+    ?^  pending.view
+      ?:(=(%compaction kind.u.pending.view) 'compacting' 'thinking')
+    ?:  !=(~ wait.view)  'tools'
+    ?^  err.view  'error'
     'idle'
   =/  page=[entries=json before=json]
     ?:  ?&(?=(^ since) =(u.since revision))  [~ ~]
-    (history ses ~)
+    (history session ~)
+  |^
   %-  pairs:enjs:format
   :~  ['revision' (numb:enjs:format revision)]
       ['phase' %s phase]
-      ['error' ?~(err.v ~ [%s u.err.v])]
-      ['failure' ?~(err.v ~ (json:failure u.err.v))]
-      ['model' %s model.config.v]
-      ['memory' (memory-json:hj memory.v)]
-      ['usage' (pairs:enjs:format ~[['prompt' (numb:enjs:format prompt.total.v)] ['completion' (numb:enjs:format completion.total.v)]])]
-      ['compactionUsage' (pairs:enjs:format ~[['prompt' (numb:enjs:format prompt.compact-usage.v)] ['completion' (numb:enjs:format completion.compact-usage.v)]])]
-      ['compactions' (numb:enjs:format (lent (skim log.ses |=(e=event:h |(?=(%compaction-completed -.e) ?=(%checkpoint-completed -.e))))))]
+      ['error' ?~(err.view ~ [%s u.err.view])]
+      ['failure' ?~(err.view ~ (json:failure u.err.view))]
+      ['model' %s model.config.view]
+      ['memory' (memory-json:codec memory.view)]
+      ['usage' (usage-json total.view)]
+      ['compactionUsage' (usage-json compact-usage.view)]
+      ['compactions' (numb:enjs:format compactions)]
       :-  'origin'
-      ?~  origin.v  ~
-      (pairs:enjs:format ~[['sessionId' %s from.u.origin.v] ['eventCount' (numb:enjs:format at.u.origin.v)]])
+      ?~  origin.view  ~
+      %-  pairs:enjs:format
+      :~  ['sessionId' %s from.u.origin.view]
+          ['eventCount' (numb:enjs:format at.u.origin.view)]
+      ==
       ['entries' entries.page]
       ['before' before.page]
   ==
+  ::  Count completion events in the durable log; the active context only
+  ::  contains the retained tail and cannot supply this count.
+  ::
+  ++  compactions
+    %-  lent
+    %+  skim  log.session
+    |=  =event:h
+    ?=(?(%compaction-completed %checkpoint-completed) -.event)
+  ::
+  ++  usage-json
+    |=  =usage:h
+    ^-  json
+    %-  pairs:enjs:format
+    :~  ['prompt' (numb:enjs:format prompt.usage)]
+        ['completion' (numb:enjs:format completion.usage)]
+    ==
+  --
+::
 ++  history
-  |=  [ses=session:h before=(unit @ud)]
+  |=  [=session:h before=(unit @ud)]
   ^-  [entries=json before=json]
   ::  Event addresses are immutable. Keep all rows at an address together,
   ::  including synthetic cancellation receipts; pagination never edits history.
-  =/  rows  (flop (transcript:hl log.ses))
-  =/  ceiling=@ud  ?~(before +((lent log.ses)) u.before)
+  ::
+  =/  rows  (flop (transcript:head log.session))
+  =/  ceiling=@ud  ?~(before +((lent log.session)) u.before)
   =/  count=@ud  0
   =/  oldest=@ud  ceiling
   =/  bytes=@ud  0
@@ -84,6 +122,12 @@
   ?:  (gte at.i.rows ceiling)  $(rows t.rows)
   ?:  &(!=(oldest at.i.rows) |((gte count 40) (gte bytes 262.144)))
     [[%a page] (numb:enjs:format oldest)]
-  =/  row  (transcript-row-json:hj i.rows)
-  $(rows t.rows, count +(count), oldest at.i.rows, bytes (add bytes (met 3 (en:json:html row))), page [row page])
+  =/  row  (transcript-row-json:codec i.rows)
+  %=  $
+    rows    t.rows
+    count   +(count)
+    oldest  at.i.rows
+    bytes   (add bytes (met 3 (en:json:html row)))
+    page    [row page]
+  ==
 --

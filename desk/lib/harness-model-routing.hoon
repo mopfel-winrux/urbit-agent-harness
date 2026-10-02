@@ -25,21 +25,31 @@
   ?>  =((lent models) (lent ~(tap in (silt models))))
   models
 ++  next
-  |=  [cfg=config:h keys=(map @t @t)]
+  |=  [config=config:h keys=(map @t @t)]
   ^-  (unit config:h)
-  ?~  fallbacks.cfg  ~
-  =/  choice  i.fallbacks.cfg
-  =/  remaining=config:h  cfg(fallbacks t.fallbacks.cfg)
+  ?~  fallbacks.config  ~
+  =/  choice  i.fallbacks.config
+  =/  remaining=config:h  config(fallbacks t.fallbacks.config)
   =/  url  (endpoint provider.choice)
-  ?:  |(=('' url) &(zdr.cfg !=('openrouter' provider.choice)) &(=(url url.cfg) =(model.choice model.cfg)))
-    $(cfg remaining)
-  =/  candidate  remaining(url url, model model.choice, headers ~, key '', max-context 80.000)
-  ?:  =('' (key:auth keys provider.choice))  $(cfg remaining)
-  ?^  (missing:auth keys candidate)  $(cfg remaining)
+  ?:  ?|  =('' url)
+          &(zdr.config !=('openrouter' provider.choice))
+          &(=(url url.config) =(model.choice model.config))
+      ==
+    $(config remaining)
+  =/  candidate
+    %=  remaining
+      url          url
+      model        model.choice
+      headers      ~
+      key          ''
+      max-context  80.000
+    ==
+  ?:  =('' (key:auth keys provider.choice))  $(config remaining)
+  ?^  (missing:auth keys candidate)  $(config remaining)
   `candidate
 ++  active
-  |=  [v=view:h req=@ud]
+  |=  [view=view:h req=@ud]
   ^-  config:h
-  ?:  &(?=(^ route.v) =(req req.u.route.v))  config.u.route.v
-  config.v
+  ?:  &(?=(^ route.view) =(req req.u.route.view))  config.u.route.view
+  config.view
 --

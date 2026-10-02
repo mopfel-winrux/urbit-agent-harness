@@ -21,30 +21,45 @@
     (put:w (put:w input 'cursor' [%s upstream]) 'offset' [%s '0'])
   =?  next  &(!=('' name) ?=([%o *] next))
     (put:w next 'name' [%s name])
-    %-  pairs:enjs:format
-    :~  ['tools' %a selected]
-        ['cursor' %s cursor]
-        ['next' next]
-        ['hint' %s ?:(=('' name) 'Use the discovery tool with name and this cursor for the full description and inputSchema before calling. Use next as arguments for another page.' ?:(=(~ selected) 'No matching tool on this page; follow next if present.' 'Use this inputSchema with the tool call.'))]
-    ==
+  =/  hint
+    ?:  =('' name)
+      'Use the discovery tool with name and this cursor for the full description and inputSchema before calling. Use next as arguments for another page.'
+    ?:  =(~ selected)
+      'No matching tool on this page; follow next if present.'
+    'Use this inputSchema with the tool call.'
+  %-  pairs:enjs:format
+  :~  ['tools' %a selected]
+      ['cursor' %s cursor]
+      ['next' next]
+      ['hint' %s hint]
+  ==
 ::  Count and byte bounds keep JSON intact, including unusually long names.
 ++  page
   |=  tools=(list json)
   ^-  (list json)
-  =/  out=(list json)  ~
+  =/  reversed-rows=(list json)  ~
   =/  size=@ud  0
   =/  count=@ud  0
   |-  ^-  (list json)
-  ?~  tools  (flop out)
-  ?:  =(50 count)  (flop out)
+  ?~  tools  (flop reversed-rows)
+  ?:  =(50 count)  (flop reversed-rows)
   =/  name  (str:w i.tools 'name')
   ?>  !=('' name)
-  =/  row  (pairs:enjs:format ~[['name' %s name] ['description' %s (brief (str:w i.tools 'description'))]])
+  =/  row
+    %-  pairs:enjs:format
+    :~  ['name' %s name]
+        ['description' %s (brief (str:w i.tools 'description'))]
+    ==
   =/  bytes  (add 1 (met 3 (en:json:html row)))
   ?:  (gth (add size bytes) 12.000)
-    ?>  ?=(^ out)
-    (flop out)
-  $(tools t.tools, out [row out], size (add size bytes), count +(count))
+    ?>  ?=(^ reversed-rows)
+    (flop reversed-rows)
+  %=  $
+    tools          t.tools
+    reversed-rows  [row reversed-rows]
+    size           (add size bytes)
+    count          +(count)
+  ==
 ++  brief
   |=  text=@t
   ^-  @t

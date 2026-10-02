@@ -41,6 +41,18 @@ only the intended changed overlay files into the mounted desk. Commit changes
 through Clay before testing them. `zig build clean` removes `zig-out`;
 `zig build clear` also removes the dependency checkout.
 
+To request a Clay commit immediately after syncing a mounted desk:
+
+```sh
+HARNESS_COMMIT=true zig build -Ddesk=~/.urbit/nec/harness
+```
+
+This requires a running pier and `click` on `PATH`. The build runs the commit
+thread with `click -p` so thread failures include a readable Hoon trace. The
+receipt confirms that Hood accepts the commit request; Gall recompilation
+and native tests remain separate checks. Without `HARNESS_COMMIT=true`, the
+build only writes files.
+
 ## Local checks
 
 ```sh

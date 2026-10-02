@@ -4,17 +4,19 @@
   |=  text=@t
   ^-  @t
   =/  bytes=(list @)  (rip 3 text)
-  =|  out=(list @)
+  =|  reversed-bytes=(list @)
   |-
-  ?~  bytes  (rap 3 (flop out))
+  ?~  bytes  (rap 3 (flop reversed-bytes))
   =/  lead  i.bytes
-  ?:  (lth lead 128)  $(bytes t.bytes, out [lead out])
+  ?:  (lth lead 128)  $(bytes t.bytes, reversed-bytes [lead reversed-bytes])
   =/  width=@ud
     ?:  &((gte lead 194) (lte lead 223))  2
     ?:  &((gte lead 224) (lte lead 239))  3
     ?:  &((gte lead 240) (lte lead 244))  4
     0
   =/  part=(list @)  (scag width `(list @)`bytes)
+  ::  Check continuation bytes and reject overlong encodings, surrogates,
+  ::  and values beyond Unicode's maximum code point.
   =/  valid=?
     ?&  !=(0 width)
         ?=([@ @ *] part)
@@ -25,9 +27,13 @@
         |(!=(lead 240) (gte i.t.part 144))
         |(!=(lead 244) (lth i.t.part 144))
     ==
-  ?:  valid  $(bytes (slag width `(list @)`bytes), out (weld (flop part) out))
+  ?:  valid
+    %=  $
+      bytes          (slag width `(list @)`bytes)
+      reversed-bytes  (weld (flop part) reversed-bytes)
+    ==
   ::  U+FFFD marks invalid bytes; valid surrounding text is retained.
-  $(bytes t.bytes, out [189 191 239 out])
+  $(bytes t.bytes, reversed-bytes [189 191 239 reversed-bytes])
 ++  clip
   |=  [text=@t cap=@ud]
   ^-  @t

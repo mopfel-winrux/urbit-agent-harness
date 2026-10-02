@@ -1,7 +1,4 @@
-::  story-parse: reusable markdown/story parsing library
-::
-::  pure functions for converting between plaintext/markdown
-::  and urbit story structures. no agent dependencies.
+::  Convert text and a small Markdown subset to native Story, and back to text.
 ::
 /-  d=tlon-story, cite=tlon-cite
 |%
@@ -20,74 +17,92 @@
       ?:  =('' text)  ~
       `text
     ::  block verse handling
-    =/  blk  p.verse
-    ?-  -.blk
-      %code  `(rap 3 '```' lang.blk '\0a' code.blk '\0a```' ~)
-      %header  `(inlines-to-text q.blk)
-      %listing  `(listing-to-text p.blk)
+    =/  block  p.verse
+    ?-  -.block
+      %code  `(rap 3 '```' lang.block '\0a' code.block '\0a```' ~)
+      %header  `(inlines-to-text q.block)
+      %listing  `(listing-to-text p.block)
       %rule  `'---'
-      %cite  `(rap 3 '[citation: ' (spat (print:cite cite.blk)) ']' ~)
+      %cite  `(rap 3 '[citation: ' (spat (print:cite cite.block)) ']' ~)
       %image
-        ?:  =('' alt.blk)
-          `(rap 3 '[Image: ' src.blk ']' ~)
-        `(rap 3 '[Image: ' alt.blk ' - ' src.blk ']' ~)
-      %link  `(rap 3 '[Link: ' url.blk ']' ~)
+        ?:  =('' alt.block)
+          `(rap 3 '[Image: ' src.block ']' ~)
+        `(rap 3 '[Image: ' alt.block ' - ' src.block ']' ~)
+      %link  `(rap 3 '[Link: ' url.block ']' ~)
     ==
   ?~  parts  ''
-  =/  out=@t  i.parts
-  =/  rem=(list @t)  t.parts
+  =/  text=@t  i.parts
+  =/  remaining=(list @t)  t.parts
   |-
-  ?~  rem  out
-  $(rem t.rem, out (rap 3 out '\0a' i.rem ~))
+  ?~  remaining  text
+  $(remaining t.remaining, text (rap 3 text '\0a' i.remaining ~))
 ::
 ++  inlines-to-text
-  |=  ils=(list inline:d)
+  |=  inlines=(list inline:d)
   ^-  @t
-  ?~  ils  ''
-  =/  this=@t
-    ?@  i.ils  i.ils
-    ?+  -.i.ils  ''
-      %bold         $(ils p.i.ils)
-      %italics      $(ils p.i.ils)
-      %strike       $(ils p.i.ils)
-      %blockquote   $(ils p.i.ils)
-      %inline-code  p.i.ils
-      %code         p.i.ils
-      %ship         (scot %p p.i.ils)
-      %link         (rap 3 q.i.ils ' (' p.i.ils ')' ~)
+  ?~  inlines  ''
+  =/  text=@t
+    ?@  i.inlines  i.inlines
+    ?+  -.i.inlines  ''
+      %bold         $(inlines p.i.inlines)
+      %italics      $(inlines p.i.inlines)
+      %strike       $(inlines p.i.inlines)
+      %blockquote   $(inlines p.i.inlines)
+      %inline-code  p.i.inlines
+      %code         p.i.inlines
+      %ship         (scot %p p.i.inlines)
+      %link         (rap 3 q.i.inlines ' (' p.i.inlines ')' ~)
       %break        '\0a'
     ==
-  =/  rest=@t  $(ils t.ils)
-  ?:  =('' this)  rest
-  ?:  =('' rest)  this
-  (rap 3 this rest ~)
+  =/  rest=@t  $(inlines t.inlines)
+  ?:  =('' text)  rest
+  ?:  =('' rest)  text
+  (rap 3 text rest ~)
 ::
 ++  listing-to-text
   |=  node=listing:d
   ^-  @t
   ?:  ?=(%item -.node)  (inlines-to-text p.node)
-  (rap 3 (inlines-to-text r.node) '\0a' (rap 3 (turn q.node |=(child=listing:d (cat 3 (listing-to-text child) '\0a')))) ~)
+  =/  children
+    %+  turn  q.node
+    |=  child=listing:d
+    (cat 3 (listing-to-text child) '\0a')
+  (rap 3 (inlines-to-text r.node) '\0a' (rap 3 children) ~)
 ::  Fenced code is parsed before prose: blank lines and Markdown delimiters
 ::  inside it must remain literal. Everything else uses the small inline codec.
 ++  text-to-story
   |=  text=@t
   ^-  story:d
   =/  lines  (split-lines (trip text))
-  =/  lang=(unit @t)  ~
-  =/  buf=@t  ''
-  =/  out=story:d  ~
+  =/  language=(unit @t)  ~
+  =/  buffer=@t  ''
+  =/  verses=story:d  ~
   |-  ^-  story:d
   ?~  lines
-    (weld out ?~(lang (prose-to-story buf) ~[[%block %code buf u.lang]]))
+    (weld verses ?~(language (prose-to-story buffer) ~[[%block %code buffer u.language]]))
   =/  line=@t  i.lines
   ?:  =('```' (end 3^3 line))
-    ?~  lang
-      $(lines t.lines, lang `(rsh 3^3 line), buf '', out (weld out (prose-to-story buf)))
-    $(lines t.lines, lang ~, buf '', out (snoc out [%block %code buf u.lang]))
-  =/  picture  ?~(lang (image-line line) ~)
+    ?~  language
+      %=  $
+        lines     t.lines
+        language  `(rsh 3^3 line)
+        buffer    ''
+        verses    (weld verses (prose-to-story buffer))
+      ==
+    %=  $
+      lines     t.lines
+      language  ~
+      buffer    ''
+      verses    (snoc verses [%block %code buffer u.language])
+    ==
+  =/  picture  ?~(language (image-line line) ~)
   ?^  picture
-    $(lines t.lines, buf '', out (snoc (weld out (prose-to-story buf)) u.picture))
-  $(lines t.lines, buf (rap 3 buf line ?~(t.lines '' '\0a') ~))
+    %=  $
+      lines   t.lines
+      buffer  ''
+      verses  (snoc (weld verses (prose-to-story buffer)) u.picture)
+    ==
+  $(lines t.lines, buffer (rap 3 buffer line ?~(t.lines '' '\0a') ~))
 ::  Only standalone image syntax becomes a native block. Fenced examples,
 ::  inline mentions and malformed destinations remain ordinary prose.
 ++  image-line
@@ -108,60 +123,57 @@
 ++  split-lines
   |=  chars=tape
   ^-  (list @t)
-  =/  buf=tape  ~
-  =/  out=(list @t)  ~
+  =/  reversed-line=tape  ~
+  =/  reversed-lines=(list @t)  ~
   |-
-  ?~  chars  (flop [(crip (flop buf)) out])
-  ?:  =(10 i.chars)  $(chars t.chars, buf ~, out [(crip (flop buf)) out])
-  $(chars t.chars, buf [i.chars buf])
+  ?~  chars  (flop [(crip (flop reversed-line)) reversed-lines])
+  ?:  =(10 i.chars)
+    %=  $
+      chars           t.chars
+      reversed-line   ~
+      reversed-lines  [(crip (flop reversed-line)) reversed-lines]
+    ==
+  $(chars t.chars, reversed-line [i.chars reversed-line])
 ::
-::  +text-to-story: split on double-newlines into paragraph verses
-::    handles headers (#) and blockquotes (>) as special verse types
+::  +prose-to-story: paragraph order is preserved; empty verses are omitted.
 ::
 ++  prose-to-story
   |=  text=@t
   ^-  story:d
-  =/  paragraphs=(list @t)  (split-paragraphs text)
-  =/  verses=(list verse:d)  ~
-  |-
-  ?~  paragraphs  (flop verses)
-  =/  para=tape  (trip i.paragraphs)
-  ::  header: # through ######
-  ?:  ?&(?=(^ para) =(i.para '#'))
-    =/  lvl=@ud  1
-    =/  rest=tape  t.para
+  (murn (split-paragraphs text) paragraph-to-verse)
+::
+++  paragraph-to-verse
+  |=  text=@t
+  ^-  (unit verse:d)
+  =/  paragraph  (trip text)
+  ::  Headers consume at most six leading hashes and one optional space.
+  ?:  ?&(?=(^ paragraph) =(i.paragraph '#'))
+    =/  level=@ud  1
+    =/  rest  t.paragraph
     |-
-    ?~  rest
-      ^$(paragraphs t.paragraphs)
-    ?:  &(=(i.rest '#') (lth lvl 6))
-      $(rest t.rest, lvl +(lvl))
-    ::  skip the space after #
-    =/  hrest=tape  ?:(=(i.rest ' ') t.rest rest)
-    =/  htxt=@t  (crip hrest)
-    =/  ils=(list inline:d)  (parse-inlines htxt)
-    ?~  ils
-      ^$(paragraphs t.paragraphs)
+    ?~  rest  ~
+    ?:  &(=(i.rest '#') (lth level 6))
+      $(rest t.rest, level +(level))
+    =/  content  ?:(=(i.rest ' ') t.rest rest)
+    =/  inlines  (parse-inlines (crip content))
+    ?~  inlines  ~
     =/  tag=?(%h1 %h2 %h3 %h4 %h5 %h6)
-      ?:  =(1 lvl)  %h1
-      ?:  =(2 lvl)  %h2
-      ?:  =(3 lvl)  %h3
-      ?:  =(4 lvl)  %h4
-      ?:  =(5 lvl)  %h5
+      ?:  =(1 level)  %h1
+      ?:  =(2 level)  %h2
+      ?:  =(3 level)  %h3
+      ?:  =(4 level)  %h4
+      ?:  =(5 level)  %h5
       %h6
-    ^$(paragraphs t.paragraphs, verses [[%block [%header tag ils]] verses])
-  ::  blockquote: > text
-  ?:  ?&(?=(^ para) =(i.para '>'))
-    =/  rest=tape  t.para
+    `[%block %header tag inlines]
+  ?:  ?&(?=(^ paragraph) =(i.paragraph '>'))
+    =/  rest  t.paragraph
     =?  rest  &(?=(^ rest) =(i.rest ' '))  t.rest
-    =/  qtxt=@t  (crip rest)
-    =/  ils=(list inline:d)  (parse-inlines qtxt)
-    ?~  ils
-      $(paragraphs t.paragraphs)
-    $(paragraphs t.paragraphs, verses [[%inline `(list inline:d)`~[`inline:d`[%blockquote ils]]] verses])
-  ::  regular paragraph
-  =/  ils=(list inline:d)  (parse-inlines i.paragraphs)
-  ?~  ils  $(paragraphs t.paragraphs)
-  $(paragraphs t.paragraphs, verses [[%inline ils] verses])
+    =/  inlines  (parse-inlines (crip rest))
+    ?~  inlines  ~
+    `[%inline `(list inline:d)`~[`inline:d`[%blockquote inlines]]]
+  =/  inlines  (parse-inlines text)
+  ?~  inlines  ~
+  `[%inline inlines]
 ::
 ::  +split-paragraphs: split text on double-newlines
 ::
@@ -169,12 +181,12 @@
   |=  text=@t
   ^-  (list @t)
   =/  chars=tape  (trip text)
-  =/  out=(list @t)  ~
-  =/  buf=tape  ~
+  =/  reversed-paragraphs=(list @t)  ~
+  =/  reversed-paragraph=tape  ~
   |-
   ?~  chars
-    ?~  buf  (flop out)
-    (flop [(crip (flop buf)) out])
+    ?~  reversed-paragraph  (flop reversed-paragraphs)
+    (flop [(crip (flop reversed-paragraph)) reversed-paragraphs])
   ?:  ?&(=(i.chars 10) ?=(^ t.chars) =(i.t.chars 10))
     ::  double newline: emit paragraph, skip both newlines
     =/  rest=tape  t.t.chars
@@ -182,59 +194,59 @@
     |-
     ?~  rest  ^$(chars ~)
     ?.  =(i.rest 10)
-      ?~  buf  ^$(chars rest)
-      ^$(chars rest, out [(crip (flop buf)) out], buf ~)
+      ?~  reversed-paragraph  ^$(chars rest)
+      ^$(chars rest, reversed-paragraphs [(crip (flop reversed-paragraph)) reversed-paragraphs], reversed-paragraph ~)
     $(rest t.rest)
-  $(chars t.chars, buf [i.chars buf])
+  $(chars t.chars, reversed-paragraph [i.chars reversed-paragraph])
 ::
-::  +flush-buf: flush text buffer into inline list
+::  +flush-buf: prepend buffered text to the reversed inline list
 ::
 ++  flush-buf
-  |=  [buf=tape out=(list inline:d)]
+  |=  [reversed-text=tape reversed-inlines=(list inline:d)]
   ^-  (list inline:d)
-  ?~  buf  out
-  [`inline:d`(crip (flop buf)) out]
+  ?~  reversed-text  reversed-inlines
+  [`inline:d`(crip (flop reversed-text)) reversed-inlines]
 ::
 ::  +try-delimited: try to match text between delimiters
 ::    returns (unit [matched=tape rest=tape]) or ~ if no closing delimiter
 ::
 ++  try-delimited
-  |=  [delim=tape chars=tape]
+  |=  [delimiter=tape chars=tape]
   ^-  (unit [tape tape])
-  =/  dlen=@ud  (lent delim)
-  =/  collected=tape  ~
+  =/  length=@ud  (lent delimiter)
+  =/  reversed=tape  ~
   =/  rest=tape  chars
   |-
   ?~  rest  ~
   ::  check if rest starts with delimiter
-  =/  prefix=tape  (scag dlen `(list @)`rest)
-  ?:  =(prefix delim)
-    `[(flop collected) (slag dlen `(list @)`rest)]
-  $(rest t.rest, collected [i.rest collected])
+  =/  prefix=tape  (scag length `(list @)`rest)
+  ?:  =(prefix delimiter)
+    `[(flop reversed) (slag length `(list @)`rest)]
+  $(rest t.rest, reversed [i.rest reversed])
 ::
 ::  +try-ship: try to parse a ship mention starting after ~
 ::
 ++  try-ship
   |=  chars=tape
   ^-  (unit [@p tape])
-  =/  ship-buf=tape  ~
+  =/  reversed-name=tape  ~
   =/  rest=tape  chars
   |-
   ?~  rest
     ::  end of string, try to parse
-    ?:  (lth (lent ship-buf) 3)  ~
-    =/  sname=@t  (crip (weld "~" (flop ship-buf)))
-    (bind (slaw %p sname) |=(p=@p [p ~]))
-  =/  c=@tD  i.rest
-  ?:  ?|  =(c '-')
-          ?&((gte c 'a') (lte c 'z'))
-          ?&((gte c '0') (lte c '9'))
+    ?:  (lth (lent reversed-name) 3)  ~
+    =/  name=@t  (crip (weld "~" (flop reversed-name)))
+    (bind (slaw %p name) |=(p=@p [p ~]))
+  =/  char=@tD  i.rest
+  ?:  ?|  =(char '-')
+          ?&((gte char 'a') (lte char 'z'))
+          ?&((gte char '0') (lte char '9'))
       ==
-    $(rest t.rest, ship-buf [c ship-buf])
+    $(rest t.rest, reversed-name [char reversed-name])
   ::  non-ship char, try to parse what we have
-  ?:  (lth (lent ship-buf) 3)  ~
-  =/  sname=@t  (crip (weld "~" (flop ship-buf)))
-  =/  parsed=(unit @p)  (slaw %p sname)
+  ?:  (lth (lent reversed-name) 3)  ~
+  =/  name=@t  (crip (weld "~" (flop reversed-name)))
+  =/  parsed=(unit @p)  (slaw %p name)
   ?~  parsed  ~
   `[u.parsed rest]
 ::
@@ -245,62 +257,90 @@
   |=  text=@t
   ^-  (list inline:d)
   =/  chars=tape  (trip text)
-  =/  out=(list inline:d)  ~
-  =/  buf=tape  ~
+  =/  reversed-inlines=(list inline:d)  ~
+  =/  reversed-text=tape  ~
   |-  ^-  (list inline:d)
   ?~  chars
-    (flop (flush-buf buf out))
+    (flop (flush-buf reversed-text reversed-inlines))
   ::  newline -> break
   ?:  =(i.chars 10)
-    =/  flushed  (flush-buf buf out)
-    $(chars t.chars, buf ~, out [`inline:d`[%break ~] flushed])
+    =/  flushed  (flush-buf reversed-text reversed-inlines)
+    %=  $
+      chars             t.chars
+      reversed-text     ~
+      reversed-inlines  [`inline:d`[%break ~] flushed]
+    ==
   ::  Markdown links retain both the label and destination in Story.
   ?:  =(i.chars '[')
     =/  label  (try-delimited "](" t.chars)
-    ?~  label  $(chars t.chars, buf ['[' buf])
+    ?~  label  $(chars t.chars, reversed-text ['[' reversed-text])
     =/  url  (try-delimited ")" +.u.label)
-    ?~  url  $(chars t.chars, buf ['[' buf])
-    =/  flushed  (flush-buf buf out)
-    $(chars +.u.url, buf ~, out [`inline:d`[%link (crip -.u.url) (crip -.u.label)] flushed])
+    ?~  url  $(chars t.chars, reversed-text ['[' reversed-text])
+    =/  flushed  (flush-buf reversed-text reversed-inlines)
+    %=  $
+      chars             +.u.url
+      reversed-text     ~
+      reversed-inlines  [`inline:d`[%link (crip -.u.url) (crip -.u.label)] flushed]
+    ==
   ::  strikethrough: ~~...~~ (before ship check)
   ?:  ?=([%'~' %'~' *] chars)
     =/  result  (try-delimited "~~" t.t.chars)
     ?~  result
-      $(chars t.chars, buf [i.chars buf])
-    =/  flushed  (flush-buf buf out)
+      $(chars t.chars, reversed-text [i.chars reversed-text])
+    =/  flushed  (flush-buf reversed-text reversed-inlines)
     =/  inner=@t  (crip -.u.result)
-    $(chars +.u.result, buf ~, out [`inline:d`[%strike `(list inline:d)`~[`inline:d`inner]] flushed])
+    %=  $
+      chars             +.u.result
+      reversed-text     ~
+      reversed-inlines  [`inline:d`[%strike `(list inline:d)`~[`inline:d`inner]] flushed]
+    ==
   ::  ship mention: ~
   ?:  =(i.chars '~')
     =/  result  (try-ship t.chars)
     ?~  result
-      $(chars t.chars, buf ['~' buf])
-    =/  flushed  (flush-buf buf out)
-    $(chars +.u.result, buf ~, out [`inline:d`[%ship -.u.result] flushed])
+      $(chars t.chars, reversed-text ['~' reversed-text])
+    =/  flushed  (flush-buf reversed-text reversed-inlines)
+    %=  $
+      chars             +.u.result
+      reversed-text     ~
+      reversed-inlines  [`inline:d`[%ship -.u.result] flushed]
+    ==
   ::  inline code: `...`
   ?:  =(i.chars '`')
     =/  result  (try-delimited "`" t.chars)
     ?~  result
-      $(chars t.chars, buf ['`' buf])
-    =/  flushed  (flush-buf buf out)
+      $(chars t.chars, reversed-text ['`' reversed-text])
+    =/  flushed  (flush-buf reversed-text reversed-inlines)
     =/  code-text=@t  (crip -.u.result)
-    $(chars +.u.result, buf ~, out [`inline:d`[%inline-code code-text] flushed])
+    %=  $
+      chars             +.u.result
+      reversed-text     ~
+      reversed-inlines  [`inline:d`[%inline-code code-text] flushed]
+    ==
   ::  bold: **...**
   ?:  ?=([%'*' %'*' *] chars)
     =/  result  (try-delimited "**" t.t.chars)
     ?~  result
-      $(chars t.chars, buf [i.chars buf])
-    =/  flushed  (flush-buf buf out)
+      $(chars t.chars, reversed-text [i.chars reversed-text])
+    =/  flushed  (flush-buf reversed-text reversed-inlines)
     =/  inner=@t  (crip -.u.result)
-    $(chars +.u.result, buf ~, out [`inline:d`[%bold `(list inline:d)`~[`inline:d`inner]] flushed])
+    %=  $
+      chars             +.u.result
+      reversed-text     ~
+      reversed-inlines  [`inline:d`[%bold `(list inline:d)`~[`inline:d`inner]] flushed]
+    ==
   ::  italic: *...* (single asterisk, not **)
   ?:  =(i.chars '*')
     =/  result  (try-delimited "*" t.chars)
     ?~  result
-      $(chars t.chars, buf ['*' buf])
-    =/  flushed  (flush-buf buf out)
+      $(chars t.chars, reversed-text ['*' reversed-text])
+    =/  flushed  (flush-buf reversed-text reversed-inlines)
     =/  inner=@t  (crip -.u.result)
-    $(chars +.u.result, buf ~, out [`inline:d`[%italics `(list inline:d)`~[`inline:d`inner]] flushed])
+    %=  $
+      chars             +.u.result
+      reversed-text     ~
+      reversed-inlines  [`inline:d`[%italics `(list inline:d)`~[`inline:d`inner]] flushed]
+    ==
   ::  default: accumulate
-  $(chars t.chars, buf [i.chars buf])
+  $(chars t.chars, reversed-text [i.chars reversed-text])
 --

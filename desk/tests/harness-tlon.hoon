@@ -226,4 +226,22 @@
   (expect-eq !>(`@t`'```md\0a![A](https://example.com/a.png)\0a\0a```') !>((story-to-text:story (text-to-story:story '```md\0a![A](https://example.com/a.png)\0a```'))))
 ++  test-image-invalid-line-not-native
   (expect !>(?&(=(~ (image-line:story '![A](javascript:alert)')) =(~ (image-line:story '![A](https://example.com/a.png) trailing')) =(~ (image-line:story '![A](https://)')) =(~ (image-line:story '![A](https://example.com/a b)')))))
+::
+++  test-prose-preserves-order-and-skips-empty-headers-and-quotes
+  =/  actual
+    (prose-to-story:story '#\0a\0a## Title\0a\0a>\0a\0a> Quote\0a\0a####### Deep')
+  =/  expected=story:d
+    :~  [%block %header %h2 ~['Title']]
+        [%inline ~[[%blockquote ~['Quote']]]]
+        [%block %header %h6 ~['# Deep']]
+    ==
+  (expect-eq !>(expected) !>(actual))
+++  test-unclosed-fence-retains-blank-lines-and-literal-markup
+  =/  actual
+    (text-to-story:story 'Before\0a\0a```hoon\0a\0a*literal*\0a')
+  =/  expected=story:d
+    :~  [%inline ~['Before']]
+        [%block %code '\0a*literal*\0a' 'hoon']
+    ==
+  (expect-eq !>(expected) !>(actual))
 --

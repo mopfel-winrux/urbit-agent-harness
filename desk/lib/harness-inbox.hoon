@@ -39,9 +39,14 @@
   |=  [row=position out=selection state=@t kind=@t after=(unit position) limit=@ud]
   ^-  selection
   ?.  |(=('all' kind) =(kind kind.row))  out
+  ::  Count every record of this source before filtering the visible page.
   =.  counts.out
     (~(put by counts.out) state.row +((fall (~(get by counts.out) state.row) 0)))
-  ?.  |(=('all' state) =(state state.row) &(=('attention' state) (attention state.row)))  out
+  ?.  ?|  =('all' state)
+          =(state state.row)
+          &(=('attention' state) (attention state.row))
+      ==
+    out
   ?:  ?~(after | !(before u.after row))  out
   out(rows (insert row rows.out limit))
 ++  input-state
@@ -72,39 +77,70 @@
   |=  [at=@da publication=(unit publication:hh) control=(unit control:hh)]
   ^-  @da
   =?  at  ?=(^ publication)
-    (max at (roll receipts.u.publication |=([receipt=receipt:hh out=@da] (max at.receipt out))))
+    =/  latest
+      %+  roll  receipts.u.publication
+      |=  [receipt=receipt:hh latest=@da]
+      (max at.receipt latest)
+    (max at latest)
   ?~  control  at
-  (max at (roll resolutions.u.control |=([resolution=resolution:hh out=@da] (max at.resolution out))))
+  =/  latest
+    %+  roll  resolutions.u.control
+    |=  [resolution=resolution:hh latest=@da]
+    (max at.resolution latest)
+  (max at latest)
 ++  fence
   |=  [db=state:w hands=state:hh jobs=(map @uv schedule:cr) native=state:hn]
   ^-  @t
   ::  Hash compact lifecycle fields, never prompts, proposal bodies, session
   ::  logs or credentials. Any metadata edit fences paged navigation.
   =/  observations
-    (turn ~(tap by observations.hands) |=([id=@uv o=observation:hh] [id phase.o]))
+    %+  turn  ~(tap by observations.hands)
+    |=  [id=@uv observation=observation:hh]
+    [id phase.observation]
   =/  publications
-    (turn ~(tap by outbox.hands) |=([id=@uv p=publication:hh] [id status.p worker.p external.p (lent receipts.p)]))
+    %+  turn  ~(tap by outbox.hands)
+    |=  [id=@uv publication=publication:hh]
+    [id status.publication worker.publication external.publication (lent receipts.publication)]
   =/  controls
-    (turn ~(tap by controls.hands) |=([id=@uv c=control:hh] [id attempt.c (lent resolutions.c)]))
+    %+  turn  ~(tap by controls.hands)
+    |=  [id=@uv control=control:hh]
+    [id attempt.control (lent resolutions.control)]
   =/  bindings
-    (turn ~(tap by bindings.hands) |=([id=@t b=binding:hh] [id sid.b enabled.b]))
+    %+  turn  ~(tap by bindings.hands)
+    |=  [id=@t binding=binding:hh]
+    [id sid.binding enabled.binding]
   =/  schedules
-    (turn ~(tap by jobs) |=([id=@uv job=schedule:cr] [id state.job next.job remaining.job last.job]))
+    %+  turn  ~(tap by jobs)
+    |=  [id=@uv job=schedule:cr]
+    [id state.job next.job remaining.job last.job]
   =/  pending
-    ?~(pending.native ~ `[id.u.pending.native sent.u.pending.native uncertain.u.pending.native stage.u.pending.native])
+    ?~  pending.native  ~
+    =*  pending  u.pending.native
+    `[id.pending sent.pending uncertain.pending stage.pending]
   (scot %uv (sham [%recent-first writes.db observations publications controls bindings schedules pending]))
 ++  encode
   |=  [token=@t state=@t kind=@t row=position]
   ^-  @t
   %-  en:json:html
-  (pairs:enjs:format ~[['token' %s token] ['state' %s state] ['kind' %s kind] ['category' %s state.row] ['at' %s (scot %da at.row)] ['source' %s kind.row] ['id' %s id.row]])
+  %-  pairs:enjs:format
+  :~  ['token' %s token]
+      ['state' %s state]
+      ['kind' %s kind]
+      ['category' %s state.row]
+      ['at' %s (scot %da at.row)]
+      ['source' %s kind.row]
+      ['id' %s id.row]
+  ==
 ++  decode
   |=  [token=@t state=@t kind=@t raw=@t]
   ^-  (unit position)
   ?.  (lte (met 3 raw) 4.096)  ~
   %-  mole  |.
   =/  value  (need (de:json:html raw))
-  ?>  &(=((string:j value 'token') token) =((string:j value 'state') state) =((string:j value 'kind') kind))
+  ?>  ?&  =((string:j value 'token') token)
+          =((string:j value 'state') state)
+          =((string:j value 'kind') kind)
+      ==
   =/  label  (string:j value 'category')
   =/  source  (string:j value 'source')
   ?>  (lien `(list @t)`~['uncertain' 'blocked' 'approval' 'running' 'waiting' 'finished'] |=(s=@t =(s label)))
@@ -123,7 +159,11 @@
   |=  [row=position db=state:w hands=state:hh jobs=(map @uv schedule:cr) native=state:hn]
   ^-  json
   =/  common=(list [@t json])
-    ~[['kind' [%s kind.row]] ['id' [%s id.row]] ['state' [%s state.row]] ['at' ?:(=(0 at.row) ~ (stamp:j at.row))]]
+    :~  ['kind' %s kind.row]
+        ['id' %s id.row]
+        ['state' %s state.row]
+        ['at' ?:(=(0 at.row) ~ (stamp:j at.row))]
+    ==
   =/  fields=(list [@t json])
     ?-  kind.row
         %task
@@ -139,12 +179,12 @@
       ==
         %proposal
       =/  proposal  (~(got by proposals.db) id.row)
-      =/  art  (~(get by artifacts.db) artifact.proposal)
+      =/  artifact  (~(get by artifacts.db) artifact.proposal)
       :~  ['title' %s title.value.proposal]
           ['detail' %s (clipped ?:(=(%pending status.proposal) reason.proposal decision.proposal))]
           ['status' %s status.proposal]
           ['artifact' %s artifact.proposal]
-          ['project' ?~(art ~ (nullable:j project.u.art))]
+          ['project' ?~(artifact ~ (nullable:j project.u.artifact))]
           ['by' (actor-json:j by.proposal)]
           ['base' (numb:enjs:format base.proposal)]
           ['revision' ?~(revision.proposal ~ (numb:enjs:format u.revision.proposal))]
@@ -155,14 +195,20 @@
       =/  publication  (~(get by outbox.hands) id)
       =/  control  (~(get by controls.hands) id)
       =/  binding  (~(get by bindings.hands) binding.observation)
+      ::  A publication retains its destination even if the binding changes.
+      =/  destination=[session=(unit @t) hand=@t address=@t]
+        ?^  publication
+          [`sid.u.publication hand.u.publication address.u.publication]
+        ?~  binding  [~ '' '']
+        [`sid.u.binding hand.u.binding address.u.binding]
       :~  ['title' %s (clipped text.observation)]
           ['detail' %s ?~(publication '' (clipped body.u.publication))]
           ['execution' %s phase.observation]
           ['delivery' ?~(publication ~ [%s status.u.publication])]
-          ['sessionId' ?~(publication ?~(binding ~ [%s sid.u.binding]) [%s sid.u.publication])]
+          ['sessionId' (nullable:j session.destination)]
           ['binding' %s binding.observation]
-          ['hand' %s ?~(publication ?~(binding '' hand.u.binding) hand.u.publication)]
-          ['destination' %s ?~(publication ?~(binding '' address.u.binding) address.u.publication)]
+          ['hand' %s hand.destination]
+          ['destination' %s address.destination]
           ['actor' %s actor.observation]
           ['attempt' (numb:enjs:format ?~(control 0 attempt.u.control))]
           ['externalId' %s ?~(publication '' (clipped external.u.publication))]
@@ -194,12 +240,24 @@
     ==
   (pairs:enjs:format (weld common fields))
 ++  read
-  |=  [db=state:w hands=state:hh jobs=(map @uv schedule:cr) native=state:hn args=json now=@da]
+  |=  $:  db=state:w
+          hands=state:hh
+          jobs=(map @uv schedule:cr)
+          native=state:hn
+          args=json
+          now=@da
+      ==
   ^-  (each json @t)
   =/  state  (fall (optional:j args 'state') 'attention')
   =/  kind  (fall (optional:j args 'kind') 'all')
   =/  limit  (number:j args 'limit' 24)
-  ?.  &((gth limit 0) (lte limit 32) (lien `(list @t)`~['all' 'attention' 'uncertain' 'blocked' 'approval' 'running' 'waiting' 'finished'] |=(s=@t =(s state))) (lien `(list @t)`~['all' 'task' 'proposal' 'input' 'schedule' 'notes'] |=(s=@t =(s kind))))
+  ?.  ?&  (gth limit 0)
+          (lte limit 32)
+          %+  lien  `(list @t)`~['all' 'attention' 'uncertain' 'blocked' 'approval' 'running' 'waiting' 'finished']
+          |=(label=@t =(label state))
+          %+  lien  `(list @t)`~['all' 'task' 'proposal' 'input' 'schedule' 'notes']
+          |=(source=@t =(source kind))
+      ==
     [%| 'Choose a valid inbox state and source, with 1–32 records per page.']
   =/  token  (fence db hands jobs native)
   =/  cursor  (optional:j args 'cursor')
@@ -207,43 +265,11 @@
   ?:  &(?=(^ cursor) ?=(~ after))
     [%| 'Work changed or the page is no longer valid. Refresh the inbox from the first page.']
   =/  out=selection  *selection
-  =.  out
-    =/  rest  ~(tap by tasks.db)
-    |-  ^-  selection
-    ?~  rest  out
-    =/  [id=@t task=task:w]  i.rest
-    =.  out  (select [(task-state task) updated.task %task id] out state kind after +(limit))
-    $(rest t.rest)
-  =.  out
-    =/  rest  ~(tap by proposals.db)
-    |-  ^-  selection
-    ?~  rest  out
-    =/  [id=@t proposal=proposal:w]  i.rest
-    =.  out  (select [?:(=(%pending status.proposal) %approval %finished) (fall decided.proposal at.proposal) %proposal id] out state kind after +(limit))
-    $(rest t.rest)
-  =.  out
-    =/  rest  ~(tap by observations.hands)
-    |-  ^-  selection
-    ?~  rest  out
-    =/  [id=@uv observation=observation:hh]  i.rest
-    =/  publication  (~(get by outbox.hands) id)
-    =/  control  (~(get by controls.hands) id)
-    =/  status  (input-state phase.observation ?~(publication ~ `status.u.publication))
-    =.  out  (select [status (input-time at.observation publication control) %input (scot %uv id)] out state kind after +(limit))
-    $(rest t.rest)
-  =.  out
-    =/  rest  ~(tap by jobs)
-    |-  ^-  selection
-    ?~  rest  out
-    =/  [id=@uv job=schedule:cr]  i.rest
-    ::  A schedule is a plan, not its latest execution. Its admitted runs
-    ::  appear as input records with their separate publication receipts.
-    =/  status=category
-      ?:  =(%paused state.job)  %blocked
-      ?:  =(%active state.job)  %waiting
-      %finished
-    =.  out  (select [status `@da`0 %schedule (scot %uv id)] out state kind after +(limit))
-    $(rest t.rest)
+  |^
+  =.  out  collect-tasks
+  =.  out  collect-proposals
+  =.  out  collect-inputs
+  =.  out  collect-schedules
   =?  out  ?=(^ pending.native)
     =/  pending  u.pending.native
     (select [?:(uncertain.pending %uncertain %waiting) `@da`0 %notes (scot %uv id.pending)] out state kind after +(limit))
@@ -260,4 +286,54 @@
       ['observedAt' (stamp:j now)]
       ['referenceOnly' %b &]
   ==
+::
+++  collect-tasks
+  =/  rest  ~(tap by tasks.db)
+  |-  ^-  selection
+  ?~  rest  out
+  =/  [id=@t task=task:w]  i.rest
+  =.  out  (select [(task-state task) updated.task %task id] out state kind after +(limit))
+  $(rest t.rest)
+::
+++  collect-proposals
+  =/  rest  ~(tap by proposals.db)
+  |-  ^-  selection
+  ?~  rest  out
+  =/  [id=@t proposal=proposal:w]  i.rest
+  =/  row=position
+    :*  ?:(=(%pending status.proposal) %approval %finished)
+        (fall decided.proposal at.proposal)
+        %proposal
+        id
+    ==
+  =.  out  (select row out state kind after +(limit))
+  $(rest t.rest)
+::
+++  collect-inputs
+  =/  rest  ~(tap by observations.hands)
+  |-  ^-  selection
+  ?~  rest  out
+  =/  [id=@uv observation=observation:hh]  i.rest
+  =/  publication  (~(get by outbox.hands) id)
+  =/  control  (~(get by controls.hands) id)
+  =/  status  (input-state phase.observation ?~(publication ~ `status.u.publication))
+  =/  row=position
+    [status (input-time at.observation publication control) %input (scot %uv id)]
+  =.  out  (select row out state kind after +(limit))
+  $(rest t.rest)
+::
+++  collect-schedules
+  =/  rest  ~(tap by jobs)
+  |-  ^-  selection
+  ?~  rest  out
+  =/  [id=@uv job=schedule:cr]  i.rest
+  ::  A schedule is a plan, not its latest execution. Its admitted runs
+  ::  appear as input records with their separate publication receipts.
+  =/  status=category
+    ?:  =(%paused state.job)  %blocked
+    ?:  =(%active state.job)  %waiting
+    %finished
+  =.  out  (select [status `@da`0 %schedule (scot %uv id)] out state kind after +(limit))
+  $(rest t.rest)
+--
 --

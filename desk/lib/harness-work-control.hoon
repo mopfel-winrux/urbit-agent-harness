@@ -3,11 +3,14 @@
 /-  h=harness, c=harness-work-control, w=harness-workspace, hh=harness-hand
 /+  j=harness-workspace-json, workspace=harness-workspace, view=harness-work-view, copy=harness-work-copy
 |%
+::
 ++  capacity  2.048
+::
 ++  active
-  |=  [r=request:c now=@da]
+  |=  [request=request:c now=@da]
   ^-  ?
-  |(=(%running status.r) &(=(%pending status.r) (lth now expires.r)))
+  |(=(%running status.request) &(=(%pending status.request) (lth now expires.request)))
+::
 ++  same-origin
   |=  [a=input-source:h b=input-source:h]
   ^-  ?
@@ -23,64 +26,99 @@
           =(actor.a actor.b)
       ==
   ==
+::
 ++  matches
-  |=  [r=request:c sid=@t scope=@uv source=input-source:h actor=(unit @p)]
+  |=  [request=request:c sid=@t scope=@uv source=input-source:h actor=(unit @p)]
   ^-  ?
-  &((same-origin source.r source) =(sid.r sid) =(scope.r scope) =(actor.r actor))
+  &((same-origin source.request source) =(sid.request sid) =(scope.request scope) =(actor.request actor))
+::
 ++  permitted
   |=  action=@t
   ^-  ?
   (lien `(list @t)`~['hand-access' 'project-edit' 'member' 'artifact-create' 'artifact-save' 'artifact-archive' 'propose' 'review' 'publish' 'unpublish' 'task-reply'] |=(name=@t =(name action)))
+::
 ++  reply-key
   |=  args=json
-  [(get:j args 'id') (get:j args 'artifact') (number:j args 'revision' 0) (get:j args 'binding') (get:j args 'actor')]
+  :*  (get:j args 'id')
+      (get:j args 'artifact')
+      (number:j args 'revision' 0)
+      (get:j args 'binding')
+      (get:j args 'actor')
+  ==
+::
 ++  reply-request
   |=  [db=state:c args=json]
   ^-  (unit @uv)
-  =/  rows  ~(tap by requests.db)
-  |-  ^-  (unit @uv)
-  ?~  rows  ~
-  =/  r  q.i.rows
-  ?:  &(&(=('task-reply' action.r) =(%done status.r)) =((reply-key args) (reply-key args.r)))  `p.i.rows
-  $(rows t.rows)
+  =/  remaining  ~(tap by requests.db)
+  |-
+  ^-  (unit @uv)
+  ?~  remaining  ~
+  =/  [id=@uv request=request:c]  i.remaining
+  ?:  ?&  =('task-reply' action.request)
+          =(%done status.request)
+          =((reply-key args) (reply-key args.request))
+      ==
+    `id
+  $(remaining t.remaining)
+::
 ++  prepare
-  |=  [db=state:c id=@uv r=request:c now=@da]
+  |=  [db=state:c id=@uv request=request:c now=@da]
   ^-  (each state:c @t)
-  ?.  (permitted action.r)  [%| 'Unsupported work action.']
-  ?.  &(?=(%o -.args.r) (lte (met 3 (en:json:html args.r)) 32.768))
+  ?.  (permitted action.request)  [%| 'Unsupported work action.']
+  ?.  &(?=(%o -.args.request) (lte (met 3 (en:json:html args.request)) 32.768))
     [%| 'Work arguments must be an object of at most 32768 encoded bytes.']
   ?:  (~(has by requests.db) id)  [%| 'This work request identity is already used.']
   ::  Admission bounds outstanding work, not the lifetime of the ledger.
   ::  Retained receipts remain available for inspection and delivery deduplication.
-  =/  outstanding  (skim ~(tap by requests.db) |=([id=@uv r=request:c] (active r now)))
+  =/  outstanding
+    %+  skim  ~(tap by requests.db)
+    |=  [id=@uv request=request:c]
+    (active request now)
   ?:  (gte (lent outstanding) capacity)  [%| 'Too many active work approvals. Settle pending work before preparing another change.']
-  [%& db(requests (~(put by requests.db) id r(expires (add now ~m15), status %pending, result ~)))]
+  =.  request
+    %=  request
+      expires  (add now ~m15)
+      status   %pending
+      result   ~
+    ==
+  [%& db(requests (~(put by requests.db) id request))]
+::
 ++  confirm
   |=  [db=state:c id=@uv sid=@t scope=@uv source=input-source:h actor=(unit @p) fence=@uvH now=@da]
   ^-  (each state:c @t)
-  =/  r  (~(get by requests.db) id)
-  ?~  r  [%| 'Work request not found.']
-  ?.  (matches u.r sid scope source actor)  [%| 'Confirm from the same conversation and sender that requested this action.']
-  ?.  (permitted action.u.r)  [%| 'Unsupported work action.']
-  ?.  =(%pending status.u.r)  [%| 'This work request is already settled or submitted; inspect its result instead of repeating it.']
-  ?:  (gte now expires.u.r)  [%| 'Work confirmation expired. Prepare the action again.']
-  ?.  =(fence fence.u.r)  [%| 'Work changed. Inspect the current record and prepare the action again.']
-  [%& db(requests (~(put by requests.db) id u.r(status %running)))]
+  ::  Identity, provenance, expiry, and dependencies must all still match.
+  ::  Moving to running consumes the confirmation before dispatch.
+  =/  request  (~(get by requests.db) id)
+  ?~  request  [%| 'Work request not found.']
+  ?.  (matches u.request sid scope source actor)  [%| 'Confirm from the same conversation and sender that requested this action.']
+  ?.  (permitted action.u.request)  [%| 'Unsupported work action.']
+  ?.  =(%pending status.u.request)  [%| 'This work request is already settled or submitted; inspect its result instead of repeating it.']
+  ?:  (gte now expires.u.request)  [%| 'Work confirmation expired. Prepare the action again.']
+  ?.  =(fence fence.u.request)  [%| 'Work changed. Inspect the current record and prepare the action again.']
+  [%& db(requests (~(put by requests.db) id u.request(status %running)))]
+::
 ++  reject
   |=  [db=state:c id=@uv sid=@t scope=@uv source=input-source:h actor=(unit @p)]
   ^-  (each state:c @t)
-  =/  r  (~(get by requests.db) id)
-  ?~  r  [%| 'Work request not found.']
-  ?.  (matches u.r sid scope source actor)  [%| 'Reject from the same conversation and sender that requested this action.']
-  ?.  =(%pending status.u.r)  [%| 'Only a pending request can be rejected; rejection cannot undo a submitted operation.']
-  [%& db(requests (~(put by requests.db) id u.r(status %rejected)))]
+  =/  request  (~(get by requests.db) id)
+  ?~  request  [%| 'Work request not found.']
+  ?.  (matches u.request sid scope source actor)  [%| 'Reject from the same conversation and sender that requested this action.']
+  ?.  =(%pending status.u.request)  [%| 'Only a pending request can be rejected; rejection cannot undo a submitted operation.']
+  [%& db(requests (~(put by requests.db) id u.request(status %rejected)))]
+::
 ++  complete
   |=  [db=state:c id=@uv result=(each json @t)]
   ^-  state:c
-  =/  r  (~(get by requests.db) id)
-  ?~  r  db
-  ?.  =(%running status.u.r)  db
-  db(requests (~(put by requests.db) id u.r(status ?:(?=(%& -.result) %done %failed), result `result)))
+  =/  request  (~(get by requests.db) id)
+  ?~  request  db
+  ?.  =(%running status.u.request)  db
+  =.  u.request
+    %=  u.request
+      status  ?:(?=(%& -.result) %done %failed)
+      result  `result
+    ==
+  db(requests (~(put by requests.db) id u.request))
+::
 ++  snapshot
   |=  [db=state:w action=@t args=json]
   ^-  @uvH
@@ -94,17 +132,18 @@
     ?:  (lien `(list @t)`~['review' 'propose' 'artifact-create'] |=(name=@t =(name action)))
       (~(get by proposals.db) id)
     ~
-  =/  art-id
+  =/  artifact-id
     ?:  |(=('propose' action) =('task-reply' action))  (fall (optional:j args 'artifact') '')
     id
-  =?  art-id  &(=('review' action) ?=(^ proposal))  artifact.u.proposal
-  =/  art  (~(get by artifacts.db) art-id)
+  =?  artifact-id  &(=('review' action) ?=(^ proposal))  artifact.u.proposal
+  =/  artifact  (~(get by artifacts.db) artifact-id)
   =/  project
     ?:  =('artifact-create' action)  (optional:j args 'project')
-    ?~(art ~ project.u.art)
+    ?~(artifact ~ project.u.artifact)
   =/  group  ?~(project ~ (~(get by projects.db) u.project))
   =/  task  ?:(=('task-reply' action) (~(get by tasks.db) id) ~)
-  (sham [action args art proposal group task])
+  (sham [action args artifact proposal group task])
+::
 ++  fence
   |=  [db=state:w hands=state:hh names=(map @t @uv) owners=(set [binding=@t actor=@t]) action=@t args=json]
   ^-  @uvH
@@ -114,45 +153,62 @@
     %-  mule  |.
     =/  key  (string:j args 'binding')
     =/  binding  (~(got by bindings.hands) key)
-    [binding (~(get by names) sid.binding) ?:(=('hand-access' action) `(~(has in owners) [key (string:j args 'actor')]) ~)]
+    :*  binding
+        (~(get by names) sid.binding)
+        ?:  =('hand-access' action)
+          `(~(has in owners) [key (string:j args 'actor')])
+        ~
+    ==
   (sham [base target])
+::
 ++  visible
-  |=  [db=state:w who=authority:w r=request:c]
+  |=  [db=state:w who=authority:w request=request:c]
   ^-  ?
   ?:  owner.who  &
-  =/  id  (fall (optional:j args.r 'id') '')
-  ?:  =('project-edit' action.r)  ?=(^ (project-role:workspace db who id))
-  ?:  =('artifact-create' action.r)
-    =/  project  (optional:j args.r 'project')
+  =/  id  (fall (optional:j args.request 'id') '')
+  ?:  =('project-edit' action.request)  ?=(^ (project-role:workspace db who id))
+  ?:  =('artifact-create' action.request)
+    =/  project  (optional:j args.request 'project')
     ?~  project  &
     ?=(^ (project-role:workspace db who u.project))
-  ?:  =('propose' action.r)
-    =/  art  (~(get by artifacts.db) (string:j args.r 'artifact'))
-    ?~  art  |
-    (can-read:workspace db who u.art)
+  ?:  =('propose' action.request)
+    =/  artifact  (~(get by artifacts.db) (string:j args.request 'artifact'))
+    ?~  artifact  |
+    (can-read:workspace db who u.artifact)
   |
+::
 ++  encode
-  |=  [id=@uv r=request:c]
+  |=  [id=@uv request=request:c]
   ^-  json
-  =/  key  (key:copy (pairs:enjs:format ~[['id' %s (scot %uv id)] ['action' %s action.r] ['args' args.r]]))
+  =/  key
+    %-  key:copy
+    %-  pairs:enjs:format
+    :~  ['id' %s (scot %uv id)]
+        ['action' %s action.request]
+        ['args' args.request]
+    ==
   %-  pairs:enjs:format
   :~  ['id' %s (scot %uv id)]
-      ['action' %s action.r]
-      ['args' args.r]
-      ['status' %s status.r]
-      ['expires' %s (scot %da expires.r)]
+      ['action' %s action.request]
+      ['args' args.request]
+      ['status' %s status.request]
+      ['expires' %s (scot %da expires.request)]
       ['inspect' %s (cat 3 '/work result ' key)]
       ['confirm' %s (cat 3 '/work confirm ' key)]
       ['reject' %s (cat 3 '/work reject ' key)]
-      ['result' ?~(result.r ~ ?:(?=(%& -.u.result.r) p.u.result.r [%s p.u.result.r]))]
+      ['result' ?~(result.request ~ ?:(?=(%& -.u.result.request) p.u.result.request [%s p.u.result.request]))]
   ==
+::
 ++  resolve
   |=  [db=state:c token=@t]
   ^-  @uv
   =/  matches
-    (skim ~(tap by requests.db) |=([id=@uv r=request:c] |(=(token (scot %uv id)) =(token (key:copy (encode id r))))))
+    %+  skim  ~(tap by requests.db)
+    |=  [id=@uv request=request:c]
+    |(=(token (scot %uv id)) =(token (key:copy (encode id request))))
   ?>  &(?=(^ matches) ?=(~ t.matches))
   p.i.matches
+::
 ++  previewed
   |=  [log=(list event:h) id=@uv preview=json]
   ^-  ?

@@ -1,6 +1,6 @@
 ::  Full adapter with synthetic scries; emitted effects never execute.
 ::  -test /=harness=/tests-integration/harness-tlon-subscription
-/-  t=harness-tlon, hh=harness-hand, ad=harness-adapter
+/-  t=harness-tlon, hh=harness-hand, ad=harness-adapter, ac=acp
 /+  *test, policy=harness-tlon-policy
 /=  adapter  /app/harness-tlon
 |%
@@ -10,7 +10,7 @@
   s(owner-initialized 1, policy [& `~zod ~ %mentions ~ ~], activity-through ~2026.10.1, error 'Activity recovery failed')
 ++  run
   |=  [saved=state-1:t sub=(unit [acked=? path=path]) event=?(%load %wake %kick %enable %disable)]
-  ^-  [cards=(list card:agent:gall) saved=state-1:t]
+  ^-  [cards=(list card:agent:gall) replies=(list json) saved=state-1:t]
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.10.1..00.00.10)
   =.  wex.bowl  (~(put by wex.bowl) [/head ~zod %harness] [& /hand-events])
@@ -35,19 +35,42 @@
       ==
     ::  Project before validating the result: other effects contain large
     ::  typed payloads unrelated to subscription recovery.
-    [(activity-cards -.out) !<(state-1:t ~(on-save +.out bowl))]
+    [(activity-cards -.out) (replies -.out) !<(state-1:t ~(on-save +.out bowl))]
   =/  checked
     %+  mink  [attempt %9 2 %0 1]
     |=  [ref=* raw=*]
     ^-  (unit (unit noun))
     =/  path  ;;(path raw)
     ?:  =(%$ (rear path))  ``&
+    ::  Native Chat is installed and has no pending owner invitations.
+    ?:  ?=([%gx @ %chat @ %dm %invited %ships ~] path)  ``~
     ?:  (lien path |=(part=@ta =(%hand-state part)))  ``*state:hh
     ::  The current Activity feed is empty; its cursor remains untouched.
     ?:  (lien path |=(part=@ta =(%activity part)))  ``~
     ~
   ?>  ?=(%0 -.checked)
-  ;;([cards=(list card:agent:gall) saved=state-1:t] product.checked)
+  ;;([cards=(list card:agent:gall) replies=(list json) saved=state-1:t] product.checked)
+++  replies
+  |=  cards=(list card:agent:gall)
+  ^-  (list json)
+  %+  murn  cards
+  |=  card=card:agent:gall
+  ^-  (unit json)
+  ?.  ?=([%pass [%acp %send ~] %agent * %poke %acp-action-1 *] card)  ~
+  =/  [pass=* wire=* agent=* who=* poke=* mark=* data=vase]  card
+  =/  action  !<(action:v1:ac data)
+  ?>  ?=(%send -.action)
+  (de:json:html payload.action)
+++  reply-policy
+  |=  frames=(list json)
+  ^-  json
+  ?>  ?=([* ~] frames)
+  =/  frame  i.frames
+  ?>  ?=(%o -.frame)
+  ?>  =([%n '1'] (~(got by p.frame) 'id'))
+  =/  result  (~(got by p.frame) 'result')
+  ?>  ?=(%o -.result)
+  (~(got by p.result) 'policy')
 ++  activity-cards
   |=  cards=(list card:agent:gall)
   (skim cards |=(c=card:agent:gall ?=([%pass [%activity ~] %agent *] c)))
@@ -83,4 +106,13 @@
   =/  s  fixture
   =/  out  (run s(enabled.policy |, watching &) `[& /v4] %load)
   (expect !>(&(!watching.saved.out =(~ (activity-cards cards.out)))))
+::
+++  test-configuration-reply-reports-the-applied-policy
+  =/  saved  fixture
+  =/  enabled  (run saved(enabled.policy |) `[& /v4] %enable)
+  =/  disabled  (run saved `[& /v4] %disable)
+  ;:  weld
+    (expect-eq !>((policy-json:policy policy.saved.enabled)) !>((reply-policy replies.enabled)))
+    (expect-eq !>((policy-json:policy policy.saved.disabled)) !>((reply-policy replies.disabled)))
+  ==
 --

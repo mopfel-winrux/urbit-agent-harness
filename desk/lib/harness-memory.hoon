@@ -9,15 +9,19 @@
 ++  bytes
   |=  notes=(map @t @t)
   %+  roll  ~(tap by notes)
-  |=  [[name=@t body=@t] n=@ud]
-  (add n (add (met 3 name) (met 3 body)))
+  |=  [[name=@t body=@t] total=@ud]
+  (add total (add (met 3 name) (met 3 body)))
 ++  valid-name
   |=  name=@t
   ?&  (gth (met 3 name) 0)
       (lte (met 3 name) 32)
       %+  levy  (trip name)
       |=  c=@tD
-      |(&((gte c 97) (lte c 122)) &((gte c 48) (lte c 57)) =(45 c) =(95 c))
+      ?|  &((gte c 'a') (lte c 'z'))
+          &((gte c '0') (lte c '9'))
+          =('-' c)
+          =('_' c)
+      ==
   ==
 ::  Validate before recording. Replacement is counted against the resulting
 ::  map, so updates at capacity work; overflow is explicit, never eviction.

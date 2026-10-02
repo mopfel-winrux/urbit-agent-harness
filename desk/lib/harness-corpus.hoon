@@ -8,7 +8,10 @@
   |=  [db=state:c scope=scope:c]
   ^-  state:c
   ?:  (~(has in queued.db) scope)  db
-  db(back [scope back.db], queued (~(put in queued.db) scope))
+  %=  db
+    back  [scope back.db]
+    queued  (~(put in queued.db) scope)
+  ==
 ++  retire
   |=  [db=state:c sid=session-id:h]
   ^-  state:c
@@ -28,18 +31,21 @@
   ^-  state:c
   =/  scope  (~(get by names.db) from)
   ?~  scope  db
-  =/  old  (~(got by scopes.db) u.scope)
-  db(names (~(put by (~(del by names.db) from)) to u.scope), scopes (~(put by scopes.db) u.scope old(sid to)))
+  =/  source  (~(got by scopes.db) u.scope)
+  %=  db
+    names  (~(put by (~(del by names.db) from)) to u.scope)
+    scopes  (~(put by scopes.db) u.scope source(sid to))
+  ==
 ::  Stop at the shared noun tail. Appending a normal turn does not traverse
 ::  the older conversation. A non-append replacement gets a new incarnation.
 ++  delta
   |=  [after=(list event:h) before=(list event:h)]
   ^-  (unit (list event:h))
-  =|  out=(list event:h)
+  =|  reversed=(list event:h)
   |-  ^-  (unit (list event:h))
-  ?:  =(after before)  `(flop out)
+  ?:  =(after before)  `(flop reversed)
   ?~  after  ~
-  $(after t.after, out [i.after out])
+  $(after t.after, reversed [i.after reversed])
 ++  capture
   |=  [db=state:c sid=session-id:h log=(list event:h)]
   ^-  state:c
@@ -47,16 +53,30 @@
   ?~  scope
     =/  id=scope:c  +(next.db)
     =/  source  *conversation:c
-    =.  source  source(sid sid, seen log, reverse log)
-    =.  db  db(next id, names (~(put by names.db) sid id), scopes (~(put by scopes.db) id source))
+    =.  source
+      %=  source
+        sid  sid
+        seen  log
+        reverse  log
+      ==
+    =.  db
+      %=  db
+        next  id
+        names  (~(put by names.db) sid id)
+        scopes  (~(put by scopes.db) id source)
+      ==
     ?~  log  db
     (enqueue db id)
-  =/  old  (~(got by scopes.db) u.scope)
-  ?:  =(log seen.old)  db
-  =/  added  (delta log seen.old)
+  =/  source  (~(got by scopes.db) u.scope)
+  ?:  =(log seen.source)  db
+  =/  added  (delta log seen.source)
   ?~  added  $(db (retire db sid))
-  =.  old  old(seen log, incoming (weld u.added incoming.old))
-  (enqueue db(scopes (~(put by scopes.db) u.scope old)) u.scope)
+  =.  source
+    %=  source
+      seen  log
+      incoming  (weld u.added incoming.source)
+    ==
+  (enqueue db(scopes (~(put by scopes.db) u.scope source)) u.scope)
 ++  sync
   |=  [db=state:c sessions=(map session-id:h session:h)]
   ^-  state:c
@@ -65,66 +85,90 @@
     ?:((~(has by sessions) sid) db (retire db sid))
   =.  db  (roll ~(tap in ~(key by names.db)) prune(db db))
   =/  collect
-    |=  [[sid=session-id:h ses=session:h] db=state:c]
-    (capture db sid log.ses)
+    |=  [[sid=session-id:h session=session:h] db=state:c]
+    (capture db sid log.session)
   (roll ~(tap by sessions) collect(db db))
 ++  rebuild
   |=  [db=state:c epoch=@da]
   ^-  state:c
-  =.  db  db(index *index:c, front ~, back ~, queued ~, count 0)
+  =.  db
+    %=  db
+      index  *index:c
+      front  ~
+      back  ~
+      queued  ~
+      count  0
+    ==
   =.  built-at.index.db  `epoch
   =/  collect
-    |=  [[scope=scope:c old=conversation:c] db=state:c]
+    |=  [[scope=scope:c source=conversation:c] db=state:c]
     =/  fresh  *conversation:c
-    =.  fresh  fresh(sid sid.old, seen seen.old, reverse seen.old)
+    =.  fresh  fresh(sid sid.source, seen seen.source, reverse seen.source)
     (enqueue db(scopes (~(put by scopes.db) scope fresh)) scope)
   (roll ~(tap by scopes.db) collect(db db))
 ++  item-text
-  |=  it=item:h
+  |=  item=item:h
   ^-  @t
-  ?-  -.it
+  ?-  -.item
     %reasoning  ''
-    %user  body.it
-    %tool  body.it
+    %user  body.item
+    %tool  body.item
     %assistant
-      %^  cat  3  body.it
+      %^  cat  3  body.item
       %+  rap  3
-      %+  turn  calls.it
+      %+  turn  calls.item
       |=  call=tool-call:h
       (rap 3 '\0aTool ' name.call ' (' id.call '): ' args.call ~)
   ==
 ++  event-record
-  |=  [e=event:h before=view:h after=view:h source=(unit input-source:h) sent=@da author=@t]
+  |=  $:  event=event:h
+          before=view:h
+          after=view:h
+          source=(unit input-source:h)
+          sent=@da
+          author=@t
+      ==
   ^-  (unit record:c)
   =/  make
     |=  [kind=?(%message %context %tool %summary %note) role=@t body=@t]
     ^-  (unit record:c)
     ?:(=('' body) ~ `[kind role body source sent author])
   =/  item
-    |=  it=item:h
-    (make %message (scot %tas -.it) (item-text it))
-  ?+  -.e  ~
-    %input-admitted  (item item.e)
-    %input-received  (item item.input.e)
-    %context-received  (make %context 'context' body.e)
-    %command-completed  (make %message 'assistant' body.e)
-    %llm-completed  (item item.e)
-    %tool-completed  (make %tool 'tool' (rap 3 name.e ' (' call-id.e '): ' body.e ~))
-    %memory-set  (make %note 'note' (rap 3 name.e ': ' (fall body.e '[unpinned; earlier evidence retained]') ~))
-    %compaction-completed  (make %summary 'summary' summary.e)
+    |=  value=item:h
+    (make %message (scot %tas -.value) (item-text value))
+  ?+  -.event  ~
+    %input-admitted  (item item.event)
+    %input-received  (item item.input.event)
+    %context-received  (make %context 'context' body.event)
+    %command-completed  (make %message 'assistant' body.event)
+    %llm-completed  (item item.event)
+    %tool-completed
+      %^  make  %tool  'tool'
+      (rap 3 name.event ' (' call-id.event '): ' body.event ~)
+    %memory-set
+      %^  make  %note  'note'
+      (rap 3 name.event ': ' (fall body.event '[unpinned; earlier evidence retained]') ~)
+    %compaction-completed  (make %summary 'summary' summary.event)
     %checkpoint-completed
       ?.  (~(has by nodes.lcm.after) revision.after)  ~
-      (make %summary 'summary' summary.e)
+      (make %summary 'summary' summary.event)
     %cancelled
-      =/  closed  (cancel-results:hl (flop items.before) reason.e)
+      =/  closed  (cancel-results:hl (flop items.before) reason.event)
       ?~  closed  ~
-      (make %tool 'tool' (rap 3 (turn closed |=(it=item:h (cat 3 (item-text it) '\0a')))))
+      %^  make  %tool  'tool'
+      %+  rap  3
+      %+  turn  closed
+      |=  value=item:h
+      (cat 3 (item-text value) '\0a')
   ==
 ++  finish-work
-  |=  [db=state:c scope=scope:c conv=conversation:c]
+  |=  [db=state:c scope=scope:c conversation=conversation:c]
   ^-  state:c
-  =.  db  db(scopes (~(put by scopes.db) scope conv))
-  ?:  |(?=(^ reverse.conv) ?=(^ forward.conv) ?=(^ incoming.conv))
+  =.  db  db(scopes (~(put by scopes.db) scope conversation))
+  ?:  ?|  ?=(^ reverse.conversation)
+          ?=(^ forward.conversation)
+          ?=(^ incoming.conversation)
+      ==
     (enqueue db scope)
   db
 ::  One wake has an event budget and a byte budget. A single oversized source
@@ -141,35 +185,63 @@
   =.  db  db(front t.front, queued (~(del in queued.db) scope))
   =/  found  (~(get by scopes.db) scope)
   ?~  found  db
-  =/  conv  u.found
-  =?  conv  &(?=(~ reverse.conv) ?=(~ forward.conv))
-    conv(reverse incoming.conv, incoming ~)
-  =/  remaining  events
-  =/  left  bytes
-  =/  reversing  ?=(^ reverse.conv)
+  =/  conversation  u.found
+  =?  conversation  &(?=(~ reverse.conversation) ?=(~ forward.conversation))
+    conversation(reverse incoming.conversation, incoming ~)
+  =/  events-left  events
+  =/  bytes-left  bytes
+  ::  A wake reverses a batch or indexes a batch; the phase stays fixed.
+  =/  reversing  ?=(^ reverse.conversation)
   |-  ^-  state:c
-  ?:  =(0 remaining)  (finish-work db scope conv)
+  ?:  =(0 events-left)  (finish-work db scope conversation)
   ?:  reversing
-    =/  reverse  reverse.conv
-    ?~  reverse  (finish-work db scope conv)
-    $(conv conv(reverse t.reverse, forward [i.reverse forward.conv]), remaining (dec remaining))
-  =/  forward  forward.conv
-  ?~  forward  (finish-work db scope conv)
-  =/  e  i.forward
-  =/  after  (fold:hl e view.conv)
-  =?  conv  ?=(%input-received -.e)
-    conv(source `source.input.e, sent at.input.e, author ?~(actor.input.e '' (scot %p u.actor.input.e)))
-  =/  record  (event-record e view.conv after source.conv sent.conv author.conv)
+    =/  reverse  reverse.conversation
+    ?~  reverse  (finish-work db scope conversation)
+    %=  $
+      conversation
+        %=  conversation
+          reverse  t.reverse
+          forward  [i.reverse forward.conversation]
+        ==
+      events-left  (dec events-left)
+    ==
+  =/  forward  forward.conversation
+  ?~  forward  (finish-work db scope conversation)
+  =/  event  i.forward
+  =/  after  (fold:hl event view.conversation)
+  =?  conversation  ?=(%input-received -.event)
+    %=  conversation
+      source  `source.input.event
+      sent  at.input.event
+      author  ?~(actor.input.event '' (scot %p u.actor.input.event))
+    ==
+  =/  record
+    %-  event-record
+    :*  event
+        view.conversation
+        after
+        source.conversation
+        sent.conversation
+        author.conversation
+    ==
   =/  size  ?~(record 0 (met 3 body.u.record))
-  ?:  &(!=(remaining events) (gth size left))  (finish-work db scope conv)
-  =.  conv  conv(forward t.forward, view after)
-  ?~  record  $(remaining (dec remaining))
+  ?:  &(!=(events-left events) (gth size bytes-left))
+    (finish-work db scope conversation)
+  =.  conversation  conversation(forward t.forward, view after)
+  ?~  record  $(events-left (dec events-left))
   =/  ref=ref:c  [scope revision.after ~]
-  =.  records.conv  (~(put by records.conv) revision.after u.record)
-  =.  count.conv  +(count.conv)
-  =.  index.db  (put-document:idx index.db ref sent.u.record author.u.record ~[body.u.record])
+  =.  records.conversation  (~(put by records.conversation) revision.after u.record)
+  =.  count.conversation  +(count.conversation)
+  =.  index.db
+    %-  put-document:idx
+    :*  index.db
+        ref
+        sent.u.record
+        author.u.record
+        ~[body.u.record]
+    ==
   =.  count.db  +(count.db)
-  =.  left  (sub left (min left size))
-  ?:  =(0 left)  (finish-work db scope conv)
-  $(remaining (dec remaining))
+  =.  bytes-left  (sub bytes-left (min bytes-left size))
+  ?:  =(0 bytes-left)  (finish-work db scope conversation)
+  $(events-left (dec events-left))
 --

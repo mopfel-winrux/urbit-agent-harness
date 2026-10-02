@@ -29,6 +29,13 @@
 ++  buttons
   |=  blob=@t
   ^-  (list @t)
+  %+  murn  (components blob)
+  |=  c=json
+  ?.  |(=(`[%s 'Button'] (get:j c 'component')) =(`[%s 'Choice'] (get:j c 'component')))  ~
+  `(string:j c 'id')
+++  components
+  |=  blob=@t
+  ^-  (list json)
   =/  value  (need (de:json:html blob))
   ?>  ?=(%a -.value)
   ?>  ?=(^ p.value)
@@ -38,10 +45,7 @@
   =/  update  (need (get:j (rear p.messages) 'updateComponents'))
   =/  components  (need (get:j update 'components'))
   ?>  ?=(%a -.components)
-  %+  murn  p.components
-  |=  c=json
-  ?.  |(=(`[%s 'Button'] (get:j c 'component')) =(`[%s 'Choice'] (get:j c 'component')))  ~
-  `(string:j c 'id')
+  p.components
 ++  test-stale-expired-and-settled-cards-do-not-offer-confirmation
   =/  r  request
   ;:  weld
@@ -94,4 +98,34 @@
     (expect !>(?=(^ (find (trip 'Refresh view') (trip blob)))))
     (expect-eq !>(~) !>((find (trip '/work project new') (trip blob))))
   ==
+++  test-navigation-record-and-utility-events-retain-their-commands
+  =/  blob
+    (navigation:card 0v4 'Heading\0aDetails' ~[['A record' '/work task exact-id'] ['Tasks' '/work tasks']])
+  =/  nodes  (components blob)
+  =/  choice  (need (find-node 'action-0' nodes))
+  =/  button  (need (find-node 'action-1' nodes))
+  =/  options  (need (get:j choice 'options'))
+  ?>  ?=(%a -.options)
+  =/  option  (snag 0 p.options)
+  ;:  weld
+    (expect-eq !>('Choice') !>((string:j choice 'component')))
+    (expect-eq !>('action-0') !>((string:j option 'id')))
+    (expect-eq !>('A record') !>((string:j option 'label')))
+    (expect-eq !>('Button') !>((string:j button 'component')))
+    (expect-eq !>('secondary') !>((string:j button 'variant')))
+    (expect-eq !>('action-1-label') !>((string:j button 'child')))
+    (expect-eq !>('tlon.sendMessage') !>((string:j (event option) 'name')))
+    (expect-eq !>('tlon.sendMessage') !>((string:j (event button) 'name')))
+    (expect-eq !>('/work task exact-id') !>((string:j (need (get:j (event option) 'context')) 'text')))
+    (expect-eq !>('/work tasks') !>((string:j (need (get:j (event button) 'context')) 'text')))
+  ==
+++  find-node
+  |=  [id=@t nodes=(list json)]
+  |-  ^-  (unit json)
+  ?~  nodes  ~
+  ?:  =(id (string:j i.nodes 'id'))  `i.nodes
+  $(nodes t.nodes)
+++  event
+  |=  node=json
+  (need (get:j (need (get:j node 'action')) 'event'))
 --

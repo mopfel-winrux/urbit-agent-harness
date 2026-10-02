@@ -2,6 +2,7 @@
 ::  store dependency. The head supplies live authority and persists the result.
 /-  w=harness-workspace
 |%
+::
 ++  project-role
   |=  [db=state:w who=authority:w id=id:w]
   ^-  (unit role:w)
@@ -11,35 +12,43 @@
   ?:  owner.who  `%contributor
   ?:  =(0 access.who)  ~
   (~(get by members.u.project) access.who)
+::
 ++  can-contribute
   |=  [db=state:w who=authority:w id=id:w]
   ^-  ?
   =/  role  (project-role db who id)
   ?~  role  |
   ?=(?(%contributor %maintainer) u.role)
+::
 ++  can-maintain
   |=  [db=state:w who=authority:w id=id:w]
   ^-  ?
   =(`%maintainer (project-role db who id))
+::
 ++  can-read
-  |=  [db=state:w who=authority:w art=artifact:w]
+  |=  [db=state:w who=authority:w artifact=artifact:w]
   ^-  ?
   ?:  owner.who  &
-  ?:  archived.art  |
-  ?~  project.art  &(!=(0 access.who) =(owner.art access.who))
-  ?=(^ (project-role db who u.project.art))
+  ?:  archived.artifact  |
+  ?~  project.artifact  &(!=(0 access.who) =(owner.artifact access.who))
+  ?=(^ (project-role db who u.project.artifact))
+::
 ++  can-propose
-  |=  [db=state:w who=authority:w art=artifact:w]
+  |=  [db=state:w who=authority:w artifact=artifact:w]
   ^-  ?
-  ?:  archived.art  |
+  ?:  archived.artifact  |
   ?:  owner.who  &
-  ?~  project.art  &(!=(0 access.who) =(owner.art access.who))
-  (can-contribute db who u.project.art)
+  ?~  project.artifact  &(!=(0 access.who) =(owner.artifact access.who))
+  (can-contribute db who u.project.artifact)
+::
 ++  content-size
   |=  value=content:w
   ^-  @ud
   %+  add  (add (met 3 title.value) (met 3 body.value))
-  (roll sources.value |=([s=source:w n=@ud] (add n (add (met 3 label.s) (met 3 url.s)))))
+  %+  roll  sources.value
+  |=  [source=source:w bytes=@ud]
+  (add bytes (add (met 3 label.source) (met 3 url.source)))
+::
 ++  valid-content
   |=  value=content:w
   ^-  ?
@@ -47,18 +56,28 @@
       (lte (met 3 title.value) 256)
       (lte (met 3 body.value) 262.144)
       (lte (lent sources.value) 16)
-      (levy sources.value |=(s=source:w &((lte (met 3 label.s) 256) (lte (met 3 url.s) 2.048))))
+      %+  levy  sources.value
+      |=  source=source:w
+      &((lte (met 3 label.source) 256) (lte (met 3 url.source) 2.048))
   ==
+::
 ++  can-add-content
   |=  [db=state:w value=content:w]
   &((valid-content value) (lte (add bytes.db (content-size value)) 67.108.864))
+::
 ++  valid-id
   |=  id=@t
   ^-  ?
   ?&  (gth (met 3 id) 0)
       (lte (met 3 id) 96)
-      (levy (trip id) |=(c=@t |(&((gte c 'a') (lte c 'z')) &((gte c '0') (lte c '9')) =(c '-'))))
+      %+  levy  (trip id)
+      |=  char=@t
+      ?|  &((gte char 'a') (lte char 'z'))
+          &((gte char '0') (lte char '9'))
+          =(char '-')
+      ==
   ==
+::
 ++  valid-slug
   |=  slug=@t
   ^-  ?
@@ -67,10 +86,13 @@
       !=('-' (end [3 1] slug))
       !=('-' (rsh [3 (dec (met 3 slug))] slug))
   ==
+::
 ++  touch
   |=  [db=state:w key=record-key:w now=@da]
   ^-  state:w
-  db(recency (~(put by recency.db) key (max now (fall (~(get by recency.db) key) 0))))
+  =/  prior  (fall (~(get by recency.db) key) 0)
+  db(recency (~(put by recency.db) key (max now prior)))
+::
 ++  record
   |=  [db=state:w who=authority:w action=@t target=id:w now=@da]
   ^-  state:w
@@ -83,168 +105,266 @@
   =?  db  |(=('propose' action) =('review' action))
     =/  proposal  (~(get by proposals.db) target)
     ?~(proposal db (touch db [%artifact artifact.u.proposal] now))
-  db(writes +(writes.db), history [[now by.who action target] (scag 2.047 history.db)])
-++  revise
-  |=  [art=artifact:w value=content:w who=authority:w now=@da]
-  ^-  artifact:w
-  %=  art
-    head  +(head.art)
-    label  title.value
-    revisions  (~(put by revisions.art) +(head.art) [now by.who value])
+  %=  db
+    writes   +(writes.db)
+    history  [[now by.who action target] (scag 2.047 history.db)]
   ==
+::
+++  revise
+  |=  [artifact=artifact:w value=content:w who=authority:w now=@da]
+  ^-  artifact:w
+  %=  artifact
+    head       +(head.artifact)
+    label      title.value
+    revisions  (~(put by revisions.artifact) +(head.artifact) [now by.who value])
+  ==
+::
 ++  apply
-  |=  [db=state:w who=authority:w act=action:w now=@da]
+  |=  [db=state:w who=authority:w action=action:w now=@da]
   ^-  (each state:w @t)
-  ?.  (valid-id id.act)  [%| 'Invalid work record ID']
-  =/  done
+  ?.  (valid-id id.action)  [%| 'Invalid work record ID']
+  ::  Every accepted mutation advances the write sequence and audit history.
+  =/  finish
     |=  next=state:w
     ^-  (each state:w @t)
-    [%& (record next who (scot %tas -.act) id.act now)]
-  ?:  ?=(%project-create -.act)
+    [%& (record next who (scot %tas -.action) id.action now)]
+  ::  Project membership and archival remain owner decisions. Maintainers
+  ::  can edit the details of projects to which they still have access.
+  ::
+  ?:  ?=(%project-create -.action)
     ?.  |(owner.who !=(0 access.who))  [%| 'An agent with the workspace tool is required']
-    ?:  (~(has by projects.db) id.act)  [%| 'Project ID already exists']
-    ?.  ?&((gth (met 3 title.act) 0) (lte (met 3 title.act) 256) (lte (met 3 description.act) 4.096) (lth ~(wyt by projects.db) 128))
+    ?:  (~(has by projects.db) id.action)  [%| 'Project ID already exists']
+    ?.  ?&  (gth (met 3 title.action) 0)
+            (lte (met 3 title.action) 256)
+            (lte (met 3 description.action) 4.096)
+            (lth ~(wyt by projects.db) 128)
+        ==
       [%| 'Project title, description or capacity limit exceeded']
-    (done db(projects (~(put by projects.db) id.act [title.act description.act 1 ~ |])))
-  ?:  ?=(?(%project-edit %member) -.act)
-    =/  project  (~(get by projects.db) id.act)
+    (finish db(projects (~(put by projects.db) id.action [title.action description.action 1 ~ |])))
+  ?:  ?=(?(%project-edit %member) -.action)
+    =/  project  (~(get by projects.db) id.action)
     ?~  project  [%| 'Project not found']
     =/  permitted
       ?:  owner.who  &
-      ?:  ?=(%member -.act)  |
-      &((can-maintain db who id.act) =(archived.act archived.u.project))
+      ?:  ?=(%member -.action)  |
+      &((can-maintain db who id.action) =(archived.action archived.u.project))
     ?.  permitted  [%| 'Only the owner can change access or archive projects; current maintainers can edit project details']
-    ?.  =(version.act version.u.project)  [%| 'Project changed; reload before saving']
+    ?.  =(version.action version.u.project)  [%| 'Project changed; reload before saving']
     =/  next=project:w
-      ?:  ?=(%member -.act)
+      ?:  ?=(%member -.action)
         %=  u.project
           version  +(version.u.project)
-          members  ?~(role.act (~(del by members.u.project) scope.act) (~(put by members.u.project) scope.act u.role.act))
+          members  ?~(role.action (~(del by members.u.project) scope.action) (~(put by members.u.project) scope.action u.role.action))
         ==
-      u.project(title title.act, description description.act, archived archived.act, version +(version.u.project))
-    ?.  ?&((gth (met 3 title.next) 0) (lte (met 3 title.next) 256) (lte (met 3 description.next) 4.096) (lte ~(wyt by members.next) 64))
+      %=  u.project
+        title        title.action
+        description  description.action
+        archived     archived.action
+        version      +(version.u.project)
+      ==
+    ?.  ?&  (gth (met 3 title.next) 0)
+            (lte (met 3 title.next) 256)
+            (lte (met 3 description.next) 4.096)
+            (lte ~(wyt by members.next) 64)
+        ==
       [%| 'Project title, description or membership limit exceeded']
-    (done db(projects (~(put by projects.db) id.act next)))
-  ?:  ?=(%artifact-create -.act)
-    ?:  (~(has by artifacts.db) id.act)  [%| 'Artifact ID already exists']
+    (finish db(projects (~(put by projects.db) id.action next)))
+  ?:  ?=(%artifact-create -.action)
+    ?:  (~(has by artifacts.db) id.action)  [%| 'Artifact ID already exists']
     ?.  (lth ~(wyt by artifacts.db) 512)  [%| 'Artifact capacity reached']
-    ?.  (can-add-content db value.act)  [%| 'Document or retained-content capacity limit exceeded']
-    ?.  ?~(project.act |(owner.who !=(0 access.who)) (can-contribute db who u.project.act))
+    ?.  (can-add-content db value.action)  [%| 'Document or retained-content capacity limit exceeded']
+    ?.  ?~(project.action |(owner.who !=(0 access.who)) (can-contribute db who u.project.action))
       [%| 'No contributor access to this project']
-    =/  art=artifact:w  [access.who project.act title.value.act 0 ~ ~ 0 |]
-    =.  db  db(bytes (add bytes.db (content-size value.act)))
+    =/  artifact=artifact:w  [access.who project.action title.value.action 0 ~ ~ 0 |]
+    =.  bytes.db  (add bytes.db (content-size value.action))
     ?:  owner.who
-      (done db(artifacts (~(put by artifacts.db) id.act (revise art value.act who now))))
+      (finish db(artifacts (~(put by artifacts.db) id.action (revise artifact value.action who now))))
     ::  New agent-authored documents start as a reviewable proposal, not as
     ::  already accepted project knowledge. The artifact itself has identity.
-    ?:  (~(has by proposals.db) id.act)  [%| 'Proposal ID already exists']
+    ?:  (~(has by proposals.db) id.action)  [%| 'Proposal ID already exists']
     ?.  (lth ~(wyt by proposals.db) 2.048)  [%| 'Proposal capacity reached']
-    =/  proposal=proposal:w  [id.act 0 by.who access.who now value.act 'New document' %pending ~ '' ~]
-    (done db(artifacts (~(put by artifacts.db) id.act art), proposals (~(put by proposals.db) id.act proposal)))
-  ?:  ?=(%propose -.act)
-    ?:  (~(has by proposals.db) id.act)  [%| 'Proposal ID already exists']
-    =/  art  (~(get by artifacts.db) artifact.act)
-    ?~  art  [%| 'Artifact not found or unavailable']
-    ?.  (can-propose db who u.art)  [%| 'No contributor access to this artifact']
-    ?.  =(base.act head.u.art)  [%| 'Artifact changed; read the current revision before proposing']
-    ?.  &((can-add-content db value.act) (lte (met 3 reason.act) 4.096))  [%| 'Proposal content limit exceeded']
+    =/  proposal=proposal:w  [id.action 0 by.who access.who now value.action 'New document' %pending ~ '' ~]
+    %-  finish
+    %=  db
+      artifacts  (~(put by artifacts.db) id.action artifact)
+      proposals  (~(put by proposals.db) id.action proposal)
+    ==
+  ?:  ?=(%propose -.action)
+    ?:  (~(has by proposals.db) id.action)  [%| 'Proposal ID already exists']
+    =/  artifact  (~(get by artifacts.db) artifact.action)
+    ?~  artifact  [%| 'Artifact not found or unavailable']
+    ?.  (can-propose db who u.artifact)  [%| 'No contributor access to this artifact']
+    ?.  =(base.action head.u.artifact)  [%| 'Artifact changed; read the current revision before proposing']
+    ?.  &((can-add-content db value.action) (lte (met 3 reason.action) 4.096))  [%| 'Proposal content limit exceeded']
     ?.  (lth ~(wyt by proposals.db) 2.048)  [%| 'Proposal capacity reached']
-    =/  next=proposal:w  [artifact.act base.act by.who access.who now value.act reason.act %pending ~ '' ~]
-    (done db(proposals (~(put by proposals.db) id.act next), bytes (add bytes.db (content-size value.act))))
-  ?:  ?=(%review -.act)
+    =/  next=proposal:w  [artifact.action base.action by.who access.who now value.action reason.action %pending ~ '' ~]
+    %-  finish
+    %=  db
+      proposals  (~(put by proposals.db) id.action next)
+      bytes      (add bytes.db (content-size value.action))
+    ==
+  ?:  ?=(%review -.action)
     ?.  owner.who  [%| 'Only the owner can accept or reject a proposal']
-    =/  proposal  (~(get by proposals.db) id.act)
+    =/  proposal  (~(get by proposals.db) id.action)
     ?~  proposal  [%| 'Proposal not found']
     ?.  =(%pending status.u.proposal)  [%| 'Proposal was already reviewed']
-    ?.  (lte (met 3 reason.act) 4.096)  [%| 'Review note exceeds limit']
-    =/  next  u.proposal(status ?:(accept.act %accepted %rejected), decided `now, decision reason.act)
-    ?.  accept.act  (done db(proposals (~(put by proposals.db) id.act next)))
-    =/  art  (~(get by artifacts.db) artifact.u.proposal)
-    ?~  art  [%| 'Artifact no longer exists']
-    ?.  =(base.u.proposal head.u.art)  [%| 'Proposal is stale; it cannot overwrite a newer revision']
+    ?.  (lte (met 3 reason.action) 4.096)  [%| 'Review note exceeds limit']
+    =/  next
+      %=  u.proposal
+        status    ?:(accept.action %accepted %rejected)
+        decided   `now
+        decision  reason.action
+      ==
+    ?.  accept.action  (finish db(proposals (~(put by proposals.db) id.action next)))
+    =/  artifact  (~(get by artifacts.db) artifact.u.proposal)
+    ?~  artifact  [%| 'Artifact no longer exists']
+    ?.  =(base.u.proposal head.u.artifact)  [%| 'Proposal is stale; it cannot overwrite a newer revision']
     =/  author=authority:w  [=(0 access.u.proposal) by.u.proposal access.u.proposal]
-    ?.  (can-propose db author u.art)  [%| 'Proposal author no longer has contributor access']
-    ?.  (lth head.u.art 256)  [%| 'Artifact revision capacity reached']
-    =/  revised  (revise u.art value.u.proposal author now)
+    ?.  (can-propose db author u.artifact)  [%| 'Proposal author no longer has contributor access']
+    ?.  (lth head.u.artifact 256)  [%| 'Artifact revision capacity reached']
+    =/  revised  (revise u.artifact value.u.proposal author now)
     ::  Proposal and revision share the same immutable content noun.
-    (done db(artifacts (~(put by artifacts.db) artifact.u.proposal revised), proposals (~(put by proposals.db) id.act next(revision `head.revised))))
-  ?:  ?=(?(%artifact-save %artifact-archive %publish %unpublish) -.act)
+    %-  finish
+    %=  db
+      artifacts  (~(put by artifacts.db) artifact.u.proposal revised)
+      proposals  (~(put by proposals.db) id.action next(revision `head.revised))
+    ==
+  ::  Accepted content and its public exposure advance independently. A
+  ::  content edit never silently republishes a document.
+  ::
+  ?:  ?=(?(%artifact-save %artifact-archive %publish %unpublish) -.action)
     ?.  owner.who  [%| 'Only the owner can save accepted revisions or change publication']
-    =/  art  (~(get by artifacts.db) id.act)
-    ?~  art  [%| 'Artifact not found']
-    ?:  ?=(%artifact-save -.act)
-      ?.  =(base.act head.u.art)  [%| 'Artifact changed; your draft was not overwritten. Reload the current revision']
-      ?:  archived.u.art  [%| 'Restore the artifact before editing']
-      ?.  =(project.act project.u.art)  [%| 'Project scope is fixed; copy the selected revision into a new artifact to share it']
-      ?.  ?~(project.act & ?=(^ (project-role db who u.project.act)))  [%| 'Project not found or archived']
-      ?.  &((can-add-content db value.act) (lth head.u.art 256))  [%| 'Document, revision or retained-content capacity limit exceeded']
-      =/  revised  (revise u.art(project project.act) value.act who now)
-      (done db(artifacts (~(put by artifacts.db) id.act revised), bytes (add bytes.db (content-size value.act))))
-    ?:  ?=(%artifact-archive -.act)
-      ?.  =(base.act head.u.art)  [%| 'Artifact changed; reload before archiving']
-      ?:  ?=(^ publication.u.art)  [%| 'Unpublish the artifact before archiving']
-      (done db(artifacts (~(put by artifacts.db) id.act u.art(archived archived.act))))
-    =/  expected  ?:(?=(%publish -.act) exposure.act exposure.act)
-    ?.  =(expected exposure.u.art)  [%| 'Publication changed; inspect its current state']
-    =/  slugs  ?~(publication.u.art slugs.db (~(del by slugs.db) slug.u.publication.u.art))
-    ?:  ?=(%unpublish -.act)
-      (done db(slugs slugs, artifacts (~(put by artifacts.db) id.act u.art(publication ~, exposure +(exposure.u.art)))))
-    ?:  archived.u.art  [%| 'Restore the artifact before publishing']
-    ?.  =(head.act head.u.art)  [%| 'Artifact changed; preview the publication again']
-    ?.  (~(has by revisions.u.art) revision.act)  [%| 'Only accepted revisions can be published']
-    ?.  (valid-slug slug.act)  [%| 'Public slug must use lowercase letters, digits and interior hyphens, up to 80 characters']
-    ?:  (~(has by slugs) slug.act)  [%| 'This public URL belongs to another artifact']
-    ?.  (lte (met 3 html.act) 2.097.152)  [%| 'Rendered page exceeds publication limit']
-    =/  next  u.art(publication `[revision.act slug.act html.act now], exposure +(exposure.u.art))
-    (done db(slugs (~(put by slugs) slug.act id.act), artifacts (~(put by artifacts.db) id.act next)))
-  ?:  ?=(%task-create -.act)
+    =/  artifact  (~(get by artifacts.db) id.action)
+    ?~  artifact  [%| 'Artifact not found']
+    ?:  ?=(%artifact-save -.action)
+      ?.  =(base.action head.u.artifact)  [%| 'Artifact changed; your draft was not overwritten. Reload the current revision']
+      ?:  archived.u.artifact  [%| 'Restore the artifact before editing']
+      ?.  =(project.action project.u.artifact)  [%| 'Project scope is fixed; copy the selected revision into a new artifact to share it']
+      ?.  ?~(project.action & ?=(^ (project-role db who u.project.action)))  [%| 'Project not found or archived']
+      ?.  &((can-add-content db value.action) (lth head.u.artifact 256))  [%| 'Document, revision or retained-content capacity limit exceeded']
+      =/  revised  (revise u.artifact(project project.action) value.action who now)
+      %-  finish
+      %=  db
+        artifacts  (~(put by artifacts.db) id.action revised)
+        bytes      (add bytes.db (content-size value.action))
+      ==
+    ?:  ?=(%artifact-archive -.action)
+      ?.  =(base.action head.u.artifact)  [%| 'Artifact changed; reload before archiving']
+      ?:  ?=(^ publication.u.artifact)  [%| 'Unpublish the artifact before archiving']
+      (finish db(artifacts (~(put by artifacts.db) id.action u.artifact(archived archived.action))))
+    =/  expected
+      ?-  -.action
+        %publish    exposure.action
+        %unpublish  exposure.action
+      ==
+    ?.  =(expected exposure.u.artifact)  [%| 'Publication changed; inspect its current state']
+    =/  slugs  ?~(publication.u.artifact slugs.db (~(del by slugs.db) slug.u.publication.u.artifact))
+    ?:  ?=(%unpublish -.action)
+      %-  finish
+      %=  db
+        slugs  slugs
+        artifacts
+          (~(put by artifacts.db) id.action u.artifact(publication ~, exposure +(exposure.u.artifact)))
+      ==
+    ?:  archived.u.artifact  [%| 'Restore the artifact before publishing']
+    ?.  =(head.action head.u.artifact)  [%| 'Artifact changed; preview the publication again']
+    ?.  (~(has by revisions.u.artifact) revision.action)  [%| 'Only accepted revisions can be published']
+    ?.  (valid-slug slug.action)  [%| 'Public slug must use lowercase letters, digits and interior hyphens, up to 80 characters']
+    ?:  (~(has by slugs) slug.action)  [%| 'This public URL belongs to another artifact']
+    ?.  (lte (met 3 html.action) 2.097.152)  [%| 'Rendered page exceeds publication limit']
+    =/  next
+      %=  u.artifact
+        publication  `[revision.action slug.action html.action now]
+        exposure     +(exposure.u.artifact)
+      ==
+    %-  finish
+    %=  db
+      slugs      (~(put by slugs) slug.action id.action)
+      artifacts  (~(put by artifacts.db) id.action next)
+    ==
+  ::  Tasks coordinate work without granting access to documents or tools.
+  ::
+  ?:  ?=(%task-create -.action)
     ?.  |(owner.who !=(0 access.who))  [%| 'An agent with the workspace tool is required']
-    =/  project  (~(get by projects.db) project.act)
-    ?.  |(=('' project.act) ?~(project | !archived.u.project))  [%| 'Project is unavailable']
-    ?:  (~(has by tasks.db) id.act)  [%| 'Task ID already exists']
-    ?.  ?&((gth (met 3 title.act) 0) (lte (met 3 title.act) 256) (lte (met 3 description.act) 4.096) (lth ~(wyt by tasks.db) 2.048))
+    =/  project  (~(get by projects.db) project.action)
+    ?.  |(=('' project.action) ?~(project | !archived.u.project))  [%| 'Project is unavailable']
+    ?:  (~(has by tasks.db) id.action)  [%| 'Task ID already exists']
+    ?.  ?&  (gth (met 3 title.action) 0)
+            (lte (met 3 title.action) 256)
+            (lte (met 3 description.action) 4.096)
+            (lth ~(wyt by tasks.db) 2.048)
+        ==
       [%| 'Task title, description or capacity limit exceeded']
     ::  Seed from the durable write sequence so deleting and recreating an ID
     ::  cannot revive an earlier version token. Other records do not change it.
-    (done db(tasks (~(put by tasks.db) id.act [project.act title.act description.act +(writes.db) %open ~ '' ~ now])))
-  =/  task  (~(get by tasks.db) id.act)
+    =/  task=task:w
+      [project.action title.action description.action +(writes.db) %open ~ '' ~ now]
+    (finish db(tasks (~(put by tasks.db) id.action task)))
+  =/  task  (~(get by tasks.db) id.action)
   ?~  task  [%| 'Task not found or unavailable']
   ?.  |(owner.who !=(0 access.who))  [%| 'An agent with the workspace tool is required']
   =/  expected
-    ?-  -.act
-      %task-claim   version.act
-      %task-assign  version.act
-      %task-update  version.act
-      %task-delete  version.act
+    ?-  -.action
+      %task-claim   version.action
+      %task-assign  version.action
+      %task-update  version.action
+      %task-delete  version.action
     ==
   ?.  =(expected version.u.task)  [%| 'Task changed; read it again before updating']
-  ?:  ?=(%task-delete -.act)
-    (done db(tasks (~(del by tasks.db) id.act), writes (max writes.db version.u.task)))
-  ?:  ?=(%task-assign -.act)
-    (done db(tasks (~(put by tasks.db) id.act u.task(version +(version.u.task), claimant assignee.act, updated now))))
-  ?:  ?=(%task-claim -.act)
+  ?:  ?=(%task-delete -.action)
+    %-  finish
+    %=  db
+      tasks   (~(del by tasks.db) id.action)
+      writes  (max writes.db version.u.task)
+    ==
+  ?:  ?=(%task-assign -.action)
+    =/  next
+      %=  u.task
+        version   +(version.u.task)
+        claimant  assignee.action
+        updated   now
+      ==
+    (finish db(tasks (~(put by tasks.db) id.action next)))
+  ?:  ?=(%task-claim -.action)
     ?.  &(=(%open status.u.task) ?=(~ claimant.u.task))  [%| 'Task is already assigned or not open']
-    (done db(tasks (~(put by tasks.db) id.act u.task(version +(version.u.task), status %claimed, claimant `by.who, updated now))))
-  ?.  (lte (met 3 outcome.act) 4.096)  [%| 'Task outcome exceeds limit']
-  =/  linked  ?~(artifact.act ~ (~(get by artifacts.db) u.artifact.act))
-  ?.  |(=(artifact.act artifact.u.task) ?~(artifact.act & &(?=(^ linked) (can-read db who u.linked))))
+    =/  next
+      %=  u.task
+        version   +(version.u.task)
+        status    %claimed
+        claimant  `by.who
+        updated   now
+      ==
+    (finish db(tasks (~(put by tasks.db) id.action next)))
+  ?.  (lte (met 3 outcome.action) 4.096)  [%| 'Task outcome exceeds limit']
+  =/  linked  ?~(artifact.action ~ (~(get by artifacts.db) u.artifact.action))
+  ?.  |(=(artifact.action artifact.u.task) ?~(artifact.action & &(?=(^ linked) (can-read db who u.linked))))
     [%| 'Task result document must be accessible to this agent']
   =/  edited  u.task
-  =?  edited  ?=(^ details.act)
-    edited(title title.u.details.act, description description.u.details.act, project project.u.details.act)
-  ?.  ?&((gth (met 3 title.edited) 0) (lte (met 3 title.edited) 256) (lte (met 3 description.edited) 4.096))
+  =?  edited  ?=(^ details.action)
+    %=  edited
+      title        title.u.details.action
+      description  description.u.details.action
+      project      project.u.details.action
+    ==
+  ?.  ?&  (gth (met 3 title.edited) 0)
+          (lte (met 3 title.edited) 256)
+          (lte (met 3 description.edited) 4.096)
+      ==
     [%| 'Task title or description exceeds limits']
   =/  group  (~(get by projects.db) project.edited)
   ?.  |(=(project.edited project.u.task) =('' project.edited) ?~(group | !archived.u.group))
     [%| 'Project is unavailable']
   =/  next
     %=  edited
-      version  +(version.u.task)
-      status  status.act
-      claimant  ?:(=(status.act status.u.task) claimant.u.task ?:(=(%open status.act) ~ ?~(claimant.u.task `by.who claimant.u.task)))
-      outcome  outcome.act
-      artifact  artifact.act
-      updated  now
+      version   +(version.u.task)
+      status    status.action
+      claimant
+        ?:  =(status.action status.u.task)  claimant.u.task
+        ?:  =(%open status.action)  ~
+        ?~(claimant.u.task `by.who claimant.u.task)
+      outcome   outcome.action
+      artifact  artifact.action
+      updated   now
     ==
-  (done db(tasks (~(put by tasks.db) id.act next)))
+  (finish db(tasks (~(put by tasks.db) id.action next)))
 --

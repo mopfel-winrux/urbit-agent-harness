@@ -61,4 +61,60 @@
   =/  lib  ~(. migration *bowl:gall)
   =/  marker  '<!-- harness-notes-migrate: diary/~lux/source 123 -->'
   (expect !>(&(=(`marker (provenance:lib (cat 3 'body\0a' marker))) =(~ (provenance:lib (cat 3 marker '\0aunrelated'))))))
+::
+++  import-request
+  |=  [args=json changed=?]
+  ^-  [body=@t action=(unit action:v1:n)]
+  =/  bowl=bowl:gall  *bowl:gall
+  =.  bowl  bowl(our ~lux, src ~lux, now ~2026.10.1)
+  =/  folder  *folder:n
+  =.  folder  folder(id 1, name 'Root')
+  =/  note  *note:n
+  =.  note  note(id 2, folder-id 1, title 'Existing')
+  =/  attempt
+    |.
+    =/  result  (run:~(. notes bowl) args /tlon-tool/0v1)
+    ?~  effect.result  [body.result ~]
+    ?>  ?=([%pass * %agent [@ %notes] %poke %notes-action-1 *] u.effect.result)
+    =/  [pass=* wire=* agent=* who=* poke=* mark=* data=vase]  u.effect.result
+    [body.result `!<(action:v1:n data)]
+  =/  checked
+    %+  mink  [attempt %9 2 %0 1]
+    |=  [ref=* raw=*]
+    ^-  (unit (unit noun))
+    =/  path  ;;(path raw)
+    ?:  =(%$ (rear path))  ``&
+    ?:  (lien path |=(part=@ta =(%folders part)))  ``~[folder]
+    ?:  ?=([%gx @ %notes @ %v0 %notes *] path)
+      ``?:(changed ~[note] `(list note:n)`~)
+    ~
+  ?>  ?=(%0 -.checked)
+  ;;([body=@t action=(unit action:v1:n)] product.checked)
+::
+++  test-import-plan-binds-tree-and-current-destination
+  =/  args
+    %-  pairs:enjs:format
+    :~  ['action' %s 'plan_notes_import']
+        ['notebook' %s '~lux/book']
+        ['folder_id' %s '1']
+        ['tree' %s '[{"type":"note","title":"Title","text":"Body"}]']
+    ==
+  =/  planned  (import-request args |)
+  =/  preview  (need (de:json:html body.planned))
+  ?>  ?=(%o -.preview)
+  ?>  ?=(%o -.args)
+  =.  p.args  (~(put by p.args) 'action' [%s 'import_notes'])
+  =.  p.args  (~(put by p.args) 'revision' (~(got by p.preview) 'revision'))
+  =.  p.args  (~(put by p.args) 'confirm' (~(got by p.preview) 'confirm'))
+  =/  applied  (import-request args |)
+  =/  changed-tree
+    args(p (~(put by p.args) 'tree' [%s '[{"type":"note","title":"Title","text":"Changed"}]']))
+  =/  expected=action:v1:n
+    [0v1 %notebook [~lux %book] %batch-import-tree 1 ~[[%note 'Title' 'Body']]]
+  ;:  weld
+    (expect-eq !>(~) !>(action.planned))
+    (expect-eq !>(`expected) !>(action.applied))
+    (expect-eq !>(~) !>((mole |.((import-request changed-tree |)))))
+    (expect-eq !>(~) !>((mole |.((import-request args &)))))
+  ==
 --

@@ -164,10 +164,12 @@
   ?~  value  ~
   ?:  =(~ u.value)  ~
   ::  Empty content remains explicit, including profile and metadata clears.
-  ?:  ?=(?(%text %title %description %nickname %bio %status %avatar %cover %source %html) key)
+  ?:  ?=  ?(%text %title %description %nickname %bio %status %avatar %cover %source %html)
+          key
     value
   ?:  =([%s ''] u.value)  ~
   value
+::
 ++  string
   |=  [args=json key=@t fallback=@t cap=@ud]
   ^-  @t
@@ -176,53 +178,76 @@
   ?>  ?=(%s -.u.value)
   ?>  (lte (met 3 p.u.value) cap)
   p.u.value
+::
 ++  required
   |=  [args=json key=@t cap=@ud]
   ^-  @t
   =/  value  (string args key '' cap)
   ?>  !=('' value)
   value
+::
 ++  has
   |=  [args=json key=@t]
   ?=(^ (argument args key))
+::
 ++  timestamp
   |=  value=@t
   ^-  @da
   =/  at  (slav %da value)
-  ?>  &(=(value (scot %da at)) (gth at 0) (lte (met 0 at) 128))
+  ?>  ?&  =(value (scot %da at))
+          (gth at 0)
+          (lte (met 0 at) 128)
+      ==
   at
+::
 ++  number
   |=  [args=json key=@t fallback=@ud]
   ^-  @ud
   =/  value  (string args key (scot %ud fallback) 32)
-  =/  out  (slav %ud value)
-  ?>  &(=(value (scot %ud out)) (lte out 1.000.000.000))
-  out
+  =/  parsed  (slav %ud value)
+  ?>  &(=(value (scot %ud parsed)) (lte parsed 1.000.000.000))
+  parsed
+::
 ++  offset
   |=  args=json
   (number args 'offset' 0)
+::
 ++  directory
   |=  [args=json rows=(list json)]
   ^-  json
   =/  start  (offset args)
   =/  remaining  (slag start rows)
   =/  selected=[count=@ud bytes=@ud items=(list json)]  [0 0 ~]
+  ::  Keep complete rows within the row and encoded-byte limits.
   =.  selected
-    |-  ^+  selected
+    |-
+    ^+  selected
     ?:  |(?=(~ remaining) =(count.selected 100))  selected
     =/  size  (met 3 (en:json:html i.remaining))
     ?>  (lte size 20.000)
     ?:  (gth (add bytes.selected size) 20.000)  selected
-    $(remaining t.remaining, selected [+(count.selected) (add bytes.selected size) [i.remaining items.selected]])
-  =/  next  (add start count.selected)
-  =/  more  (gth (lent rows) next)
-  (pairs:enjs:format ~[['items' %a (flop items.selected)] ['has_more' %b more] ['next_offset' ?:(more [%s (scot %ud next)] ~)]])
+    =.  selected
+      %*  .  selected
+        count  +(count.selected)
+        bytes  (add bytes.selected size)
+        items  [i.remaining items.selected]
+      ==
+    $(remaining t.remaining)
+  =/  next-offset  (add start count.selected)
+  =/  more  (gth (lent rows) next-offset)
+  %-  pairs:enjs:format
+  :~  ['items' %a (flop items.selected)]
+      ['has_more' %b more]
+      ['next_offset' ?:(more [%s (scot %ud next-offset)] ~)]
+  ==
+::
 ++  dm-id
   |=  value=@t
   ^-  [@p @da]
   =/  parts  (need (rush (cat 3 '/' value) stap))
   ?>  ?=([@ @ ~] parts)
   [(ship i.parts) (timestamp i.t.parts)]
+::
 ++  destination
   |=  args=json
   ^-  destination:t
@@ -231,23 +256,27 @@
   ?:  (has args 'ship')
     [%dm (ship (required args 'ship' 128)) ?:(=('' parent) ~ `(dm-id parent))]
   [%channel (nest (required args 'channel' 256)) ?:(=('' parent) ~ `(timestamp parent))]
+::
 ++  ship
   |=  value=@t
   ^-  @p
   =/  who  (slav %p value)
   ?>  =(value (scot %p who))
   who
+::
 ++  slug
   |=  value=@t
   ^-  @tas
   ?>  &((gth (met 3 value) 0) (lte (met 3 value) 64))
   (need (rush value sym))
+::
 ++  flag
   |=  value=@t
   ^-  [@p @tas]
   =/  parts  (need (rush (cat 3 '/' value) stap))
   ?>  ?=([@ @ ~] parts)
   [(ship i.parts) (slug i.t.parts)]
+::
 ++  nest
   |=  value=@t
   ^-  [kind=?(%chat %diary %heap) ship=@p name=@tas]
@@ -255,6 +284,7 @@
   ?>  ?=([@ @ @ ~] parts)
   ?>  ?=(?(%chat %diary %heap) i.parts)
   [i.parts (ship i.t.parts) (slug i.t.t.parts)]
+::
 ++  group-nest
   |=  value=@t
   ^-  [kind=?(%chat %diary %heap %notes) ship=@p name=@tas]

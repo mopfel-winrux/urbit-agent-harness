@@ -59,6 +59,14 @@ pub fn build(b: *std.Build) void {
 
 fn buildDesk(step: *std.Build.Step, install_path: []const u8, desk_path: ?[]const u8, heavy_tests: bool) !void {
     const allocator = step.owner.allocator;
+    const commit_env = std.process.getEnvVarOwned(allocator, "HARNESS_COMMIT") catch |err| switch (err) {
+        error.EnvironmentVariableNotFound => "",
+        else => return err,
+    };
+    const commit = std.mem.eql(u8, commit_env, "true");
+    if (commit and desk_path == null)
+        return step.fail("HARNESS_COMMIT=true requires -Ddesk=/path/to/pier/desk", .{});
+
     try run(step, &.{ "npm", "ci", "--prefix", "fe", "--no-audit", "--no-fund" });
     try run(step, &.{ "npm", "run", "build", "--prefix", "fe" });
     try checkoutGrubbery(step);
@@ -81,7 +89,46 @@ fn buildDesk(step: *std.Build.Step, install_path: []const u8, desk_path: ?[]cons
         const target = try expandHome(allocator, step, raw_path);
         if (!exists(target)) return step.fail("desk path '{s}' does not exist", .{target});
         try syncDir(allocator, install_path, target);
+        if (commit) try commitDesk(step, target);
     }
+}
+
+fn commitDesk(step: *std.Build.Step, target: []const u8) !void {
+    const allocator = step.owner.allocator;
+    const mount = try std.fs.path.resolve(allocator, &.{target});
+    const desk = std.fs.path.basename(mount);
+    const pier = std.fs.path.dirname(mount) orelse
+        return step.fail("desk mount '{s}' has no parent pier", .{target});
+
+    // The mount name is a Hoon term in the commit command.
+    if (desk.len == 0 or !std.ascii.isLower(desk[0]))
+        return step.fail("desk mount name '{s}' is not a Hoon term", .{desk});
+    for (desk) |char| {
+        if (!std.ascii.isLower(char) and !std.ascii.isDigit(char) and char != '-')
+            return step.fail("desk mount name '{s}' is not a Hoon term", .{desk});
+    }
+    const command = try std.fmt.allocPrint(
+        allocator,
+        "=/  m  (strand ,vase)  " ++
+            ";<  =beak  bind:m  get-beak  " ++
+            ";<  ~  bind:m  (poke [p.beak %hood] %kiln-commit !>([%{s} %.n]))  " ++
+            "(pure:m !>(%harness-commit-sent))",
+        .{desk},
+    );
+    const result = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &.{ "click", "-k", "-p", pier, command },
+        .max_output_bytes = 1024 * 1024,
+    }) catch |err| {
+        return step.fail("could not run click: {s}", .{@errorName(err)});
+    };
+    std.debug.print("{s}{s}", .{ result.stdout, result.stderr });
+    // click can exit zero after a failed thread. Require the thread's receipt
+    // as well as process success; -p keeps the Hoon failure trace readable.
+    if (result.term != .Exited or result.term.Exited != 0 or
+        std.mem.indexOf(u8, result.stdout, "[0 %avow 0 %noun %harness-commit-sent]") == null)
+        return step.fail("Clay commit failed for %{s}", .{desk});
+    std.debug.print("Clay commit requested for %{s}\n", .{desk});
 }
 
 // Four source marks bootstrap the dynamic-code index. The noun mark is also

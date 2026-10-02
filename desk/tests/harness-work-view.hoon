@@ -97,4 +97,21 @@
     (expect-eq !>((command:view 'proposal' (need (de:json:html '{"id":"draft","offset":8000}')))) !>(+:(snag 0 links)))
     (expect !>((lien links |=([label=@t command=@t] =('Save draft' label)))))
   ==
+++  test-artifact-pages-pin-revision-and-both-offsets
+  =/  args  (need (de:json:html '{"id":"doc","offset":10,"sourceOffset":3}'))
+  =/  value
+    %-  pairs:enjs:format
+    :~  ['artifact' (pairs:enjs:format ~[['id' %s 'doc']])]
+        ['content' (need (de:json:html '{"revision":7,"nextOffset":20,"nextSourceOffset":6}'))]
+    ==
+  =/  links  (actions:view 'artifact' args value)
+  =/  text-args  (need (de:json:html '{"id":"doc","revision":7,"offset":20,"sourceOffset":3}'))
+  =/  source-args  (need (de:json:html '{"id":"doc","revision":7,"offset":10,"sourceOffset":6}'))
+  ;:  weld
+    (expect-eq !>(4) !>((lent links)))
+    (expect-eq !>(['Continue reading' (command:view 'artifact' text-args)]) !>((snag 0 links)))
+    (expect-eq !>(['More sources' (command:view 'artifact' source-args)]) !>((snag 1 links)))
+    (expect-eq !>('Review drafts') !>(-:(snag 2 links)))
+    (expect-eq !>(['Tasks' '/work tasks']) !>((snag 3 links)))
+  ==
 --

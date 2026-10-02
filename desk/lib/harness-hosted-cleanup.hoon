@@ -9,5 +9,11 @@
   =.  serial.openai  +(serial.openai-auth.saved)
   =/  xai=state:renew  *state:renew
   =.  serial.xai  +(serial.xai-auth.saved)
-  saved(provider-keys ~, api-key '', hosted *state:hosted, openai-auth openai, xai-auth xai)
+  %=  saved
+    provider-keys  ~
+    api-key        ''
+    hosted         *state:hosted
+    openai-auth    openai
+    xai-auth       xai
+  ==
 --

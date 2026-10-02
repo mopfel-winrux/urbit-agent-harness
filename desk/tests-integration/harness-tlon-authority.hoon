@@ -37,6 +37,8 @@
     ?:  (lien path |=(part=@ta =(%cron-session part)))  ``job
     ?:  (lien path |=(part=@ta =(%cron-authority part)))  ``allowed
     ?:  =(%$ (rear path))  ``&
+    ::  Native Chat is installed and has no pending owner invitations.
+    ?:  ?=([%gx @ %chat @ %dm %invited %ships ~] path)  ``~
     ~
   ?>  ?=(%0 -.checked)
   ::  The product is the cage's vase; don't recursively validate its type.

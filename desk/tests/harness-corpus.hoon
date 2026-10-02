@@ -85,4 +85,26 @@
     ==
   =/  db  (drain (capture:corpus ready 'other' events))
   (expect-eq !>(1) !>((lent hits:(search:idx index.db 'future hand' ~ 10))))
+++  test-byte-budget-defers-events-and-admits-one-oversized-record
+  =/  events=(list event:h)
+    :~  [%input-admitted [%user 'last oversized body']]
+        [%input-admitted [%user 'short']]
+        [%input-admitted [%user 'first oversized body']]
+    ==
+  =/  reversed  (work:corpus (capture:corpus *state:c 'budget' events) 10 8)
+  =/  first  (work:corpus reversed 10 8)
+  =/  second  (work:corpus first 10 8)
+  =/  final  (work:corpus second 10 8)
+  =/  source  (~(got by scopes.final) (~(got by names.final) 'budget'))
+  ;:  weld
+    (expect-eq !>(0) !>(count.reversed))
+    (expect-eq !>(1) !>(count.first))
+    (expect-eq !>(2) !>(count.second))
+    (expect-eq !>(3) !>(count.final))
+    (expect-eq !>('first oversized body') !>(body:(~(got by records.source) 1)))
+    (expect-eq !>('short') !>(body:(~(got by records.source) 2)))
+    (expect-eq !>('last oversized body') !>(body:(~(got by records.source) 3)))
+    (expect-eq !>(reversed) !>((work:corpus reversed 0 8)))
+    (expect-eq !>(reversed) !>((work:corpus reversed 10 0)))
+  ==
 --

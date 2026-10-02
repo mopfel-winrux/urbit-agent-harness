@@ -114,4 +114,84 @@
     (expect-eq !>('cancel') !>((str:j (~(got by events:(~(got by registry.runners.stopped-state) 'laptop')) 2) 'type')))
     (expect-eq !>(0) !>(~(wyt by jobs.runners.revoke-state)))
   ==
+::
+++  test-expired-job-notifies-hands-once
+  %-  isolated  |=  ignored=*
+  =/  initial-bowl  bowl
+  =/  config  builtin-config:policy
+  =.  config  config(url 'connected://laptop', model '', tools ~)
+  =/  events=(list event:h)
+    :~  [%llm-routed 0 config]
+        [%llm-requested 0 %turn]
+        [%input-admitted [%user 'Hello']]
+        [%config-replaced config]
+    ==
+  =/  job=request:r  ['laptop' 'timeout' 0 %turn 'attempt' (sham events) ~]
+  =/  initial  saved
+  =.  sessions.initial  (~(put by sessions.initial) 'timeout' [events 1])
+  =.  jobs.runners.initial
+    (~(put by jobs.runners.initial) 'attempt' [job (sub now.initial-bowl ~m31) | |])
+  =/  loaded  (~(on-load head bowl) !>(initial))
+  =/  running  !<(state-0 ~(on-save +.loaded bowl))
+  ?>  ?=(^ wake.runners.running)
+  =/  at  u.wake.runners.running
+  =/  tick-bowl  initial-bowl(now at)
+  =/  expired
+    (~(on-arvo +.loaded tick-bowl) /runner-wake/(scot %da at) [%behn %wake ~])
+  =/  final  !<(state-0 ~(on-save +.expired tick-bowl))
+  =/  notifications
+    %+  skim  -.expired
+    |=  card=card:agent:gall
+    ?=([%give %fact [[%hand-events ~] ~] %noun *] card)
+  =/  view  (play:hl log:(~(got by sessions.final) 'timeout'))
+  ;:  weld
+    (expect-eq !>(1) !>((lent notifications)))
+    (expect-eq !>(0) !>(~(wyt by jobs.runners.final)))
+    (expect-eq !>(~) !>(pending.view))
+    (expect !>(?=(^ err.view)))
+  ==
+::
+++  test-reconnect-replays-after-cursor-and-closes-prior-stream
+  %-  isolated  |=  ignored=*
+  =/  initial  saved
+  =/  row  (~(got by registry.runners.initial) 'laptop')
+  =.  row
+    row(next 4, acknowledged 1, events (my ~[[2 [%s 'two']] [3 [%s 'three']]]))
+  =.  registry.runners.initial  (~(put by registry.runners.initial) 'laptop' row)
+  =/  loaded  (~(on-load head bowl) !>(initial))
+  =/  connect
+    |=  cursor=@t
+    =/  inbound  (request '')
+    inbound(method.request %'GET', body.request ~, header-list.request [['last-event-id' cursor] header-list.request.inbound])
+  =/  first
+    (~(on-poke +.loaded bowl) %handle-http-request !>([`@ta`%first (connect '1')]))
+  =/  second
+    (~(on-poke +.first bowl) %handle-http-request !>([`@ta`%second (connect '2')]))
+  =/  final  !<(state-0 ~(on-save +.second bowl))
+  =/  connected  (~(got by registry.runners.final) 'laptop')
+  =/  transport
+    %+  skim  -.second
+    |=  card=card:agent:gall
+    ?=(%give -.card)
+  =/  data
+    (as-octs:mimes:html (cat 3 ': connected\0a\0a' (frame:runner 3 [%s 'three'])))
+  =/  expected=(list card:agent:gall)
+    :~  [%give %fact ~[/http-response/first] %http-response-data !>(`(unit octs)`~)]
+        [%give %kick ~[/http-response/first] ~]
+        [%give %fact ~[/http-response/second] %http-response-header !>(`response-header:http`[200 ~[['content-type' 'text/event-stream'] ['cache-control' 'no-store'] ['x-accel-buffering' 'no']]])]
+        [%give %fact ~[/http-response/second] %http-response-data !>(`(unit octs)`(some data))]
+    ==
+  =/  stale
+    (~(on-poke +.second bowl) %handle-http-request !>([`@ta`%stale (connect '0')]))
+  =/  future
+    (~(on-poke +.second bowl) %handle-http-request !>([`@ta`%future (connect '4')]))
+  =/  unchanged  !<(state-0 ~(on-save +.stale bowl))
+  ;:  weld
+    (expect-eq !>(expected) !>(transport))
+    (expect-eq !>(`@ta`%second) !>((need stream.connected)))
+    (expect-eq !>(events.row) !>(events.connected))
+    (expect-eq !>(409) !>((code -.stale)))
+    (expect-eq !>(409) !>((code -.future)))
+    (expect-eq !>(runners.final) !>(runners.unchanged))
+  ==
 --

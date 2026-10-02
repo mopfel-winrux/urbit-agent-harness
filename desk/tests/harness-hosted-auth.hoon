@@ -153,4 +153,40 @@
     (expect-eq !>(token) !>((key:auth keys.receipt 'anthropic-device')))
     (expect-eq !>(200) !>((number:j response.receipt 'status' 0)))
   ==
+++  test-request-id-bounds-and-alphabet
+  %-  zing
+  %+  turn
+    :~  ['' 400]
+        ['Uppercase' 400]
+        ['path/segment' 400]
+        ['has_space' 400]
+        [(crip (reap 129 'a')) 400]
+        [(crip (reap 128 'a')) 202]
+        ['login-01.retry' 202]
+    ==
+  |=  [id=@t expected=@ud]
+  =/  input
+    (pairs:enjs:format ~[['provider' %s 'openai'] ['requestId' %s id]])
+  =/  result  (run:hosted *state ~ 'start' input now)
+  ;:  weld
+    (expect-eq !>(expected) !>((number:j response.result 'status' 0)))
+    (expect-eq !>(?:(=(202 expected) 2 0)) !>((lent cards.result)))
+    (expect-eq !>(?:(=(202 expected) 1 0)) !>(~(wyt by flows.db.result)))
+  ==
+++  test-credential-change-fences-verification
+  %-  zing
+  %+  turn  `(list @t)`~['openai-device' 'openai-refresh' 'openai-account']
+  |=  slot=@t
+  =/  changed  (~(put by keys:fixture-verify) slot 'REPLACEMENT')
+  =/  result
+    (receive:hosted db:fixture-verify changed 'test-login' 4 (reply 200 '{"models":[]}') (add now ~s8))
+  =/  login  (~(got by flows.db.result) 'test-login')
+  ;:  weld
+    (expect-eq !>(changed) !>(keys.result))
+    (expect-eq !>(~) !>(catalogs.db.result))
+    (expect-eq !>(~) !>(cards.result))
+    (expect-eq !>(%error) !>(phase.login))
+    (expect-eq !>('Login expired or credentials changed. Start a new login.') !>(error.login))
+    (expect-eq !>(['' '' '' '']) !>([device.login token.login refresh.login account.login]))
+  ==
 --

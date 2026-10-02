@@ -61,4 +61,28 @@
     (expect-eq !>(`ticket) !>((decode:admin (connection:admin ticket))))
     (expect-eq !>(~) !>((decode:admin 'ordinary-client')))
   ==
+++  provenance
+  |=  log=(list event:h)
+  [(origin:admin log ~zod `~nec) (peer-source:admin log) (source-actor:admin log)]
+++  test-provenance-stops-at-input-boundary
+  =/  received=event:h
+    [%input-received [0v1 [%peer ~nec 0v1] `~nec ~ ~2026.9.8 [%user 'request']]]
+  =/  marker=event:h  [%input-admitted [%user 'input']]
+  =/  command=event:h  [%command-completed 0v2 'work' 'result']
+  ;:  weld
+    (expect-eq !>([~ ~ ~]) !>((provenance ~)))
+    (expect-eq !>([`%peer `~nec `~nec]) !>((provenance ~[command received])))
+    (expect-eq !>([~ ~ ~]) !>((provenance ~[command marker received])))
+  ==
+++  test-provenance-uses-only-the-latest-received-input
+  =/  peer=event:h
+    [%input-received [0v1 [%peer ~nec 0v1] `~nec ~ ~2026.9.8 [%user 'request']]]
+  =/  timer=event:h
+    [%input-received [0v2 [%timer %cron] ~ ~ ~2026.9.8 [%user 'scheduled']]]
+  =/  hand=event:h
+    [%input-received [0v3 [%hand 'b' 'tlon' 'dm/~nec/topic' 'e' '~nec'] `~nec ~ ~2026.9.8 [%user 'direct']]]
+  ;:  weld
+    (expect-eq !>([~ ~ ~]) !>((provenance ~[timer peer])))
+    (expect-eq !>([`%tlon ~ `~nec]) !>((provenance ~[hand peer])))
+  ==
 --

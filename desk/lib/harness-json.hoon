@@ -13,10 +13,15 @@
   ^-  json
   =/  row  (item-ui-json item)
   ?>  ?=(%o -.row)
+  ::  Synthetic cancellation rows share an event position; the call ID separates them.
+  =/  row-id
+    ?:  ?&(?=(%tool -.item) (is-cancelled:hl body.item))
+      (rap 3 (scot %ud at) ':' call-id.item ~)
+    (scot %ud at)
   :-  %o
   %-  ~(gas by p.row)
   :~  ['eventCount' (numb:enjs:format at)]
-      ['id' %s ?:(?&(?=(%tool -.item) (is-cancelled:hl body.item)) (rap 3 (scot %ud at) ':' call-id.item ~) (scot %ud at))]
+      ['id' %s row-id]
       ['inputId' ?~(input-id ~ [%s (scot %uv u.input-id)])]
       ['cancelled' %b ?:(?=(%tool -.item) (is-cancelled:hl body.item) %.n)]
   ==
@@ -27,60 +32,87 @@
   ^-  json
   :-  %a
   %+  turn  ~(tap by skills)
-  |=  [name=@t s=skill:h]
+  |=  [name=@t skill=skill:h]
   ^-  json
-  (pairs:enjs:format ~[['name' %s name] ['desc' %s desc.s]])
+  %-  pairs:enjs:format
+  :~  ['name' %s name]
+      ['desc' %s desc.skill]
+  ==
 ++  skill-json
-  |=  [name=@t s=skill:h]
+  |=  [name=@t skill=skill:h]
   ^-  json
-  (pairs:enjs:format ~[['name' %s name] ['desc' %s desc.s] ['body' %s body.s] ['revision' %s (scot %uv (sham s))]])
+  %-  pairs:enjs:format
+  :~  ['name' %s name]
+      ['desc' %s desc.skill]
+      ['body' %s body.skill]
+      ['revision' %s (scot %uv (sham skill))]
+  ==
 ::  json for configuration surfaces (key withheld)
 ::
 ++  config-json
-  |=  cfg=config:h
+  |=  config=config:h
   ^-  json
   %-  pairs:enjs:format
-  :~  ['zdr' %b zdr.cfg]
-      ['fallbacks' %a (turn fallbacks.cfg |=(m=model-choice:h (pairs:enjs:format ~[['provider' %s provider.m] ['model' %s model.m]])))]
-      ['url' %s url.cfg]
-      ['model' %s model.cfg]
-      :-  'headers'
+  :~  ['zdr' %b zdr.config]
+      :-  'fallbacks'
       :-  %a
-      %+  turn  headers.cfg
-      |=  [name=@t value=@t]
-      (pairs:enjs:format ~[['name' %s name] ['value' %s value]])
-      ['system' %s system.cfg]
-      ['max-context' (numb:enjs:format max-context.cfg)]
-      ['tools' %a (turn tools.cfg grant-json)]
+      %+  turn  fallbacks.config
+      |=  choice=model-choice:h
+      %-  pairs:enjs:format
+      :~  ['provider' %s provider.choice]
+          ['model' %s model.choice]
+      ==
+      ['url' %s url.config]
+      ['model' %s model.config]
+      ['headers' (headers-json headers.config)]
+      ['system' %s system.config]
+      ['max-context' (numb:enjs:format max-context.config)]
+      ['tools' %a (turn tools.config grant-json)]
   ==
 ::  json for the ui: full session view (key withheld)
 ::
 ++  view-json
-  |=  [v=view:h js-timeout=@dr]
+  |=  [view=view:h js-timeout=@dr]
   ^-  json
   ::  Configuration has one projection, including its credential redaction.
-  =/  base  (config-json config.v)
+  =/  base  (config-json config.view)
   ?>  ?=(%o -.base)
   :-  %o
   %-  ~(gas by p.base)
   :~  ['js-timeout' (numb:enjs:format (div js-timeout ~s1))]
-      ['summary' ?~(summary.v ~ [%s u.summary.v])]
-      ['memory' (memory-json memory.v)]
-      ['items' %a (turn (skim items.v |=(it=item:h !?=(%reasoning -.it))) item-ui-json)]
-      ['pending' %b !=(~ pending.v)]
-      ['wait' %a (turn ~(tap in wait.v) |=(id=@t `json`[%s id]))]
-      ['err' ?~(err.v ~ [%s u.err.v])]
+      ['summary' ?~(summary.view ~ [%s u.summary.view])]
+      ['memory' (memory-json memory.view)]
+      :-  'items'
+      :-  %a
+      %+  turn  (skim items.view |=(item=item:h !?=(%reasoning -.item)))
+      item-ui-json
+      ['pending' %b !=(~ pending.view)]
+      ['wait' %a (turn ~(tap in wait.view) |=(id=@t `json`[%s id]))]
+      ['err' ?~(err.view ~ [%s u.err.view])]
       :-  'origin'
-      ?~  origin.v  ~
+      ?~  origin.view  ~
       %-  pairs:enjs:format
-      :~  ['sessionId' %s from.u.origin.v]
-          ['eventCount' (numb:enjs:format at.u.origin.v)]
+      :~  ['sessionId' %s from.u.origin.view]
+          ['eventCount' (numb:enjs:format at.u.origin.view)]
       ==
-      :-  'usage'
-      %-  pairs:enjs:format
-      :~  ['prompt' (numb:enjs:format prompt.total.v)]
-          ['completion' (numb:enjs:format completion.total.v)]
-      ==
+      ['usage' (usage-json total.view)]
+  ==
+++  headers-json
+  |=  headers=(list [name=@t value=@t])
+  ^-  json
+  :-  %a
+  %+  turn  headers
+  |=  [name=@t value=@t]
+  %-  pairs:enjs:format
+  :~  ['name' %s name]
+      ['value' %s value]
+  ==
+++  usage-json
+  |=  usage=usage:h
+  ^-  json
+  %-  pairs:enjs:format
+  :~  ['prompt' (numb:enjs:format prompt.usage)]
+      ['completion' (numb:enjs:format completion.usage)]
   ==
 ++  memory-json
   |=  notes=(map @t @t)
@@ -88,177 +120,199 @@
   :-  %a
   %+  turn  ~(tap by notes)
   |=  [name=@t body=@t]
-  (pairs:enjs:format ~[['name' %s name] ['body' %s body]])
+  %-  pairs:enjs:format
+  :~  ['name' %s name]
+      ['body' %s body]
+  ==
 ::
 ++  item-ui-json
-  |=  it=item:h
+  |=  item=item:h
   ^-  json
-  ?-  -.it
+  ?-  -.item
       %reasoning  ~
       %user
-    (pairs:enjs:format ~[['role' %s 'user'] ['body' %s body.it]])
+    %-  pairs:enjs:format
+    :~  ['role' %s 'user']
+        ['body' %s body.item]
+    ==
   ::
       %assistant
     %-  pairs:enjs:format
     :~  ['role' %s 'assistant']
-        ['body' %s body.it]
+        ['body' %s body.item]
         :-  'calls'
         :-  %a
-        %+  turn  calls.it
-      |=  c=tool-call:h
-      (pairs:enjs:format ~[['id' %s id.c] ['name' %s name.c] ['args' %s args.c]])
+        %+  turn  calls.item
+        |=  call=tool-call:h
+        %-  pairs:enjs:format
+        :~  ['id' %s id.call]
+            ['name' %s name.call]
+            ['args' %s args.call]
+        ==
     ==
   ::
       %tool
     %-  pairs:enjs:format
     :~  ['role' %s 'tool']
-        ['callId' %s call-id.it]
-        ['name' %s name.it]
-        ['body' %s (clean:text body.it)]
+        ['callId' %s call-id.item]
+        ['name' %s name.item]
+        ['body' %s (clean:text body.item)]
     ==
   ==
 ::  json for the ui: one event
 ::
 ++  event-json
-  |=  e=event:h
+  |=  event=event:h
   ^-  json
-  ?-  -.e
+  ?-  -.event
       %llm-reasoning
-    (pairs:enjs:format ~[['type' %s 'llm-reasoning'] ['req' (numb:enjs:format req.e)]])
+    %-  pairs:enjs:format
+    :~  ['type' %s 'llm-reasoning']
+        ['req' (numb:enjs:format req.event)]
+    ==
       %config-replaced
     %-  pairs:enjs:format
     :~  ['type' %s 'config']
-        ['model' %s model.config.e]
+        ['model' %s model.config.event]
     ==
   ::
       %input-admitted
     %-  pairs:enjs:format
     :~  ['type' %s 'input']
-        ['item' (item-ui-json item.e)]
+        ['item' (item-ui-json item.event)]
     ==
   ::
       %input-received
     %-  pairs:enjs:format
     :~  ['type' %s 'input']
-        ['id' %s (scot %uv id.input.e)]
-        ['source' (input-source-json source.input.e)]
-        ['item' (item-ui-json item.input.e)]
+        ['id' %s (scot %uv id.input.event)]
+        ['source' (input-source-json source.input.event)]
+        ['item' (item-ui-json item.input.event)]
     ==
   ::
       %command-completed
     %-  pairs:enjs:format
     :~  ['type' %s 'command-completed']
-        ['inputId' %s (scot %uv input-id.e)]
-        ['name' %s name.e]
-        ['body' %s (clean:text body.e)]
+        ['inputId' %s (scot %uv input-id.event)]
+        ['name' %s name.event]
+        ['body' %s (clean:text body.event)]
     ==
   ::
       %memory-set
-    (pairs:enjs:format ~[['type' %s 'memory-set'] ['name' %s name.e] ['body' ?~(body.e ~ [%s u.body.e])]])
+    %-  pairs:enjs:format
+    :~  ['type' %s 'memory-set']
+        ['name' %s name.event]
+        ['body' ?~(body.event ~ [%s u.body.event])]
+    ==
   ::
       %context-received
-    (pairs:enjs:format ~[['type' %s 'context-received'] ['inputId' %s (scot %uv input-id.e)] ['body' %s body.e]])
+    %-  pairs:enjs:format
+    :~  ['type' %s 'context-received']
+        ['inputId' %s (scot %uv input-id.event)]
+        ['body' %s body.event]
+    ==
   ::
       %llm-requested
     %-  pairs:enjs:format
     :~  ['type' %s 'llm-requested']
-        ['req' (numb:enjs:format req.e)]
-        ['kind' %s kind.e]
+        ['req' (numb:enjs:format req.event)]
+        ['kind' %s kind.event]
     ==
   ::
       %llm-routed
-    (pairs:enjs:format ~[['type' %s 'llm-routed'] ['model' %s model.config.e]])
+    %-  pairs:enjs:format
+    :~  ['type' %s 'llm-routed']
+        ['model' %s model.config.event]
+    ==
   ::
       %llm-completed
     %-  pairs:enjs:format
     :~  ['type' %s 'llm-completed']
-        ['stop' %s stop.e]
-        ['item' (item-ui-json item.e)]
-        :-  'usage'
-        %-  pairs:enjs:format
-        :~  ['prompt' (numb:enjs:format prompt.usage.e)]
-            ['completion' (numb:enjs:format completion.usage.e)]
-        ==
+        ['stop' %s stop.event]
+        ['item' (item-ui-json item.event)]
+        ['usage' (usage-json usage.event)]
     ==
   ::
       %llm-failed
     %-  pairs:enjs:format
     :~  ['type' %s 'llm-failed']
-        ['err' %s err.e]
+        ['err' %s err.event]
     ==
   ::
       %tool-requested
     %-  pairs:enjs:format
     :~  ['type' %s 'tool-requested']
-        ['name' %s name.e]
+        ['name' %s name.event]
     ==
   ::
       %tool-requested-2
     %-  pairs:enjs:format
     :~  ['type' %s 'tool-requested']
-        ['name' %s name.e]
-        ['generation' (numb:enjs:format generation.e)]
+        ['name' %s name.event]
+        ['generation' (numb:enjs:format generation.event)]
     ==
   ::
       %tool-completed
     %-  pairs:enjs:format
     :~  ['type' %s 'tool']
-        ['name' %s name.e]
-        ['body' %s body.e]
+        ['name' %s name.event]
+        ['body' %s body.event]
     ==
   ::
       %compaction-completed
     %-  pairs:enjs:format
     :~  ['type' %s 'compaction']
-        ['summary' %s summary.e]
+        ['summary' %s summary.event]
     ==
       %lcm-planned
-    (event-json [%compaction-planned req.e checkpoint.plan.e])
+    (event-json [%compaction-planned req.event checkpoint.plan.event])
       %compaction-planned
     %-  pairs:enjs:format
     :~  ['type' %s 'compaction-planned']
-        ['req' (numb:enjs:format req.e)]
-        ['through' (numb:enjs:format through.plan.e)]
-        ['count' (numb:enjs:format count.plan.e)]
-        ['source' %s (scot %uv source.plan.e)]
-        ['inputEstimate' (numb:enjs:format input.plan.e)]
-        ['outputReserve' (numb:enjs:format output.plan.e)]
-        ['model' %s model.plan.e]
+        ['req' (numb:enjs:format req.event)]
+        ['through' (numb:enjs:format through.plan.event)]
+        ['count' (numb:enjs:format count.plan.event)]
+        ['source' %s (scot %uv source.plan.event)]
+        ['inputEstimate' (numb:enjs:format input.plan.event)]
+        ['outputReserve' (numb:enjs:format output.plan.event)]
+        ['model' %s model.plan.event]
     ==
       %checkpoint-completed
     %-  pairs:enjs:format
     :~  ['type' %s 'compaction']
-        ['summary' %s summary.e]
-        ['reply' ?~(reply.e ~ [%s body.u.reply.e])]
-        ['usage' (pairs:enjs:format ~[['prompt' (numb:enjs:format prompt.usage.e)] ['completion' (numb:enjs:format completion.usage.e)]])]
+        ['summary' %s summary.event]
+        ['reply' ?~(reply.event ~ [%s body.u.reply.event])]
+        ['usage' (usage-json usage.event)]
     ==
       %compaction-failed
     %-  pairs:enjs:format
     :~  ['type' %s 'compaction-failed']
-        ['err' %s err.e]
-        ['usage' (pairs:enjs:format ~[['prompt' (numb:enjs:format prompt.usage.e)] ['completion' (numb:enjs:format completion.usage.e)]])]
+        ['err' %s err.event]
+        ['usage' (usage-json usage.event)]
     ==
   ::
       %cancelled
     %-  pairs:enjs:format
     :~  ['type' %s 'cancelled']
-        ['reason' %s reason.e]
+        ['reason' %s reason.event]
     ==
   ::
       %forked
     %-  pairs:enjs:format
     :~  ['type' %s 'forked']
-        ['from' %s from.e]
-        ['eventCount' (numb:enjs:format at.e)]
+        ['from' %s from.event]
+        ['eventCount' (numb:enjs:format at.event)]
     ==
   ::
       %retried
-    (pairs:enjs:format ~[['type' %s 'retried']])
+    %-  pairs:enjs:format
+    :~  ['type' %s 'retried']
+    ==
   ::
       %halted
     %-  pairs:enjs:format
     :~  ['type' %s 'halted']
-        ['reason' %s reason.e]
+        ['reason' %s reason.event]
     ==
   ==
 ::  A deliberately compact JSON projection. Native clients can consume the
@@ -269,63 +323,95 @@
   ^-  json
   ?-  -.source
       %work
-    (pairs:enjs:format ~[['kind' %s 'work'] ['request' %s (scot %uv request.source)]])
+    %-  pairs:enjs:format
+    :~  ['kind' %s 'work']
+        ['request' %s (scot %uv request.source)]
+    ==
   ::
       %hand
-    (pairs:enjs:format ~[['kind' %s 'hand'] ['binding' %s binding.source] ['hand' %s hand.source] ['address' %s address.source] ['event' %s event.source] ['actor' %s actor.source]])
+    %-  pairs:enjs:format
+    :~  ['kind' %s 'hand']
+        ['binding' %s binding.source]
+        ['hand' %s hand.source]
+        ['address' %s address.source]
+        ['event' %s event.source]
+        ['actor' %s actor.source]
+    ==
   ::
       %acp
-    (pairs:enjs:format ~[['kind' %s 'acp'] ['client' %s client.source]])
+    %-  pairs:enjs:format
+    :~  ['kind' %s 'acp']
+        ['client' %s client.source]
+    ==
   ::
       %poke
-    (pairs:enjs:format ~[['kind' %s 'poke'] ['ship' %s (scot %p ship.source)]])
+    %-  pairs:enjs:format
+    :~  ['kind' %s 'poke']
+        ['ship' %s (scot %p ship.source)]
+    ==
   ::
       %timer
-    (pairs:enjs:format ~[['kind' %s 'timer'] ['name' %s name.source]])
+    %-  pairs:enjs:format
+    :~  ['kind' %s 'timer']
+        ['name' %s name.source]
+    ==
   ::
       %webhook
-    (pairs:enjs:format ~[['kind' %s 'webhook'] ['path' %s path.source]])
+    %-  pairs:enjs:format
+    :~  ['kind' %s 'webhook']
+        ['path' %s path.source]
+    ==
   ::
       %peer
-    (pairs:enjs:format ~[['kind' %s 'peer'] ['ship' %s (scot %p ship.source)]])
+    %-  pairs:enjs:format
+    :~  ['kind' %s 'peer']
+        ['ship' %s (scot %p ship.source)]
+    ==
   ::
       %subagent
-    (pairs:enjs:format ~[['kind' %s 'subagent'] ['parent' %s parent.source]])
+    %-  pairs:enjs:format
+    :~  ['kind' %s 'subagent']
+        ['parent' %s parent.source]
+    ==
   ::
       %rehearsal
-    (pairs:enjs:format ~[['kind' %s 'rehearsal'] ['parent' %s parent.source] ['skill' %s skill.source]])
+    %-  pairs:enjs:format
+    :~  ['kind' %s 'rehearsal']
+        ['parent' %s parent.source]
+        ['skill' %s skill.source]
+    ==
   ==
 ::
 ++  update-json
-  |=  upd=update:h
+  |=  update=update:h
   ^-  json
-  ?-  -.upd
+  ?-  -.update
       %event
     %-  pairs:enjs:format
-    :~  ['sid' %s sid.upd]
-        ['event' (event-json event.upd)]
+    :~  ['sid' %s sid.update]
+        ['event' (event-json event.update)]
     ==
   ==
 ::  pokes from json (eyre channel / ui)
 ::
 ++  json-action
-  |=  jon=json
+  |=  input=json
   ^-  action:h
   =,  dejs:format
-  =/  secs  (cu |=(s=@ud `@dr`(mul s ~s1)) ni)
+  =/  duration  (cu |=(seconds=@ud `@dr`(mul seconds ~s1)) ni)
   ::  decode [sid config js-timeout] with js-timeout optional (seconds;
   ::  absent -> ~s30). the timeout persists per-session outside config.
-  =/  timed
-    |=  j=json
+  =/  session-config
+    |=  object=json
     ^-  [session-id:h config:h @dr]
-    ?>  ?=(%o -.j)
-    =/  jt  (~(get by p.j) 'js-timeout')
-    :+  (so:dejs:format (~(got by p.j) 'sid'))
-      (json-config j)
-    ?~(jt ~s30 (mul (ni:dejs:format u.jt) ~s1))
-  %.  jon
+    ?>  ?=(%o -.object)
+    =/  timeout  (~(get by p.object) 'js-timeout')
+    :+  (so:dejs:format (~(got by p.object) 'sid'))
+      (json-config object)
+    ?~(timeout ~s30 (mul (ni:dejs:format u.timeout) ~s1))
+  %.  input
   %-  of
-  :~  new+timed
+  :~  new+session-config
       send+(ot ~[sid+so text+so])
       fork+(ot ~[from+so to+so])
       fork-at+(ot ~[from+so to+so at+ni])
@@ -333,8 +419,8 @@
       cancel+(ot ~[sid+so])
       delete+(ot ~[sid+so])
       retry+(ot ~[sid+so])
-      config+timed
-      timer-set+(ot ~[sid+so name+(su sym) in+secs every+(mu secs) prompt+so])
+      config+session-config
+      timer-set+(ot ~[sid+so name+(su sym) in+duration every+(mu duration) prompt+so])
       timer-cancel+(ot ~[sid+so name+(su sym)])
       skill-add+(ot ~[name+so desc+so body+so])
       skill-del+(ot ~[name+so])
@@ -344,49 +430,55 @@
   ==
 ::
 ++  json-config
-  |=  jon=json
+  |=  input=json
   ^-  config:h
   =,  dejs:format
-  ?>  ?=(%o -.jon)
-  =/  zdr  (~(get by p.jon) 'zdr')
+  ?>  ?=(%o -.input)
+  =/  zdr  (~(get by p.input) 'zdr')
   =/  decode
     %-  ot
     :~  url+so
-      model+so
-      key+so
-      headers+(ar (ot ~[name+so value+so]))
-      system+so
-      max-context+ni
-      tools+(ar json-grant)
+        model+so
+        key+so
+        headers+(ar (ot ~[name+so value+so]))
+        system+so
+        max-context+ni
+        tools+(ar json-grant)
     ==
-  =/  fallbacks  (~(get by p.jon) 'fallbacks')
-  [?~(zdr | (bo u.zdr)) ?~(fallbacks ~ (parse:routing u.fallbacks)) (decode jon)]
+  =/  fallbacks  (~(get by p.input) 'fallbacks')
+  :+  ?~(zdr | (bo u.zdr))
+    ?~(fallbacks ~ (parse:routing u.fallbacks))
+  (decode input)
 ++  grant-json
   |=  grant=tool-grant:h
   ^-  json
   ?:  ?=(@ grant)  [%s grant]
   ?:  ?=(%clay -.grant)
-    (pairs:enjs:format ~[['clay' %s (crip (spud prefix.grant))]])
-  (pairs:enjs:format ~[['mcp' %s server.grant]])
+    %-  pairs:enjs:format
+    :~  ['clay' %s (crip (spud prefix.grant))]
+    ==
+  %-  pairs:enjs:format
+  :~  ['mcp' %s server.grant]
+  ==
 ++  json-grant
-  |=  jon=json
+  |=  input=json
   ^-  tool-grant:h
   =,  dejs:format
-  ?:  ?=(%s -.jon)
-    =/  family  ((su sym) jon)
+  ?:  ?=(%s -.input)
+    =/  family  ((su sym) input)
     ~|  'MCP grants must name a server; Clay grants must name a path prefix.'
     ?>  &(!=(%mcp family) !=(%clay family))
     family
-  ?>  ?=(%o -.jon)
-  ?>  =(1 ~(wyt by p.jon))
-  =/  clay  (~(get by p.jon) 'clay')
+  ?>  ?=(%o -.input)
+  ?>  =(1 ~(wyt by p.input))
+  =/  clay  (~(get by p.input) 'clay')
   ?^  clay
     ?>  ?=(%s -.u.clay)
     ?>  (lte (met 3 p.u.clay) 2.048)
     =/  prefix  (need (rush p.u.clay stap))
     ?>  !(lien prefix |=(segment=@ta |(=('.' segment) =('..' segment))))
     [%clay prefix]
-  =/  server  (~(get by p.jon) 'mcp')
+  =/  server  (~(get by p.input) 'mcp')
   ?>  ?=([~ %s *] server)
   ?>  &(!=('' p.u.server) (lte (met 3 p.u.server) 256))
   [%mcp p.u.server]
@@ -397,15 +489,18 @@
   :~  ['id' %s id]
       ['name' %s name.server]
       ['url' %s url.server]
-      :-  'headers'
-      :-  %a
-      %+  turn  headers.server
-      |=  [name=@t value=@t]
-      (pairs:enjs:format ~[['name' %s name] ['value' %s value]])
+      ['headers' (headers-json headers.server)]
       ['enabled' %b enabled.server]
   ==
 ++  json-mcp-servers
   =,  dejs:format
   ^-  $-(json (list [id=mcp-server-id:h server=mcp-server:h]))
-  (ar (ot ~[id+so name+so url+so headers+(ar (ot ~[name+so value+so])) enabled+bo]))
+  %-  ar
+  %-  ot
+  :~  id+so
+      name+so
+      url+so
+      headers+(ar (ot ~[name+so value+so]))
+      enabled+bo
+  ==
 --

@@ -31,24 +31,22 @@
   |=  texts=(list @t)
   ^-  (set @t)
   %+  roll  texts
-  |=  [text=@t out=(set @t)]
-  (~(uni in out) (tokenize-text text))
+  |=  [text=@t terms=(set @t)]
+  (~(uni in terms) (tokenize-text text))
 ::
 ++  tokenize-text
   |=  text=@t
   ^-  (set @t)
   =/  chars=tape  (trip (lower-text text))
-  =/  parsed=[cur=tape out=(set @t)]
+  =/  parsed=[reversed-word=tape terms=(set @t)]
     %+  roll  chars
-    |=  [char=@ cur=tape out=(set @t)]
+    |=  [char=@ reversed-word=tape terms=(set @t)]
     ?:  (term-char char)
-      [[char cur] out]
-    ?~  cur  [~ out]
-    [~ (~(put in out) (crip (flop cur)))]
-  =/  cur=tape  cur.parsed
-  =/  out=(set @t)  out.parsed
-  ?~  cur  out
-  (~(put in out) (crip (flop cur)))
+      [[char reversed-word] terms]
+    ?~  reversed-word  [~ terms]
+    [~ (~(put in terms) (crip (flop reversed-word)))]
+  ?~  reversed-word.parsed  terms.parsed
+  (~(put in terms.parsed) (crip (flop reversed-word.parsed)))
 ::
 ++  term-char
   |=  char=@
@@ -84,37 +82,40 @@
   =/  thread=thread  [scope.ref at.ref]
   =/  thread-live=(map (unit @ud) @ud)
     (fall (~(get by live.idx) thread) *(map (unit @ud) @ud))
-  =/  existed=?  (~(has by thread-live) part.ref)
+  =/  replacing=?  (~(has by thread-live) part.ref)
   =/  id=@ud  +(count.idx)
   =/  segment-id=@ud  (div count.idx segment-size)
-  =/  seg=segment
+  =/  active=segment
     (fall (~(get by segments.idx) segment-id) *segment)
-  =/  doc=document  [ref author]
-  =.  docs.seg  (~(put by docs.seg) id doc)
-  =.  count.seg  +(count.seg)
-  =/  remaining=(list @t)  ~(tap in doc-terms)
-  |-  ^-  index
-  ?~  remaining
-    =.  segments.idx  (~(put by segments.idx) segment-id seg)
-    =.  thread-live  (~(put by thread-live) part.ref id)
-    =.  live.idx  (~(put by live.idx) thread thread-live)
-    =?  live-count.idx  !existed  +(live-count.idx)
-    idx(count id)
-  =/  term=@t  i.remaining
-  =/  list=posting  (fall (~(get by postings.seg) term) *posting)
-  =.  postings.seg
-    (~(put by postings.seg) term (put:on-posting list [sent id] 0))
-  =/  term-segments=(set @ud)
-    (fall (~(get by directory.idx) term) *(set @ud))
-  =/  new-term=?  =(~ term-segments)
-  =?  directory.idx  !(~(has in term-segments) segment-id)
-    (~(put by directory.idx) term (~(put in term-segments) segment-id))
-  =?  prefixes.idx  new-term
-    =/  prefix=@t  (term-prefix term)
-    =/  prefix-terms=(set @t)
-      (fall (~(get by prefixes.idx) prefix) *(set @t))
-    (~(put by prefixes.idx) prefix (~(put in prefix-terms) term))
-  $(remaining t.remaining)
+  =/  document-data=document  [ref author]
+  =.  docs.active  (~(put by docs.active) id document-data)
+  =.  count.active  +(count.active)
+  ::  Fill this segment's postings and the global term directories together.
+  =^  active  idx
+    =/  remaining=(list @t)  ~(tap in doc-terms)
+    |-  ^-  [segment index]
+    ?~  remaining  [active idx]
+    =/  term=@t  i.remaining
+    =/  posting-tree=posting  (fall (~(get by postings.active) term) *posting)
+    =.  postings.active
+      (~(put by postings.active) term (put:on-posting posting-tree [sent id] 0))
+    =/  term-segments=(set @ud)
+      (fall (~(get by directory.idx) term) *(set @ud))
+    =/  new-term=?  =(~ term-segments)
+    =?  directory.idx  !(~(has in term-segments) segment-id)
+      (~(put by directory.idx) term (~(put in term-segments) segment-id))
+    =?  prefixes.idx  new-term
+      =/  prefix=@t  (term-prefix term)
+      =/  prefix-terms=(set @t)
+        (fall (~(get by prefixes.idx) prefix) *(set @t))
+      (~(put by prefixes.idx) prefix (~(put in prefix-terms) term))
+    $(remaining t.remaining)
+  ::  Publish the new document ID as the live version of this source part.
+  =.  segments.idx  (~(put by segments.idx) segment-id active)
+  =.  thread-live  (~(put by thread-live) part.ref id)
+  =.  live.idx  (~(put by live.idx) thread thread-live)
+  =?  live-count.idx  !replacing  +(live-count.idx)
+  idx(count id)
 ::
 ::  Posting entries are immutable.  Replacement and deletion update the small
 ::  live-document map; queries ignore superseded postings.  A later rebuild
@@ -131,7 +132,8 @@
   =/  remaining=(map (unit @ud) @ud)
     (~(del by u.thread-live) part.ref)
   =.  live.idx
-    ?:(=(~ remaining) (~(del by live.idx) thread) (~(put by live.idx) thread remaining))
+    ?~  remaining  (~(del by live.idx) thread)
+    (~(put by live.idx) thread remaining)
   =.  live-count.idx  (dec live-count.idx)
   idx
 ::
@@ -152,8 +154,8 @@
   =/  threads=(list thread)  ~(tap in ~(key by live.idx))
   |-  ^-  index
   ?~  threads  idx
-  =/  idx=index
-    ?:(=(scope scope.i.threads) (remove-thread idx i.threads) idx)
+  =?  idx  =(scope scope.i.threads)
+    (remove-thread idx i.threads)
   $(threads t.threads)
 ::
 ::  Exact AND search over normalized terms.  The global directory first
@@ -165,7 +167,12 @@
   |=  [idx=index query=@t after=(unit cursor:gs) limit=@ud]
   (search-scoped idx query after limit ~)
 ++  search-scoped
-  |=  [idx=index query=@t after=(unit cursor:gs) limit=@ud allowed=(unit (set scope:gs))]
+  |=  $:  idx=index
+          query=@t
+          after=(unit cursor:gs)
+          limit=@ud
+          allowed=(unit (set scope:gs))
+      ==
   ^-  page:gs
   ?>  &((lte limit 64) (lte (met 3 query) 512))
   ?:  =(0 limit)  [~ ~ & live-count.idx built-at.idx]
@@ -178,13 +185,23 @@
     [~ ~ & live-count.idx built-at.idx]
   =/  candidates=(unit (set @ud))  (candidate-segments idx groups)
   ?~  candidates  [~ ~ & live-count.idx built-at.idx]
-  =/  max=@ud  +(limit)
+  ::  One extra hit tells us whether the caller needs another page.
+  =/  lookahead=@ud  +(limit)
   =/  found=(list hit:gs)
     %+  roll  ~(tap in u.candidates)
-    |=  [segment-id=@ud out=(list hit:gs)]
-    =/  seg=(unit segment)  (~(get by segments.idx) segment-id)
-    ?~  seg  out
-    (merge (search-segment u.seg live.idx groups after max allowed) out max)
+    |=  [segment-id=@ud hits=(list hit:gs)]
+    =/  segment-data=(unit segment)  (~(get by segments.idx) segment-id)
+    ?~  segment-data  hits
+    =/  page
+      %-  search-segment
+      :*  u.segment-data
+          live.idx
+          groups
+          after
+          lookahead
+          allowed
+      ==
+    (merge page hits lookahead)
   =/  more=?  (gth (lent found) limit)
   =/  hits=(list hit:gs)  (scag limit found)
   =/  next=(unit cursor:gs)
@@ -236,18 +253,18 @@
           allowed=(unit (set scope:gs))
       ==
   ^-  (list hit:gs)
-  =/  lists=(list posting)
+  =/  posting-groups=(list posting)
     %+  turn  groups
     |=  terms=(list @t)
     %+  roll  terms
     |=  [term=@t out=posting]
     =/  posting=(unit posting)  (~(get by postings.seg) term)
     ?~(posting out (uni:on-posting out u.posting))
-  ?:  (lien lists |=(posting=posting =(~ posting)))  ~
-  =/  base=posting  (least lists)
+  ?:  (lien posting-groups |=(posting=posting =(~ posting)))  ~
+  =/  base=posting  (least posting-groups)
   =?  base  ?=(^ after)
     (lot:on-posting base ~ after)
-  (collect base lists docs.seg live max allowed)
+  (collect base posting-groups docs.seg live max allowed)
 ::
 ::  Exact terms never expand.  A missing term may expand only inside a small
 ::  two-byte prefix bucket, and only to prefix matches or edit distance one.
@@ -285,17 +302,26 @@
 ++  first-match
   |=  [text=@t terms=(set @t)]
   ^-  (unit @ud)
-  =/  chars  (trip (lower-text text))
+  =/  remaining  (trip (lower-text text))
   =/  offset=@ud  0
   =/  start=@ud  0
-  =/  word=tape  ~
+  =/  reversed-word=tape  ~
   |-  ^-  (unit @ud)
-  ?:  ?~(chars & !(term-char i.chars))
-    ?:  &(?=(^ word) (~(has in terms) (crip (flop word))))  `start
-    ?~  chars  ~
-    $(chars t.chars, offset +(offset), start +(offset), word ~)
-  ?>  ?=(^ chars)
-  $(chars t.chars, offset +(offset), word [i.chars word])
+  ?:  ?~(remaining & !(term-char i.remaining))
+    ?:  &(?=(^ reversed-word) (~(has in terms) (crip (flop reversed-word))))  `start
+    ?~  remaining  ~
+    %=  $
+      remaining  t.remaining
+      offset  +(offset)
+      start  +(offset)
+      reversed-word  ~
+    ==
+  ?>  ?=(^ remaining)
+  %=  $
+    remaining  t.remaining
+    offset  +(offset)
+    reversed-word  [i.remaining reversed-word]
+  ==
 ::  Preview only selected results. Both ends stay on UTF-8 boundaries;
 ::  title, body and source-label matches use the same projection.
 ++  match-preview
@@ -314,19 +340,20 @@
   =/  snippet  (make-snippet ~[(rsh [3 start] text)])
   =/  matched  ~(tap in (~(int in terms) (tokenize-text snippet)))
   [?:(=(0 start) snippet (cat 3 '...' snippet)) matched start]
-::  Do not +tap an unbounded bucket before taking a bounded prefix.
+::  Walk left-to-right (the reverse of +tap order), stopping at the limit.
+::  Fuzzy expansion depends on this order; do not materialize the whole set.
 ++  take-terms
   |=  [tree=(set @t) limit=@ud]
   ^-  (list @t)
-  =/  out=[left=@ud terms=(list @t)]  [limit ~]
-  =.  out
-    |-  ^+  out
-    ?:  |(?=(~ tree) =(0 left.out))  out
-    =.  out  $(tree l.tree)
-    ?:  =(0 left.out)  out
-    =.  out  [(dec left.out) [n.tree terms.out]]
+  =/  scan=[left=@ud reversed-terms=(list @t)]  [limit ~]
+  =.  scan
+    |-  ^+  scan
+    ?:  |(?=(~ tree) =(0 left.scan))  scan
+    =.  scan  $(tree l.tree)
+    ?:  =(0 left.scan)  scan
+    =.  scan  [(dec left.scan) [n.tree reversed-terms.scan]]
     $(tree r.tree)
-  (flop terms.out)
+  (flop reversed-terms.scan)
 ::
 ++  term-prefix
   |=  term=@t
@@ -341,25 +368,25 @@
   =((cut 3 [0 needle-size] term) needle)
 ::
 ++  one-edit
-  |=  [a=@t b=@t]
+  |=  [source=@t target=@t]
   ^-  ?
-  =/  aa=tape  (trip a)
-  =/  bb=tape  (trip b)
-  =/  al=@ud  (lent aa)
-  =/  bl=@ud  (lent bb)
-  ?:  (gth (sub (max al bl) (min al bl)) 1)  |
-  ?:  =(al bl)  (one-substitution aa bb |)
-  ?:  (gth al bl)  (one-insertion aa bb |)
-  (one-insertion bb aa |)
+  =/  source-chars=tape  (trip source)
+  =/  target-chars=tape  (trip target)
+  =/  source-size=@ud  (lent source-chars)
+  =/  target-size=@ud  (lent target-chars)
+  ?:  (gth (sub (max source-size target-size) (min source-size target-size)) 1)  |
+  ?:  =(source-size target-size)  (one-substitution source-chars target-chars |)
+  ?:  (gth source-size target-size)  (one-insertion source-chars target-chars |)
+  (one-insertion target-chars source-chars |)
 ::
 ++  one-substitution
-  |=  [a=tape b=tape used=?]
+  |=  [source=tape target=tape used=?]
   ^-  ?
-  ?~  a  =(~ b)
-  ?~  b  |
-  ?:  =(i.a i.b)  (one-substitution t.a t.b used)
+  ?~  source  =(~ target)
+  ?~  target  |
+  ?:  =(i.source i.target)  (one-substitution t.source t.target used)
   ?:  used  |
-  (one-substitution t.a t.b &)
+  (one-substitution t.source t.target &)
 ::
 ++  one-insertion
   |=  [long=tape short=tape used=?]
@@ -382,7 +409,7 @@
 ::
 ++  collect
   |=  $:  tree=posting
-          lists=(list posting)
+          posting-groups=(list posting)
           docs=(map @ud document)
           live=(map thread (map (unit @ud) @ud))
           max=@ud
@@ -390,12 +417,12 @@
       ==
   ^-  (list hit:gs)
   =/  result=[found=(list hit:gs) left=@ud]
-    (walk tree lists docs live allowed [~ max])
+    (walk tree posting-groups docs live allowed [~ max])
   (flop found.result)
 ::
 ++  walk
   |=  $:  branch=posting
-          lists=(list posting)
+          posting-groups=(list posting)
           docs=(map @ud document)
           live=(map thread (map (unit @ud) @ud))
           allowed=(unit (set scope:gs))
@@ -404,22 +431,22 @@
   ^+  state
   ?:  =(0 left.state)  state
   ?~  branch  state
-  =.  state  (walk r.branch lists docs live allowed state)
+  =.  state  (walk r.branch posting-groups docs live allowed state)
   ?:  =(0 left.state)  state
   =/  cursor=cursor:gs  key.n.branch
   =/  matches=?
-    %+  levy  lists
-    |=  list=posting
-    (has:on-posting list cursor)
+    %+  levy  posting-groups
+    |=  posting-tree=posting
+    (has:on-posting posting-tree cursor)
   =?  state  matches
-    =/  doc=(unit document)  (~(get by docs) id.cursor)
-    ?~  doc  state
-    ?.  ?~(allowed & (~(has in u.allowed) scope.ref.u.doc))  state
-    ?.  (is-live live ref.u.doc id.cursor)  state
-    :-  [[cursor ref.u.doc sent.cursor author.u.doc ''] found.state]
+    =/  found=(unit document)  (~(get by docs) id.cursor)
+    ?~  found  state
+    ?.  ?~(allowed & (~(has in u.allowed) scope.ref.u.found))  state
+    ?.  (is-live live ref.u.found id.cursor)  state
+    :-  [[cursor ref.u.found sent.cursor author.u.found ''] found.state]
     (dec left.state)
   ?:  =(0 left.state)  state
-  (walk l.branch lists docs live allowed state)
+  (walk l.branch posting-groups docs live allowed state)
 ::
 ++  is-live
   |=  [live=(map thread (map (unit @ud) @ud)) =ref:gs id=@ud]
@@ -431,11 +458,11 @@
   ?~(current | =(u.current id))
 ::
 ++  least
-  |=  lists=(list posting)
+  |=  posting-groups=(list posting)
   ^-  posting
-  ?>  ?=(^ lists)
-  =/  best=posting  i.lists
-  =/  rest=(list posting)  t.lists
+  ?>  ?=(^ posting-groups)
+  =/  best=posting  i.posting-groups
+  =/  rest=(list posting)  t.posting-groups
   |-  ^+  best
   ?~  rest  best
   ?:  (lth (wyt:on-posting i.rest) (wyt:on-posting best))

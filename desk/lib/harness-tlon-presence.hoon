@@ -15,10 +15,10 @@
   ::  Only the latest tool batch can own the current wait IDs. Never export
   ::  arbitrary model-supplied names, arguments, server IDs or result bodies.
   %+  roll  calls.i.items
-  |=  [call=tool-call:h acc=(set @t)]
+  |=  [call=tool-call:h tools=(set @t)]
   ^-  (set @t)
-  ?.  (~(has in wait.view) id.call)  acc
-  (~(put in acc) ?~((tool-family:ht name.call) 'tools' name.call))
+  ?.  (~(has in wait.view) id.call)  tools
+  (~(put in tools) ?~((tool-family:ht name.call) 'tools' name.call))
 ++  label
   |=  name=@t
   ^-  @t
@@ -46,17 +46,23 @@
 ++  display
   |=  tools=(set @t)
   ^-  display:pr
-  =/  names  ~(tap in tools)
-  =/  text=@t  ?~(names 'Thinking...' ?~(t.names (label i.names) 'Using tools...'))
+  =/  tool-names  ~(tap in tools)
+  =/  text=@t
+    ?~  tool-names  'Thinking...'
+    ?~  t.tool-names  (label i.tool-names)
+    'Using tools...'
   =/  blob=json
     %-  pairs:enjs:format
     :~  ['protocol' %s 'tlon.computing-status.v1']
         ['thinking' %b =(~ tools)]
         :-  'toolCalls'
         :-  %a
-        %+  turn  names
+        %+  turn  tool-names
         |=  name=@t
-        (pairs:enjs:format ~[['toolName' %s name] ['label' %s (label name)]])
+        %-  pairs:enjs:format
+        :~  ['toolName' %s name]
+            ['label' %s (label name)]
+        ==
     ==
   [~ `text `(en:json:html blob)]
 ++  context
@@ -69,26 +75,37 @@
 ++  merge
   |=  [active=(map path (set @t)) to=destination:t tools=(set @t)]
   ^+  active
-  =/  ctx  (context to)
-  (~(put by active) ctx (~(uni in tools) (~(gut by active) ctx ~)))
+  =/  target  (context to)
+  (~(put by active) target (~(uni in tools) (~(gut by active) target ~)))
 ++  sync
-  |=  [our=@p now=@da old=(map path presence-lease:t) active=(map path (set @t))]
+  |=  [our=@p now=@da leases=(map path presence-lease:t) active=(map path (set @t))]
   ^-  (quip card:agent:gall (map path presence-lease:t))
   =/  cards=(list card:agent:gall)  ~
-  =/  next=(map path presence-lease:t)  ~
-  =^  cards  next
-    %+  roll  ~(tap by old)
-    |=  [[ctx=path lease=presence-lease:t] acc=[cards=(list card:agent:gall) next=(map path presence-lease:t)]]
-    ?:  (~(has by active) ctx)  acc
-    :_  next.acc
-    [[%pass /presence %agent [our %presence] %poke %presence-action-1 !>(`action-1:pr`[%clear ctx our %computing])] cards.acc]
-  =/  seed=[cards=(list card:agent:gall) next=(map path presence-lease:t)]  [cards next]
+  =/  renewed=(map path presence-lease:t)  ~
+  ::  Clear contexts with no remaining work.
+  =^  cards  renewed
+    %+  roll  ~(tap by leases)
+    |=  $:  [target=path lease=presence-lease:t]
+            result=[cards=(list card:agent:gall) renewed=(map path presence-lease:t)]
+        ==
+    ?:  (~(has by active) target)  result
+    =/  action=action-1:pr  [%clear target our %computing]
+    :_  renewed.result
+    :_  cards.result
+    [%pass /presence %agent [our %presence] %poke %presence-action-1 !>(action)]
+  ::  Retain fresh leases; renew changed tools or leases at least ten seconds old.
+  =/  seed=[cards=(list card:agent:gall) renewed=(map path presence-lease:t)]  [cards renewed]
   %+  roll  ~(tap by active)
-  |=  [[ctx=path tools=(set @t)] acc=_seed]
-  =/  previous  (~(get by old) ctx)
-  ?:  ?&(?=(^ previous) =(tools tools.u.previous) (lth now (add at.u.previous ~s10)))
-    [cards.acc (~(put by next.acc) ctx u.previous)]
+  |=  [[target=path tools=(set @t)] result=_seed]
+  =/  previous  (~(get by leases) target)
+  ?:  ?&  ?=(^ previous)
+          =(tools tools.u.previous)
+          (lth now (add at.u.previous ~s10))
+      ==
+    [cards.result (~(put by renewed.result) target u.previous)]
   =/  status  (display tools)
-  :_  (~(put by next.acc) ctx [now tools])
-  [[%pass /presence %agent [our %presence] %poke %presence-action-1 !>(`action-1:pr`[%set ~ [ctx our %computing] `~s30 status])] cards.acc]
+  =/  action=action-1:pr  [%set ~ [target our %computing] `~s30 status]
+  :_  (~(put by renewed.result) target [now tools])
+  :_  cards.result
+  [%pass /presence %agent [our %presence] %poke %presence-action-1 !>(action)]
 --
