@@ -107,6 +107,12 @@
 ++  on-agent
   |=  [=wire =sign:agent:gall]
   ?:  =(/telemetry wire)  `this
+  ::  A failed profile edit retries on the next adapter event, not its nack.
+  ?:  =(/liveness wire)
+    ?^  error=?:(?=(%poke-ack -.sign) p.sign ~)
+      %-  (slog 'harness-tlon: liveness profile update failed' u.error)
+      `this
+    `this
   =^  cards  state  abet:(agent:cor wire sign)
   [cards this]
 ::
@@ -146,8 +152,18 @@
   state(cuts (~(put by cuts) u.owner.policy now.bowl))
 ::
 ++  abet
-  =/  engine  schedule
+  =/  engine  schedule:sync-liveness
   [(flop cards.engine) state.engine]
+::
+++  sync-liveness
+  ^+  cor
+  ::  The in-ship hand publishes readiness through Contacts. No external
+  ::  gateway lease is needed; the native subscriptions determine readiness.
+  =/  online  &(enabled.policy watching head-live)
+  =/  effect  (mole |.((liveness:messenger online)))
+  ?~  effect  cor
+  ?~  u.effect  cor
+  (emit u.u.effect)
 ::
 ++  refresh-peers
   ^+  cor

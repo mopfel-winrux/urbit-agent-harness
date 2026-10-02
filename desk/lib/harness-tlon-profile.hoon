@@ -1,7 +1,14 @@
-::  Contacts owns the ship's public identity. Send only the two edited fields:
+::  Contacts owns the ship's public identity. Send only the edited fields:
 ::  a full profile replacement could erase a bio, color, or group membership.
 /-  ct=tlon-contacts
 |%
+++  liveness
+  |=  [online=? con=contact:ct]
+  ^-  contact:ct
+  =/  claim=value:ct
+    [%text ?:(online '{"v":1,"state":"online"}' '{"v":1,"state":"offline"}')]
+  ?:  =(`claim (~(get by con) %bot-liveness))  ~
+  (my ~[[%bot-liveness claim]])
 ++  encode
   |=  con=contact:ct
   ^-  json

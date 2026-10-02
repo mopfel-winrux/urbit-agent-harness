@@ -41,6 +41,7 @@
     |=  [ref=* raw=*]
     ^-  (unit (unit noun))
     =/  path  ;;(path raw)
+    ?:  ?=([%gu @ %contacts @ %$ ~] path)  ``|
     ?:  =(%$ (rear path))  ``&
     ::  Native Chat is installed and has no pending owner invitations.
     ?:  ?=([%gx @ %chat @ %dm %invited %ships ~] path)  ``~

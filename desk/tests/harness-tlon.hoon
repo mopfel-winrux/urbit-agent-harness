@@ -163,6 +163,16 @@
         ['toolCalls' %a ~[(pairs:enjs:format ~[['toolName' %s 'web_search'] ['label' %s 'Searching the web']])]]
     ==
   (expect-eq !>(expected) !>(blob))
+++  test-liveness-patch-preserves-profile-and-recognizes-current-claim
+  =/  con=contact:ct  (my ~[[%nickname [%text 'Bot']] [%bot-info [%text '{"v":1}']] [%bot-liveness [%text '{"v":1,"state":"offline"}']]])
+  =/  patch  (liveness:profile & con)
+  =/  expected=contact:ct  (my ~[[%bot-liveness [%text '{"v":1,"state":"online"}']]])
+  ;:  weld
+    (expect-eq !>(expected) !>(patch))
+    (expect-eq !>(`contact:ct`~) !>((liveness:profile | con)))
+    (expect-eq !>(`contact:ct`~) !>((liveness:profile & patch)))
+    (expect-eq !>(expected) !>((liveness:profile & ~)))
+  ==
 ++  test-profile-edits-only-nickname-and-avatar
   =/  patch  (decode:profile (pairs:enjs:format ~[['nickname' %s 'Bot'] ['avatar' %s 'https://example.com/bot.png']]))
   (expect-eq !>(`contact:ct`(my ~[[%nickname %text 'Bot'] [%avatar %look %'https://example.com/bot.png']])) !>(patch))

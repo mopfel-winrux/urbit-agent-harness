@@ -339,6 +339,15 @@ top-level channel conversations receive no automatic cross-message context.
 
 ## Thinking and tool activity
 
+The public “Bot · Offline” badge reads the `bot-liveness` Contacts field.
+The native hand publishes `{"v":1,"state":"online"}` when it is enabled,
+its Activity subscription is acknowledged, and its head subscription is live;
+otherwise it publishes `offline`. Adapter events reconcile only that field,
+preserving the rest of the profile and skipping unchanged claims. Reload and
+reconnection repair the claim. A failed Contacts read or edit retries on the
+next adapter event without blocking chat or creating a nack loop. If the whole
+ship stops, peers retain the last published claim until the ship returns.
+
 Chat computing indicators use `%presence-action-1` and the
 `tlon.computing-status.v1` display payload, matching the versioned Groups
 Presence protocol.

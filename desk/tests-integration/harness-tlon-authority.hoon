@@ -34,6 +34,7 @@
     |=  [ref=* raw=*]
     ^-  (unit (unit noun))
     =/  path  ;;(path raw)
+    ?:  ?=([%gu @ %contacts @ %$ ~] path)  ``|
     ?:  (lien path |=(part=@ta =(%cron-session part)))  ``job
     ?:  (lien path |=(part=@ta =(%cron-authority part)))  ``allowed
     ?:  =(%$ (rear path))  ``&
