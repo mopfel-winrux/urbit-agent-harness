@@ -17,7 +17,7 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
   const mcp = useResource('mcp', [])
   const openai = useResource('status/openai', {})
   const [form, setForm] = useState({})
-  const [provider, setProvider] = useState('openrouter')
+  const [provider, setProvider] = useState('openai')
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -57,12 +57,12 @@ export default function AgentSettings({ resources, theme, onThemeChange }) {
     event.preventDefault()
     setBusy(true); setError(''); setSaved(false)
     const config = withAuth({
-      url: form.url?.trim() || PROVIDERS.openrouter.endpoint,
-      model: form.model?.trim() || PROVIDERS.openrouter.model,
+      url: form.url?.trim() || PROVIDERS[provider].endpoint,
+      model: form.model?.trim() || PROVIDERS[provider].model,
       key: '',
       headers: Array.isArray(form.headers) ? form.headers : [],
       system: form.system || '',
-      'max-context': catalog.contextFor(form.model?.trim() || PROVIDERS.openrouter.model) || 80_000,
+      'max-context': catalog.contextFor(form.model?.trim() || PROVIDERS[provider].model) || 80_000,
       'js-timeout': Number.isFinite(Number(form['js-timeout'])) && Number(form['js-timeout']) >= 0 ? Math.floor(Number(form['js-timeout'])) : 30,
       tools: Array.isArray(form.tools) ? form.tools : [],
     }, provider, authMethod(provider, form))

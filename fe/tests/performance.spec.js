@@ -28,3 +28,27 @@ test('conversation reads use notifications with a fifteen-second safety poll', a
   await page.clock.runFor(15_000)
   expect(await lists()).toBe(2)
 })
+
+for (const surface of ['global', 'conversation']) test(`${surface}: idle refresh retains the visible model catalog`, async ({ page }) => {
+  await page.clock.install()
+  await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}`)
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.requests.length)).toBe(1)
+  await page.evaluate((model) => window.settingsFixture.resolve(0, {
+    models: [model], modelInfo: [{ id: model, contextWindow: 128_000 }],
+  }), defaultConfig().model)
+  await expect(page.getByText(/Provider reports .*128,000.*applied automatically on save/)).toBeVisible()
+  await page.evaluate(() => {
+    window.catalogRemovals = []
+    new MutationObserver((records) => {
+      for (const record of records) for (const node of record.removedNodes) {
+        if (node.textContent.includes('Provider reports')) window.catalogRemovals.push(node.textContent)
+      }
+    }).observe(document.querySelector('.settings-grid'), { childList: true, subtree: true })
+  })
+  const before = await page.evaluate(() => window.settingsFixture.reads.length)
+  await page.clock.runFor(31_000)
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.reads.length)).toBeGreaterThan(before)
+  await expect(page.getByText(/Provider reports .*128,000.*applied automatically on save/)).toBeVisible()
+  expect(await page.evaluate(() => window.catalogRemovals)).toEqual([])
+  expect(await page.evaluate(() => window.settingsFixture.requests.length)).toBe(1)
+})

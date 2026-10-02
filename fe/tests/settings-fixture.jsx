@@ -98,7 +98,7 @@ api.read = async (path) => {
   if (path.startsWith('skill/')) return skills.find((skill) => skill.name === path.slice(6))
   if (path === 'defaults' || path.startsWith('session/')) {
     if (params.has('hold-config')) await new Promise((resolve) => { window.settingsFixture.releaseConfig = resolve })
-    return config
+    return structuredClone(config)
   }
   if (path === 'status/openai') return { 'has-key': device || apiKey, 'has-api-key': apiKey, 'has-device-login': device, 'auth-method': device ? 'device' : 'api-key' }
   if (path === 'status/xai') return { 'has-key': xaiDevice, 'has-api-key': false, 'has-device-login': xaiDevice, 'auth-method': xaiDevice ? 'device' : 'api-key' }

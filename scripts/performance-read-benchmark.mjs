@@ -13,7 +13,11 @@ const row = (await readFile(process.env.SHIP_COOKIE, 'utf8')).split('\n').find((
 if (!row) throw new Error('Authenticated Netscape cookie required.')
 const fields = row.split('\t'), cookie = `${fields[5]}=${fields[6]}`
 const actualFetch = globalThis.fetch
-globalThis.document = { hidden: false }
+globalThis.document = Object.assign(new EventTarget(), { hidden: false })
+// This process owns one watch, so it can take the browser's stream slot.
+Object.defineProperty(globalThis.navigator, 'locks', { value: {
+  request: async (_name, _options, run) => run({}),
+} })
 let events = [], closing = []
 globalThis.fetch = async (path, options = {}) => {
   const action = options.body ? JSON.parse(options.body)[0] : null

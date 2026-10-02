@@ -373,7 +373,7 @@
       [%x %snapshot @ ~]
     =/  ses  (~(get by sessions) `session-id:h`i.t.t.path)
     ?~  ses  [~ ~]
-    ``json+!>((snapshot:hs u.ses ~))
+    ``json+!>((snapshot:hs u.ses ~ (play:hl log.u.ses)))
   ::
       [%x %head @ ~]
     =/  sid=session-id:h  i.t.t.path
@@ -2763,8 +2763,9 @@
       =/  progress  (~(get by streams) [u.sid req.u.pending.view])
       ?~  progress  ''
       =/  config  (active:routing view req.u.pending.view)
+      ?^  (route:runner-lib url.config)  body.u.progress
       (display-text:hp url.config body.u.progress)
-    =/  result  (snapshot:hs u.current since)
+    =/  result  (snapshot:hs u.current since view)
     ?>  ?=(%o -.result)
     =.  result  [%o (~(put by p.result) 'streaming' [%s streaming])]
     (respond ~ result)
@@ -3659,11 +3660,11 @@
   ::
       %turn
     =^  requested  session  (issue-llm sid session %turn view)
-    $(cards (weld cards requested))
+    [(weld cards requested) session skills staged search-requests]
   ::
       %compact
     =^  requested  session  (start-compaction sid session ~)
-    $(cards (weld cards requested))
+    [(weld cards requested) session skills staged search-requests]
   ::
       %halt
     =^  recorded  session
@@ -4050,7 +4051,7 @@
     =/  delta=@t  (cut 3 [sent (sub total sent)] text)
     =/  prompt  (~(get by acp-prompts) sid)
     ?~  prompt  `state
-    [~[(acp-stream-card:wire-codec connection.u.prompt sid delta)] state]
+    [~[(acp-stream-card:wire-codec connection.u.prompt sid (lent log.session) sent delta)] state]
   ::  Convert one terminal response to one event. Decoding failures remain
   ::  ordinary request failures; compaction also validates its source plan.
   ::
@@ -5452,12 +5453,13 @@
     =/  progress=stream-progress  (fall (~(get by streams) [sid turn]) ['' 0])
     =/  size  (add sent.progress (met 3 text))
     ?:  (gth size 131.072)  (runner-reply eyre-id 413 'Reply exceeds 128 KiB')
-    =.  streams  (~(put by streams) [sid turn] ['' size])
+    =.  streams  (~(put by streams) [sid turn] [(cat 3 body.progress text) size])
     =.  registry.runners  (~(put by registry.runners) id updated)
     =^  cards  state  (runner-reply eyre-id 200 'Acknowledged')
     =/  prompt  (~(get by acp-prompts) sid)
     ?~  prompt  [cards state]
-    [(snoc cards (acp-stream-card:wire-codec connection.u.prompt sid text)) state]
+    =/  revision  (lent log:(~(got by sessions) sid))
+    [(snoc cards (acp-stream-card:wire-codec connection.u.prompt sid revision sent.progress text)) state]
   =/  response  (get:wire-json value 'response')
   ?:  &(!=('failed' type) ?=(~ response))  (runner-reply eyre-id 400 'Expected completion response')
   =.  registry.runners  (~(put by registry.runners) id updated)

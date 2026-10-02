@@ -58,3 +58,37 @@ test('a change during an in-flight snapshot gets one trailing refresh', async ({
   await expect(page.locator('.thinking-message')).toContainText('Newest')
   expect(await reads(page)).toBe(before + 2)
 })
+
+test('send shows the prompt and thinking before the ship acknowledges it', async ({ page }) => {
+  await page.goto('/apps/harness/tests/fixture.html')
+  await expect(page.getByRole('heading', { name: 'A small head, capable hands' })).toBeAttached()
+  await page.evaluate(() => {
+    window.harnessFixture.holdPrompts = true
+    window.harnessFixture.holdAdmission = true
+    window.harnessFixture.holdSnapshots = true
+  })
+  await page.getByRole('textbox', { name: 'Message' }).fill('Please start now')
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
+  await expect(page.locator('.message.user.pending')).toHaveText('userPlease start now')
+  await expect(page.getByRole('status', { name: 'Thinking' })).toBeVisible()
+  await expect(page.getByLabel('Session thinking')).toBeVisible()
+})
+
+test('stream text paints between safety polls and survives an older in-flight snapshot', async ({ page }) => {
+  await page.goto('/apps/harness/tests/fixture.html')
+  await expect(page.getByRole('heading', { name: 'A small head, capable hands' })).toBeAttached()
+  await page.evaluate(() => {
+    window.harnessFixture.holdSnapshots = true
+    window.harnessFixture.update({ phase: 'thinking', streaming: '' })
+  })
+  const before = await reads(page)
+  await page.evaluate(() => window.harnessFixture.stream('Hello 🙂'))
+  await expect(page.locator('.thinking-message')).toContainText('Hello 🙂')
+  await page.evaluate(() => window.harnessFixture.stream(' immediately'))
+  await expect(page.locator('.thinking-message')).toContainText('Hello 🙂 immediately')
+  expect(await reads(page)).toBe(before)
+  await page.evaluate(() => { window.harnessFixture.holdSnapshots = false; window.harnessFixture.completeSnapshot(0) })
+  await expect(page.locator('.thinking-message')).toContainText('Hello 🙂 immediately')
+  await page.evaluate(() => window.harnessFixture.update({ phase: 'idle', streaming: '' }))
+  await expect(page.locator('.thinking-message')).toHaveCount(0)
+})

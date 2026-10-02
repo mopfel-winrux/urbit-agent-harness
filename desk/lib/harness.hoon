@@ -198,8 +198,13 @@
   ++  admit-item
     |=  it=item:h
     ^-  view:h
-    =/  next  (append-item it)
-    next(err ~, cancelled ~, compact-attempts 0)
+    %=  view
+      items  [it items.view]
+      positions  [revision.view positions.view]
+      err  ~
+      cancelled  ~
+      compact-attempts  0
+    ==
   ::
   ++  add-usage
     |=  [total=usage:h added=usage:h]

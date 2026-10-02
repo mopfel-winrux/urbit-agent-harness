@@ -44,7 +44,11 @@ implicitly. Destination blocking and authority checks govern delivery.
 An open conversation checks snapshots every 600 ms while loading or running,
 and every 10 seconds while idle. Hidden tabs use 2.5 seconds and 30 seconds,
 respectively. Session notifications, focus, reconnection, sending and completion
-refresh sooner. Token chunks do not each trigger a snapshot request. Reads are
+refresh sooner. Sending displays the pending prompt and thinking state before
+network acknowledgement. Contiguous stream notifications update the displayed
+text immediately without a snapshot round trip; retained transcript rows do not
+rerender for each chunk. Revision and UTF-8 byte offsets fence stale text and
+recover gaps. Reads are
 single-flight; an invalidation during a read gets a trailing read so a stale
 response cannot hide the newer state until the next idle interval.
 
@@ -104,6 +108,16 @@ This cadence does not cache authorization. Scheduled execution and hand delivery
 check live authority at their effect boundaries. Local source binding and grant
 changes trigger maintenance, and re-enabling a revoked source does not resume
 paused jobs automatically.
+
+Settings refreshes retain the identity of unchanged JSON while a view is mounted,
+so idle reads do not reset forms or hide their model catalogs. Every refresh
+still reads the ship, saved responses fence older requests, and closing a view
+releases its shared snapshot.
+
+Model and compaction dispatch stop the synchronous drive loop at their pending
+request. A result resumes it through the ordinary event boundary. ACP snapshot
+projection shares one replay with the stream lookup. These changes add no
+persisted projection or cache; the event log remains authoritative.
 
 ## Full-turn benchmark
 

@@ -54,10 +54,9 @@
   [%& [[%forked from at ~ ~] prefix] next-req.session]
 ::
 ++  snapshot
-  |=  [=session:h since=(unit @ud)]
+  |=  [=session:h since=(unit @ud) =view:h]
   ^-  json
-  =/  revision=@ud  (lent log.session)
-  =/  =view:h  (play:head log.session)
+  =/  revision  revision.view
   =/  phase=@t
     ?^  pending.view
       ?:(=(%compaction kind.u.pending.view) 'compacting' 'thinking')

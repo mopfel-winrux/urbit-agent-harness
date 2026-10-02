@@ -75,12 +75,12 @@
   ^-  config:h
   :*  |
       ~
-      'https://openrouter.ai/api/v1/chat/completions'
-      'z-ai/glm-5.3-flash'
+      'https://api.openai.com/v1/responses'
+      'gpt-6-luna'
       ''
       ~
       default-system
-      1.310.720
+      80.000
       default-tools
   ==
 --

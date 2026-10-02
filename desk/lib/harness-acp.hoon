@@ -115,9 +115,15 @@
   =/  update  (acp-text-update 'agent_message_chunk' text)
   (acp-session-update-card connection sid update)
 ++  acp-stream-card
-  |=  [connection=connection-id:v1:ac sid=session-id:h text=@t]
+  |=  [connection=connection-id:v1:ac sid=session-id:h revision=@ud offset=@ud text=@t]
   ^-  card
-  =/  update  (acp-text-update 'harness_agent_stream_chunk' text)
+  =/  update
+    %-  pairs:enjs:format
+    :~  ['sessionUpdate' %s 'harness_agent_stream_chunk']
+        ['revision' (numb:enjs:format revision)]
+        ['offset' (numb:enjs:format offset)]
+        ['content' (acp-text-content text)]
+    ==
   (acp-session-update-card connection sid update)
 ::  Message chunks share a text payload; their update tags remain distinct.
 ++  acp-text-content

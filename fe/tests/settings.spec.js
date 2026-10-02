@@ -154,6 +154,7 @@ for (const surface of ['global', 'conversation']) {
   test(`${surface}: auth owns the OpenAI endpoint and only Custom can edit one`, async ({ page }) => {
     await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}&device`)
     await expect(page.getByLabel('Endpoint', { exact: true })).toHaveCount(0)
+    await chooseOption(page.getByRole('combobox', { name: 'Provider', exact: true }), 'openrouter')
     await chooseOption(page.getByRole('combobox', { name: 'Provider', exact: true }), 'openai')
     await expect(page.getByRole('combobox', { name: 'Authentication', exact: true })).toHaveText('Device login (ChatGPT)')
     await expect.poll(() => page.evaluate(() => window.settingsFixture.requests.at(-1).url)).toBe(PROVIDERS.openai.deviceModelsEndpoint)
@@ -165,6 +166,7 @@ for (const surface of ['global', 'conversation']) {
     await chooseOption(page.getByRole('combobox', { name: 'Authentication', exact: true }), 'api-key')
     await save.click()
     await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1).url)).toBe(PROVIDERS.openai.endpoint)
+    await chooseOption(page.getByRole('combobox', { name: 'Provider', exact: true }), 'openrouter')
     await chooseOption(page.getByRole('combobox', { name: 'Provider', exact: true }), 'openrouter')
     await chooseOption(page.getByRole('combobox', { name: 'Provider', exact: true }), 'openai')
     await expect(page.getByRole('combobox', { name: 'Authentication', exact: true })).toHaveText('Device login (ChatGPT)')

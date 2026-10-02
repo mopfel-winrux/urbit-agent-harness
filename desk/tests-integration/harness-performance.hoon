@@ -65,7 +65,7 @@
     (play:hl log)
   =/  snapshot
     ~>  %bout.[1 'perf-unchanged-snapshot-8193-events']
-    (snapshot:hs [log 1] `8.193)
+    (snapshot:hs [log 1] `8.193 (play:hl log))
   =/  full
     ~>  %bout.[1 'perf-first-history-page-8193-events']
     (history:hs [log 1] ~)

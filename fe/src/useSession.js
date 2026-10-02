@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { acp } from './acp'
-import { admitted, applySnapshot, applyHistory } from './session'
+import { admitted, applySnapshot, applyHistory, applyStream } from './session'
 import { clientId } from './clientId.js'
 import { createSessionPolling } from './sessionPolling.js'
 
@@ -56,8 +56,13 @@ export function useSession(chat) {
           return admitted(next, current.current?.entries || []) ? null : next
         })
       }
-      if (value?.sessionUpdate === 'harness_agent_stream_chunk') loop.stream()
-      else void loop.refresh()
+      if (value?.sessionUpdate === 'harness_agent_stream_chunk') {
+        const next = applyStream(current.current, value)
+        if (!next) { void loop.refresh(); return }
+        loop.stream()
+        current.current = next
+        setSnapshot(next)
+      } else void loop.refresh()
     }
     const focus = () => { if (!document.hidden) void loop.refresh() }
     const ready = () => { void loop.refresh() }

@@ -195,6 +195,10 @@ acknowledged as well as supporting the protocol notification form.
 While a prompt is active, the client displays a thinking indicator. Harness
 projects incremental provider text as presentation-only
 `harness_agent_stream_chunk` updates whenever Iris exposes response progress.
+Each update carries the durable log `revision`, a UTF-8 byte `offset`, and
+`content: {type: "text", text}`. Clients render contiguous chunks immediately,
+ignore duplicates and stale revisions, and recover gaps with a snapshot. An
+in-flight snapshot cannot replace a newer displayed prefix.
 Those chunks are presentation state: only the completed assistant item enters
 the event log and the standard `agent_message_chunk` update. Providers or HTTP
 paths that deliver the response as one completed body retain the thinking
