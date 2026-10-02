@@ -116,8 +116,15 @@ releases its shared snapshot.
 
 Model and compaction dispatch stop the synchronous drive loop at their pending
 request. A result resumes it through the ordinary event boundary. ACP snapshot
-projection shares one replay with the stream lookup. These changes add no
+projection shares one replay with the stream lookup. The drive loop keeps no
 persisted projection or cache; the event log remains authoritative.
+
+Tool batches advance the drive loop's local view from newly recorded events
+instead of replaying the complete log again. Human history reads project a page
+after seeking its event cursor, with cancellation receipts kept together. Full
+transcript cancellation reads inspect only the latest exchange. Event counting
+and cursor seeking still traverse list structure; they do not encode or rebuild
+every retained message.
 
 ## Full-turn benchmark
 
@@ -158,7 +165,8 @@ an empty scheduler does not exercise live job-authority checks.
 ## Native benchmarks and correctness
 
 Pure native benchmarks cover mark dispatch, publication selection, session
-replay, history projections, session indexing and corpus synchronization.
+replay, incremental tool batches, paged and full history, interrupted exchanges,
+session indexing and corpus synchronization.
 Comparisons include output-equivalence assertions; their timing ratios apply
 to the measured operations, not the entire runtime. These files require an
 explicit `zig build -Dheavy-tests=true` and are absent from the default desk.

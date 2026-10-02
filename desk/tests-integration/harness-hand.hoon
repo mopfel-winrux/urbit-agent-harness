@@ -23,6 +23,7 @@
       local-mcp-seen  1
       provider-keys  (my ~[['openrouter' 'fixture-key']])
     ==
+  =.  url.defaults.saved  'https://openrouter.ai/api/v1/chat/completions'
   =/  events=(list event:h)
     :~  [%llm-requested 0 %turn]
         [%input-admitted [%user 'Running']]

@@ -110,23 +110,31 @@
   ::  Event addresses are immutable. Keep all rows at an address together,
   ::  including synthetic cancellation receipts; pagination never edits history.
   ::
-  =/  rows  (flop (transcript:head log.session))
-  =/  ceiling=@ud  ?~(before +((lent log.session)) u.before)
+  ?:  =(`0 before)  [[%a ~] ~]
+  =/  revision  (lent log.session)
+  =/  at  ?~(before revision (min revision (dec u.before)))
+  =/  events  (slag (sub revision at) log.session)
   =/  count=@ud  0
-  =/  oldest=@ud  ceiling
+  =/  oldest  at
   =/  bytes=@ud  0
   =|  page=(list json)
   |-  ^-  [entries=json before=json]
-  ?~  rows  [[%a page] ~]
-  ?:  (gte at.i.rows ceiling)  $(rows t.rows)
-  ?:  &(!=(oldest at.i.rows) |((gte count 40) (gte bytes 262.144)))
+  ?~  events  [[%a page] ~]
+  =/  rows  (transcript-event:head at events)
+  ?~  rows  $(events t.events, at (dec at))
+  ?:  |((gte count 40) (gte bytes 262.144))
     [[%a page] (numb:enjs:format oldest)]
-  =/  row  (transcript-row-json:codec i.rows)
+  =/  projected  (turn rows transcript-row-json:codec)
   %=  $
-    rows    t.rows
-    count   +(count)
-    oldest  at.i.rows
-    bytes   (add bytes (met 3 (en:json:html row)))
-    page    [row page]
+    events  t.events
+    at      (dec at)
+    count   (add count (lent projected))
+    oldest  at
+    bytes
+      %+  add  bytes
+      %+  roll  projected
+      |=  [row=json size=@ud]
+      (add size (met 3 (en:json:html row)))
+    page    (weld projected page)
   ==
 --

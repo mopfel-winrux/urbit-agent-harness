@@ -77,6 +77,13 @@
   =/  log  [[%checkpoint-completed 0 'Small' [12 3] ~] [%input-admitted [%user 'new input']] history]
   =/  v  (play:hl log)
   (expect !>(&(=(4 (lent items.v)) =(6 (lent (transcript:hl log))) =([12 3] compact-usage.v) =([12 3] total.v) =(`item:h`[%user 'new input'] (rear items.v)))))
+++  test-incremental-checkpoint-keeps-context-and-addresses
+  =/  events=(list event:h)
+    :~  [%input-admitted [%user 'new input']]
+        [%checkpoint-completed 0 'Small' [12 3] `[0v1 'Compacted.']]
+    ==
+  =/  expected  (play:hl (weld (flop events) history))
+  (expect-eq !>(expected) !>((advance:hl events (play:hl history))))
 ++  test-cancelled-checkpoint-cannot-revive
   =/  cancelled  [[%cancelled `0 ~ 'stop'] history]
   =/  before  (play:hl cancelled)

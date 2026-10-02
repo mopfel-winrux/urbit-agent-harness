@@ -3639,11 +3639,12 @@
   ^-  drive-result
   |^
   =|  cards=(list card)
+  =/  projection  (play:hl log.session)
   |-
   ^-  drive-result
   ::  Authority follows this admitted input, not the previous turn's actor.
   =.  sessions  (~(put by sessions) sid session)
-  =/  view  (play:hl log.session)
+  =/  view  projection
   =.  tools.config.view  (execution-tools sid tools.config.view)
   =/  decision
     ?:  (~(has by peer-active) sid)  (step:peer-rpc view)
@@ -3656,7 +3657,7 @@
     =.  staged  staged.batch
     =.  search-requests  search-requests.batch
     =^  recorded  session  (record-all sid session events.batch)
-    $(cards :(weld cards recorded cards.batch))
+    $(projection (advance:hl events.batch projection), cards :(weld cards recorded cards.batch))
   ::
       %turn
     =^  requested  session  (issue-llm sid session %turn view)

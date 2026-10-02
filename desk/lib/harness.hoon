@@ -67,6 +67,18 @@
   ::
   =/  reversed  (roll (flop log) fold)
   reversed(items (flop items.reversed), positions (flop positions.reversed))
+::  Advance a chronological view with newly recorded events, in recording
+::  order. The same reducer owns full replay and this event-local continuation.
+::
+++  advance
+  |=  [events=(list event:h) =view:h]
+  ^-  view:h
+  =/  reversed  view(items (flop items.view), positions (flop positions.view))
+  =.  reversed
+    |-  ^-  view:h
+    ?~  events  reversed
+    $(events t.events, reversed (fold i.events reversed))
+  reversed(items (flop items.reversed), positions (flop positions.reversed))
 ::  Incremental replay for rebuildable projections. The accumulator keeps
 ::  items and positions newest-first; +play exposes them chronologically.
 ::
@@ -292,7 +304,14 @@
   ?~  events  (flop rows)
   =*  event  i.events
   ?:  ?=(%cancelled -.event)
-    =/  before  (flop (turn rows |=([@ud (unit input-id:h) =item:h] item)))
+    =/  before
+      =/  remaining  rows
+      =|  after=(list item:h)
+      |-  ^-  (list item:h)
+      ?~  remaining  after
+      =/  it  item.i.remaining
+      ?:  ?=(%assistant -.it)  [it after]
+      $(remaining t.remaining, after [it after])
     =/  closed  (cancel-results before reason.event)
     =/  added
       (turn closed |=(it=item:h [+(at) ~ it]))
@@ -310,6 +329,36 @@
     ==
   ?~  row  $(events t.events, at +(at))
   $(events t.events, at +(at), rows [[+(at) u.row] rows])
+::  Project one event at its immutable address. Cancellation needs only the
+::  preceding tool exchange; unrelated history never enters the projection.
+::  Rows within an event stay chronological and travel together through pages.
+::
+++  transcript-event
+  |=  [at=@ud log=(list event:h)]
+  ^-  (list [at=@ud input-id=(unit input-id:h) =item:h])
+  ?~  log  ~
+  ?.  ?=(%cancelled -.i.log)
+    =/  address  at
+    %+  turn  (transcript ~[i.log])
+    |=  row=[at=@ud input-id=(unit input-id:h) =item:h]
+    row(at address)
+  =/  reason  reason.i.log
+  =/  events  t.log
+  =|  after=(list item:h)
+  |-
+  ^-  (list [at=@ud input-id=(unit input-id:h) =item:h])
+  ?~  events  ~
+  ::  A prior cancellation already closes this exchange, even when more
+  ::  input or configuration events follow it without another assistant.
+  ?:  ?=(%cancelled -.i.events)  ~
+  =/  rows  (transcript ~[i.events])
+  ?~  rows  $(events t.events)
+  =/  it  item.i.rows
+  ?.  ?=(%assistant -.it)
+    $(events t.events, after [it after])
+  %+  turn  (cancel-results [it after] reason)
+  |=  it=item:h
+  [at ~ it]
 ++  transcript-items
   |=  log=(list event:h)
   (turn (transcript log) |=([@ud (unit input-id:h) =item:h] item))
