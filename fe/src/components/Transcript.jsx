@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { transcriptEntries } from '../session'
 import Markdown from './Markdown'
 
@@ -16,18 +16,22 @@ function ThinkingMessage({ streaming, phase }) {
   </article>
 }
 
-export default function Transcript({ items, pending, thinking, streaming, phase, onFork }) {
-  const entries = useMemo(() => transcriptEntries(items), [items])
-  if (!entries.length && !pending && !thinking) return <div className="empty-chat">
-    <h2>What should we work on?</h2><p>Start a conversation, inspect tool work as it happens, and return whenever you like.</p>
-  </div>
+const TranscriptHistory = memo(function TranscriptHistory({ entries, onFork }) {
   return <>{entries.map((entry) => entry.type === 'tool'
     ? <ToolEntry key={entry.id} entry={entry} />
     : <article className={`message ${entry.role}`} key={entry.id}>
       <div className="message-label">{entry.role === 'assistant' ? 'harness' : entry.role}
         {entry.role === 'assistant' && !entry.calls?.length && <button className="branch-button" onClick={() => onFork(entry.eventCount)} title="Start a new conversation from this reply">Branch from here</button>}
       </div><div className="message-body">{entry.role === 'assistant' ? <Markdown text={entry.body} /> : entry.body}</div>
-    </article>)}
+    </article>)}</>
+})
+
+export default function Transcript({ items, pending, thinking, streaming, phase, onFork }) {
+  const entries = useMemo(() => transcriptEntries(items), [items])
+  if (!entries.length && !pending && !thinking) return <div className="empty-chat">
+    <h2>What should we work on?</h2><p>Start a conversation, inspect tool work as it happens, and return whenever you like.</p>
+  </div>
+  return <><TranscriptHistory entries={entries} onFork={onFork} />
     {pending && <article className="message user pending"><div className="message-label">user</div><div className="message-body">{pending.text}</div></article>}
     {thinking && <ThinkingMessage streaming={streaming} phase={phase} />}
   </>

@@ -8,20 +8,22 @@
 |%
 ::  Shared libraries are not private conversation memory. Durable source
 ::  provenance also protects an operator-created fork of a social transcript.
+::
 ++  social-context
   |=  log=(list event:h)
   ^-  ?
   %+  lien  log
-  |=  e=event:h
-  ?&(?=(%input-received -.e) ?=(?(%hand %peer) -.source.input.e))
+  |=  =event:h
+  ?&(?=(%input-received -.event) ?=(?(%hand %peer) -.source.input.event))
 ::  Durable lineage survives completion and forks; ephemeral waiter maps do
 ::  not. The runtime uses it to fence descendants without erasing history.
+::
 ++  delegation
   |=  log=(list event:h)
   ^-  (unit [parent=session-id:h call-id=@t rehearsal=?])
   ?~  log  ~
   ?:  ?=(%input-received -.i.log)
-    =/  source  source.input.i.log
+    =*  source  source.input.i.log
     ?:  ?=(%subagent -.source)  `[parent.source call-id.source |]
     ?:  ?=(%rehearsal -.source)  `[parent.source call-id.source &]
     $(log t.log)
@@ -35,12 +37,13 @@
       ?~(generation '' (cat 3 (scot %ud u.generation) '--'))
       call-id
   ==
-::  Read the newest marker, including legacy in-flight requests. A legacy
-::  receipt can never borrow a later generation that reused its call ID.
+::  The newest request marker owns the call ID. A marker without a
+::  generation cannot borrow one from a different request with the same ID.
+::
 ++  request-generation
-  |=  [ses=session:h call-id=@t]
+  |=  [=session:h call-id=@t]
   ^-  (unit @ud)
-  =/  events  log.ses
+  =/  events  log.session
   |-  ^-  (unit @ud)
   ?~  events  ~
   ?:  ?&(?=(%tool-requested-2 -.i.events) =(call-id call-id.i.events))
@@ -49,150 +52,242 @@
     ~
   $(events t.events)
 ++  request-current
-  |=  [ses=session:h generation=(unit @ud) call-id=@t]
+  |=  [=session:h generation=(unit @ud) call-id=@t]
   ^-  ?
-  ?.  (~(has in wait:(play log.ses)) call-id)  |
-  ?.  =(generation (request-generation ses call-id))  |
+  ?.  (~(has in wait:(play log.session)) call-id)  |
+  ?.  =(generation (request-generation session call-id))  |
   ?~  generation  &
-  =(u.generation next-req.ses)
+  =(u.generation next-req.session)
 ::  +play: fold the event log (newest first) into a view
 ::
 ++  play
   |=  log=(list event:h)
   ^-  view:h
   ::  Accumulate newest first, reversing once instead of copying every prefix.
+  ::
   =/  reversed  (roll (flop log) fold)
+  reversed(items (flop items.reversed), positions (flop positions.reversed))
+::  Advance a chronological view with newly recorded events, in recording
+::  order. The same reducer owns full replay and this event-local continuation.
+::
+++  advance
+  |=  [events=(list event:h) =view:h]
+  ^-  view:h
+  =/  reversed  view(items (flop items.view), positions (flop positions.view))
+  =.  reversed
+    |-  ^-  view:h
+    ?~  events  reversed
+    $(events t.events, reversed (fold i.events reversed))
   reversed(items (flop items.reversed), positions (flop positions.reversed))
 ::  Incremental replay for rebuildable projections. The accumulator keeps
 ::  items and positions newest-first; +play exposes them chronologically.
+::
 ++  fold
-  |=  [e=event:h v=view:h]
+  |=  [=event:h =view:h]
   ^-  view:h
-  =.  revision.v  +(revision.v)
-  ?-  -.e
+  =.  revision.view  +(revision.view)
+  |^
+  ?-  -.event
     ::  Editing policy is not permission to restart a failed request.
-    %config-replaced       v(config config.e)
-    %input-admitted        v(items [item.e items.v], positions [revision.v positions.v], err ~, cancelled ~, compact-attempts 0)
-    %input-received        v(items [item.input.e items.v], positions [revision.v positions.v], err ~, cancelled ~, compact-attempts 0)
-    %context-received      v(items [[%user body.e] items.v], positions [revision.v positions.v])
-    %command-completed    v(items [[%assistant body.e ~] items.v], positions [revision.v positions.v])
-    %memory-set           v(memory ?~(body.e (~(del by memory.v) name.e) (~(put by memory.v) name.e u.body.e)))
+    ::
+    %config-replaced       view(config config.event)
+    %input-admitted        (admit-item item.event)
+    %input-received        (admit-item item.input.event)
+    %context-received      (append-item [%user body.event])
+    %command-completed     (append-item [%assistant body.event ~])
+      %memory-set
+    %=  view
+      memory  ?~  body.event
+                (~(del by memory.view) name.event)
+              (~(put by memory.view) name.event u.body.event)
+    ==
     ::  A recorded request is an admitted continuation. Clearing the error
     ::  here also keeps already-recorded config/retry exchanges replayable.
-    %llm-requested         v(pending `[req.e kind.e], err ~)
-    %llm-routed            v(route `[req.e config.e])
+    ::
+    %llm-requested         view(pending `[req.event kind.event], err ~)
+    %llm-routed            view(route `[req.event config.event])
       %llm-reasoning
-    ?.  =(pending.v `[req.e %turn])  v
-    v(items [[%reasoning url.e model.e data.e] items.v], positions [revision.v positions.v])
-    %llm-failed            v(pending ~, compaction ~, lcm-plan ~, err `err.e)
-    %tool-requested        v(wait (~(put in wait.v) call-id.e))
-    %tool-requested-2      v(wait (~(put in wait.v) call-id.e))
-    %retried               v(err ~, cancelled ~)
-    %halted                v(pending ~, err `reason.e)
-    %forked                v(pending ~, compaction ~, lcm-plan ~, wait ~, cancelled ~, origin `[from.e at.e])
-    %compaction-planned    v(pending `[req.e %compaction], compaction `plan.e, lcm-plan ~, err ~, compact-attempts +(compact-attempts.v))
-    %lcm-planned           v(pending `[req.e %compaction], compaction `checkpoint.plan.e, lcm-plan `plan.e, err ~, compact-attempts +(compact-attempts.v))
-  ::  Results cannot revive a cancelled or superseded checkpoint, even when
-  ::  replayed independently of Gall. The plan fixes the cut before dispatch.
-      %checkpoint-completed
-    ?.  =(pending.v `[req.e %compaction])  v
-    ?~  compaction.v  v
-    =/  p  u.compaction.v
-    ?.  =(source.p (sham [summary.v (scag count.p (flop items.v))]))  v
-    ?:  ?&(?=(^ lcm-plan.v) !=(sources.u.lcm-plan.v (scag count.p (flop positions.v))))  v
-    =/  tail=(list item:h)  (slag count.p (flop items.v))
-    =/  positions=(list @ud)  (slag count.p (flop positions.v))
-    =/  forest
-      ?~  lcm-plan.v
-        (legacy:lcm lcm.v revision.v summary.e (scag count.p (flop positions.v)))
-      =/  plan  u.lcm-plan.v
-      (fall (append:lcm lcm.v revision.v summary.e sources.plan children.plan) lcm.v)
-    ::  An invalid tree transition cannot accept a provider checkpoint.
-    ?:  &(?=(^ lcm-plan.v) =(forest lcm.v))  v
-    ::  A manual command's reply belongs at its admitted boundary. Native
-    ::  input arriving during summary execution stays after it and still
-    ::  needs inference; the acknowledgement must not swallow that input.
-    =?  tail  ?=(^ reply.e)
-      =/  at  (sub length.p count.p)
-      (weld (scag at tail) [`item:h`[%assistant body.u.reply.e ~] (slag at tail)])
-    =?  positions  ?=(^ reply.e)
-      =/  at  (sub length.p count.p)
-      (weld (scag at positions) [revision.v (slag at positions)])
-    %=  v
+    ?.  =(pending.view `[req.event %turn])  view
+    (append-item [%reasoning url.event model.event data.event])
+  ::
+      %llm-failed
+    view(pending ~, compaction ~, lcm-plan ~, err `err.event)
+  ::
+    %tool-requested        view(wait (~(put in wait.view) call-id.event))
+    %tool-requested-2      view(wait (~(put in wait.view) call-id.event))
+    %retried               view(err ~, cancelled ~)
+    %halted                view(pending ~, err `reason.event)
+      %forked
+    %=  view
       pending  ~
-      summary  ?~(lcm-plan.v `summary.e (render:lcm forest))
-      items  (flop tail)
-      positions  (flop positions)
-      lcm  forest
-      lcm-plan  ~
       compaction  ~
-      compact-usage  [(add prompt.compact-usage.v prompt.usage.e) (add completion.compact-usage.v completion.usage.e)]
-      total  [(add prompt.total.v prompt.usage.e) (add completion.total.v completion.usage.e)]
+      lcm-plan  ~
+      wait  ~
+      cancelled  ~
+      origin  `[from.event at.event]
     ==
+      %compaction-planned
+    %=  view
+      pending  `[req.event %compaction]
+      compaction  `plan.event
+      lcm-plan  ~
+      err  ~
+      compact-attempts  +(compact-attempts.view)
+    ==
+      %lcm-planned
+    %=  view
+      pending  `[req.event %compaction]
+      compaction  `checkpoint.plan.event
+      lcm-plan  `plan.event
+      err  ~
+      compact-attempts  +(compact-attempts.view)
+    ==
+    %checkpoint-completed  (complete-checkpoint event)
       %compaction-failed
-    ?.  =(pending.v `[req.e %compaction])  v
-    %=  v
+    ?.  =(pending.view `[req.event %compaction])  view
+    %=  view
       pending  ~
       compaction  ~
       lcm-plan  ~
-      err  `err.e
-      compact-usage  [(add prompt.compact-usage.v prompt.usage.e) (add completion.compact-usage.v completion.usage.e)]
-      total  [(add prompt.total.v prompt.usage.e) (add completion.total.v completion.usage.e)]
+      err  `err.event
+      compact-usage  (add-usage compact-usage.view usage.event)
+      total  (add-usage total.view usage.event)
     ==
   ::  Cancellation closes the provider exchange as well as the wait set.
   ::  These are cancellation receipts, never claims of external rollback.
   ::  Interpreting the event keeps existing logs intact and replayable.
   ::
       %cancelled
-    =/  closed  (cancel-results (flop items.v) reason.e)
-    %=  v
+    =/  closed  (cancel-results (flop items.view) reason.event)
+    %=  view
       pending    ~
       compaction  ~
       lcm-plan  ~
       wait       ~
-      cancelled  `reason.e
-      items      (weld (flop closed) items.v)
-      positions  (weld (reap (lent closed) revision.v) positions.v)
+      cancelled  `reason.event
+      items      (weld (flop closed) items.view)
+      positions  (weld (reap (lent closed) revision.view) positions.view)
     ==
   ::
       %tool-completed
-    %=  v
-      wait   (~(del in wait.v) call-id.e)
-      items  [[%tool call-id.e name.e body.e] items.v]
-      positions  [revision.v positions.v]
+    %=  view
+      wait   (~(del in wait.view) call-id.event)
+      items  [[%tool call-id.event name.event body.event] items.view]
+      positions  [revision.view positions.view]
     ==
   ::
       %llm-completed
-    %=  v
+    %=  view
       pending  ~
-      items    [item.e items.v]
-      positions  [revision.v positions.v]
-      total    :-  (add prompt.total.v prompt.usage.e)
-               (add completion.total.v completion.usage.e)
+      items    [item.event items.view]
+      positions  [revision.view positions.view]
+      total  (add-usage total.view usage.event)
     ==
   ::
       %compaction-completed
-    =/  kept  (retained (flop items.v))
-    =/  count  (sub (lent items.v) (lent kept))
-    %=  v
+    =/  kept  (retained (flop items.view))
+    =/  count  (sub (lent items.view) (lent kept))
+    %=  view
       pending  ~
-      summary  `summary.e
+      summary  `summary.event
       items    (flop kept)
-      positions  (scag (lent kept) positions.v)
-      lcm  (legacy:lcm lcm.v revision.v summary.e (scag count (flop positions.v)))
+      positions  (scag (lent kept) positions.view)
+      lcm
+        %:  legacy:lcm
+          lcm.view  revision.view  summary.event
+          (scag count (flop positions.view))
+        ==
     ==
   ==
+  ::  Context items and their event addresses always move together. These
+  ::  helpers use the fold's newest-first order, not +play's public order.
+  ::
+  ++  append-item
+    |=  it=item:h
+    ^-  view:h
+    view(items [it items.view], positions [revision.view positions.view])
+  ::
+  ++  admit-item
+    |=  it=item:h
+    ^-  view:h
+    %=  view
+      items  [it items.view]
+      positions  [revision.view positions.view]
+      err  ~
+      cancelled  ~
+      compact-attempts  0
+    ==
+  ::
+  ++  add-usage
+    |=  [total=usage:h added=usage:h]
+    ^-  usage:h
+    [(add prompt.total prompt.added) (add completion.total completion.added)]
+  ::  Results cannot revive a cancelled or superseded checkpoint. Verify
+  ::  the request and its immutable source span before replacing context.
+  ::
+  ++  complete-checkpoint
+    |=  result=event:h
+    ^-  view:h
+    ?>  ?=(%checkpoint-completed -.result)
+    ?.  =(pending.view `[req.result %compaction])  view
+    ?~  compaction.view  view
+    =*  plan  u.compaction.view
+    =/  chronological  (flop items.view)
+    =/  addresses  (flop positions.view)
+    =/  sources  (scag count.plan addresses)
+    ?.  =(source.plan (sham [summary.view (scag count.plan chronological)]))
+      view
+    ?:  ?&(?=(^ lcm-plan.view) !=(sources.u.lcm-plan.view sources))
+      view
+    =/  forest
+      ?~  lcm-plan.view
+        (legacy:lcm lcm.view revision.view summary.result sources)
+      =*  hierarchy  u.lcm-plan.view
+      %+  fall
+        %:  append:lcm
+          lcm.view  revision.view  summary.result
+          sources.hierarchy  children.hierarchy
+        ==
+      lcm.view
+    ::  An invalid tree transition cannot accept a provider checkpoint.
+    ::
+    ?:  &(?=(^ lcm-plan.view) =(forest lcm.view))  view
+    =/  tail  (slag count.plan chronological)
+    =/  positions  (slag count.plan addresses)
+    ::  A manual command's reply belongs at its admitted boundary. Input
+    ::  arriving during summarization stays after it and still needs a turn.
+    ::
+    =?  tail  ?=(^ reply.result)
+      =/  at  (sub length.plan count.plan)
+      %+  weld  (scag at tail)
+      [`item:h`[%assistant body.u.reply.result ~] (slag at tail)]
+    =?  positions  ?=(^ reply.result)
+      =/  at  (sub length.plan count.plan)
+      (weld (scag at positions) [revision.view (slag at positions)])
+    %=  view
+      pending  ~
+      summary  ?~(lcm-plan.view `summary.result (render:lcm forest))
+      items  (flop tail)
+      positions  (flop positions)
+      lcm  forest
+      lcm-plan  ~
+      compaction  ~
+      compact-usage  (add-usage compact-usage.view usage.result)
+      total  (add-usage total.view usage.result)
+    ==
+  --
 ::  Classify a turn at the settlement boundary. Outstanding effects are not
 ::  terminal; an idle view without a final answer is not a successful reply.
 ::  Cancellation is replayed state, not the position of an event in the log:
 ::  a later config edit must not turn a cancelled turn into apparent success.
+::
 ++  outcome
-  |=  v=view:h
+  |=  =view:h
   ^-  (unit outcome:h)
-  ?:  |(?=(^ pending.v) !=(~ wait.v))  ~
-  ?^  cancelled.v  `[%cancelled u.cancelled.v]
-  ?^  err.v  `[%failure u.err.v]
-  =/  last=(unit item:h)  ?~(items.v ~ `(rear items.v))
+  ?:  |(?=(^ pending.view) !=(~ wait.view))  ~
+  ?^  cancelled.view  `[%cancelled u.cancelled.view]
+  ?^  err.view  `[%failure u.err.view]
+  =/  last=(unit item:h)  ?~(items.view ~ `(rear items.view))
   ?.  ?=([~ %assistant * ~] last)
     `[%failure 'Session ended without a response']
   `[%reply body.u.last]
@@ -207,24 +302,63 @@
   =|  rows=(list [at=@ud input-id=(unit input-id:h) =item:h])
   |-  ^-  (list [at=@ud input-id=(unit input-id:h) =item:h])
   ?~  events  (flop rows)
-  =/  e  i.events
-  ?:  ?=(%cancelled -.e)
-    =/  before  (flop (turn rows |=([@ud (unit input-id:h) =item:h] item)))
-    =/  closed  (cancel-results before reason.e)
+  =*  event  i.events
+  ?:  ?=(%cancelled -.event)
+    =/  before
+      =/  remaining  rows
+      =|  after=(list item:h)
+      |-  ^-  (list item:h)
+      ?~  remaining  after
+      =/  it  item.i.remaining
+      ?:  ?=(%assistant -.it)  [it after]
+      $(remaining t.remaining, after [it after])
+    =/  closed  (cancel-results before reason.event)
     =/  added
       (turn closed |=(it=item:h [+(at) ~ it]))
     $(events t.events, at +(at), rows (weld (flop added) rows))
   =/  row=(unit [input-id=(unit input-id:h) =item:h])
-    ?+  -.e  ~
-      %input-admitted  `[~ item.e]
-      %input-received  `[`id.input.e item.input.e]
-      %command-completed  `[~ [%assistant body.e ~]]
-      %checkpoint-completed  ?~(reply.e ~ `[~ [%assistant body.u.reply.e ~]])
-      %llm-completed   `[~ item.e]
-      %tool-completed  `[~ [%tool call-id.e name.e body.e]]
+    ?+  -.event  ~
+      %input-admitted  `[~ item.event]
+      %input-received  `[`id.input.event item.input.event]
+      %command-completed  `[~ [%assistant body.event ~]]
+        %checkpoint-completed
+      ?~  reply.event  ~
+      `[~ [%assistant body.u.reply.event ~]]
+      %llm-completed   `[~ item.event]
+      %tool-completed  `[~ [%tool call-id.event name.event body.event]]
     ==
   ?~  row  $(events t.events, at +(at))
   $(events t.events, at +(at), rows [[+(at) u.row] rows])
+::  Project one event at its immutable address. Cancellation needs only the
+::  preceding tool exchange; unrelated history never enters the projection.
+::  Rows within an event stay chronological and travel together through pages.
+::
+++  transcript-event
+  |=  [at=@ud log=(list event:h)]
+  ^-  (list [at=@ud input-id=(unit input-id:h) =item:h])
+  ?~  log  ~
+  ?.  ?=(%cancelled -.i.log)
+    =/  address  at
+    %+  turn  (transcript ~[i.log])
+    |=  row=[at=@ud input-id=(unit input-id:h) =item:h]
+    row(at address)
+  =/  reason  reason.i.log
+  =/  events  t.log
+  =|  after=(list item:h)
+  |-
+  ^-  (list [at=@ud input-id=(unit input-id:h) =item:h])
+  ?~  events  ~
+  ::  A prior cancellation already closes this exchange, even when more
+  ::  input or configuration events follow it without another assistant.
+  ?:  ?=(%cancelled -.i.events)  ~
+  =/  rows  (transcript ~[i.events])
+  ?~  rows  $(events t.events)
+  =/  it  item.i.rows
+  ?.  ?=(%assistant -.it)
+    $(events t.events, after [it after])
+  %+  turn  (cancel-results [it after] reason)
+  |=  it=item:h
+  [at ~ it]
 ++  transcript-items
   |=  log=(list event:h)
   (turn (transcript log) |=([@ud (unit input-id:h) =item:h] item))
@@ -234,11 +368,11 @@
   |=  items=(list item:h)
   ^-  (list item:h)
   %-  flop
-  =/  rev  (flop items)
+  =/  reversed  (flop items)
   |-  ^-  (list item:h)
-  ?~  rev  ~
-  ?:  ?=(%assistant -.i.rev)  ~
-  [i.rev $(rev t.rev)]
+  ?~  reversed  ~
+  ?:  ?=(%assistant -.i.reversed)  ~
+  [i.reversed $(reversed t.reversed)]
 ::  +retained: what compaction keeps verbatim: the unanswered tail,
 ::  plus up to +keep-tail recent items, never splitting a tool flow
 ::
@@ -246,39 +380,40 @@
 ++  retained
   |=  items=(list item:h)
   ^-  (list item:h)
-  =/  n  (lent items)
-  =/  keep  (max (lent (unanswered items)) (min keep-tail n))
+  =/  length  (lent items)
+  =/  keep  (max (lent (unanswered items)) (min keep-tail length))
   |-  ^-  (list item:h)
-  ?:  (gte keep n)  items
-  =/  sl  (slag (sub n keep) items)
-  ?:  ?=([[%tool *] *] sl)  $(keep +(keep))
-  =/  previous  (snag (dec (sub n keep)) items)
-  ?:  ?&(?=([[%assistant *] *] sl) ?=(%reasoning -.previous))  $(keep +(keep))
-  sl
+  ?:  (gte keep length)  items
+  =/  tail  (slag (sub length keep) items)
+  ?:  ?=([[%tool *] *] tail)  $(keep +(keep))
+  =/  previous  (snag (dec (sub length keep)) items)
+  ?:  ?&(?=([[%assistant *] *] tail) ?=(%reasoning -.previous))  $(keep +(keep))
+  tail
 ::  +last-calls: the last assistant item's tool calls,
 ::  and the items that came after it
 ::
 ++  last-calls
   |=  items=(list item:h)
   ^-  [calls=(list tool-call:h) after=(list item:h)]
-  =/  rev  (flop items)
+  =/  reversed  (flop items)
   =|  after=(list item:h)
   |-  ^-  [calls=(list tool-call:h) after=(list item:h)]
-  ?~  rev  [~ after]
-  ?:  ?=(%assistant -.i.rev)
-    [calls.i.rev after]
-  $(rev t.rev, after [i.rev after])
+  ?~  reversed  [~ after]
+  ?:  ?=(%assistant -.i.reversed)
+    [calls.i.reversed after]
+  $(reversed t.reversed, after [i.reversed after])
 ::  Outstanding calls, including calls not yet dispatched. The same gate
 ::  determines execution and the terminal receipts produced by interruption.
+::
 ++  open-calls
   |=  items=(list item:h)
   ^-  (list tool-call:h)
-  =/  lc  (last-calls items)
+  =/  exchange  (last-calls items)
   =/  done=(set @t)
     %-  ~(gas in *(set @t))
-    %+  murn  after.lc
+    %+  murn  after.exchange
     |=(it=item:h ?:(?=(%tool -.it) `call-id.it ~))
-  (skip calls.lc |=(c=tool-call:h (~(has in done) id.c)))
+  (skip calls.exchange |=(c=tool-call:h (~(has in done) id.c)))
 ++  is-cancelled
   |=  body=@t
   =('cancelled: ' (end [3 11] body))
@@ -296,8 +431,12 @@
   ==
 ::  loop-guard thresholds
 ::
-++  max-fails  4    ::  consecutive failing tool results before halting
-++  max-steps  24   ::  assistant turns since last input before halting
+::  Consecutive failing tool results before halting.
+::
+++  max-fails  4
+::  Assistant turns since the last input before halting.
+::
+++  max-steps  24
 ::  +is-error: does a tool result body read as an error, by convention?
 ::
 ++  is-error
@@ -314,15 +453,17 @@
 ++  trailing-fails
   |=  items=(list item:h)
   ^-  @ud
-  =/  rev  (flop items)
-  =|  n=@ud
+  =/  reversed  (flop items)
+  =|  count=@ud
   |-  ^-  @ud
-  ?~  rev  n
-  ?-  -.i.rev
-    %reasoning  $(rev t.rev)
-    %assistant  $(rev t.rev)
-    %user       n
-    %tool       ?.((is-error body.i.rev) n $(rev t.rev, n +(n)))
+  ?~  reversed  count
+  ?-  -.i.reversed
+    %reasoning  $(reversed t.reversed)
+    %assistant  $(reversed t.reversed)
+    %user       count
+      %tool
+    ?.  (is-error body.i.reversed)  count
+    $(reversed t.reversed, count +(count))
   ==
 ::  +steps-since-input: assistant turns since the last admitted input
 ::  (a %user item; tool results do not count as input)
@@ -330,42 +471,42 @@
 ++  steps-since-input
   |=  items=(list item:h)
   ^-  @ud
-  =/  rev  (flop items)
-  =|  n=@ud
+  =/  reversed  (flop items)
+  =|  count=@ud
   |-  ^-  @ud
-  ?~  rev  n
-  ?:  ?=(%user -.i.rev)  n
-  ?:  ?=(%assistant -.i.rev)  $(rev t.rev, n +(n))
-  $(rev t.rev)
+  ?~  reversed  count
+  ?:  ?=(%user -.i.reversed)  count
+  ?:  ?=(%assistant -.i.reversed)  $(reversed t.reversed, count +(count))
+  $(reversed t.reversed)
 ::  +decide: what happens next; ~ means idle.
 ::  The caller supplies a pure budget estimate. It is lazy so idle sessions
 ::  and outstanding tool work need not build a provider request just to decide
 ::  that nothing can run. A different encoding can supply a different estimate.
 ::
 ++  decide
-  |=  [v=view:h budget=$-(~ @ud)]
+  |=  [=view:h budget=$-(~ @ud)]
   ^-  (unit step:h)
-  ?^  cancelled.v  ~
-  ?^  pending.v  ~
+  ?^  cancelled.view  ~
+  ?^  pending.view  ~
   ::  async tool results still in flight
   ::
-  ?.  =(~ wait.v)  ~
+  ?.  =(~ wait.view)  ~
   ::  a failure halts the loop; retry or new input clears it
   ::
-  ?^  err.v  ~
-  ?~  items.v  ~
+  ?^  err.view  ~
+  ?~  items.view  ~
   ::  outstanding tool calls from the last assistant turn
   ::
-  =/  todo  (open-calls items.v)
+  =/  todo  (open-calls items.view)
   ?^  todo  `[%tools todo]
-  =/  last=item:h  (rear items.v)
+  =/  last=item:h  (rear items.view)
   ?:  ?=(%assistant -.last)  ~
   ::  loop guards: halt a stuck agent before it burns the budget.
   ::  a run of failing tool results means it is repeating a mistake;
   ::  too many turns since the last input means it is not converging.
   ::  either way, halt with a reason; a new input clears it and resumes
   ::
-  =/  fails  (trailing-fails items.v)
+  =/  fails  (trailing-fails items.view)
   ?:  (gte fails max-fails)
     :-  ~
     :-  %halt
@@ -374,7 +515,7 @@
         ' tool calls in a row failed. stopping so you can rethink or '
         'ask for help — send a new message to continue.'
     ==
-  =/  since  (steps-since-input items.v)
+  =/  since  (steps-since-input items.view)
   ?:  (gte since max-steps)
     :-  ~
     :-  %halt
@@ -383,9 +524,10 @@
         ' turns without resolving the request. stopping to avoid a '
         'runaway — send a new message to continue.'
     ==
-  ?.  (gth (budget ~) max-context.config.v)
+  ?.  (gth (budget ~) max-context.config.view)
     `[%turn ~]
   ::  The planner either selects a bounded span or records a useful halt.
   ::  An oversized irreducible request must never be sent optimistically.
+  ::
   `[%compact ~]
 --

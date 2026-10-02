@@ -69,4 +69,56 @@
     (turn (gulf 0 64) |=(n=@ud `card:oa`request(wire /models/(scot %ud n))))
   =/  out  (filter:oa incoming *state keys ~2026.1.1 'openai')
   (expect !>(&(=(64 (lent ~(tap by waiting.oauth.out))) =(1 (lent failed.out)) =(2 (lent cards.out)))))
+++  test-refresh-request-encodes-tokens-and-disables-retries
+  %-  zing
+  %+  turn  `(list @t)`~['openai' 'xai']
+  |=  provider=@t
+  =/  credentials
+    %-  my
+    :~  [(cat 3 provider '-device') 'opaque-device']
+        [(cat 3 provider '-refresh') 'a+b&c /']
+    ==
+  =/  request=http-card  req
+  =.  url.request.request  ?:(=('xai' provider) xai-url:auth device-url:auth)
+  =/  out  (filter:oa ~[request] *state credentials ~2026.1.1 provider)
+  =/  cards  cards.out
+  ?>  ?=([* * ~] cards)
+  =/  refresh  i.cards
+  ?>  ?=([%pass * %arvo %i %request *] refresh)
+  =/  refresh=http-card  refresh
+  =/  body
+    (rap 3 'grant_type=refresh_token&client_id=' (client-id:oa provider) '&refresh_token=a%2Bb%26c%20%2F' ~)
+  ;:  weld
+    (expect-eq !>((token-url:oa provider)) !>(url.request.refresh))
+    (expect-eq !>(`(unit octs)`(some (as-octs:mimes:html body))) !>(body.request.refresh))
+    (expect-eq !>(`outbound-config:iris`[0 0]) !>(outbound-config.refresh))
+    (expect-eq !>(/[(cat 3 provider '-renew')]/1) !>(wire.refresh))
+    (expect-eq !>(`card:oa`[%pass /[(cat 3 provider '-timeout')]/1 %arvo %b %wait (add ~2026.1.1 ~s30)]) !>(i.t.cards))
+  ==
+++  test-invalid-refresh-responses-never-rotate-credentials
+  =/  first  (filter:oa ~[req] *state keys ~2026.1.1 'openai')
+  =/  bodies=(list @t)
+    :~  '{'
+        '[]'
+        '{}'
+        '{"access_token":42,"expires_in":3600}'
+        '{"access_token":"","expires_in":3600}'
+        '{"access_token":"fresh","refresh_token":"","expires_in":3600}'
+        '{"access_token":"fresh","refresh_token":42,"expires_in":3600}'
+        '{"access_token":"fresh","expires_in":0}'
+        '{"access_token":"fresh","expires_in":300}'
+        '{"access_token":"fresh","expires_in":31536001}'
+    ==
+  %-  zing
+  %+  turn  bodies
+  |=  body=@t
+  =/  out  (receive:oa oauth.first keys ~2026.1.1 1 (reply 200 body) 'openai')
+  ;:  weld
+    (expect-eq !>(keys) !>(keys.out))
+    (expect-eq !>(~) !>(cards.out))
+    (expect-eq !>(~) !>(waiting.oauth.out))
+    (expect-eq !>(~) !>(active.oauth.out))
+    (expect !>(terminal.oauth.out))
+    (expect-eq !>(`(list [wire @t])`~[[/llm/fixture/0/turn 'Login renewal returned an invalid response. Sign in again.']]) !>(failed.out))
+  ==
 --

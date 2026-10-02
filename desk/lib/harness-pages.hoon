@@ -6,9 +6,9 @@
   ^-  @ud
   =/  text  (str:w args key)
   ?:  =('' text)  0
-  =/  n  (need (rush text dem))
-  ?>  =(text (crip (a-co:co n)))
-  n
+  =/  offset  (need (rush text dem))
+  ?>  =(text (crip (a-co:co offset)))
+  offset
 ++  boundary
   |=  [body=@t at=@ud]
   ^-  @ud
@@ -21,22 +21,33 @@
   =/  bytes  (met 3 body)
   ?>  &((lte offset bytes) =(offset (boundary body offset)))
   =/  end  (boundary body (min bytes (add offset 6.000)))
-  (pairs:enjs:format ~[['text' %s (cut 3 [offset (sub end offset)] body)] ['bytes' (numb:enjs:format bytes)] ['nextOffset' ?:(=(end bytes) ~ [%s (crip (a-co:co end))])]])
+  %-  pairs:enjs:format
+  :~  ['text' %s (cut 3 [offset (sub end offset)] body)]
+      ['bytes' (numb:enjs:format bytes)]
+      ['nextOffset' ?:(=(end bytes) ~ [%s (crip (a-co:co end))])]
+  ==
 ++  directory
   |=  [rows=(list @t) offset=@ud]
   ^-  json
   ?>  (lte offset (lent rows))
   =/  remaining  (slag offset rows)
-  =/  selected=(list json)  ~
+  =/  reversed-items=(list json)  ~
   =/  bytes=@ud  0
   |-  ^-  json
-  =/  count  (lent selected)
+  =/  count  (lent reversed-items)
   =/  full  |(=(100 count) ?=(~ remaining))
   =?  full  ?=(^ remaining)
     |(full (gth (add bytes (met 3 (en:json:html [%s i.remaining]))) 6.000))
   ?:  full
-    ?>  |(?=(^ selected) ?=(~ remaining))
-    (pairs:enjs:format ~[['items' %a (flop selected)] ['nextOffset' ?~(remaining ~ [%s (crip (a-co:co (add offset count)))])]])
+    ?>  |(?=(^ reversed-items) ?=(~ remaining))
+    %-  pairs:enjs:format
+    :~  ['items' %a (flop reversed-items)]
+        ['nextOffset' ?~(remaining ~ [%s (crip (a-co:co (add offset count)))])]
+    ==
   ?>  ?=(^ remaining)
-  $(remaining t.remaining, selected [[%s i.remaining] selected], bytes (add bytes (met 3 (en:json:html [%s i.remaining]))))
+  %=  $
+    remaining       t.remaining
+    reversed-items  [[%s i.remaining] reversed-items]
+    bytes           (add bytes (met 3 (en:json:html [%s i.remaining])))
+  ==
 --

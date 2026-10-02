@@ -11,7 +11,11 @@ import { base, cookie } from './lib/ship-client.mjs'
 import { AcpClient } from '../fe/src/acp.js'
 
 const realFetch = globalThis.fetch
-globalThis.document = { hidden: false }
+globalThis.document = Object.assign(new EventTarget(), { hidden: false })
+// This process owns one watch, so it can take the browser's stream slot.
+Object.defineProperty(globalThis.navigator, 'locks', { value: {
+  request: async (_name, _options, run) => run({}),
+} })
 const closing = []
 globalThis.fetch = (path, options = {}) => {
   const promise = realFetch(new URL(path, base), { ...options, headers: { ...options.headers, cookie } })

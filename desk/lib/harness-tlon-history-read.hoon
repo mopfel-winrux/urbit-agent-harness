@@ -6,7 +6,9 @@
   |=  [to=destination:t before=(unit @da) count=@ud]
   ^-  [parent=(unit message:hp) rows=(list row:hp)]
   ?>  &((gth count 0) (lte count 65))
-  =/  window=path  ?~(before /newest/(scot %ud count) /older/(scot %ud u.before)/(scot %ud count))
+  =/  window=path
+    ?~  before  /newest/(scot %ud count)
+    /older/(scot %ud u.before)/(scot %ud count)
   ?-  -.to
       %dm
     ?^  parent.to
@@ -33,6 +35,7 @@
     ?^  parent.to
       =/  page=paged-posts:v9:dv
         .^(paged-posts:v9:dv %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/[kind.nest.to]/(scot %p ship.nest.to)/[name.nest.to]/posts/older/(scot %ud +(u.parent.to))/1/outline/channel-posts-4)
+      ::  The exclusive upper bound selects the parent at its exact post ID.
       =/  parent  (get:on-posts:v9:dv posts.page u.parent.to)
       ?>  ?=([~ %& *] parent)
       =/  target=path

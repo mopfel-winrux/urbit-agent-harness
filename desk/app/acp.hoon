@@ -81,18 +81,19 @@
   ?+  path  ~|(bad-acp-watch-path+path !!)
     [%v1 %agent ~]
       %+  roll  ~(tap by connections.state)
-      |=  [[id=connection-id:v1:ac con=connection:v1:ac] acc=_cor]
-      =/  messages  (queued con %agent)
-      ?~  messages  acc
-      (give-agent-update:acc [%messages id %agent messages])
+      |=  [[id=connection-id:v1:ac connection=connection:v1:ac] result=_cor]
+      =/  messages  (queued connection %agent)
+      ?~  messages  result
+      (give-agent-update:result [%messages id %agent messages])
     ::
     [%v1 @ ?(%client %agent) ~]
       =/  id=connection-id:v1:ac  i.t.path
       =/  target=peer:v1:ac  i.t.t.path
-      =/  con  (~(get by connections.state) id)
-      ?~  con  ~|(unknown-acp-connection+id !!)
-      =.  cor  (give-update [%connection id open.u.con ?~(closed.u.con ~ `reason.u.closed.u.con)] id target)
-      (give-update [%messages id target (queued u.con target)] id target)
+      =/  connection  (~(get by connections.state) id)
+      ?~  connection  ~|(unknown-acp-connection+id !!)
+      =/  reason  ?~(closed.u.connection ~ `reason.u.closed.u.connection)
+      =.  cor  (give-update [%connection id open.u.connection reason] id target)
+      (give-update [%messages id target (queued u.connection target)] id target)
   ==
 ::
 ++  peek
@@ -102,9 +103,9 @@
       [%x %v1 @ ?(%client %agent) ~]
     =/  id=connection-id:v1:ac  i.t.t.path
     =/  target=peer:v1:ac  i.t.t.t.path
-    =/  con  (~(get by connections.state) id)
-    ?~  con  [~ ~]
-    ``acp-update-1+!>(`update:v1:ac`[%messages id target (queued u.con target)])
+    =/  connection  (~(get by connections.state) id)
+    ?~  connection  [~ ~]
+    ``acp-update-1+!>(`update:v1:ac`[%messages id target (queued u.connection target)])
   ==
 ::
 ++  give-update
@@ -127,21 +128,23 @@
   ^+  cor
   ?>  (valid-id id)
   =.  connections.state  (trim-closed connections.state)
-  =/  old  (~(get by connections.state) id)
-  ?^  old
-    ?>  open.u.old
+  =/  found  (~(get by connections.state) id)
+  ?^  found
+    ?>  open.u.found
     (give-connection id & ~)
   ?>  (lth ~(wyt by connections.state) max-connections)
-  =/  con=connection:v1:ac  [& now.bowl ~ 1 1 ~ ~]
-  =.  connections.state  (~(put by connections.state) id con)
+  =/  connection=connection:v1:ac  [& now.bowl ~ 1 1 ~ ~]
+  =.  connections.state  (~(put by connections.state) id connection)
   (give-connection id & ~)
 ::
 ++  trim-closed
-  |=  old=(map connection-id:v1:ac connection:v1:ac)
+  |=  connections=(map connection-id:v1:ac connection:v1:ac)
   ^-  (map connection-id:v1:ac connection:v1:ac)
-  %+  roll  ~(tap by old)
-  |=  [[id=connection-id:v1:ac con=connection:v1:ac] kept=(map connection-id:v1:ac connection:v1:ac)]
-  ?:(open.con (~(put by kept) id con) kept)
+  %+  roll  ~(tap by connections)
+  |=  $:  [id=connection-id:v1:ac connection=connection:v1:ac]
+          kept=(map connection-id:v1:ac connection:v1:ac)
+      ==
+  ?:(open.connection (~(put by kept) id connection) kept)
 ::
 ++  valid-id
   |=  id=connection-id:v1:ac
@@ -161,75 +164,80 @@
   |=  [id=connection-id:v1:ac target=peer:v1:ac payload=@t]
   ^+  cor
   ?>  (lte (met 3 payload) max-payload-bytes)
-  =/  old  (~(get by connections.state) id)
-  ?~  old  ~|(unknown-acp-connection+id !!)
-  ?>  open.u.old
+  =/  found  (~(get by connections.state) id)
+  ?~  found  ~|(unknown-acp-connection+id !!)
+  ?>  open.u.found
   ~|  acp-queue-capacity+id
   ?>  (room:queue-budget connections.state id target payload)
-  =/  seq  ?:(=(target %client) next-to-client.u.old next-to-agent.u.old)
-  =/  msg=message:v1:ac  [seq now.bowl payload]
-  =/  con=connection:v1:ac  u.old
-  ?:  =(target %client)
-    =.  to-client.con  (~(put by to-client.con) seq msg)
-    =.  next-to-client.con  +(seq)
-    =.  connections.state  (~(put by connections.state) id con)
-    (give-update [%messages id target ~[msg]] id target)
-  =.  to-agent.con  (~(put by to-agent.con) seq msg)
-  =.  next-to-agent.con  +(seq)
-  =.  connections.state  (~(put by connections.state) id con)
-  =.  cor  (give-update [%messages id target ~[msg]] id target)
-  (give-agent-update [%messages id target ~[msg]])
+  =/  sequence  ?:(=(target %client) next-to-client.u.found next-to-agent.u.found)
+  =/  message=message:v1:ac  [sequence now.bowl payload]
+  =/  connection=connection:v1:ac  u.found
+  =.  connection
+    ?:  =(target %client)
+      %=  connection
+        to-client  (~(put by to-client.connection) sequence message)
+        next-to-client  +(sequence)
+      ==
+    %=  connection
+      to-agent  (~(put by to-agent.connection) sequence message)
+      next-to-agent  +(sequence)
+    ==
+  =.  connections.state  (~(put by connections.state) id connection)
+  =/  update=update:v1:ac  [%messages id target ~[message]]
+  =.  cor  (give-update update id target)
+  ::  The harness receives agent-bound traffic from the shared subscription.
+  ?:  =(target %client)  cor
+  (give-agent-update update)
 ::
 ++  ack
   |=  [id=connection-id:v1:ac target=peer:v1:ac through=@ud]
   ^+  cor
-  =/  old  (~(get by connections.state) id)
-  ?~  old  ~|(unknown-acp-connection+id !!)
-  =/  con=connection:v1:ac  u.old
-  ?:  =(target %client)
-    =.  to-client.con  (drop-through to-client.con through)
-    =.  connections.state  (~(put by connections.state) id con)
-    cor
-  =.  to-agent.con  (drop-through to-agent.con through)
-  =.  connections.state  (~(put by connections.state) id con)
-  cor
+  =/  found  (~(get by connections.state) id)
+  ?~  found  ~|(unknown-acp-connection+id !!)
+  =/  connection=connection:v1:ac  u.found
+  =.  connection
+    ?:  =(target %client)
+      connection(to-client (drop-through to-client.connection through))
+    connection(to-agent (drop-through to-agent.connection through))
+  cor(connections.state (~(put by connections.state) id connection))
 ::
 ++  close
   |=  [id=connection-id:v1:ac reason=@t]
   ^+  cor
-  =/  old  (~(get by connections.state) id)
-  ?~  old  ~|(unknown-acp-connection+id !!)
-  ?.  open.u.old  cor
-  =/  con  u.old(open |, closed `[now.bowl reason])
-  =.  connections.state  (~(put by connections.state) id con)
+  =/  found  (~(get by connections.state) id)
+  ?~  found  ~|(unknown-acp-connection+id !!)
+  ?.  open.u.found  cor
+  =/  connection  u.found(open |, closed `[now.bowl reason])
+  =.  connections.state  (~(put by connections.state) id connection)
   (give-connection id | `reason)
 ::
 ++  drop
   |=  id=connection-id:v1:ac
   ^+  cor
-  =/  old  (~(get by connections.state) id)
-  ?~  old  cor
-  ?>  ?&  =(open.u.old |)
-          =(~ to-client.u.old)
-          =(~ to-agent.u.old)
+  =/  found  (~(get by connections.state) id)
+  ?~  found  cor
+  ?>  ?&  =(open.u.found |)
+          =(~ to-client.u.found)
+          =(~ to-agent.u.found)
       ==
   cor(connections.state (~(del by connections.state) id))
 ::
 ++  queued
-  |=  [con=connection:v1:ac target=peer:v1:ac]
+  |=  [connection=connection:v1:ac target=peer:v1:ac]
   ^-  (list message:v1:ac)
-  =/  queue  ?:(=(target %client) to-client.con to-agent.con)
+  =/  queue  ?:(=(target %client) to-client.connection to-agent.connection)
+  ::  Map traversal is hash-ordered; delivery follows sequence numbers.
   =/  sorted
     %+  sort  ~(tap by queue)
     |=  [a=[@ud message:v1:ac] b=[@ud message:v1:ac]]
     (lth -.a -.b)
-  (turn sorted |=([@ud msg=message:v1:ac] msg))
+  (turn sorted |=([@ud message=message:v1:ac] message))
 ::
 ++  drop-through
   |=  [queue=(map @ud message:v1:ac) through=@ud]
   ^-  (map @ud message:v1:ac)
   %+  roll  ~(tap by queue)
-  |=  [[seq=@ud msg=message:v1:ac] acc=(map @ud message:v1:ac)]
-  ?:  (lte seq through)  acc
-  (~(put by acc) seq msg)
+  |=  [[sequence=@ud message=message:v1:ac] result=(map @ud message:v1:ac)]
+  ?:  (lte sequence through)  result
+  (~(put by result) sequence message)
 --

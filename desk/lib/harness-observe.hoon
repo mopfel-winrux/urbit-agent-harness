@@ -4,19 +4,38 @@
 /+  logs=tlon-logs, failure=harness-failure
 |%
 ++  summary
-  |=  e=event:h
+  |=  event=event:h
   ^-  (unit [level=volume:l name=@t data=log-data:l])
-  ?+  -.e  ~
+  ?+  -.event  ~
     %llm-completed
-      ?.  =(%stop stop.e)  ~
+      ?.  =(%stop stop.event)  ~
       ::  Usage belongs to this final request, not the preceding tool rounds.
-      `[%info 'harness.turn.completed' ~[['request' (numb:enjs:format req.e)] ['prompt_tokens' (numb:enjs:format prompt.usage.e)] ['completion_tokens' (numb:enjs:format completion.usage.e)]]]
+      :-  ~
+      :*  %info
+          'harness.turn.completed'
+          :~  ['request' (numb:enjs:format req.event)]
+              ['prompt_tokens' (numb:enjs:format prompt.usage.event)]
+              ['completion_tokens' (numb:enjs:format completion.usage.event)]
+          ==
+      ==
     %llm-failed
-      `[%error 'harness.inference.failed' ~[['request' (numb:enjs:format req.e)] ['kind' %s kind:(describe:failure err.e)]]]
+      :-  ~
+      :*  %error
+          'harness.inference.failed'
+          :~  ['request' (numb:enjs:format req.event)]
+              ['kind' %s kind:(describe:failure err.event)]
+          ==
+      ==
     %compaction-failed
-      `[%error 'harness.compaction.failed' ~[['request' (numb:enjs:format req.e)] ['kind' %s kind:(describe:failure err.e)]]]
+      :-  ~
+      :*  %error
+          'harness.compaction.failed'
+          :~  ['request' (numb:enjs:format req.event)]
+              ['kind' %s kind:(describe:failure err.event)]
+          ==
+      ==
     %halted
-      `[%warn 'harness.turn.halted' ~[['kind' %s kind:(describe:failure reason.e)]]]
+      `[%warn 'harness.turn.halted' ~[['kind' %s kind:(describe:failure reason.event)]]]
     %cancelled
       `[%info 'harness.turn.cancelled' ~]
   ==
@@ -27,9 +46,9 @@
   =.  data  [['session' %s (scot %uv (sham sid))] data]
   (~(tell logs bowl /telemetry) level ~[leaf+(trip name)] data)
 ++  event
-  |=  [=bowl:gall sid=@t e=event:h]
+  |=  [=bowl:gall sid=@t event=event:h]
   ^-  (list card:agent:gall)
-  =/  entry  (summary e)
+  =/  entry  (summary event)
   ?~  entry  ~
   ~[(tell bowl sid level.u.entry name.u.entry data.u.entry)]
 ++  crash
@@ -37,5 +56,9 @@
   ^-  card:agent:gall
   ::  Stack traces may contain credentials or user input. Keep them local;
   ::  export only the Gall hook and a hash to correlate repeated failures.
-  (~(tell logs bowl /telemetry) %error ~[leaf+"harness.agent.failed"] ~[['hook' %s hook] ['failure' %s (scot %uv (sham trace))]])
+  =/  data=log-data:l
+    :~  ['hook' %s hook]
+        ['failure' %s (scot %uv (sham trace))]
+    ==
+  (~(tell logs bowl /telemetry) %error ~[leaf+"harness.agent.failed"] data)
 --

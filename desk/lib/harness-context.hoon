@@ -16,32 +16,32 @@
 ++  tail-budget
   |=(window=@ud (div (input-budget window) 3))
 ++  source-hash
-  |=  [v=view:h count=@ud]
-  (sham [summary.v (scag count items.v)])
+  |=  [view=view:h count=@ud]
+  (sham [summary.view (scag count items.view)])
 ++  item-bytes
-  |=  it=item:h
+  |=  item=item:h
   ^-  @ud
-  ?-  -.it
-    %reasoning  (met 3 data.it)
-    %user  (met 3 body.it)
-    %tool  (met 3 body.it)
+  ?-  -.item
+    %reasoning  (met 3 data.item)
+    %user  (met 3 body.item)
+    %tool  (met 3 body.item)
     %assistant
-      %+  add  (met 3 body.it)
-      %+  roll  calls.it
-      |=  [c=tool-call:h n=@ud]
-      (add n (met 3 args.c))
+      %+  add  (met 3 body.item)
+      %+  roll  calls.item
+      |=  [call=tool-call:h total=@ud]
+      (add total (met 3 args.call))
   ==
 ::  Boundaries follow final assistant replies, never an unfinished tool group.
 ::  Keep the latest complete exchange and the current unanswered input. A
-::  single enormous exchange is irreducible until artifact projection exists.
+::  single enormous exchange cannot be split across compaction source spans.
 ++  boundaries
   |=  items=(list item:h)
   =|  at=@ud
-  =|  cuts=(list @ud)
+  =|  reversed-cuts=(list @ud)
   |-  ^-  (list @ud)
-  ?~  items  (flop cuts)
-  =?  cuts  ?=([%assistant * ~] i.items)
-    [+(at) cuts]
+  ?~  items  (flop reversed-cuts)
+  =?  reversed-cuts  ?=([%assistant * ~] i.items)
+    [+(at) reversed-cuts]
   $(items t.items, at +(at))
 ::  Walk item sizes once to find the preferred retained-tail boundary. Do not
 ::  serialize every growing prefix or repeatedly scan every remaining suffix.
@@ -60,34 +60,38 @@
     ?:  |(=(~ t.cuts) (lte bytes (mul target 4)))  at
     $(cuts t.cuts)
   ?>  ?=(^ sizes)
-  $(sizes t.sizes, bytes (sub bytes i.sizes), at +(at))
+  %=  $
+    sizes  t.sizes
+    bytes  (sub bytes i.sizes)
+    at     +(at)
+  ==
 ++  plan
-  |=  $:  v=view:h
+  |=  $:  view=view:h
           through=@ud
           command=(unit input-id:h)
           estimate=$-(view:h @ud)
       ==
-  (plan-for v through command max-context.config.v estimate)
+  (plan-for view through command max-context.config.view estimate)
 ::  The conversation determines the fresh-tail target; the summary model
 ::  determines how much source can be sent in one request. They may differ.
 ++  plan-for
-  |=  $:  v=view:h
+  |=  $:  view=view:h
           through=@ud
           command=(unit input-id:h)
           conversation-window=@ud
           estimate=$-(view:h @ud)
       ==
   ^-  (each compaction-plan:h @t)
-  ?:  |(?=(^ pending.v) !=(~ wait.v))
+  ?:  |(?=(^ pending.view) !=(~ wait.view))
     [%| 'Compaction waits for inference and tools to settle.']
-  ?:  (gte compact-attempts.v 4)
+  ?:  (gte compact-attempts.view 4)
     [%| 'Compaction attempt limit reached; change the model or reduce the request.']
-  =/  cuts  (boundaries items.v)
+  =/  cuts  (boundaries items.view)
   ?:  (lth (lent cuts) 2)
     [%| 'No completed historical exchange can be compacted while preserving the recent turn.']
   =.  cuts  (scag (dec (lent cuts)) cuts)
-  =/  limit  (input-budget max-context.config.v)
-  =/  goal  (preferred items.v cuts (tail-budget conversation-window))
+  =/  limit  (input-budget max-context.config.view)
+  =/  goal  (preferred items.view cuts (tail-budget conversation-window))
   =.  cuts  (skim cuts |=(cut=@ud (lte cut goal)))
   ::  If the desired source prefix cannot fit, halve the number of complete
   ::  exchanges until it can. This is local planning, not provider retries.
@@ -95,27 +99,37 @@
   |-  ^-  (each compaction-plan:h @t)
   ?>  ?=(^ cuts)
   =/  count  (rear cuts)
-  =/  size  (estimate v(items (scag count items.v)))
+  =/  size  (estimate view(items (scag count items.view)))
   ?:  (gth size limit)
     ?~  t.cuts
       [%| 'A complete historical exchange exceeds the compaction input budget.']
     $(cuts (scag (div (lent cuts) 2) `(list @ud)`cuts))
-  [%& through count (lent items.v) (source-hash v count) size (output-budget max-context.config.v) url.config.v model.config.v command]
+  :*  %&
+      through
+      count
+      (lent items.view)
+      (source-hash view count)
+      size
+      (output-budget max-context.config.view)
+      url.config.view
+      model.config.view
+      command
+  ==
 ++  validate
-  |=  [v=view:h p=compaction-plan:h stop=stop-reason:h it=item:h]
+  |=  [view=view:h plan=compaction-plan:h stop=stop-reason:h item=item:h]
   ^-  (unit @t)
-  ?.  =(source.p (source-hash v count.p))
+  ?.  =(source.plan (source-hash view count.plan))
     `'Compaction source coverage changed; the previous context was retained.'
-  ?.  &(?=([%assistant * ~] it) =(%stop stop))
+  ?.  &(?=([%assistant * ~] item) =(%stop stop))
     `'Compaction did not return a complete summary; the previous context was retained.'
-  ?:  |(=('' body.it) (levy (trip body.it) |=(c=@tD |(=(32 c) =(9 c) =(10 c) =(13 c)))))
+  ?:  |(=('' body.item) (levy (trip body.item) |=(char=@tD |(=(32 char) =(9 char) =(10 char) =(13 char)))))
     `'Compaction returned an empty summary; the previous context was retained.'
   ::  Reject expansion before the next decision, rather than looping on a
   ::  verbose summary. Request-level fit is checked again with the real codec.
   =/  before=@ud
-    %+  add  ?~(summary.v 0 (met 3 u.summary.v))
-    (roll (turn (scag count.p items.v) item-bytes) add)
-  ?:  (gte (met 3 body.it) before)
+    %+  add  ?~(summary.view 0 (met 3 u.summary.view))
+    (roll (turn (scag count.plan items.view) item-bytes) add)
+  ?:  (gte (met 3 body.item) before)
     `'Compaction did not reduce the context; the previous context was retained.'
   ~
 --

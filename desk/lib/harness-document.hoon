@@ -12,12 +12,12 @@
 ++  split
   |=  [delimiter=tape value=tape]
   ^-  (unit [before=tape after=tape])
-  =|  before=tape
+  =|  reversed-prefix=tape
   =/  width  (lent delimiter)
   |-  ^-  (unit [before=tape after=tape])
-  ?:  =(delimiter (scag width value))  `[(flop before) (slag width value)]
+  ?:  =(delimiter (scag width value))  `[(flop reversed-prefix) (slag width value)]
   ?~  value  ~
-  $(value t.value, before [i.value before])
+  $(value t.value, reversed-prefix [i.value reversed-prefix])
 ++  safe-url
   |=  value=@t
   ^-  ?
@@ -30,12 +30,13 @@
   ^-  (list manx)
   ?:  (gte depth 8)  ~[(text (crip value))]
   =/  attempts=@ud  0
-  =|  out=(list manx)
-  =|  plain=tape
+  =|  reversed-nodes=(list manx)
+  =|  reversed-text=tape
   |-  ^-  (list manx)
+  ::  Text and nodes accumulate backward; flush text before a parsed span.
   =/  flush
     |.  ^-  (list manx)
-    ?~(plain out [(text (crip (flop plain))) out])
+    ?~(reversed-text reversed-nodes [(text (crip (flop reversed-text))) reversed-nodes])
   ?~  value  (flop (flush))
   ?:  (gte attempts 32)  (flop [(text (crip value)) (flush)])
   =?  attempts  ?=(?(%'*' %'~' %'`' %'[') i.value)  +(attempts)
@@ -66,8 +67,13 @@
         [[%a ~[[%href before.u.link] [%rel "noopener noreferrer"]]] (inlines before.u.label +(depth))]
       `[node after.u.link]
     ~
-  ?^  span  $(value tail.u.span, out [node.u.span (flush)], plain ~)
-  $(value t.value, plain [i.value plain])
+  ?^  span
+    %=  $
+      value  tail.u.span
+      reversed-nodes  [node.u.span (flush)]
+      reversed-text  ~
+    ==
+  $(value t.value, reversed-text [i.value reversed-text])
 ++  inline
   |=  value=@t
   ::  Huge unbroken paragraphs stay literal; formatting never makes a public
@@ -78,13 +84,18 @@
   |=  value=@t
   ^-  (list @t)
   =/  chars  (trip value)
-  =|  line=tape
-  =|  out=(list @t)
+  =|  reversed-line=tape
+  =|  reversed-lines=(list @t)
   |-  ^-  (list @t)
-  ?~  chars  (flop [(crip (flop line)) out])
+  ?~  chars  (flop [(crip (flop reversed-line)) reversed-lines])
   ?:  =(i.chars '\0d')  $(chars t.chars)
-  ?:  =(i.chars '\0a')  $(chars t.chars, line ~, out [(crip (flop line)) out])
-  $(chars t.chars, line [i.chars line])
+  ?:  =(i.chars '\0a')
+    %=  $
+      chars  t.chars
+      reversed-line  ~
+      reversed-lines  [(crip (flop reversed-line)) reversed-lines]
+    ==
+  $(chars t.chars, reversed-line [i.chars reversed-line])
 ++  heading
   |=  line=@t
   ^-  (unit [tag=@ta body=@t])
@@ -113,12 +124,12 @@
   ^-  (list @t)
   =/  chars  (trip line)
   =?  chars  ?=([%'|' *] chars)  t.chars
-  =|  out=(list @t)
+  =|  reversed-cells=(list @t)
   |-  ^-  (list @t)
-  ?~  chars  (flop out)
+  ?~  chars  (flop reversed-cells)
   =/  part  (split "|" chars)
-  ?~  part  (flop [(crip chars) out])
-  $(chars after.u.part, out [(crip before.u.part) out])
+  ?~  part  (flop [(crip chars) reversed-cells])
+  $(chars after.u.part, reversed-cells [(crip before.u.part) reversed-cells])
 ++  table-rule
   |=  line=@t
   ^-  ?
@@ -133,63 +144,99 @@
 ++  special
   |=  line=@t
   ^-  ?
-  |(=(line '') ?=(^ (heading line)) ?=(^ (list-item line)) =('> ' (end [3 2] line)) =('```' (end [3 3] line)) =('~~~' (end [3 3] line)) =(line '---'))
+  ?|  =(line '')
+      ?=(^ (heading line))
+      ?=(^ (list-item line))
+      =('> ' (end [3 2] line))
+      =('```' (end [3 3] line))
+      =('~~~' (end [3 3] line))
+      =(line '---')
+  ==
 ++  blocks
   |=  input=(list @t)
   ^-  (list manx)
-  =|  out=(list manx)
+  |^
+  =|  reversed-blocks=(list manx)
   |-  ^-  (list manx)
-  ?~  input  (flop out)
+  ?~  input  (flop reversed-blocks)
   =/  line  i.input
   ?:  =(line '')  $(input t.input)
   =/  title  (heading line)
-  ?^  title  $(input t.input, out [(element tag.u.title (inline body.u.title)) out])
+  ?^  title
+    =/  node  (element tag.u.title (inline body.u.title))
+    $(input t.input, reversed-blocks [node reversed-blocks])
   ?:  |(=('```' (end [3 3] line)) =('~~~' (end [3 3] line)))
     =/  fence  (end [3 3] line)
-    =/  collected=[tail=(list @t) body=@t]
-      =/  tail=(list @t)  t.input
-      =|  body=(list @t)
-      |-  ^-  [tail=(list @t) body=@t]
-      ?:  |(?=(~ tail) =(fence (end [3 3] i.tail)))
-        [?~(tail ~ t.tail) (rap 3 (flop body))]
-      $(tail t.tail, body ['\0a' i.tail body])
-    $(input tail.collected, out [(element %pre ~[(element %code ~[(text body.collected)])]) out])
-  ?:  =(line '---')  $(input t.input, out [(element %hr ~) out])
+    =/  collected  (collect-fence fence t.input)
+    =/  node  (element %pre ~[(element %code ~[(text body.collected)])])
+    $(input tail.collected, reversed-blocks [node reversed-blocks])
+  ?:  =(line '---')  $(input t.input, reversed-blocks [(element %hr ~) reversed-blocks])
   ?:  =('> ' (end [3 2] line))
-    $(input t.input, out [(element %blockquote ~[(element %p (inline (rsh [3 2] line)))]) out])
+    =/  node  (element %blockquote ~[(element %p (inline (rsh [3 2] line)))])
+    $(input t.input, reversed-blocks [node reversed-blocks])
   =/  item  (list-item line)
   ?^  item
-    =/  collected=[tail=(list @t) items=(list manx)]
-      =/  tail=(list @t)  input
-      =|  items=(list manx)
-      |-  ^-  [tail=(list @t) items=(list manx)]
-      ?~  tail  [tail (flop items)]
-      =/  next  (list-item i.tail)
-      ?.  &(?=(^ next) =(tag.u.item tag.u.next))  [tail (flop items)]
-      $(tail t.tail, items [(element %li (inline body.u.next)) items])
-    $(input tail.collected, out [(element tag.u.item items.collected) out])
+    =/  collected  (collect-list tag.u.item input)
+    =/  node  (element tag.u.item items.collected)
+    $(input tail.collected, reversed-blocks [node reversed-blocks])
   ?:  &(?=(^ t.input) (table-rule i.t.input) (lien (trip line) |=(c=@t =(c '|'))))
-    =/  row
-      |=  [line=@t tag=@ta]
-      ^-  manx
-      (element %tr (turn (cells line) |=(cell=@t (element tag (inline cell)))))
-    =/  collected=[tail=(list @t) rows=(list manx)]
-      =/  tail=(list @t)  t.t.input
-      =|  rows=(list manx)
-      |-  ^-  [tail=(list @t) rows=(list manx)]
-      ?.  &(?=(^ tail) (lien (trip i.tail) |=(c=@t =(c '|'))))  [tail (flop rows)]
-      $(tail t.tail, rows [(row i.tail %td) rows])
-    =/  table  (element %table ~[(element %thead ~[(row line %th)]) (element %tbody rows.collected)])
-    $(input tail.collected, out [table out])
-  =/  collected=[tail=(list @t) body=@t]
-    =/  tail=(list @t)  t.input
-    =/  parts=(list @t)  ~[line]
-    |-  ^-  [tail=(list @t) body=@t]
-    ?:  |(?=(~ tail) (special i.tail))  [tail (rap 3 (flop parts))]
-    ?:  &(?=(^ t.tail) (table-rule i.t.tail) (lien (trip i.tail) |=(c=@t =(c '|'))))
-      [tail (rap 3 (flop parts))]
-    $(tail t.tail, parts [i.tail '\0a' parts])
-  $(input tail.collected, out [(element %p (inline body.collected)) out])
+    =/  collected  (collect-table t.t.input)
+    =/  table
+      %+  element  %table
+      :~  (element %thead ~[(table-row line %th)])
+          (element %tbody rows.collected)
+      ==
+    $(input tail.collected, reversed-blocks [table reversed-blocks])
+  =/  collected  (collect-paragraph line t.input)
+  =/  node  (element %p (inline body.collected))
+  $(input tail.collected, reversed-blocks [node reversed-blocks])
+::
+::  Collectors return both the block content and the first unconsumed line.
+++  collect-fence
+  |=  [fence=@t tail=(list @t)]
+  ^-  [tail=(list @t) body=@t]
+  =|  reversed-lines=(list @t)
+  |-  ^-  [tail=(list @t) body=@t]
+  ?:  |(?=(~ tail) =(fence (end [3 3] i.tail)))
+    [?~(tail ~ t.tail) (rap 3 (flop reversed-lines))]
+  $(tail t.tail, reversed-lines ['\0a' i.tail reversed-lines])
+::
+++  collect-list
+  |=  [tag=@ta tail=(list @t)]
+  ^-  [tail=(list @t) items=(list manx)]
+  =|  reversed-items=(list manx)
+  |-  ^-  [tail=(list @t) items=(list manx)]
+  ?~  tail  [tail (flop reversed-items)]
+  =/  next  (list-item i.tail)
+  ?.  &(?=(^ next) =(tag tag.u.next))  [tail (flop reversed-items)]
+  $(tail t.tail, reversed-items [(element %li (inline body.u.next)) reversed-items])
+::
+++  table-row
+  |=  [line=@t tag=@ta]
+  ^-  manx
+  %+  element  %tr
+  %+  turn  (cells line)
+  |=  cell=@t
+  (element tag (inline cell))
+::
+++  collect-table
+  |=  tail=(list @t)
+  ^-  [tail=(list @t) rows=(list manx)]
+  =|  reversed-rows=(list manx)
+  |-  ^-  [tail=(list @t) rows=(list manx)]
+  ?.  &(?=(^ tail) (lien (trip i.tail) |=(c=@t =(c '|'))))  [tail (flop reversed-rows)]
+  $(tail t.tail, reversed-rows [(table-row i.tail %td) reversed-rows])
+::
+++  collect-paragraph
+  |=  [line=@t tail=(list @t)]
+  ^-  [tail=(list @t) body=@t]
+  =/  reversed-lines=(list @t)  ~[line]
+  |-  ^-  [tail=(list @t) body=@t]
+  ?:  |(?=(~ tail) (special i.tail))  [tail (rap 3 (flop reversed-lines))]
+  ?:  &(?=(^ t.tail) (table-rule i.t.tail) (lien (trip i.tail) |=(c=@t =(c '|'))))
+    [tail (rap 3 (flop reversed-lines))]
+  $(tail t.tail, reversed-lines [i.tail '\0a' reversed-lines])
+--
 ++  css
   ^-  @t
   %+  rap  3

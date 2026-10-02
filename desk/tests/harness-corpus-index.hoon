@@ -164,4 +164,38 @@
     (expect-eq !>(`(list @t)`~['reid']) !>(matched.preview))
     (expect !>(|((lth (cut 3 [offset.preview 1] body) 128) (gth (cut 3 [offset.preview 1] body) 191))))
   ==
+++  test-replacement-across-segments-keeps-only-live-postings
+  =/  target=ref:gs  [0v1 1 ~]
+  =/  other=ref:gs  [0v2 1 ~]
+  =/  idx  (put-document:sidx *index:sidx target ~2024.1.1 '' ~['alpha beta'])
+  =.  count.idx  segment-size:sidx
+  =.  idx  (put-document:sidx idx target ~2024.1.1 '' ~['alpha gamma'])
+  =.  idx  (put-document:sidx idx other ~2024.1.2 '' ~['alpha beta'])
+  =/  cleared  (put-document:sidx idx target ~2024.1.3 '' ~[''])
+  ;:  weld
+    (expect-eq !>(2) !>(live-count.idx))
+    (expect-eq !>(`(list ref:gs)`~[other]) !>((turn hits:(search:sidx idx 'alpha beta' ~ 10) |=(=hit:gs ref.hit))))
+    (expect-eq !>(`(list ref:gs)`~[target]) !>((turn hits:(search:sidx idx 'alpha gamma' ~ 10) |=(=hit:gs ref.hit))))
+    (expect-eq !>(1) !>(live-count.cleared))
+    (expect-eq !>(`(list hit:gs)`~) !>(hits:(search:sidx cleared 'gamma' ~ 10)))
+    (expect-eq !>(count.idx) !>(count.cleared))
+  ==
+++  test-remove-source-keeps-other-scopes-and-document-ids
+  =/  idx  (put-document:sidx *index:sidx [0v1 1 ~] ~2024.1.1 '' ~['shared'])
+  =.  idx  (put-document:sidx idx [0v1 2 ~] ~2024.1.2 '' ~['shared'])
+  =.  idx  (put-document:sidx idx [0v2 1 ~] ~2024.1.3 '' ~['shared'])
+  =/  removed  (remove-source:sidx idx 0v1)
+  ;:  weld
+    (expect-eq !>(1) !>(live-count.removed))
+    (expect-eq !>(`(list ref:gs)`~[[0v2 1 ~]]) !>((turn hits:(search:sidx removed 'shared' ~ 10) |=(=hit:gs ref.hit))))
+    (expect-eq !>(count.idx) !>(count.removed))
+    (expect-eq !>(removed) !>((remove-source:sidx removed 0v1)))
+  ==
+++  test-bounded-term-walk-preserves-left-to-right-order
+  =/  terms  (silt ~['alpha' 'beta' 'gamma' 'delta' 'epsilon' 'zeta' 'eta'])
+  =/  limits=(list @ud)  ~[0 1 3 7 10]
+  %-  zing
+  %+  turn  limits
+  |=  limit=@ud
+  (expect-eq !>((scag limit (flop ~(tap in terms)))) !>((take-terms:sidx terms limit)))
 --

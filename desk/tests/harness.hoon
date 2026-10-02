@@ -50,6 +50,26 @@
   =/  expected=(list item:h)
     ~[[%assistant 'first' ~] [%user 'two'] [%assistant 'second' ~] [%user 'three'] [%assistant 'third' ~] [%user 'four']]
   (expect !>(&(=(expected items.view) =(items.before (transcript-items:hl (slag 1 history))) =([60 9] total.view) =(`'summary' summary.view))))
+++  check-advance
+  |=  log=(list event:h)
+  ^-  tang
+  =/  expected  (play:hl log)
+  =/  remaining  (flop log)
+  =|  recorded=(list event:h)
+  =|  checks=tang
+  |-  ^-  tang
+  =.  checks
+    %+  weld  checks
+    (expect-eq !>(expected) !>((advance:hl remaining (play:hl recorded))))
+  ?~  remaining  checks
+  $(remaining t.remaining, recorded [i.remaining recorded])
+++  test-incremental-view-matches-replay-at-every-boundary
+  ;:  weld
+    (check-advance history)
+    (check-advance interrupted-tools)
+    (check-advance [[%input-admitted [%user 'continue']] [%config-replaced *config:h] interrupted-tools])
+    (check-advance ~[[%llm-failed 0 'failed'] [%llm-reasoning 0 'provider' 'model' 'opaque'] [%llm-requested 0 %turn]])
+  ==
 ++  test-stable-event-addresses
   (expect-eq !>(`(list @ud)`~[2 3 4 5 6 7 8]) !>((turn (transcript:hl history) |=([at=@ud (unit input-id:h) item:h] at))))
 ++  test-branch-keeps-prefix
@@ -141,6 +161,31 @@
 ++  test-repeated-cancel-does-not-duplicate-receipts
   =/  log  [[%cancelled ~ ~ 'again'] interrupted-tools]
   (expect-eq !>((transcript-items:hl interrupted-tools)) !>((transcript-items:hl log)))
+++  test-cancellation-projection-stays-with-its-exchange
+  =/  log=(list event:h)
+    :~  [%cancelled ~ ~ 'second interruption']
+        [%tool-completed 'done' 'http_fetch' 'new result']
+        [%llm-completed 1 %tool-calls [0 0] [%assistant '' ~[['done' 'http_fetch' '{}'] ['pending' 'http_fetch' '{}']]]]
+        [%input-received [0v7 [%acp 'client'] `~zod ~ ~2026.10.2 [%user 'next']]]
+        [%cancelled ~ ~ 'repeated interruption']
+        [%config-replaced *config:h]
+    ==
+  =.  log  (weld log interrupted-tools)
+  =/  closed  (cancel-results:hl ~[[%assistant '' ~[['pending' 'http_fetch' '{}']]]] 'second interruption')
+  ?>  ?=(^ closed)
+  =/  expected
+    (turn closed |=(it=item:h [13 ~ it]))
+  =/  added=(list [@ud (unit input-id:h) item:h])
+    :~  [10 `0v7 [%user 'next']]
+        [11 ~ [%assistant '' ~[['done' 'http_fetch' '{}'] ['pending' 'http_fetch' '{}']]]]
+        [12 ~ [%tool 'done' 'http_fetch' 'new result']]
+        [13 ~ i.closed]
+    ==
+  ;:  weld
+    (expect-eq !>(expected) !>((transcript-event:hl 13 log)))
+    (expect-eq !>(`(list [@ud (unit input-id:h) item:h])`~) !>((transcript-event:hl 9 (slag 4 log))))
+    (expect-eq !>((weld (transcript:hl interrupted-tools) added)) !>((transcript:hl log)))
+  ==
 ++  test-cancelled-tool-addresses-are-unique
   =/  rows  (transcript-json:hj interrupted-tools)
   ?>  ?=(%a -.rows)

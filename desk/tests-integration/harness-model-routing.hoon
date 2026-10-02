@@ -1,6 +1,6 @@
 ::  Run the complete head against fixture Iris responses; no network effects
 ::  are delivered. Assert the actual emitted requests, not just configuration.
-/-  h=harness, *harness-store, renew=harness-oauth
+/-  h=harness, *harness-store, renew=harness-oauth, ac=acp
 /+  *test, policy=harness-defaults, hl=harness, j=harness-workspace-json
 /=  head  /app/harness
 |%
@@ -25,7 +25,7 @@
   ^-  state-0
   =/  s  *state-0
   =/  cfg  builtin-config:policy
-  =.  cfg  cfg(model 'primary', zdr &, fallbacks ~[['openrouter' 'backup']], tools ~)
+  =.  cfg  cfg(url 'https://openrouter.ai/api/v1/chat/completions', model 'primary', zdr &, fallbacks ~[['openrouter' 'backup']], tools ~)
   s(defaults cfg, local-mcp-seen 1, provider-keys (my ~[['openrouter' 'fixture-key']]), sessions (my ~[['fixture' [~[[%config-replaced cfg]] 0]]]))
 ++  failed
   ^-  client-response:iris
@@ -84,11 +84,35 @@
   =/  primary  (snag 0 (requests -.sent))
   =/  chunk  (as-octs:mimes:html 'data: {"choices":[{"delta":{"content":"hello"}}]}\0a\0a')
   =/  progress=client-response:iris  [%progress [200 ~] p.chunk ~ `chunk]
-  =/  streamed  (~(on-arvo +.sent bowl) wire.primary [%iris %http-response progress])
+  =/  waiting  !<(state-0 ~(on-save +.sent bowl))
+  =.  acp-prompts.waiting  (my ~[['fixture' ['client' [%n '1'] 0]]])
+  =/  watched  (~(on-load head bowl) !>(waiting))
+  =/  streamed  (~(on-arvo +.watched bowl) wire.primary [%iris %http-response progress])
+  =/  frames
+    %+  murn  -.streamed
+    |=  card=card:agent:gall
+    ^-  (unit json)
+    ?.  ?=([%pass [%acp %send ~] %agent * %poke %acp-action-1 *] card)  ~
+    =/  [pass=* wire=* agent=* target=* poke=* mark=* data=vase]  card
+    =/  action  !<(action:v1:ac data)
+    ?>  ?=(%send -.action)
+    (de:json:html payload.action)
+  =/  update  (need (get:j (need (get:j (snag 0 frames) 'params')) 'update'))
   =/  saved  !<(state-0 ~(on-save +.streamed bowl))
   =/  view  (play:hl log:(~(got by sessions.saved) 'fixture'))
   ?>  ?=(^ pending.view)
   ?>  =(5 sent:(~(got by streams.saved) ['fixture' req.u.pending.view]))
   =/  done  (~(on-arvo +.streamed bowl) wire.primary [%iris %http-response failed])
-  (expect-eq !>(~) !>((requests -.done)))
+  =/  finished  !<(state-0 ~(on-save +.done bowl))
+  =/  cancelled  (~(on-poke +.streamed bowl) %harness-action !>(`action:h`[%cancel 'fixture']))
+  =/  stopped  !<(state-0 ~(on-save +.cancelled bowl))
+  ;:  weld
+    (expect-eq !>(~) !>((requests -.done)))
+    (expect-eq !>('harness_agent_stream_chunk') !>((string:j update 'sessionUpdate')))
+    (expect-eq !>((lent log:(~(got by sessions.saved) 'fixture'))) !>((number:j update 'revision' 0)))
+    (expect-eq !>(0) !>((number:j update 'offset' 999)))
+    (expect-eq !>('hello') !>((string:j (need (get:j update 'content')) 'text')))
+    (expect-eq !>(0) !>(~(wyt by streams.finished)))
+    (expect-eq !>(0) !>(~(wyt by streams.stopped)))
+  ==
 --

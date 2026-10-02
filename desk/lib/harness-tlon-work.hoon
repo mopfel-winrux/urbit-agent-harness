@@ -5,10 +5,10 @@
 |%
 +$  row  [at=@da key=@uv value=json]
 ++  phase
-  |=  [obs=observation:hh pub=(unit publication:hh)]
+  |=  [observation=observation:hh publication=(unit publication:hh)]
   ^-  @t
-  ?^  pub
-    ?-  status.u.pub
+  ?^  publication
+    ?-  status.u.publication
       %pending    'completed'
       %claimed    'sending'
       %delivered  'delivered'
@@ -16,7 +16,7 @@
       %uncertain  'uncertain'
       %abandoned  'abandoned'
     ==
-  ?-  phase.obs
+  ?-  phase.observation
     %queued     'received'
     %running    'working'
     %completed  'completed'
@@ -27,46 +27,72 @@
   |=  [a=[at=@da key=@uv] b=[at=@da key=@uv]]
   |((lth at.a at.b) &(=(at.a at.b) (lth key.a key.b)))
 ++  page
-  |=  [state=state-1:t db=state:hh before=@t]
+  |=  [state=state-1:t ledger=state:hh before=@t]
   ^-  json
+  |^
   =/  cursor=(unit [at=@da key=@uv])
     ?:  =('' before)  ~
     ?>  (lte (met 3 before) 256)
     =/  parsed  ;;([%1 at=@da key=@uv] (cue (slav %uv before)))
     ?>  &((lte (met 0 at.parsed) 128) (lte (met 0 key.parsed) 256))
     `[at.parsed key.parsed]
-  =/  rows=(list row)
-    %+  murn  ~(tap by observations.db)
-    |=  [id=@uv obs=observation:hh]
+  =/  observations
+    (murn ~(tap by observations.ledger) observation-row)
+  =/  admissions
+    (turn ~(tap by jobs.state) admission-row)
+  =/  rows  (weld observations admissions)
+  =.  rows  (sort rows |=([a=row b=row] (earlier [at.b key.b] [at.a key.a])))
+  ::  Put pre-admission work first without fabricating a timestamp. A stable
+  ::  sort key of the maximal timestamp keeps its cursor distinct from history.
+  =?  rows  ?=(^ cursor)
+    (skim rows |=(record=row (earlier [at.record key.record] u.cursor)))
+  =/  selected  (scag 16 rows)
+  =/  next=(unit @t)
+    ?.  (gth (lent rows) 16)  ~
+    =/  last  (rear selected)
+    `(scot %uv (jam [%1 at.last key.last]))
+  %-  pairs:enjs:format
+  :~  ['records' %a (turn selected |=(record=row value.record))]
+      ['next' ?~(next ~ [%s u.next])]
+      ['limit' %n '16']
+  ==
+  ::
+  ++  observation-row
+    |=  [id=@uv observation=observation:hh]
     ^-  (unit row)
-    =/  cfg  (~(get by bindings.db) binding.obs)
-    ?.  ?&(?=(^ cfg) =('tlon' hand.u.cfg))  ~
-    =/  pub  (~(get by outbox.db) id)
-    =/  route  (~(get by routes.state) sid.u.cfg)
-    =/  current  ?&(?=(^ route) enabled.policy.state enabled.u.cfg =(%ready phase.u.route) =(binding.obs binding.u.route))
+    =/  binding  (~(get by bindings.ledger) binding.observation)
+    ?.  ?&(?=(^ binding) =('tlon' hand.u.binding))  ~
+    =/  publication  (~(get by outbox.ledger) id)
+    =/  route  (~(get by routes.state) sid.u.binding)
+    =/  current
+      ?&  ?=(^ route)
+          enabled.policy.state
+          enabled.u.binding
+          =(%ready phase.u.route)
+          =(binding.observation binding.u.route)
+      ==
     :-  ~
-    :*  at.obs  (sham [%input id])
+    :*  at.observation  (sham [%input id])
       %-  pairs:enjs:format
       :~  ['kind' %s 'input']
           ['id' %s (scot %uv id)]
-          ['at' %s (scot %da at.obs)]
-          ['sessionId' %s sid.u.cfg]
-          ['binding' %s binding.obs]
-          ['actor' %s actor.obs]
-          ['destination' %s address.u.cfg]
-          ['text' %s (clip-text:hp text.obs 256)]
-          ['reply' ?~(pub ~ [%s (clip-text:hp body.u.pub 512)])]
-          ['status' %s (phase obs pub)]
+          ['at' %s (scot %da at.observation)]
+          ['sessionId' %s sid.u.binding]
+          ['binding' %s binding.observation]
+          ['actor' %s actor.observation]
+          ['destination' %s address.u.binding]
+          ['text' %s (clip-text:hp text.observation 256)]
+          ['reply' ?~(publication ~ [%s (clip-text:hp body.u.publication 512)])]
+          ['status' %s (phase observation publication)]
           ['current' %b current]
-          ['attempt' (numb:enjs:format attempt:(get-control:hd db id))]
-          ['externalId' ?~(pub ~ [%s external.u.pub])]
-          ['canRetry' %b ?~(pub | &(current =(%failed status.u.pub)))]
-          ['canResolve' %b ?~(pub | !(terminal:hd status.u.pub))]
+          ['attempt' (numb:enjs:format attempt:(get-control:hd ledger id))]
+          ['externalId' ?~(publication ~ [%s external.u.publication])]
+          ['canRetry' %b ?~(publication | &(current =(%failed status.u.publication)))]
+          ['canResolve' %b ?~(publication | !(terminal:hd status.u.publication))]
       ==
     ==
-  =.  rows
-    %+  weld  rows
-    %+  turn  ~(tap by jobs.state)
+  ::
+  ++  admission-row
     |=  [id=@uv job=job:t]
     ^-  row
     ::  Adapter jobs precede ledger admission. Their key and original text
@@ -85,15 +111,5 @@
           ['canRetry' %b &]
       ==
     ==
-  =.  rows  (sort rows |=([a=row b=row] (earlier [at.b key.b] [at.a key.a])))
-  ::  Put pre-admission work first without fabricating a timestamp. A stable
-  ::  sort key of the maximal timestamp keeps its cursor distinct from history.
-  =?  rows  ?=(^ cursor)
-    (skim rows |=(r=row (earlier [at.r key.r] u.cursor)))
-  =/  selected  (scag 16 rows)
-  =/  next=(unit @t)
-    ?.  (gth (lent rows) 16)  ~
-    =/  last  (rear selected)
-    `(scot %uv (jam [%1 at.last key.last]))
-  (pairs:enjs:format ~[['records' %a (turn selected |=(r=row value.r))] ['next' ?~(next ~ [%s u.next])] ['limit' %n '16']])
+  --
 --

@@ -111,4 +111,34 @@
     (expect-eq !>(`json`[%a ~]) !>((need (get:codec result 'items'))))
     (expect-eq !>(`json`~) !>((need (get:codec result 'nextOffset'))))
   ==
+::
+++  test-revision-pages-preserve-utf-eight-and-page-sources-independently
+  =/  prefix  (rap 3 (reap 7.999 'a'))
+  =/  body  (cat 3 prefix '🙂 tail')
+  =/  sources=(list source:w)
+    ~[['one' 'url-1'] ['two' 'url-2'] ['three' 'url-3'] ['four' 'url-4'] ['five' 'url-5']]
+  =/  revision=revision:w  [~2026.10.1 [0v1 'Writer'] ['Title' body sources]]
+  =/  first  (revision-json:codec 1 revision | 0 0)
+  =/  second
+    (revision-json:codec 1 revision | (number:codec first 'nextOffset' 0) (number:codec first 'nextSourceOffset' 0))
+  =/  complete  (revision-json:codec 1 revision & 0 0)
+  ;:  weld
+    (expect-eq !>(prefix) !>((string:codec first 'body')))
+    (expect-eq !>('🙂 tail') !>((string:codec second 'body')))
+    (expect-eq !>(body) !>((cat 3 (string:codec first 'body') (string:codec second 'body'))))
+    (expect-eq !>(sources) !>((weld (sources:codec first) (sources:codec second))))
+    (expect-eq !>(body) !>((string:codec complete 'body')))
+    (expect-eq !>(sources) !>((sources:codec complete)))
+    (expect-eq !>(`json`~) !>((need (get:codec second 'nextOffset'))))
+    (expect-eq !>(`json`~) !>((need (get:codec second 'nextSourceOffset'))))
+  ==
+::
+++  test-revision-page-rejects-an-offset-inside-a-character
+  =/  revision=revision:w  [~2026.10.1 [0v1 'Writer'] ['Title' '🙂 tail' ~]]
+  =/  invalid  (mule |.((revision-json:codec 1 revision | 1 0)))
+  =/  beyond  (mule |.((revision-json:codec 1 revision | 99 0)))
+  ;:  weld
+    (expect !>(?=(%| -.invalid)))
+    (expect !>(?=(%| -.beyond)))
+  ==
 --

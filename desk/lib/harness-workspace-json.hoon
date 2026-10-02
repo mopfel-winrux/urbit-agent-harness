@@ -3,17 +3,20 @@
 /-  w=harness-workspace
 /+  work=harness-workspace, document=harness-document
 |%
+::
 ++  get
   |=  [args=json key=@t]
   ^-  (unit json)
   ?.  ?=(%o -.args)  ~
   (~(get by p.args) key)
+::
 ++  string
   |=  [args=json key=@t]
   ^-  @t
   =/  value  (need (get args key))
   ?>  ?=(%s -.value)
   p.value
+::
 ++  optional
   |=  [args=json key=@t]
   ^-  (unit @t)
@@ -22,6 +25,7 @@
   ?:  ?=(~ u.value)  ~
   ?>  ?=(%s -.u.value)
   ?:(=('' p.u.value) ~ `p.u.value)
+::
 ++  number
   |=  [args=json key=@t fallback=@ud]
   ^-  @ud
@@ -31,7 +35,10 @@
   =/  parsed  (rush p.u.value (star (shim '0' '9')))
   ?>  &(?=(^ parsed) !=('' p.u.value) (lte (met 3 p.u.value) 10))
   ::  JSON numbers are ungrouped decimal, unlike Hoon's dotted @ud syntax.
-  (roll (trip p.u.value) |=([digit=@t total=@ud] (add (mul total 10) (sub digit '0'))))
+  %+  roll  (trip p.u.value)
+  |=  [digit=@t total=@ud]
+  (add (mul total 10) (sub digit '0'))
+::
 ++  boolean
   |=  [args=json key=@t fallback=?]
   ^-  ?
@@ -39,6 +46,7 @@
   ?~  value  fallback
   ?>  ?=(%b -.u.value)
   p.u.value
+::
 ++  sources
   |=  args=json
   ^-  (list source:w)
@@ -46,27 +54,35 @@
   ?~  value  ~
   ?>  ?=(%a -.u.value)
   ?>  (lte (lent p.u.value) 16)
-  (turn p.u.value |=(s=json [(string s 'label') (string s 'url')]))
+  %+  turn  p.u.value
+  |=  source=json
+  [(string source 'label') (string source 'url')]
+::
 ++  content
   |=  args=json
   ^-  content:w
   [(string args 'title') (string args 'body') (sources args)]
+::
 ++  request-json
   |=  value=json
   ^-  request:w
   [(string value 'id') (string value 'action') (fall (get value 'args') [%o ~])]
+::
 ++  is-read
   |=  action=@t
   ^-  ?
   (lien `(list @t)`~['help' 'projects' 'project' 'artifacts' 'artifact' 'revisions' 'revision' 'proposals' 'proposal' 'tasks' 'task' 'preview' 'audit' 'sessions'] |=(name=@t =(name action)))
+::
 ++  bookkeeping-action
   |=  action=@t
   (lien `(list @t)`~['project-create' 'task-create' 'task-claim' 'task-assign' 'task-update' 'task-delete'] |=(name=@t =(name action)))
+::
 ++  model-action
   |=  action=@t
   ^-  ?
   ?:  (bookkeeping-action action)  &
   (lien `(list @t)`~['help' 'projects' 'project' 'project-edit' 'artifacts' 'artifact' 'revisions' 'revision' 'proposals' 'proposal' 'tasks' 'task' 'artifact-create' 'propose'] |=(name=@t =(name action)))
+::
 ++  decode
   |=  [db=state:w action=@t args=json fallback=@t]
   ^-  action:w
@@ -75,7 +91,12 @@
       %'project-create'
     [%project-create id (string args 'title') (fall (optional args 'description') '')]
       %'project-edit'
-    [%project-edit id (number args 'version' 0) (string args 'title') (fall (optional args 'description') '') (boolean args 'archived' |)]
+    :*  %project-edit  id
+        (number args 'version' 0)
+        (string args 'title')
+        (fall (optional args 'description') '')
+        (boolean args 'archived' |)
+    ==
       %member
     =/  role  (optional args 'role')
     =/  typed=(unit role:w)
@@ -94,12 +115,17 @@
       %review
     [%review id (boolean args 'accept' |) (fall (optional args 'reason') '')]
       %publish
-    =/  art  (~(got by artifacts.db) id)
-    =/  rev  (number args 'revision' 0)
-    ?>  =((rap 3 id '@' (scot %ud rev) ~) (string args 'confirm'))
-    =/  value  value:(~(got by revisions.art) rev)
+    =/  artifact  (~(got by artifacts.db) id)
+    =/  revision  (number args 'revision' 0)
+    ?>  =((rap 3 id '@' (scot %ud revision) ~) (string args 'confirm'))
+    =/  value  value:(~(got by revisions.artifact) revision)
     ?>  =((scot %uv (sham [title.value body.value])) (string args 'previewToken'))
-    [%publish id rev (number args 'head' 0) (number args 'exposure' 0) 'native-notes' (page:document title.value body.value)]
+    :*  %publish  id  revision
+        (number args 'head' 0)
+        (number args 'exposure' 0)
+        'native-notes'
+        (page:document title.value body.value)
+    ==
       %unpublish
     [%unpublish id (number args 'exposure' 0)]
       %'task-create'
@@ -110,6 +136,8 @@
       %'task-claim'
     [%task-claim id (number args 'version' 0)]
       %'task-update'
+    ::  Omitted fields retain their current values. Explicit null clears the
+    ::  optional artifact or project; it does not mean "leave unchanged".
     =/  task  (~(got by tasks.db) id)
     =/  status  ?~((get args 'status') status.task (string args 'status'))
     ?>  (lien `(list @t)`~['open' 'claimed' 'blocked' 'done'] |=(s=@t =(s status)))
@@ -118,22 +146,30 @@
     =/  title  ?~((get args 'title') title.task (string args 'title'))
     =/  description  ?~((get args 'description') description.task (string args 'description'))
     =/  project  ?~((get args 'project') project.task (fall (optional args 'project') ''))
-    [%task-update id (number args 'version' 0) ;;(?(%open %claimed %blocked %done) status) outcome artifact `[title description project]]
+    :*  %task-update  id
+        (number args 'version' 0)
+        ;;(?(%open %claimed %blocked %done) status)
+        outcome  artifact  `[title description project]
+    ==
       %'task-delete'
     [%task-delete id (number args 'version' 0)]
   ==
+::
 ++  actor-json
   |=  actor=actor:w
   ^-  json
   (pairs:enjs:format ~[['scope' %s (scot %uv scope.actor)] ['label' %s label.actor]])
+::
 ++  stamp
   |=  at=@da
   ^-  json
   (numb:enjs:format (div (mul 1.000 (sub at ~1970.1.1)) ~s1))
+::
 ++  nullable
   |=  value=(unit @t)
   ^-  json
   ?~(value ~ [%s u.value])
+::
 ++  project-json
   |=  [db=state:w who=authority:w id=id:w project=project:w]
   ^-  json
@@ -144,34 +180,54 @@
       ['version' (numb:enjs:format version.project)]
       ['archived' %b archived.project]
       ['role' ?:(owner.who [%s 'owner'] (nullable (project-role:work db who id)))]
-      ['members' ?:(!owner.who ~ [%a (turn ~(tap by members.project) |=([scope=@uv role=role:w] (pairs:enjs:format ~[['scope' %s (scot %uv scope)] ['role' %s (scot %tas role)]])))])]
+      :-  'members'
+      ?.  owner.who  ~
+      :-  %a
+      %+  turn  ~(tap by members.project)
+      |=  [scope=@uv role=role:w]
+      (pairs:enjs:format ~[['scope' %s (scot %uv scope)] ['role' %s (scot %tas role)]])
   ==
+::
 ++  artifact-json
-  |=  [id=id:w art=artifact:w]
+  |=  [id=id:w artifact=artifact:w]
   ^-  json
   %-  pairs:enjs:format
   :~  ['id' %s id]
-      ['title' %s label.art]
-      ['project' (nullable project.art)]
-      ['head' (numb:enjs:format head.art)]
-      ['archived' %b archived.art]
-      ['exposure' (numb:enjs:format exposure.art)]
-      ['publication' ?~(publication.art ~ (pairs:enjs:format ~[['revision' (numb:enjs:format revision.u.publication.art)] ['path' %s slug.u.publication.art] ['at' (stamp at.u.publication.art)]]))]
+      ['title' %s label.artifact]
+      ['project' (nullable project.artifact)]
+      ['head' (numb:enjs:format head.artifact)]
+      ['archived' %b archived.artifact]
+      ['exposure' (numb:enjs:format exposure.artifact)]
+      :-  'publication'
+      ?~  publication.artifact  ~
+      =/  publication  u.publication.artifact
+      %-  pairs:enjs:format
+      :~  ['revision' (numb:enjs:format revision.publication)]
+          ['path' %s slug.publication]
+          ['at' (stamp at.publication)]
+      ==
   ==
+::
 ++  revision-json
   |=  [id=@ud revision=revision:w full=? offset=@ud source-offset=@ud]
   ^-  json
   =/  body  body.value.revision
   =/  length  (met 3 body)
   ?>  (lte offset length)
+  ::  Both ends of a body page must fall between UTF-8 characters. Reject
+  ::  an invalid start and retreat from a continuation byte at the byte cap.
   =/  byte  (cut 3 [offset 1] body)
   ?>  |((lth byte 128) (gth byte 191))
   =/  end  ?:(full length (min length (add offset 8.000)))
   =/  end
-    |-  ^-  @ud
+    |-
+    ^-  @ud
     =/  next  (cut 3 [end 1] body)
     ?:  &((gte next 128) (lte next 191))  $(end (dec end))
     end
+  =/  selected-sources
+    ?:  full  sources.value.revision
+    (scag 4 (slag source-offset sources.value.revision))
   %-  pairs:enjs:format
   :~  ['revision' (numb:enjs:format id)]
       ['at' (stamp at.revision)]
@@ -180,10 +236,15 @@
       ['body' %s (cut 3 [offset (sub end offset)] body)]
       ['bytes' (numb:enjs:format length)]
       ['nextOffset' ?:((gte end length) ~ (numb:enjs:format end))]
-      ['sources' %a (turn ?:(full sources.value.revision (scag 4 (slag source-offset sources.value.revision))) |=(s=source:w (pairs:enjs:format ~[['label' %s label.s] ['url' %s url.s]])))]
+      :-  'sources'
+      :-  %a
+      %+  turn  selected-sources
+      |=  source=source:w
+      (pairs:enjs:format ~[['label' %s label.source] ['url' %s url.source]])
       ['nextSourceOffset' ?:(|(full (gte (add source-offset 4) (lent sources.value.revision))) ~ (numb:enjs:format (add source-offset 4)))]
       ['referenceOnly' %b &]
   ==
+::
 ++  proposal-json
   |=  [id=id:w proposal=proposal:w]
   ^-  json
@@ -200,6 +261,7 @@
       ['decision' %s decision.proposal]
       ['revision' ?~(revision.proposal ~ (numb:enjs:format u.revision.proposal))]
   ==
+::
 ++  task-json
   |=  [id=id:w task=task:w]
   ^-  json
@@ -215,6 +277,7 @@
       ['artifact' (nullable artifact.task)]
       ['updated' (stamp updated.task)]
   ==
+::
 ++  page
   |=  [rows=(list json) args=json owner=?]
   ^-  json
@@ -223,7 +286,12 @@
   ?>  &((gth limit 0) (lte limit ?:(owner 64 4)))
   =/  selected  (scag limit (slag offset rows))
   =/  through  (add offset (lent selected))
-  (pairs:enjs:format ~[['items' %a selected] ['nextOffset' ?:((gte through (lent rows)) ~ (numb:enjs:format through))] ['referenceOnly' %b &]])
+  %-  pairs:enjs:format
+  :~  ['items' %a selected]
+      ['nextOffset' ?:((gte through (lent rows)) ~ (numb:enjs:format through))]
+      ['referenceOnly' %b &]
+  ==
+::
 ++  recent-page
   |=  [rows=(list [at=@da id=@t value=json]) args=json owner=?]
   ^-  json
@@ -233,17 +301,29 @@
     ?:  !=(at.a at.b)  (gth at.a at.b)
     (aor id.a id.b)
   (page (turn ordered |=([at=@da id=@t value=json] value)) args owner)
+::
 ++  dated
   |=  [value=json at=@da]
   ^-  json
   ?>  ?=(%o -.value)
   [%o (~(put by p.value) 'updated' ?:(=(0 at) ~ (stamp at)))]
+::
 ++  read
   |=  [db=state:w who=authority:w action=@t args=json]
   ^-  json
   ?:  =('help' action)  [%s help]
   =/  id  (fall (optional args 'id') '')
   =/  project  (optional args 'project')
+  ::  Parse body pagination only when a request actually reads content.
+  =/  content-page
+    |=  [revision-id=@ud revision=revision:w]
+    ^-  json
+    %-  revision-json
+    :*  revision-id  revision
+        &(owner.who !(boolean args 'paged' |))
+        (number args 'offset' 0)
+        (number args 'sourceOffset' 0)
+    ==
   ?:  =('projects' action)
     =/  include-archived  (boolean args 'includeArchived' &)
     =/  rows
@@ -260,38 +340,59 @@
   ?:  =('artifacts' action)
     =/  rows
       %+  murn  ~(tap by artifacts.db)
-      |=  [id=id:w art=artifact:w]
-      ?.  &((can-read:work db who art) ?~(project & =(project project.art)))  ~
+      |=  [id=id:w artifact=artifact:w]
+      ?.  &((can-read:work db who artifact) ?~(project & =(project project.artifact)))  ~
       =/  at=@da  (fall (~(get by recency.db) [%artifact id]) `@da`0)
-      `[at id (dated (artifact-json id art) at)]
+      `[at id (dated (artifact-json id artifact) at)]
     (recent-page rows args owner.who)
   ?:  |(=('artifact' action) =('revision' action) =('revisions' action) =('preview' action))
-    =/  art  (~(got by artifacts.db) id)
-    ?>  (can-read:work db who art)
+    =/  artifact  (~(got by artifacts.db) id)
+    ?>  (can-read:work db who artifact)
     ?:  =('revisions' action)
       =/  rows
-        %+  turn  (sort ~(tap by revisions.art) |=([a=[@ud revision:w] b=[@ud revision:w]] (gth -.a -.b)))
-        |=  [id=@ud rev=revision:w]
-        (pairs:enjs:format ~[['revision' (numb:enjs:format id)] ['title' %s title.value.rev] ['at' (stamp at.rev)] ['by' (actor-json by.rev)]])
+        %+  turn  (sort ~(tap by revisions.artifact) |=([a=[@ud revision:w] b=[@ud revision:w]] (gth -.a -.b)))
+        |=  [id=@ud revision=revision:w]
+        %-  pairs:enjs:format
+        :~  ['revision' (numb:enjs:format id)]
+            ['title' %s title.value.revision]
+            ['at' (stamp at.revision)]
+            ['by' (actor-json by.revision)]
+        ==
       (page rows args owner.who)
-    =/  revno  (number args 'revision' head.art)
-    =/  rev  (~(get by revisions.art) revno)
+    =/  revision-number  (number args 'revision' head.artifact)
+    =/  revision  (~(get by revisions.artifact) revision-number)
     ?:  =('preview' action)
-      ?>  &(?=(^ rev) owner.who)
-      (pairs:enjs:format ~[['revision' (numb:enjs:format revno)] ['head' (numb:enjs:format head.art)] ['previewToken' %s (scot %uv (sham [title.value.u.rev body.value.u.rev]))] ['html' %s (page:document title.value.u.rev body.value.u.rev)]])
-    (pairs:enjs:format ~[['artifact' (artifact-json id art)] ['content' ?~(rev ~ (revision-json revno u.rev &(owner.who !(boolean args 'paged' |)) (number args 'offset' 0) (number args 'sourceOffset' 0)))]])
+      ?>  &(?=(^ revision) owner.who)
+      %-  pairs:enjs:format
+      :~  ['revision' (numb:enjs:format revision-number)]
+          ['head' (numb:enjs:format head.artifact)]
+          ['previewToken' %s (scot %uv (sham [title.value.u.revision body.value.u.revision]))]
+          ['html' %s (page:document title.value.u.revision body.value.u.revision)]
+      ==
+    %-  pairs:enjs:format
+    :~  ['artifact' (artifact-json id artifact)]
+        ['content' ?~(revision ~ (content-page revision-number u.revision))]
+    ==
   ?:  |(=('proposals' action) =('proposal' action))
     ?:  =('proposal' action)
       =/  proposal  (~(got by proposals.db) id)
-      =/  art  (~(got by artifacts.db) artifact.proposal)
-      ?>  (can-read:work db who art)
-      (pairs:enjs:format ~[['proposal' (proposal-json id proposal)] ['content' (revision-json base.proposal [at.proposal by.proposal value.proposal] &(owner.who !(boolean args 'paged' |)) (number args 'offset' 0) (number args 'sourceOffset' 0))]])
+      =/  artifact  (~(got by artifacts.db) artifact.proposal)
+      ?>  (can-read:work db who artifact)
+      %-  pairs:enjs:format
+      :~  ['proposal' (proposal-json id proposal)]
+          ['content' (content-page base.proposal [at.proposal by.proposal value.proposal])]
+      ==
     =/  target  (optional args 'artifact')
     =/  rows
       %+  murn  ~(tap by proposals.db)
       |=  [id=id:w proposal=proposal:w]
-      =/  art  (~(get by artifacts.db) artifact.proposal)
-      ?.  ?&(?=(^ art) (can-read:work db who u.art) ?~(target & =(u.target artifact.proposal)) ?~(project & =(project project.u.art)))  ~
+      =/  artifact  (~(get by artifacts.db) artifact.proposal)
+      ?.  ?&  ?=(^ artifact)
+              (can-read:work db who u.artifact)
+              ?~(target & =(u.target artifact.proposal))
+              ?~(project & =(project project.u.artifact))
+          ==
+        ~
       `[(fall decided.proposal at.proposal) id (proposal-json id proposal)]
     (recent-page rows args owner.who)
   ?:  |(=('tasks' action) =('task' action))
@@ -312,20 +413,32 @@
   =/  rows
     %+  turn  history.db
     |=  item=audit:w
-    (pairs:enjs:format ~[['at' (stamp at.item)] ['by' (actor-json by.item)] ['action' %s action.item] ['target' %s target.item]])
+    %-  pairs:enjs:format
+    :~  ['at' (stamp at.item)]
+        ['by' (actor-json by.item)]
+        ['action' %s action.item]
+        ['target' %s target.item]
+    ==
   (page rows args owner.who)
+::
 ++  result
-  |=  [db=state:w who=authority:w act=action:w]
+  |=  [db=state:w who=authority:w action=action:w]
   ^-  json
-  ?:  ?=(%task-delete -.act)  [%s 'Task deleted.']
-  ?:  ?=(?(%project-create %project-edit %member) -.act)
-    (project-json db who id.act (~(got by projects.db) id.act))
-  ?:  ?=(?(%propose %review) -.act)
-    (proposal-json id.act (~(got by proposals.db) id.act))
-  ?:  ?=(?(%task-create %task-claim %task-assign %task-update) -.act)
-    (task-json id.act (~(got by tasks.db) id.act))
-  =/  art  (~(got by artifacts.db) id.act)
-  (pairs:enjs:format ~[['artifact' (artifact-json id.act art)] ['proposal' ?:(&(=(0 head.art) (~(has by proposals.db) id.act)) (proposal-json id.act (~(got by proposals.db) id.act)) ~)]])
+  ?:  ?=(%task-delete -.action)  [%s 'Task deleted.']
+  ?:  ?=(?(%project-create %project-edit %member) -.action)
+    (project-json db who id.action (~(got by projects.db) id.action))
+  ?:  ?=(?(%propose %review) -.action)
+    (proposal-json id.action (~(got by proposals.db) id.action))
+  ?:  ?=(?(%task-create %task-claim %task-assign %task-update) -.action)
+    (task-json id.action (~(got by tasks.db) id.action))
+  =/  artifact  (~(got by artifacts.db) id.action)
+  %-  pairs:enjs:format
+  :~  ['artifact' (artifact-json id.action artifact)]
+      :-  'proposal'
+      ?.  &(=(0 head.artifact) (~(has by proposals.db) id.action))  ~
+      (proposal-json id.action (~(got by proposals.db) id.action))
+  ==
+::
 ++  help
   ^-  @t
   %+  rap  3

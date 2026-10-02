@@ -15,41 +15,52 @@
   ?~  raw  ~
   =/  parsed  (mule |.(;;(ticket (cue u.raw))))
   ?:(?=(%& -.parsed) `p.parsed ~)
-++  origin
-  |=  [log=(list event:h) our=@p owner=(unit @p)]
-  ^-  (unit term)
+::  Input markers end the search; only received inputs carry provenance.
+++  current-input
+  |=  log=(list event:h)
+  ^-  (unit admitted-input:h)
   ?~  log  ~
   ?:  ?=(%input-admitted -.i.log)  ~
   ?.  ?=(%input-received -.i.log)  $(log t.log)
-  =/  input  input.i.log
-  =/  source  source.input
+  `input.i.log
+++  origin
+  |=  [log=(list event:h) our=@p owner=(unit @p)]
+  ^-  (unit term)
+  =/  input  (current-input log)
+  ?~  input  ~
+  =/  source  source.u.input
   ?+  -.source  ~
-    %acp  ?:(=(`our actor.input) `%local ~)
-    %poke  ?:(&(=(ship.source our) =(`our actor.input)) `%local ~)
-    %peer  ?:(&(=(`ship.source owner) =(`ship.source actor.input)) `%peer ~)
+    %acp  ?:(=(`our actor.u.input) `%local ~)
+    %poke
+      ?.  &(=(ship.source our) =(`our actor.u.input))  ~
+      `%local
+    %peer
+      ?.  &(=(`ship.source owner) =(`ship.source actor.u.input))  ~
+      `%peer
     %hand
-      =/  who  (slaw %p actor.source)
-      ?.  ?&(?=(^ who) =('tlon' hand.source) =(`u.who owner))  ~
+      =/  actor  (slaw %p actor.source)
+      ?.  ?&(?=(^ actor) =('tlon' hand.source) =(`u.actor owner))  ~
       ::  Public channels and schedules never inherit administrative access.
-      =/  dm  (cat 3 'dm/' (scot %p u.who))
-      ?.  |(=(dm address.source) =((cat 3 dm '/') (end [3 (add 1 (met 3 dm))] address.source)))  ~
+      =/  dm  (cat 3 'dm/' (scot %p u.actor))
+      ?.  ?|  =(dm address.source)
+              =((cat 3 dm '/') (end [3 (add 1 (met 3 dm))] address.source))
+          ==
+        ~
       `%tlon
   ==
 ++  peer-source
   |=  log=(list event:h)
   ^-  (unit @p)
-  ?~  log  ~
-  ?:  ?=(%input-admitted -.i.log)  ~
-  ?.  ?=(%input-received -.i.log)  $(log t.log)
-  =/  source  source.input.i.log
+  =/  input  (current-input log)
+  ?~  input  ~
+  =/  source  source.u.input
   ?:(?=(%peer -.source) `ship.source ~)
 ++  source-actor
   |=  log=(list event:h)
   ^-  (unit @p)
-  ?~  log  ~
-  ?:  ?=(%input-admitted -.i.log)  ~
-  ?.  ?=(%input-received -.i.log)  $(log t.log)
-  =/  source  source.input.i.log
+  =/  input  (current-input log)
+  ?~  input  ~
+  =/  source  source.u.input
   ?+  -.source  ~
     %peer  `ship.source
     %hand  (slaw %p actor.source)

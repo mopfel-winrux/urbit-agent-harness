@@ -52,6 +52,19 @@
   ?:  =(0 count)  sessions
   =/  sid  (cat 3 'benchmark-' (scot %ud count))
   $(count (dec count), sessions (~(put by sessions) sid [log 1]))
+++  interrupted-history
+  |=  turns=@ud
+  ^-  (list event:h)
+  =|  log=(list event:h)
+  |-  ^-  (list event:h)
+  ?:  =(0 turns)  log
+  =/  batch=(list event:h)
+    :~  [%cancelled ~ ~ 'interrupted']
+        [%tool-completed 'done' 'http_fetch' 'HTTP 200']
+        [%llm-completed turns %tool-calls [1 1] [%assistant '' ~[['done' 'http_fetch' '{}'] ['pending' 'http_fetch' '{}']]]]
+        [%input-admitted [%user 'check']]
+    ==
+  $(turns (dec turns), log (weld batch log))
 ++  test-hot-path-costs
   =/  saved=state-0  *state-0
   =.  sessions.saved  (fleet 128)
@@ -63,12 +76,24 @@
   =/  view
     ~>  %bout.[1 'perf-replay-8193-events']
     (play:hl log)
+  =/  events=(list event:h)
+    ~[[%tool-requested-2 1 'call' 'http_fetch'] [%tool-completed 'call' 'http_fetch' 'HTTP 200']]
+  =/  advanced
+    ~>  %bout.[1 'perf-advance-tool-batch-8193-events']
+    (advance:hl events view)
   =/  snapshot
     ~>  %bout.[1 'perf-unchanged-snapshot-8193-events']
-    (snapshot:hs [log 1] `8.193)
+    (snapshot:hs [log 1] `8.193 (play:hl log))
   =/  full
     ~>  %bout.[1 'perf-first-history-page-8193-events']
     (history:hs [log 1] ~)
+  =/  transcript
+    ~>  %bout.[1 'perf-full-transcript-8193-events']
+    (transcript:hl log)
+  =/  interrupted  (interrupted-history 256)
+  =/  cancelled
+    ~>  %bout.[1 'perf-transcript-256-interrupted-exchanges']
+    (transcript:hl interrupted)
   =/  corpus
     ~>  %bout.[1 'perf-initial-corpus-capture-128']
     (sync:ci *state:c sessions.saved)
@@ -82,8 +107,12 @@
   ;:  weld
     (expect-eq !>(sessions.saved) !>(sessions.validated))
     (expect-eq !>(8.193) !>(revision.view))
+    (expect-eq !>((play:hl (weld (flop events) log))) !>(advanced))
     (expect !>(?=(%o -.snapshot)))
     (expect !>(?=(^ before.full)))
+    (expect-eq !>(`json`[%n '8154']) !>(before.full))
+    (expect-eq !>(8.192) !>((lent transcript)))
+    (expect-eq !>(1.024) !>((lent cancelled)))
     (expect-eq !>(128) !>(~(wyt by modified)))
     (expect-eq !>(128) !>(~(wyt by names.synced)))
   ==

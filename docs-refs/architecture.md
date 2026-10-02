@@ -167,6 +167,16 @@ directly from events, independent of compaction. Entries carry their one-based
 event count and, for sourced input, its durable input identity. Replay collects
 items by prepending and reverses once, avoiding repeated prefix copying.
 
+History pages count events for their immutable addresses, seek the requested
+cursor, and project only the selected rows. A cancellation examines the preceding
+tool exchange so its synthetic receipts remain complete and share one address.
+The full transcript and page reader use the same event projection.
+
+Within the synchronous drive loop, `advance` folds each recorded tool batch into
+the current view using the same reducer as `play`. This view lasts only for the
+current Gall event. Every pass derives execution grants from live state; the
+projection carries recorded semantics, not cached authorization.
+
 `branch` accepts an event count ending at a completed, tool-free assistant
 reply. The child shares the immutable log tail and appends provenance; it does
 not rerun inherited effects. Unfinished tool exchanges and invalid boundaries

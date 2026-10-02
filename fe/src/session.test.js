@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { admitted, applySnapshot, applyHistory, transcriptEntries } from './session.js'
+import { admitted, applySnapshot, applyHistory, applyStream, transcriptEntries } from './session.js'
 
 test('history joins preserve live state, stable ordering and the oldest cursor', () => {
   const row = (eventCount) => ({ id: String(eventCount), eventCount, body: String(eventCount) })
@@ -75,4 +75,33 @@ test('unchanged snapshots reuse retained history instead of copying or merging i
     assert.equal(snapshot.entries, entries)
     assert.equal(snapshot.before, 1)
   }
+})
+
+test('stream frames render immediately and snapshots cannot roll them back', () => {
+  const chunk = (revision, offset, text) => ({ revision, offset, content: { type: 'text', text } })
+  const idle = { revision: 3, phase: 'idle', streaming: '', entries: [] }
+  const first = applyStream(idle, chunk(5, 0, 'Hello 🙂'))
+  assert.equal(first.revision, 3, 'a stream does not advance the transcript cursor')
+  assert.equal(first.phase, 'thinking')
+  const next = applyStream(first, chunk(5, 10, '!'))
+  assert.equal(next.streaming, 'Hello 🙂!')
+  assert.equal(applyStream(next, chunk(5, 0, 'Hello 🙂')), next)
+  assert.equal(applyStream(next, chunk(4, 0, 'old')), next)
+  assert.equal(applyStream(next, chunk(5, 20, 'gap')), null)
+  const delayed = applySnapshot(next, { ...idle, revision: 5, streaming: 'Hello 🙂', entries: null })
+  assert.equal(delayed.streaming, 'Hello 🙂!')
+  assert.equal(delayed.streamRevision, 5)
+  const complete = applySnapshot(delayed, { ...idle, revision: 6, entries: [{ id: '6', body: 'Hello 🙂!' }] })
+  assert.equal(complete.streaming, '')
+  assert.equal(complete.phase, 'idle')
+  assert.equal(applyStream(complete, chunk(5, 10, '!')), complete)
+  assert.equal(applyStream(complete, chunk(8, 0, 'Next turn')).streaming, 'Next turn')
+})
+
+test('a fresh snapshot recovers a missing stream prefix', () => {
+  const snapshot = { revision: 4, phase: 'thinking', entries: [], streaming: '🙂' }
+  const chunk = { revision: 4, offset: 4, content: { type: 'text', text: ' done' } }
+  assert.equal(applyStream(snapshot, chunk).streaming, '🙂 done')
+  assert.equal(applyStream(snapshot, { ...chunk, offset: 2 }), null)
+  assert.equal(applyStream(snapshot, { ...chunk, revision: undefined }), null)
 })

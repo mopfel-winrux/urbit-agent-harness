@@ -1,13 +1,25 @@
 ::  Optional Tlon presentation of authenticated work receipts. Buttons send
 ::  ordinary commands; neither this projection nor a client selection approves.
 /-  h=harness, wc=harness-work-control, w=harness-workspace
-/+  control=harness-work-control, j=harness-workspace-json, view=harness-work-view, cmd=harness-command, help=harness-work-help, copy=harness-work-copy
+/+  control=harness-work-control, j=harness-workspace-json,
+    view=harness-work-view, cmd=harness-command,
+    help=harness-work-help, copy=harness-work-copy
 |%
+++  has-command-result
+  |=  [input=@uv text=@t log=(list event:h)]
+  ^-  ?
+  %+  lien  (scag 64 log)
+  |=  event=event:h
+  ?&  ?=(%command-completed -.event)
+      =('work' name.event)
+      =(input input-id.event)
+      =(text body.event)
+  ==
 ++  browse
   |=  [db=state:w who=authority:w input=@uv prompt=@t text=@t log=(list event:h)]
   ^-  (unit @t)
   ::  Only a matching head command result can produce a navigation card.
-  ?.  (lien (scag 64 log) |=(e=event:h ?&(?=(%command-completed -.e) =('work' name.e) =(input input-id.e) =(text body.e))))  ~
+  ?.  (has-command-result input text log)  ~
   =/  outer  (parse:cmd prompt)
   ?.  &(?=(^ outer) =('work' name.u.outer))  ~
   =/  parsed  (parse:cmd (cat 3 '/' arg.u.outer))
@@ -40,16 +52,26 @@
 ++  navigation
   |=  [input=@uv title=@t links=(list [label=@t command=@t])]
   ^-  @t
-  ?>  &((gth (lent links) 0) (lte (lent links) 10) (lte (met 3 title) 48.000))
-  ?>  (levy links |=(link=[label=@t command=@t] &((lte (met 3 label.link) 1.000) (lte (met 3 command.link) 1.000))))
-  =/  numbered=(list @t)  (turn (gulf 0 (dec (lent links))) |=(i=@ud (cat 3 'action-' (crip (a-co:co i)))))
+  ?>  ?&  (gth (lent links) 0)
+          (lte (lent links) 10)
+          (lte (met 3 title) 48.000)
+      ==
+  ?>  %+  levy  links
+      |=  link=[label=@t command=@t]
+      &((lte (met 3 label.link) 1.000) (lte (met 3 command.link) 1.000))
+  =/  numbered
+    %+  turn  (gulf 0 (dec (lent links)))
+    |=  index=@ud
+    (cat 3 'action-' (crip (a-co:co index)))
   =/  groups
     %+  roll  links
-    |=  [link=[label=@t command=@t] acc=[rows=(list json) utilities=(list json) index=@ud]]
-    =/  id=json  [%s (snag index.acc numbered)]
+    |=  $:  link=[label=@t command=@t]
+            groups=[rows=(list json) utilities=(list json) index=@ud]
+        ==
+    =/  id=json  [%s (snag index.groups numbered)]
     ?:  ?=(^ (utility link))
-      [rows.acc (snoc utilities.acc id) +(index.acc)]
-    [(snoc rows.acc id) utilities.acc +(index.acc)]
+      [rows.groups (snoc utilities.groups id) +(index.groups)]
+    [(snoc rows.groups id) utilities.groups +(index.groups)]
   =/  rows  rows.groups
   =/  utilities  utilities.groups
   =/  text  (trip title)
@@ -61,9 +83,22 @@
     =/  footer=(list json)  ?~(rows ~[[%s 'utilities']] ~[[%s 'divider'] [%s 'utilities']])
     (weld children footer)
   =/  components=(list json)
-    :~  (pairs:enjs:format ~[['id' %s 'root'] ['component' %s 'Column'] ['children' %a children]])
-        (pairs:enjs:format ~[['id' %s 'title'] ['component' %s 'Text'] ['variant' %s 'h2'] ['text' %s heading]])
-        (pairs:enjs:format ~[['id' %s 'body'] ['component' %s 'Text'] ['text' %s body]])
+    :~  %-  pairs:enjs:format
+        :~  ['id' %s 'root']
+            ['component' %s 'Column']
+            ['children' %a children]
+        ==
+        %-  pairs:enjs:format
+        :~  ['id' %s 'title']
+            ['component' %s 'Text']
+            ['variant' %s 'h2']
+            ['text' %s heading]
+        ==
+        %-  pairs:enjs:format
+        :~  ['id' %s 'body']
+            ['component' %s 'Text']
+            ['text' %s body]
+        ==
     ==
   =?  components  ?=(^ utilities)
     (snoc components (pairs:enjs:format ~[['id' %s 'utilities'] ['component' %s 'Row'] ['children' %a utilities]]))
@@ -78,9 +113,8 @@
     =/  short  (utility i.remaining)
     ?^  short
       (weld (button id label.u.short command.i.remaining primary.u.short) $(remaining t.remaining, index +(index)))
-    =/  option
-      (pairs:enjs:format ~[['id' %s id] ['label' %s label.i.remaining] ['action' (pairs:enjs:format ~[['event' (pairs:enjs:format ~[['name' %s 'tlon.sendMessage'] ['context' (pairs:enjs:format ~[['text' %s command.i.remaining]])]])]])]])
-    [(pairs:enjs:format ~[['id' %s id] ['component' %s 'Choice'] ['options' %a ~[option]]]) $(remaining t.remaining, index +(index))]
+    :-  (choice id label.i.remaining command.i.remaining)
+    $(remaining t.remaining, index +(index))
   (surface (cat 3 'harness-work-view-' (scot %uv input)) (weld components buttons) &)
 ++  utility
   |=  [label=@t command=@t]
@@ -118,12 +152,17 @@
     ==
   (~(get by (my labels)) label)
 ++  select
-  |=  [db=state:wc sid=@t scope=@uv source=input-source:h input=@uv text=@t log=(list event:h) expected=(unit json)]
+  |=  $:  db=state:wc
+          sid=@t
+          scope=@uv
+          source=input-source:h
+          input=@uv
+          text=@t
+          log=(list event:h)
+          expected=(unit json)
+      ==
   ^-  (unit [id=@uv inspected=?])
-  =/  command
-    %+  lien  (scag 64 log)
-    |=  e=event:h
-    ?&(?=(%command-completed -.e) =('work' name.e) =(input input-id.e) =(text body.e))
+  =/  command  (has-command-result input text log)
   =/  direct
     %-  mole  |.
     ?>  command
@@ -139,10 +178,10 @@
   ::  the actual human source event; ambiguous multiple preparations use text.
   =/  pending
     %+  skim  ~(tap by requests.db)
-    |=  [id=@uv r=request:wc]
-    ?&  =(%pending status.r)
-        =(source source.r)
-        (matches:control r sid scope source ~)
+    |=  [id=@uv request=request:wc]
+    ?&  =(%pending status.request)
+        =(source source.request)
+        (matches:control request sid scope source ~)
     ==
   ?.  &(?=(^ pending) ?=(~ t.pending))  ~
   `[p.i.pending |]
@@ -151,16 +190,57 @@
   ^-  (unit @uv)
   =/  outer  (parse:cmd prompt)
   =/  parsed  ?~(outer ~ (parse:cmd (cat 3 '/' arg.u.outer)))
-  ?:  ?&(?=(^ outer) =('work' name.u.outer) ?=(^ parsed) |(=('result' name.u.parsed) =('confirm' name.u.parsed)))
+  ?:  ?&  ?=(^ outer)
+          =('work' name.u.outer)
+          ?=(^ parsed)
+          |(=('result' name.u.parsed) =('confirm' name.u.parsed))
+      ==
     (mole |.((resolve:control db arg.u.parsed)))
-  =/  rows  (skim ~(tap by requests.db) |=([id=@uv r=request:wc] =(source source.r)))
+  =/  rows
+    %+  skim  ~(tap by requests.db)
+    |=  [id=@uv request=request:wc]
+    =(source source.request)
   ?.  &(?=(^ rows) ?=(~ t.rows))  ~
   `p.i.rows
+++  send-action
+  |=  command=@t
+  ^-  json
+  %-  pairs:enjs:format
+  :~  :-  'event'
+      %-  pairs:enjs:format
+      :~  ['name' %s 'tlon.sendMessage']
+          ['context' (pairs:enjs:format ~[['text' %s command]])]
+      ==
+  ==
+++  choice
+  |=  [id=@t label=@t command=@t]
+  ^-  json
+  =/  option
+    %-  pairs:enjs:format
+    :~  ['id' %s id]
+        ['label' %s label]
+        ['action' (send-action command)]
+    ==
+  %-  pairs:enjs:format
+  :~  ['id' %s id]
+      ['component' %s 'Choice']
+      ['options' %a ~[option]]
+  ==
 ++  button
   |=  [id=@t label=@t command=@t primary=?]
   ^-  (list json)
-  :~  (pairs:enjs:format ~[['id' %s id] ['component' %s 'Button'] ['variant' %s ?:(primary 'primary' 'secondary')] ['child' %s (cat 3 id '-label')] ['action' (pairs:enjs:format ~[['event' (pairs:enjs:format ~[['name' %s 'tlon.sendMessage'] ['context' (pairs:enjs:format ~[['text' %s command]])]])]])]])
-      (pairs:enjs:format ~[['id' %s (cat 3 id '-label')] ['component' %s 'Text'] ['text' %s label]])
+  :~  %-  pairs:enjs:format
+      :~  ['id' %s id]
+          ['component' %s 'Button']
+          ['variant' %s ?:(primary 'primary' 'secondary')]
+          ['child' %s (cat 3 id '-label')]
+          ['action' (send-action command)]
+      ==
+      %-  pairs:enjs:format
+      :~  ['id' %s (cat 3 id '-label')]
+          ['component' %s 'Text']
+          ['text' %s label]
+      ==
   ==
 ++  render
   |=  [id=@uv request=request:wc inspected=? current=? value=json]
@@ -175,20 +255,41 @@
   ::  Uninspected model replies keep their ordinary prose; the optional card
   ::  only opens a head-generated preview and cannot hide the model's answer.
   =/  components=(list json)
-    ~[(pairs:enjs:format ~[['id' %s 'root'] ['component' %s 'Column'] ['children' %a ~[[%s 'title'] [%s 'inspect']]]]) (pairs:enjs:format ~[['id' %s 'title'] ['component' %s 'Text'] ['text' %s message]])]
+    :~  %-  pairs:enjs:format
+        :~  ['id' %s 'root']
+            ['component' %s 'Column']
+            ['children' %a ~[[%s 'title'] [%s 'inspect']]]
+        ==
+        (pairs:enjs:format ~[['id' %s 'title'] ['component' %s 'Text'] ['text' %s message]])
+    ==
   (surface (cat 3 'harness-work-' key) (weld components (button 'inspect' 'Review' (cat 3 '/work result ' key) &)) |)
 ++  surface
   |=  [surface=@t components=(list json) fallback=?]
   ^-  @t
+  =/  create
+    %-  pairs:enjs:format
+    :~  ['version' %s 'v0.9']
+        :-  'createSurface'
+        %-  pairs:enjs:format
+        :~  ['surfaceId' %s surface]
+            ['catalogId' %s 'tlon.a2ui.basic.v1']
+        ==
+    ==
+  =/  update
+    %-  pairs:enjs:format
+    :~  ['version' %s 'v0.9']
+        :-  'updateComponents'
+        %-  pairs:enjs:format
+        :~  ['surfaceId' %s surface]
+            ['root' %s 'root']
+            ['components' %a components]
+        ==
+    ==
   =/  entry
     %-  pairs:enjs:format
     :~  ['type' %s 'a2ui']
         ['version' %n '1']
-        :-  'messages'
-        :-  %a
-        :~  (pairs:enjs:format ~[['version' %s 'v0.9'] ['createSurface' (pairs:enjs:format ~[['surfaceId' %s surface] ['catalogId' %s 'tlon.a2ui.basic.v1']])]])
-            (pairs:enjs:format ~[['version' %s 'v0.9'] ['updateComponents' (pairs:enjs:format ~[['surfaceId' %s surface] ['root' %s 'root'] ['components' %a components]])]])
-        ==
+        ['messages' %a ~[create update]]
     ==
   ?>  ?=(%o -.entry)
   =?  entry  fallback  [%o (~(put by p.entry) 'storyMode' [%s 'fallback'])]

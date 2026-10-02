@@ -132,4 +132,29 @@
     (expect-eq !>(`(unit json)`[~ ~]) !>((get:j note 'at')))
     (expect-eq !>(`(unit json)`~) !>((get:j note 'body')))
   ==
+++  test-input-destination-uses-publication-then-binding
+  =/  hands  *state:hh
+  =.  observations.hands
+    (my ~[[0v1 ['binding' 'event' 'actor' 'Work' ~2026.9.1 %completed]]])
+  =/  unbound
+    (row-json:inbox [%waiting ~2026.9.1 %input '0v1'] *state:w hands *(map @uv schedule:cr) *state:hn)
+  =.  bindings.hands
+    (my ~[['binding' ['bound-hand' 'bound-address' 'bound-session' ~ &]]])
+  =/  bound
+    (row-json:inbox [%waiting ~2026.9.1 %input '0v1'] *state:w hands *(map @uv schedule:cr) *state:hn)
+  =.  outbox.hands
+    (my ~[[0v1 [0v1 'binding' 'sent-hand' 'sent-address' 'sent-session' %reply 'Evidence' %delivered '' '' ~]]])
+  =/  published
+    (row-json:inbox [%finished ~2026.9.1 %input '0v1'] *state:w hands *(map @uv schedule:cr) *state:hn)
+  ;:  weld
+    (expect-eq !>(`(unit json)`[~ ~]) !>((get:j unbound 'sessionId')))
+    (expect-eq !>('') !>((string:j unbound 'hand')))
+    (expect-eq !>('') !>((string:j unbound 'destination')))
+    (expect-eq !>('bound-session') !>((string:j bound 'sessionId')))
+    (expect-eq !>('bound-hand') !>((string:j bound 'hand')))
+    (expect-eq !>('bound-address') !>((string:j bound 'destination')))
+    (expect-eq !>('sent-session') !>((string:j published 'sessionId')))
+    (expect-eq !>('sent-hand') !>((string:j published 'hand')))
+    (expect-eq !>('sent-address') !>((string:j published 'destination')))
+  ==
 --

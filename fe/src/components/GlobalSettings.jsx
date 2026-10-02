@@ -17,7 +17,7 @@ export default function GlobalSettings({ resources, theme, onThemeChange }) {
   const mcp = useResource('mcp', [])
   const openai = useResource('status/openai', {})
   const [form, setForm] = useState(defaultConfig())
-  const [provider, setProvider] = useState('openrouter')
+  const [provider, setProvider] = useState('openai')
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')

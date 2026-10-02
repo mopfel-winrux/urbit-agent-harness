@@ -2,11 +2,15 @@
 /-  n=tlon-notes
 /+  spec=harness-tlon-tool
 |%
+::
 ++  keys
   |=  [value=json allowed=(list @t)]
   ?>  ?=(%o -.value)
-  ?>  (levy ~(tap in ~(key by p.value)) |=(key=@t (lien allowed |=(item=@t =(item key)))))
+  ?>  %+  levy  ~(tap in ~(key by p.value))
+      |=  key=@t
+      (lien allowed |=(item=@t =(item key)))
   ~
+::
 ++  tree
   |=  args=json
   ^-  (list import-node:n)
@@ -14,14 +18,15 @@
   =/  parsed  (nodes value 0 0)
   ?>  (gth count.parsed 0)
   items.parsed
+::
 ++  nodes
   |=  [value=json depth=@ud count=@ud]
   ^-  [items=(list import-node:n) count=@ud]
   ?>  &(?=(%a -.value) (lte depth 8))
   =/  rows  p.value
-  =/  out=(list import-node:n)  ~
+  =/  reversed=(list import-node:n)  ~
   |-
-  ?~  rows  [(flop out) count]
+  ?~  rows  [(flop reversed) count]
   ?>  (lth count 100)
   =/  row  i.rows
   ?>  ?=(%o -.row)
@@ -30,13 +35,15 @@
     ?>  =(~ (keys row ~['type' 'title' 'text']))
     ?>  (has:spec row 'text')
     =/  node=import-node:n  [%note (required:spec row 'title' 128) (string:spec row 'text' '' 16.384)]
-    $(rows t.rows, count +(count), out [node out])
+    $(rows t.rows, count +(count), reversed [node reversed])
   ?>  =('folder' kind)
   ?>  =(~ (keys row ~['type' 'title' 'children']))
   =/  title  (required:spec row 'title' 128)
   ?>  &(!=('.' title) !=('..' title) !=('/' title))
+  ::  Carry the shared node budget through nested folders.
   =/  child  (nodes (~(got by p.row) 'children') +(depth) +(count))
-  $(rows t.rows, count count.child, out [[%folder title items.child] out])
+  $(rows t.rows, count count.child, reversed [[%folder title items.child] reversed])
+::
 ++  sizes
   |=  items=(list import-node:n)
   ^-  [notes=@ud folders=@ud bytes=@ud]
@@ -45,5 +52,8 @@
   ?:  ?=(%note -.i.items)
     [+(notes.rest) folders.rest (add bytes.rest (met 3 body-md.i.items))]
   =/  child  $(items children.i.items)
-  [(add notes.rest notes.child) +((add folders.rest folders.child)) (add bytes.rest bytes.child)]
+  :*  (add notes.rest notes.child)
+      +((add folders.rest folders.child))
+      (add bytes.rest bytes.child)
+  ==
 --

@@ -25,16 +25,16 @@
   ^-  (unit command)
   =/  chars  (trim (trip text))
   ?~  chars  ~
-  ?.  =(47 i.chars)  ~
+  ?.  =('/' i.chars)  ~
   =/  tail  t.chars
-  =|  word=tape
+  =|  reversed-name=tape
   |-  ^-  (unit command)
   ?:  |(?=(~ tail) (whitespace i.tail))
-    ?~  word  ~
-    `[(rap 3 (flop word)) (rap 3 (trim tail))]
+    ?~  reversed-name  ~
+    `[(rap 3 (flop reversed-name)) (rap 3 (trim tail))]
   ::  Paths, URLs and // escapes are ordinary text, not unknown commands.
-  ?.  |(&(=(45 i.tail) !=(~ word)) &((gte i.tail 97) (lte i.tail 122)))  ~
-  $(tail t.tail, word [i.tail word])
+  ?.  |(&(=('-' i.tail) !=(~ reversed-name)) &((gte i.tail 'a') (lte i.tail 'z')))  ~
+  $(tail t.tail, reversed-name [i.tail reversed-name])
 ++  stopping
   |=  text=@t
   =(`[name='stop' arg=''] (parse text))
@@ -58,81 +58,105 @@
       'Model changes preserve instructions and tool permissions.'
   ==
 ++  context-report
-  |=  [v=view:h skills=(map @t skill:h)]
+  |=  [view=view:h skills=(map @t skill:h)]
   ^-  @t
   %+  rap  3
-  :~  'Context estimate: '  (scot %ud (est-tokens:hp v skills))  ' tokens (encoded bytes / 4, approximate)'
-      '\0aConfigured model window: '  (scot %ud max-context.config.v)  ' (catalog or fallback)'
-      '\0aInput budget: '  (scot %ud (input-budget:context max-context.config.v))
-      '\0aRetained-tail target: '  (scot %ud (tail-budget:context max-context.config.v))  ' (complete exchanges; approximate)'
-      '\0aOutput reserve: '  (scot %ud (output-budget:context max-context.config.v))
-      '\0aEstimation margin: '  (scot %ud (div max-context.config.v 10))
-      '\0aActive items: '  (scot %ud (lent items.v))
-      '\0aCheckpoint: '  ?~(summary.v 'none' 'present; source transcript retained')
-      '\0aPinned notes: '  (scot %ud (lent ~(tap by memory.v)))  '/16, '  (scot %ud (bytes:memory memory.v))  '/8192 bytes'
-      '\0aCompaction tokens: '  (scot %ud prompt.compact-usage.v)  ' input, '
-      (scot %ud completion.compact-usage.v)  ' output'
+  :~  'Context estimate: '  (scot %ud (est-tokens:hp view skills))  ' tokens (encoded bytes / 4, approximate)'
+      '\0aConfigured model window: '  (scot %ud max-context.config.view)  ' (catalog or fallback)'
+      '\0aInput budget: '  (scot %ud (input-budget:context max-context.config.view))
+      '\0aRetained-tail target: '  (scot %ud (tail-budget:context max-context.config.view))  ' (complete exchanges; approximate)'
+      '\0aOutput reserve: '  (scot %ud (output-budget:context max-context.config.view))
+      '\0aEstimation margin: '  (scot %ud (div max-context.config.view 10))
+      '\0aActive items: '  (scot %ud (lent items.view))
+      '\0aCheckpoint: '  ?~(summary.view 'none' 'present; source transcript retained')
+      '\0aPinned notes: '  (scot %ud (lent ~(tap by memory.view)))  '/16, '  (scot %ud (bytes:memory memory.view))  '/8192 bytes'
+      '\0aCompaction tokens: '  (scot %ud prompt.compact-usage.view)  ' input, '
+      (scot %ud completion.compact-usage.view)  ' output'
   ==
 ::  Command effects are nouns, not agent actions. The head records these and
 ::  the acknowledgement in one admission; all hands get the same semantics.
 ++  evaluate
-  |=  [cmd=command v=view:h defaults=config:h skills=(map @t skill:h)]
+  |=  [parsed=command view=view:h defaults=config:h skills=(map @t skill:h)]
   ^-  [events=(list event:h) body=@t]
-  ?:  =('context' name.cmd)
-    [~ ?:(=('' arg.cmd) (context-report v skills) 'Usage: /context')]
-  ?:  =('compact' name.cmd)  [~ 'Usage: /compact']
-  ?:  =('memory' name.cmd)
-    ?.  =('' arg.cmd)  [~ 'Usage: /memory']
-    [~ ?~(memory.v 'No pinned notes. Use /remember <name> <text> to save one for this conversation.' (cat 3 'Pinned notes (this conversation only):\0a' (render:memory memory.v)))]
-  ?:  |(=('remember' name.cmd) =('forget' name.cmd))
-    =/  chars  (trip arg.cmd)
-    =/  split=[key=tape rest=tape]
-      =|  key=tape
-      |-  ^-  [key=tape rest=tape]
-      ?:  |(?=(~ chars) (whitespace i.chars))
-        [(flop key) (trim chars)]
-      $(chars t.chars, key [i.chars key])
-    ?:  |(=(~ key.split) &(=('remember' name.cmd) =(~ rest.split)) &(=('forget' name.cmd) !=(~ rest.split)))
-      [~ ?:(=('remember' name.cmd) 'Usage: /remember <name> <text>' 'Usage: /forget <name>')]
-    =/  result
-      (edit:memory memory.v (crip key.split) ?:(=('forget' name.cmd) ~ `(crip rest.split)))
-    ?:  ?=(%| -.result)  [~ p.result]
-    [~[p.result] ?:(=('forget' name.cmd) 'Note unpinned. Earlier messages and checkpoints are not erased.' 'Note saved for this conversation. It stays pinned across compaction.')]
-  =/  result  (run cmd v defaults)
+  |^
+  ?:  =('context' name.parsed)
+    [~ ?:(=('' arg.parsed) (context-report view skills) 'Usage: /context')]
+  ?:  =('compact' name.parsed)  [~ 'Usage: /compact']
+  ?:  =('memory' name.parsed)
+    ?.  =('' arg.parsed)  [~ 'Usage: /memory']
+    :-  ~
+    ?~  memory.view
+      'No pinned notes. Use /remember <name> <text> to save one for this conversation.'
+    (cat 3 'Pinned notes (this conversation only):\0a' (render:memory memory.view))
+  ?:  |(=('remember' name.parsed) =('forget' name.parsed))  edit-note
+  =/  result  (run parsed view defaults)
   [?~(config.result ~ ~[[%config-replaced u.config.result]]) body.result]
+::
+++  edit-note
+  =/  chars  (trip arg.parsed)
+  =/  split=[key=tape rest=tape]
+    =|  reversed-key=tape
+    |-  ^-  [key=tape rest=tape]
+    ?:  |(?=(~ chars) (whitespace i.chars))
+      [(flop reversed-key) (trim chars)]
+    $(chars t.chars, reversed-key [i.chars reversed-key])
+  ?:  ?|  =(~ key.split)
+          &(=('remember' name.parsed) =(~ rest.split))
+          &(=('forget' name.parsed) !=(~ rest.split))
+      ==
+    [~ ?:(=('remember' name.parsed) 'Usage: /remember <name> <text>' 'Usage: /forget <name>')]
+  =/  result
+    (edit:memory memory.view (crip key.split) ?:(=('forget' name.parsed) ~ `(crip rest.split)))
+  ?:  ?=(%| -.result)  [~ p.result]
+  :-  ~[p.result]
+  ?:  =('forget' name.parsed)
+    'Note unpinned. Earlier messages and checkpoints are not erased.'
+  'Note saved for this conversation. It stays pinned across compaction.'
+--
 ++  model-label
-  |=  cfg=config:h
-  (rap 3 (provider-for-url:hp url.cfg) ' / ' model.cfg ~)
+  |=  config=config:h
+  (rap 3 (provider-for-url:hp url.config) ' / ' model.config ~)
 ++  run
-  |=  [cmd=command v=view:h defaults=config:h]
+  |=  [parsed=command view=view:h defaults=config:h]
   ^-  [config=(unit config:h) body=@t]
-  ?+  name.cmd  [~ 'Unknown command. Send /help for the available commands.']
-    %help  [~ ?:(=('' arg.cmd) help 'Usage: /help')]
-    %stop  [~ ?:(=('' arg.cmd) 'Stopped. External actions already started may still have taken effect.' 'Usage: /stop')]
+  ?+  name.parsed  [~ 'Unknown command. Send /help for the available commands.']
+    %help  [~ ?:(=('' arg.parsed) help 'Usage: /help')]
+    %stop  [~ ?:(=('' arg.parsed) 'Stopped. External actions already started may still have taken effect.' 'Usage: /stop')]
   ::
       %status
-    ?.  =('' arg.cmd)  [~ 'Usage: /status']
+    ?.  =('' arg.parsed)  [~ 'Usage: /status']
     :-  ~
     %+  rap  3
-    :~  'Model: '  (model-label config.v)
-        '\0aTool grants: '  (scot %ud (lent tools.config.v))
-        '\0aRecorded tokens: '  (scot %ud prompt.total.v)  ' input, '
-        (scot %ud completion.total.v)  ' output'
-        ?~(err.v '' (cat 3 '\0aLast failure: ' (public-message:failure u.err.v)))
+    :~  'Model: '  (model-label config.view)
+        '\0aTool grants: '  (scot %ud (lent tools.config.view))
+        '\0aRecorded tokens: '  (scot %ud prompt.total.view)  ' input, '
+        (scot %ud completion.total.view)  ' output'
+        ?~(err.view '' (cat 3 '\0aLast failure: ' (public-message:failure u.err.view)))
     ==
   ::
       %model
-    ?:  =('' arg.cmd)  [~ (cat 3 'Model: ' (model-label config.v))]
-    =/  cfg=config:h  config.v
-    ?:  =('default' arg.cmd)
-      =.  cfg  cfg(url url.defaults, model model.defaults, key '', headers headers.defaults, max-context max-context.defaults)
-      [`cfg (cat 3 'Using default model: ' (model-label cfg))]
-    ?:  |((gth (met 3 arg.cmd) 256) (lien (trip arg.cmd) whitespace))
+    ?:  =('' arg.parsed)  [~ (cat 3 'Model: ' (model-label config.view))]
+    =/  config=config:h  config.view
+    ?:  =('default' arg.parsed)
+      =.  config
+        %=  config
+          url  url.defaults
+          model  model.defaults
+          key  ''
+          headers  headers.defaults
+          max-context  max-context.defaults
+        ==
+      [`config (cat 3 'Using default model: ' (model-label config))]
+    ?:  |((gth (met 3 arg.parsed) 256) (lien (trip arg.parsed) whitespace))
       [~ 'Usage: /model <model-id> or /model default']
     ::  Keep a known context size for the same model. A typed, uncatalogued
     ::  model gets the same conservative fallback as the settings client.
-    =.  cfg  cfg(model arg.cmd, max-context ?:(=(arg.cmd model.cfg) max-context.cfg 80.000))
-    [`cfg (cat 3 'Model set to: ' (model-label cfg))]
+    =.  config
+      %=  config
+        model  arg.parsed
+        max-context  ?:(=(arg.parsed model.config) max-context.config 80.000)
+      ==
+    [`config (cat 3 'Model set to: ' (model-label config))]
   ==
 ++  advertised
   ^-  json

@@ -22,9 +22,9 @@ test('settings resource keys address the shared Harness session surface', () => 
 
 test('new conversations default to an OpenAI-compatible endpoint', () => {
   const config = defaultConfig()
-  assert.match(config.url, /openrouter\.ai/)
-  assert.equal(config.model, 'z-ai/glm-5.3-flash')
-  assert.equal(config['max-context'], 1_310_720)
+  assert.match(config.url, /api\.openai\.com/)
+  assert.equal(config.model, 'gpt-6-luna')
+  assert.equal(config['max-context'], 80_000)
   assert.deepEqual(config.tools, [{ clay: '/' }, 'web', 'curl', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'corpus', 'workspace', 'tlon'])
   assert.deepEqual(config.headers, [])
 })

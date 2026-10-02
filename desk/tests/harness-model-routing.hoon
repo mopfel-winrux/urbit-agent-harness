@@ -4,7 +4,7 @@
 ++  test-zdr-is-on-turns-and-checkpoints-and-is-absent-when-disabled
   =/  v  *view:h
   =/  cfg  builtin-config:policy
-  =.  config.v  cfg(zdr &)
+  =.  config.v  cfg(zdr &, url 'https://openrouter.ai/api/v1/chat/completions')
   =/  expected  (need (de:json:html '{"zdr":true,"data_collection":"deny"}'))
   ;:  weld
     (expect-eq !>(`expected) !>((get:j (payload:hp v %turn ~) 'provider')))

@@ -1,4 +1,5 @@
-// Shared in-flight reads only: never a persistent authority/configuration cache.
+// Mounted consumers share reads and retain the identity of unchanged JSON.
+// Every refresh reads the server; closing the view releases its snapshot.
 // A saved value invalidates older reads for every mounted consumer of the key.
 export function createResourceReads(read) {
   const entries = new Map()
@@ -10,6 +11,11 @@ export function createResourceReads(read) {
     if (!entry.listeners.size && !entry.pending && entries.get(path) === entry) entries.delete(path)
   }
   const publish = (entry, value) => { for (const listener of entry.listeners) listener(value) }
+  const publishValue = (entry, value, retain = true) => {
+    const json = JSON.stringify(value)
+    if (!retain || json !== entry.json) { entry.json = json; entry.value = value }
+    publish(entry, { value: entry.value, error: '' })
+  }
   return {
     subscribe(path, listener) {
       const entry = entryFor(path)
@@ -30,7 +36,7 @@ export function createResourceReads(read) {
       const entry = entryFor(path)
       entry.generation++
       entry.pending = null
-      publish(entry, { value, error: '' })
+      publishValue(entry, value, false)
       release(path, entry)
     },
     refresh(path) {
@@ -38,7 +44,7 @@ export function createResourceReads(read) {
       if (entry.pending) return entry.pending
       const generation = entry.generation
       const pending = Promise.resolve().then(() => read(path)).then(
-        (value) => { if (generation === entry.generation) publish(entry, { value, error: '' }) },
+        (value) => { if (generation === entry.generation) publishValue(entry, value) },
         (cause) => { if (generation === entry.generation) publish(entry, { error: cause.message }) },
       ).finally(() => {
         if (entry.pending === pending) entry.pending = null

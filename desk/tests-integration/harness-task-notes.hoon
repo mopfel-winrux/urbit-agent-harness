@@ -49,4 +49,27 @@
     (expect !>(?=(^ (find (trip 'Answered in the conversation.') (trip i.replies)))))
     (expect !>(!(lien (weld -.noted -.updated) |=(c=card:agent:gall ?=([%pass * %arvo %i *] c)))))
   ==
+::
+++  test-finish-shortcut-uses-current-version-and-keeps-the-result
+  %-  isolated  |=  ignored=*
+  =/  bowl=bowl:gall  *bowl:gall
+  =.  bowl  bowl(our ~zod, src ~zod, now ~2026.10.1)
+  =/  saved=state-0  *state-0
+  =.  saved  saved(local-mcp-seen 1, defaults builtin-config:policy)
+  =.  sessions.saved  (my ~[['owner' [~[[%config-replaced defaults.saved]] 0]]])
+  =.  tasks.workspace.saved
+    (my ~[['note' ['' 'Verify the answer' '' 7 %blocked ~ 'Evidence checked' ~ now.bowl]]])
+  =/  loaded  (~(on-load head bowl) !>(saved))
+  =/  finished
+    (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%send 'owner' '/work finish note']))
+  =/  after  !<(state-0 ~(on-save +.finished bowl))
+  =/  task  (~(got by tasks.workspace.after) 'note')
+  ;:  weld
+    (expect-eq !>(%done) !>(status.task))
+    (expect-eq !>(8) !>(version.task))
+    (expect-eq !>('Evidence checked') !>(outcome.task))
+    (expect-eq !>(~) !>(artifact.task))
+    (expect-eq !>(~) !>(requests.work-controls.after))
+    (expect !>(!(lien -.finished |=(card=card:agent:gall ?=([%pass * %arvo %i *] card)))))
+  ==
 --

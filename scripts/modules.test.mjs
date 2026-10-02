@@ -9,12 +9,13 @@ const sources = new Map(await Promise.all((await readdir(directory))
   .filter((name) => /^harness(?:-.*)?\.hoon$/.test(name))
   .map(async (name) => [name.slice(0, -5), await readFile(new URL(name, directory), 'utf8')])))
 const code = (name) => sources.get(name).split('\n').filter((line) => !line.trimStart().startsWith('::')).join('\n')
-const dependencies = (name) => [...code(name).matchAll(/^\/\+\s+(.+)$/gm)]
+const dependencies = (name) => [...code(name).matchAll(/^\/\+  (.+(?:\n {4}.+)*)/gm)]
   .flatMap((match) => match[1].split(',').map((entry) => entry.trim().split('=').at(-1).replace(/^\*/, '')))
 
 test('work guidance teaches bounded decomposition and quiet cross-ship coordination', () => {
   const tools = code('harness-tools')
-  const workspace = tools.split('\n').find(line => line.includes("(fun 'workspace'"))
+  const workspace = tools.match(/:\*\s+'workspace'\s+'((?:\\.|[^'\\])*)'/)?.[1]
+  assert.ok(workspace, 'Workspace schema includes its work guidance')
   for (const instruction of ['completion check', 'dependencies', 'Keep tightly coupled steps together',
     'capable agents', 'reassess', 'one home record', 'mutual Workspace grants',
     'Never change trust', 'Keep coordination in the background', 'actual blockers',
@@ -32,7 +33,7 @@ test('permission synchronization is change-driven and trust reads stay small', a
   assert.match(agent, /before-access\s+access-inputs:hc/)
   assert.match(agent, /\?:\s+=\(before-access access-inputs:hc\)\s+`state\s+sync-peer-access:hc/)
   assert.match(agent, /%peer-refresh\s+=\.\s+state\s+discover-local-mcp\s+sync-peer-access/)
-  const flush = agent.split('    flush-auth\n')[1].split('\n++  on-init')[0]
+  const flush = agent.split('    finish-event\n')[1].split('\n++  on-init')[0]
   assert.doesNotMatch(flush, /mcp-server|discover-local-mcp/)
   assert.match(agent, /\?:\s+!=\(0 local-mcp-seen\)\s+state/)
   assert.doesNotMatch(code('harness-peer-trust'), /status\/json|mole|dejs|cron|ledger/)
@@ -72,7 +73,7 @@ test('pending owner DM requests reconcile at boot and permission changes, not pe
   const reconcile = agent.split('++  accept-owner-invitations\n')[1].split('\n++  publications-connected')[0]
   assert.match(reconcile, /owner-invitations:messenger actor-owner/)
   const configure = agent.split('++  configure\n')[1].split('\n++  agent')[0]
-  assert.match(configure, /policy  new[\s\S]+schedule:accept-owner-invitations/)
+  assert.match(configure, /policy  updated-policy[\s\S]+schedule:accept-owner-invitations/)
   const maintenance = agent.split('++  maintain\n')[1].split('\n++  recover')[0]
   assert.doesNotMatch(maintenance, /accept-owner-invitations/)
   const projection = code('harness-tlon-io').split('++  owner-invitations\n')[1].split('\n++  publish')[0]
@@ -137,7 +138,7 @@ test('project client reads have no execution imports, owner promotion or noteboo
   assert.match(handler, /read-action:project-client/)
   assert.match(handler, /refresh-scoped:/)
   assert.doesNotMatch(handler, /workspace-owner|workspace-request|handle-action|hand-call|authenticated\.req|acp-open|%poke/)
-  const fastPath = agent.split('++  on-poke\n')[1].split('  %-  flush-auth')[0]
+  const fastPath = agent.split('++  on-poke\n')[1].split('  %-  finish-event')[0]
   assert.match(fastPath, /serve-project-read:hc/)
   assert.match(fastPath, /%handle-http-request/)
   const scoped = code('harness-notes').split('  ++  refresh-scoped\n')[1].split('  ++  refresh\n')[0]
@@ -240,8 +241,8 @@ test('history pagination is bounded, read-only and follows current lane authorit
   assert.doesNotMatch(code('harness-tlon-history-page'), /\.\^\(|%pass|bowl:gall/)
   const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
   const tool = adapter.split('++  tool\n')[1].split('\n++  ')[0]
-  assert.ok(tool.indexOf('(tool-authority req)') < tool.indexOf("=('tlon_history_page'"))
-  assert.match(tool, /sham \[sid.req epoch.u.lane actor.u.lane to.u.lane name.call.req needle\]/)
+  assert.ok(tool.indexOf('(tool-authority request)') < tool.indexOf("=('tlon_history_page'"))
+  assert.match(tool, /sham \[sid.request epoch.u.lane actor.u.lane to.u.lane name.call.request needle\]/)
   assert.match(tool, /load:~\(\. history-read bowl\) to.u.lane before/)
 })
 
@@ -261,5 +262,5 @@ test('Tlon messages are driven by head facts and receipts, never maintenance wak
   assert.doesNotMatch(code('harness-tlon-clock'), /deliveries|observations|outbox|jobs/)
   assert.match(arm('watch-head'), /%watch \/hand-events/)
   assert.match(arm('claimed'), /%claim stage\.u\.delivery/)
-  assert.match(arm('claimed'), /attempt:\(get-control:hd db id\)/)
+  assert.match(arm('claimed'), /attempt:\(get-control:hd hands id\)/)
 })

@@ -5,7 +5,13 @@
 |_  bowl=bowl:gall
 ++  handles
   |=  action=@t
-  (lien `(list @t)`~['list_publications' 'get_publication' 'publish_post' 'unpublish_post'] |=(item=@t =(item action)))
+  =/  actions=(list @t)
+    :~  'list_publications'
+        'get_publication'
+        'publish_post'
+        'unpublish_post'
+    ==
+  (lien actions |=(item=@t =(item action)))
 ++  published
   ^-  (set cite:cite)
   ?>  .^(? %gu /(scot %p our.bowl)/expose/(scot %da now.bowl)/$)
@@ -21,6 +27,7 @@
 ++  reference
   |=  args=json
   ^-  cite:cite
+  ::  Exposure addresses a root channel post, by citation or message identity.
   ?>  &(!(has:spec args 'ship') !(has:spec args 'parent'))
   ?.  (has:spec args 'citation')
     =/  nest  (nest:spec (required:spec args 'channel' 256))
@@ -35,12 +42,18 @@
   ?>  =(i.wer.ref (citation-kind p.nest.ref))
   ::  Native citations use ungrouped decimal, unlike channel scry paths.
   =/  stamp  (rash i.t.wer.ref dum:ag)
-  ?>  &(=(i.t.wer.ref (crip (a-co:co stamp))) (gth stamp 0) (lte (met 0 stamp) 128))
+  ?>  ?&  =(i.t.wer.ref (crip (a-co:co stamp)))
+          (gth stamp 0)
+          (lte (met 0 stamp) 128)
+      ==
   ref
 ++  row
   |=  ref=cite:cite
   =/  citation  (spat (print:cite ref))
-  (pairs:enjs:format ~[['citation' %s citation] ['public_path' %s (cat 3 '/expose' citation)]])
+  %-  pairs:enjs:format
+  :~  ['citation' %s citation]
+      ['public_path' %s (cat 3 '/expose' citation)]
+  ==
 ++  run
   |=  [args=json wire=wire]
   ^-  [body=@t effect=(unit card:agent:gall)]
@@ -51,19 +64,26 @@
   =/  visible  (~(has in published) ref)
   =/  citation  (spat (print:cite ref))
   =/  info
-    (pairs:enjs:format ~[['citation' %s citation] ['published' %b visible] ['public_path' ?:(visible [%s (cat 3 '/expose' citation)] ~)] ['note' %s 'Relative to this ship HTTP origin. Public reachability depends on hosting; unpublishing cannot erase third-party copies.']])
+    %-  pairs:enjs:format
+    :~  ['citation' %s citation]
+        ['published' %b visible]
+        ['public_path' ?:(visible [%s (cat 3 '/expose' citation)] ~)]
+        ['note' %s 'Relative to this ship HTTP origin. Public reachability depends on hosting; unpublishing cannot erase third-party copies.']
+    ==
   ?:  =('get_publication' action)  [(en:json:html info) ~]
   ?>  =(citation (required:spec args 'confirm' 1.024))
   =/  show  =('publish_post' action)
   ?>  |(show =('unpublish_post' action))
-  =/  checked
+  ::  Hiding a post does not depend on whether its source remains readable.
+  =/  readable
     ?.  show  &
     ?>  ?=([%chan * ?(%msg %note %curio) @ ~] ref)
     ?>  ?=(?(%chat %diary %heap) p.nest.ref)
     ::  Exact local read proves that this is an existing accessible post.
     =/  post  (channel-post:~(. message bowl) nest.ref (rash i.t.wer.ref dum:ag))
     (gth sent:+.+.post 0)
-  ?>  checked
+  ?>  readable
   =/  payload  (pairs:enjs:format ~[[?:(show 'show' 'hide') %s citation]])
-  [(rap 3 'accepted: local public exposure changed; verify get_publication. Public path: /expose' citation ~) `[%pass wire %agent [our.bowl %expose] %poke %json !>(payload)]]
+  :-  (rap 3 'accepted: local public exposure changed; verify get_publication. Public path: /expose' citation ~)
+  `[%pass wire %agent [our.bowl %expose] %poke %json !>(payload)]
 --

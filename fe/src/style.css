@@ -635,6 +635,7 @@ input:focus, .settings-panel textarea:focus, .modal-card textarea:focus { border
   .header-row .remove-header { grid-column: 2; grid-row: 1 / 3; }
   .segmented { width: 100%; grid-auto-columns: 1fr; }
   .segmented button { min-width: 0; }
+  .provider-options { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .usage-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .error-banner { max-width: calc(100vw - 30px); right: 15px; }
   .global-error { max-width: calc(100vw - 36px); }

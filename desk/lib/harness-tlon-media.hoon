@@ -22,30 +22,38 @@
   =/  url  (rap 3 'https://memex.tlon.network/v1/' name '/upload' ~)
   =/  body
     %-  en:json:html
-    (pairs:enjs:format ~[['token' %s token] ['contentLength' (numb:enjs:format size)] ['contentType' %s mime] ['fileName' %s key]])
+    %-  pairs:enjs:format
+    :~  ['token' %s token]
+        ['contentLength' (numb:enjs:format size)]
+        ['contentType' %s mime]
+        ['fileName' %s key]
+    ==
   [%'PUT' url ~[['Content-Type' 'application/json']] `(as-octs:mimes:html body)]
 ++  hosted-response
-  |=  res=client-response:iris
+  |=  reply=client-response:iris
   ^-  [url=@t public-url=@t]
-  ?>  ?=(%finished -.res)
-  ?>  &(=(200 status-code.response-header.res) ?=(^ full-file.res))
-  ?>  (lte p.data.u.full-file.res 16.384)
-  =/  jon  (need (de:json:html q.data.u.full-file.res))
+  |^
+  ?>  ?=(%finished -.reply)
+  ?>  &(=(200 status-code.response-header.reply) ?=(^ full-file.reply))
+  ?>  (lte p.data.u.full-file.reply 16.384)
+  =/  value  (need (de:json:html q.data.u.full-file.reply))
   =/  target=[url=@t public-url=@t]
-    ((ot:dejs:format ~[['url' so:dejs:format] ['filePath' so:dejs:format]]) jon)
-  =/  checked
+    ((ot:dejs:format ~[['url' so:dejs:format] ['filePath' so:dejs:format]]) value)
+  =/  signed  (checked-url url.target)
+  =/  public  (checked-url public-url.target)
+  ?>  &(!=(~ r.signed) =(~ r.public) =(q.signed q.public))
+  [url.target public-url.target]
+  ::
+  ++  checked-url
     |=  raw=@t
     ^-  purl:eyre
     ?>  &((lte (met 3 raw) 8.192) !(lien (trip raw) |=(c=@t |((lte c 32) =(c '#')))))
     =/  parsed  (need (de-purl:html raw))
-    ::  Current Memex returns GCS URLs. No arbitrary HTTP destination can be
+    ::  Memex returns GCS URLs. No arbitrary HTTP destination can be
     ::  introduced at this boundary, even by a malformed broker response.
     ?>  =('https://storage.googleapis.com' (crip (head:en-purl:html p.parsed)))
     parsed
-  =/  signed  (checked url.target)
-  =/  public  (checked public-url.target)
-  ?>  &(!=(~ r.signed) =(~ r.public) =(q.signed q.public))
-  [url.target public-url.target]
+  --
 ++  download-request
   |=  raw=@t
   ^-  request:http
@@ -59,13 +67,35 @@
   ::  Only ordinary qualified DNS names, never IP literals or local names.
   ::  Iris has no DNS-answer/IP-pinning API: this is a URL boundary, not a
   ::  guarantee about resolved addresses. TLS verification remains native.
-  ?>  !(lien labels |=(label=@t |(=('localhost' label) =('local' label) =('internal' label) =('intranet' label) =('lan' label) =('home' label) =('arpa' label) =('invalid' label) =('test' label))))
-  [%'GET' raw ~[['Accept' 'image/png,image/jpeg,image/gif,image/webp'] ['Accept-Encoding' 'identity']] ~]
+  ?>  ?!  %+  lien  labels
+      |=  label=@t
+      ?|  =('localhost' label)
+          =('local' label)
+          =('internal' label)
+          =('intranet' label)
+          =('lan' label)
+          =('home' label)
+          =('arpa' label)
+          =('invalid' label)
+          =('test' label)
+      ==
+  :*  %'GET'
+      raw
+      :~  ['Accept' 'image/png,image/jpeg,image/gif,image/webp']
+          ['Accept-Encoding' 'identity']
+      ==
+      ~
+  ==
 ++  dns-label
   |=  label=@t
   ^-  ?
   ?:  |(=('' label) (gth (met 3 label) 63))  |
-  (levy (trip label) |=(c=@t |(&((gte c 'a') (lte c 'z')) &((gte c '0') (lte c '9')) =(c '-'))))
+  %+  levy  (trip label)
+  |=  c=@t
+  ?|  &((gte c 'a') (lte c 'z'))
+      &((gte c '0') (lte c '9'))
+      =(c '-')
+  ==
 ++  image-type
   |=  data=octs
   ^-  (unit @t)
@@ -115,14 +145,14 @@
   ?:  =('application/pdf' mime)  =('%PDF-' (end [3 5] q.data))
   &(!=('<!DOCTYPE html' (end [3 14] q.data)) !=('<html' (end [3 5] q.data)))
 ++  acl-rejected
-  |=  res=client-response:iris
+  |=  reply=client-response:iris
   ^-  ?
-  ?.  ?=(%finished -.res)  |
-  ?.  &(=(400 status-code.response-header.res) ?=(^ full-file.res))  |
-  ?.  (lte p.data.u.full-file.res 16.384)  |
+  ?.  ?=(%finished -.reply)  |
+  ?.  &(=(400 status-code.response-header.reply) ?=(^ full-file.reply))  |
+  ?.  (lte p.data.u.full-file.reply 16.384)  |
   ::  A positive rejection permits one ACL-free PUT. Transport errors and
   ::  arbitrary 400 responses never imply that replay is safe.
-  =/  body  (trip q.data.u.full-file.res)
+  =/  body  (trip q.data.u.full-file.reply)
   ?=(^ (find "<Code>AccessControlListNotSupported</Code>" body))
 ++  result
   |=  [url=@t mime=@t]
@@ -130,5 +160,10 @@
   =/  note  ?:  =('image/' (end [3 6] mime))
     'Upload accepted. Use ![description](url) on its own line in your final reply to publish an image. Public access depends on the storage configuration.'
     'Upload accepted. Share [filename](url) only with the intended recipients. Access depends on storage configuration and may be public.'
-  (en:json:html (pairs:enjs:format ~[['url' %s url] ['content_type' %s mime] ['note' %s note]]))
+  %-  en:json:html
+  %-  pairs:enjs:format
+  :~  ['url' %s url]
+      ['content_type' %s mime]
+      ['note' %s note]
+  ==
 --

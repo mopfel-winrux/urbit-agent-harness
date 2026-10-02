@@ -1,42 +1,23 @@
-::  harness-fileserver: static Clay file-serving agent
-::
-::    for copying into desks as a standalone %deskname-fileserver agent.
-::
-::    ** in general, you should not need to modify this file directly. **
-::    instead this agent will read configuration parameters from a
-::    /app/harness-fileserver/config.hoon. this file must produce a core
-::    with at least a +web-root arm. all other overrides for the
-::    default configuration (see below) are optional.
+::  Serve the Harness shell and static assets from Clay.
+::  The config core supplies +web-root (URL path) and +file-root (desk path).
+::  Shells are read on every request; asset responses use Eyre's cache.
 ::
 /+  dbug
 /=  config  /app/harness-fileserver/config
 ::
-::TODO  restructure so config can take a byk.bowl argument?
 |%
-::  required config parameters:
-::
-::  +web-root: url under which your files will be served
-::
 ++  web-root   ^-  (list @t)  web-root:config
-::
-::  optional config parameters, with default:
-::
-::  +file-root: path on this desk under which the files to serve live
-::
 ++  file-root  ^-  path  file-root:config
 --
-::
-::TODO  auth optionality
-::TODO  populate cache eagerly?
 ::
 |%
 ++  starts-with
   |=  [prefix=@t value=@t]
   ^-  ?
-  =/  pre=tape  (trip prefix)
-  =/  val=tape  (trip value)
-  ?.  (lte (lent pre) (lent val))  %.n
-  =(pre (scag (lent pre) val))
+  =/  prefix-chars=tape  (trip prefix)
+  =/  value-chars=tape  (trip value)
+  ?.  (lte (lent prefix-chars) (lent value-chars))  %.n
+  =(prefix-chars (scag (lent prefix-chars) value-chars))
 ::
 +$  state-0
   $:  %0
@@ -157,19 +138,25 @@
   ^-  (quip card _this)
   ~|  mark=mark
   ?>  ?=(%handle-http-request mark)
-  =+  !<([rid=@ta inbound-request:eyre] vase)
-  =;  [sav=? pay=simple-payload:http]
-    =/  serve=(list card)
-      =/  =path  /http-response/[rid]
-      :~  [%give %fact ~[path] [%http-response-header !>(response-header.pay)]]
-          [%give %fact ~[path] [%http-response-data !>(data.pay)]]
-          [%give %kick ~[path] ~]
-      ==
-    ?.  sav  [serve this]
-    :_  this(cash (~(put in cash) url.request))
-    %+  snoc  serve
-    (store url.request ~ auth=| %payload pay)
-  ::  allow PWA files without auth (browser fetches these without cookies)
+  |^
+  =/  [rid=@ta inbound=inbound-request:eyre]
+    !<([@ta inbound-request:eyre] vase)
+  =/  [cache=? payload=simple-payload:http]  (serve-request inbound)
+  =/  path  /http-response/[rid]
+  =/  replies=(list card)
+    :~  [%give %fact ~[path] [%http-response-header !>(response-header.payload)]]
+        [%give %fact ~[path] [%http-response-data !>(data.payload)]]
+        [%give %kick ~[path] ~]
+    ==
+  ?.  cache  [replies this]
+  :_  this(cash (~(put in cash) url.request.inbound))
+  %+  snoc  replies
+  (store url.request.inbound ~ auth=| %payload payload)
+::
+++  serve-request
+  |=  inbound-request:eyre
+  ^-  [cache=? payload=simple-payload:http]
+  ::  Browsers fetch these PWA files without session cookies.
   ::
   =/  pwa-paths=(set @t)
     %-  ~(gas in *(set @t))
@@ -212,16 +199,16 @@
   :-  ?=(^ ext)
   ?~  ext
     ::  serve index.html for extensionless requests (SPA fallback)
-    =/  idx=path
+    =/  shell-path=path
       :*  (scot %p our.bowl)
           q.byk.bowl
           (scot %da now.bowl)
           (weld foot /index/html)
       ==
-    ?.  .^(? %cu idx)
+    ?.  .^(? %cu shell-path)
       ~&  [dap.bowl %not-found-extless]
       [[404 ~] `(as-octs:mimes:html 'not found')]
-    =+  .^(file=^vase %cr idx)
+    =+  .^(file=^vase %cr shell-path)
     =+  ~|  [%no-mime-conversion %html]
         .^(=tube:clay %cc (scot %p our.bowl) q.byk.bowl (scot %da now.bowl) /html/mime)
     =+  !<(=mime (tube file))
@@ -237,13 +224,13 @@
     ~&  [dap.bowl %not-found path=path]
     [[404 ~] `(as-octs:mimes:html 'not found')]
   =+  .^(file=^vase %cr path)
-  ::TODO  this sucks. can we really not do better than crash during request handling?
-  ::      we could hard-code conversions for different file types here, but that sucks too...
+  ::  Clay supplies the mark-to-MIME conversion; a missing conversion fails
+  ::  the request with the source extension in the error trace.
   =+  ~|  [%no-mime-conversion from=u.ext]
       .^(=tube:clay %cc (scot %p our.bowl) q.byk.bowl (scot %da now.bowl) /[u.ext]/mime)
   =+  !<(=mime (tube file))
   =/  content-type=@t  (rsh 3^1 (spat p.mime))
-  =/  cache-val=@t
+  =/  cache-control=@t
     ?+  u.ext  'max-age=3600'
       %css  'max-age=3600'
       %js   ?:  =('sw' (rear (slag (lent u.request-root) site)))
@@ -257,7 +244,8 @@
       %json  'no-cache'
     ==
   :_  `q.mime
-  [200 ['content-type' content-type] ['cache-control' cache-val] ~]
+  [200 ['content-type' content-type] ['cache-control' cache-control] ~]
+--
 ::
 ++  on-watch
   |=  =path

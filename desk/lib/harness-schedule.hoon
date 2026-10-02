@@ -3,6 +3,7 @@
 /-  c=harness-cron, h=harness, hh=harness-hand
 /+  calendar=harness-cron, reminder=harness-reminder, hl=harness
 |%
+::
 ++  maintenance-needed
   |=  [jobs=(map @uv schedule:c) wake=(unit @da) now=@da changed=?]
   ^-  ?
@@ -13,58 +14,143 @@
   ::  Reloads and consumed timer wakes must re-arm active jobs. Settled jobs
   ::  alone need no timer or read-triggered sweep; effects still authorize live.
   (lien ~(val by jobs) |=(job=schedule:c =(%active state.job)))
+::
 ++  job-value
   |=  job=schedule:c
   ^-  job:c
-  [kind.job timezone.job destination.job sid.job run-sid.job expression.job pattern.job prompt.job tools.job next.job remaining.job state.job reason.job last.job]
+  :*  kind.job
+      timezone.job
+      destination.job
+      sid.job
+      run-sid.job
+      expression.job
+      pattern.job
+      prompt.job
+      tools.job
+      next.job
+      remaining.job
+      state.job
+      reason.job
+      last.job
+  ==
+::
 ++  fingerprint
-  |=  act=action:c
+  |=  action=action:c
   ^-  @uvH
-  (sham act)
+  (sham action)
+::
 ++  create
-  |=  [act=action:c source=binding:hh tools=(list tool-grant:h) now=@da]
+  |=  [action=action:c source=binding:hh tools=(list tool-grant:h) now=@da]
   ^-  schedule:c
-  ?>  ?=(%add -.act)
+  ?>  ?=(%add -.action)
   ?>  enabled.source
-  ?>  (lien actors.source |=(actor=@t =(actor actor.act)))
-  =/  fields=job:c
-    ?:  =(%reminder kind.act)
-      =/  f=[at=@t destination=@t text=@t]
-        ((ot:dejs:format ~[at+so:dejs:format destination+so:dejs:format text+so:dejs:format]) args.act)
-      ?>  =(destination.f address.source)
-      ?>  &((gth (met 3 text.f) 0) (lte (met 3 text.f) 4.096))
-      =/  time  (parse:reminder at.f now)
-      [%reminder timezone.time address.source sid.source '' at.f *pattern:c text.f tools at.time 1 %active '' ~]
-    ?>  ?=(%o -.args.act)
-    ?:  (~(has by p.args.act) 'at')
-      =/  f=[at=@t prompt=@t]
-        ((ot:dejs:format ~[at+so:dejs:format prompt+so:dejs:format]) args.act)
-      ?>  &((gth (met 3 prompt.f) 0) (lte (met 3 prompt.f) 4.096))
-      =/  time  (parse:reminder at.f now)
-      [%prompt timezone.time address.source sid.source '' at.f *pattern:c prompt.f tools at.time 1 %active '' ~]
-    =/  f=[schedule=@t timezone=@t prompt=@t runs=@t]
-      ((ot:dejs:format ~[schedule+so:dejs:format timezone+so:dejs:format prompt+so:dejs:format runs+so:dejs:format]) args.act)
-    ?>  =('UTC' timezone.f)
-    ?>  &((gth (met 3 prompt.f) 0) (lte (met 3 prompt.f) 4.096))
-    =/  runs  (number:calendar runs.f)
+  ?>  (lien actors.source |=(actor=@t =(actor actor.action)))
+  =/  job=job:c
+    ::  Literal reminders keep both their exact text and source destination.
+    ?:  =(%reminder kind.action)
+      =/  fields=[at=@t destination=@t text=@t]
+        %.  args.action
+        %-  ot:dejs:format
+        ~[at+so:dejs:format destination+so:dejs:format text+so:dejs:format]
+      ?>  =(destination.fields address.source)
+      ?>  &((gth (met 3 text.fields) 0) (lte (met 3 text.fields) 4.096))
+      =/  time  (parse:reminder at.fields now)
+      %*  .  *job:c
+        kind         %reminder
+        timezone     timezone.time
+        destination  address.source
+        sid          sid.source
+        run-sid      ''
+        expression   at.fields
+        pattern      *pattern:c
+        prompt       text.fields
+        tools        tools
+        next         at.time
+        remaining    1
+        state        %active
+        reason       ''
+        last         ~
+      ==
+    ::  Model work either runs once at an exact time or follows a UTC pattern.
+    ?>  ?=(%o -.args.action)
+    ?:  (~(has by p.args.action) 'at')
+      =/  fields=[at=@t prompt=@t]
+        %.  args.action
+        %-  ot:dejs:format
+        ~[at+so:dejs:format prompt+so:dejs:format]
+      ?>  &((gth (met 3 prompt.fields) 0) (lte (met 3 prompt.fields) 4.096))
+      =/  time  (parse:reminder at.fields now)
+      %*  .  *job:c
+        kind         %prompt
+        timezone     timezone.time
+        destination  address.source
+        sid          sid.source
+        run-sid      ''
+        expression   at.fields
+        pattern      *pattern:c
+        prompt       prompt.fields
+        tools        tools
+        next         at.time
+        remaining    1
+        state        %active
+        reason       ''
+        last         ~
+      ==
+    =/  fields=[schedule=@t timezone=@t prompt=@t runs=@t]
+      %.  args.action
+      %-  ot:dejs:format
+      :~  schedule+so:dejs:format
+          timezone+so:dejs:format
+          prompt+so:dejs:format
+          runs+so:dejs:format
+      ==
+    ?>  =('UTC' timezone.fields)
+    ?>  &((gth (met 3 prompt.fields) 0) (lte (met 3 prompt.fields) 4.096))
+    =/  runs  (number:calendar runs.fields)
     ?>  &((gth runs 0) (lte runs 100))
-    =/  pattern  (parse:calendar schedule.f)
-    [%prompt 'UTC' address.source sid.source '' schedule.f pattern prompt.f tools (need (next:calendar pattern now)) runs %active '' ~]
-  =.  run-sid.fields  (cat 3 'schedule-' (scot %uv id.act))
-  [binding.act actor.act hand.source (fingerprint act) fields]
+    =/  pattern  (parse:calendar schedule.fields)
+    %*  .  *job:c
+      kind         %prompt
+      timezone     'UTC'
+      destination  address.source
+      sid          sid.source
+      run-sid      ''
+      expression   schedule.fields
+      pattern      pattern
+      prompt       prompt.fields
+      tools        tools
+      next         (need (next:calendar pattern now))
+      remaining    runs
+      state        %active
+      reason       ''
+      last         ~
+    ==
+  =.  run-sid.job  (cat 3 'schedule-' (scot %uv id.action))
+  [binding.action actor.action hand.source (fingerprint action) job]
+::
 ++  busy
   |=  [job=job:c db=state:hh]
   ^-  ?
-  ::  Legacy transfer can precede its already-issued admission callback.
-  ::  A reserved input without evidence must not be mistaken for idle work.
+  ::  Reservation and admission evidence can arrive separately. Keep a
+  ::  reserved input busy until its observation establishes execution state.
   ?:  ?&(?=(^ last.job) !(~(has by observations.db) u.last.job))  &
-  ?|  (lien ~(val by observations.db) |=(o=observation:hh &(=(run-sid.job binding.o) ?=(?(%queued %running) phase.o))))
-      (lien ~(val by outbox.db) |=(p=publication:hh &(=(run-sid.job sid.p) ?=(?(%pending %claimed %uncertain) status.p))))
+  ?|  %+  lien  ~(val by observations.db)
+      |=  observation=observation:hh
+      ?&  =(run-sid.job binding.observation)
+          ?=(?(%queued %running) phase.observation)
+      ==
+      %+  lien  ~(val by outbox.db)
+      |=  publication=publication:hh
+      ?&  =(run-sid.job sid.publication)
+          ?=(?(%pending %claimed %uncertain) status.publication)
+      ==
   ==
+::
 ++  accessible
   |=  [job=schedule:c owner=? binding=@t actor=@t]
   ^-  ?
   |(owner &(=(binding binding.job) =(actor actor.job)))
+::
 ++  editable
   |=  [id=@uv job=schedule:c args=json now=@da]
   ^-  schedule:c
@@ -72,7 +158,12 @@
   ::  admission history remain attached to the same conversation.
   =/  source=binding:hh  [hand.job destination.job sid.job ~[actor.job] &]
   =/  next  (create [%add id binding.job actor.job kind.job args] source tools.job now)
-  next(run-sid run-sid.job, last last.job, fingerprint fingerprint.job)
+  %*  .  next
+    run-sid      run-sid.job
+    last         last.job
+    fingerprint  fingerprint.job
+  ==
+::
 ++  retryable
   |=  [job=job:c db=state:hh]
   ^-  ?
@@ -81,27 +172,37 @@
           ?=(^ last.job)
       ==
     |
-  =/  obs  (~(get by observations.db) u.last.job)
-  =/  pub  (~(get by outbox.db) u.last.job)
-  ?&  ?=(^ obs)
-      =(run-sid.job binding.u.obs)
-      =(%failed phase.u.obs)
-      ?=(^ pub)
-      =(%failure kind.u.pub)
+  =/  observation  (~(get by observations.db) u.last.job)
+  =/  publication  (~(get by outbox.db) u.last.job)
+  ?&  ?=(^ observation)
+      =(run-sid.job binding.u.observation)
+      =(%failed phase.u.observation)
+      ?=(^ publication)
+      =(%failure kind.u.publication)
       !(busy job db)
   ==
+::
 ++  retry-session
-  |=  [binding=@t ses=session:h]
+  |=  [binding=@t session=session:h]
   ^-  ?
-  =/  v  (play:hl log.ses)
-  ?.  &(?=(^ err.v) ?=(~ pending.v) =(~ wait.v) =(~ (open-calls:hl items.v)))  |
-  =/  log  log.ses
-  |-  ^-  ?
-  ?~  log  |
-  ?:  ?=(%input-admitted -.i.log)  |
-  ?.  ?=(%input-received -.i.log)  $(log t.log)
-  =/  source  source.input.i.log
+  =/  view  (play:hl log.session)
+  ?.  ?&  ?=(^ err.view)
+          ?=(~ pending.view)
+          =(~ wait.view)
+          =(~ (open-calls:hl items.view))
+      ==
+    |
+  ::  The most recent input must belong to this run binding. An admission
+  ::  without a matching received input cannot establish retry authority.
+  =/  events  log.session
+  |-
+  ^-  ?
+  ?~  events  |
+  ?:  ?=(%input-admitted -.i.events)  |
+  ?.  ?=(%input-received -.i.events)  $(events t.events)
+  =/  source  source.input.i.events
   ?&(?=(%hand -.source) =(binding binding.source))
+::
 ++  clearable
   |=  [job=job:c db=state:hh]
   ^-  ?
@@ -111,20 +212,27 @@
   =/  last  (~(get by observations.db) u.last.job)
   ?~  last  |
   =(run-sid.job binding.u.last)
+::
 ++  advance
   |=  [job=schedule:c input=@uv now=@da]
   ^-  schedule:c
   ?>  &(=(%active state.job) (gth remaining.job 0))
-  =.  job  job(remaining (dec remaining.job), last `input)
+  =.  job
+    %*  .  job
+      remaining  (dec remaining.job)
+      last       `input
+    ==
   ?:  =(0 remaining.job)  job(state %complete)
   =/  next  (next:calendar pattern.job now)
   ?~  next  job(state %complete)
   job(next (need next))
+::
 ++  for-session
   |=  [jobs=(map @uv schedule:c) sid=@t]
   ^-  (unit schedule:c)
   =/  found  (skim ~(val by jobs) |=(job=schedule:c =(sid run-sid.job)))
   ?~(found ~ `i.found)
+::
 ++  one-json
   |=  [id=@uv job=schedule:c db=state:hh]
   ^-  json
@@ -154,6 +262,7 @@
       ['clearable' %b (clearable (job-value job) db)]
       ['retryable' %b (retryable (job-value job) db)]
   ==
+::
 ++  list-json
   |=  [jobs=(map @uv schedule:c) db=state:hh binding=(unit @t)]
   ^-  json
@@ -163,12 +272,13 @@
   ^-  (unit json)
   ?.  ?~(binding & =(u.binding binding.job))  ~
   `(one-json id job db)
+::
 ++  json-action
-  |=  jon=json
+  |=  value=json
   ^-  action:c
   =,  dejs:format
   =/  id  (cu |=(s=@t (need (slaw %uv s))) so)
-  %.  jon
+  %.  value
   %-  of
   :~  add+(ot ~[id+id binding+so actor+so kind+json-kind args+|=(a=json a)])
       list+(ot ~[binding+(mu so)])
@@ -178,12 +288,14 @@
       delete+(ot ~[id+id])
       retry+(ot ~[id+id input+id])
   ==
+::
 ++  json-kind
-  |=  jon=json
+  |=  json=json
   ^-  ?(%prompt %reminder)
-  =/  value  (so:dejs:format jon)
+  =/  value  (so:dejs:format json)
   ?>  ?=(?(%prompt %reminder) value)
   value
+::
 ++  json-request
   =,  dejs:format
   ^-  $-(json request:c)

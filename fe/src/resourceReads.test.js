@@ -66,3 +66,51 @@ test('returning to a closed view starts a fresh read and fences its old response
   assert.deepEqual(values, ['current'])
   close()
 })
+
+test('unchanged refreshes retain JSON identity and clear read errors', async () => {
+  let fail = false, title = 'Ready', calls = 0
+  const reads = createResourceReads(async () => {
+    calls++
+    if (fail) throw new Error('offline')
+    return { rows: [{ title }], next: null }
+  })
+  const values = []
+  const off = reads.subscribe('a', (next) => values.push(next))
+  await reads.refresh('a')
+  const first = values.at(-1).value
+  await reads.refresh('a')
+  assert.equal(values.at(-1).value, first)
+  fail = true
+  await reads.refresh('a')
+  assert.equal(values.at(-1).error, 'offline')
+  fail = false
+  await reads.refresh('a')
+  assert.equal(values.at(-1).value, first)
+  assert.equal(values.at(-1).error, '')
+  title = 'Changed'
+  await reads.refresh('a')
+  assert.notEqual(values.at(-1).value, first)
+  assert.equal(values.at(-1).value.rows[0].title, title)
+  assert.equal(calls, 5)
+  off()
+  await Promise.resolve()
+  const last = values.at(-1).value
+  const close = reads.subscribe('a', (next) => values.push(next))
+  await reads.refresh('a')
+  assert.notEqual(values.at(-1).value, last)
+  assert.deepEqual(values.at(-1).value, last)
+  close()
+})
+
+test('a saved replacement owns the form identity even when its JSON is unchanged', async () => {
+  const reads = createResourceReads(async () => ({ model: 'chosen' }))
+  let current
+  const off = reads.subscribe('a', (next) => { current = next.value })
+  await reads.refresh('a')
+  const saved = { model: 'chosen' }
+  reads.replace('a', saved)
+  assert.equal(current, saved)
+  await reads.refresh('a')
+  assert.equal(current, saved)
+  off()
+})

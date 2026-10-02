@@ -265,8 +265,8 @@ test('input validation rejects non-text, tool history, compaction, and empty pro
 
 test('Harness always-present helper schemas are accepted but are not sent to ACP', async t => {
   const source = await readFile(new URL('../desk/lib/harness-tools.hoon', import.meta.url), 'utf8')
-  const definitions = source.split('++  tool-defs')[1].split('(tool-families tools)')[0]
-  const names = [...definitions.matchAll(/\((?:fun|fun-json) '([^']+)'/g)].map(match => match[1])
+  const definitions = source.split('++  core-defs\n')[1].split('\n++  ')[0]
+  const names = [...definitions.matchAll(/%[-^]\s+fun(?:-json)?\s+(?::\*\s+)?'([^']+)'/g)].map(match => match[1])
   assert.ok(names.length > 0)
   const tools = [...names, 'tlon_send_reply', 'harness_admin'].map(name => ({ type: 'function', function: { name } }))
   const f = await fixture(t)

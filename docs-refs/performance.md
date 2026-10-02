@@ -44,7 +44,11 @@ implicitly. Destination blocking and authority checks govern delivery.
 An open conversation checks snapshots every 600 ms while loading or running,
 and every 10 seconds while idle. Hidden tabs use 2.5 seconds and 30 seconds,
 respectively. Session notifications, focus, reconnection, sending and completion
-refresh sooner. Token chunks do not each trigger a snapshot request. Reads are
+refresh sooner. Sending displays the pending prompt and thinking state before
+network acknowledgement. Contiguous stream notifications update the displayed
+text immediately without a snapshot round trip; retained transcript rows do not
+rerender for each chunk. Revision and UTF-8 byte offsets fence stale text and
+recover gaps. Reads are
 single-flight; an invalidation during a read gets a trailing read so a stale
 response cannot hide the newer state until the next idle interval.
 
@@ -105,6 +109,23 @@ check live authority at their effect boundaries. Local source binding and grant
 changes trigger maintenance, and re-enabling a revoked source does not resume
 paused jobs automatically.
 
+Settings refreshes retain the identity of unchanged JSON while a view is mounted,
+so idle reads do not reset forms or hide their model catalogs. Every refresh
+still reads the ship, saved responses fence older requests, and closing a view
+releases its shared snapshot.
+
+Model and compaction dispatch stop the synchronous drive loop at their pending
+request. A result resumes it through the ordinary event boundary. ACP snapshot
+projection shares one replay with the stream lookup. The drive loop keeps no
+persisted projection or cache; the event log remains authoritative.
+
+Tool batches advance the drive loop's local view from newly recorded events
+instead of replaying the complete log again. Human history reads project a page
+after seeking its event cursor, with cancellation receipts kept together. Full
+transcript cancellation reads inspect only the latest exchange. Event counting
+and cursor seeking still traverse list structure; they do not encode or rebuild
+every retained message.
+
 ## Full-turn benchmark
 
 The full-turn fixture uses the actual browser ACP client, an immediate local
@@ -144,7 +165,8 @@ an empty scheduler does not exercise live job-authority checks.
 ## Native benchmarks and correctness
 
 Pure native benchmarks cover mark dispatch, publication selection, session
-replay, history projections, session indexing and corpus synchronization.
+replay, incremental tool batches, paged and full history, interrupted exchanges,
+session indexing and corpus synchronization.
 Comparisons include output-equivalence assertions; their timing ratios apply
 to the measured operations, not the entire runtime. These files require an
 explicit `zig build -Dheavy-tests=true` and are absent from the default desk.

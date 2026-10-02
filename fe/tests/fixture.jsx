@@ -64,9 +64,17 @@ const publish = (next, notify = true, kind = 'test_snapshot') => {
   snapshot = { ...snapshot, ...next, revision: snapshot.revision + 1 }
   if (notify) acp.dispatchEvent(new CustomEvent('session/update', { detail: { sessionId: chat, update: { sessionUpdate: kind } } }))
 }
+const stream = (text) => {
+  if (snapshot.phase !== 'thinking') snapshot = { ...snapshot, phase: 'thinking', streaming: '', revision: snapshot.revision + 1 }
+  const offset = new TextEncoder().encode(snapshot.streaming || '').length
+  snapshot = { ...snapshot, streaming: (snapshot.streaming || '') + text }
+  acp.dispatchEvent(new CustomEvent('session/update', { detail: { sessionId: chat,
+    update: { sessionUpdate: 'harness_agent_stream_chunk', revision: snapshot.revision, offset, content: { type: 'text', text } },
+  } }))
+}
 const heldPrompts = []
 const heldSnapshots = []
-window.harnessFixture = { sent: [], update: publish, holdPrompts: false, snapshotReads: 0, holdSnapshots: false,
+window.harnessFixture = { sent: [], update: publish, stream, holdPrompts: false, snapshotReads: 0, holdSnapshots: false,
   completeSnapshot: (index) => heldSnapshots[index]?.(),
   completePrompt: (index) => heldPrompts[index]?.({ stopReason: 'end_turn' }) }
 acp.start = async () => {}
@@ -85,7 +93,7 @@ acp.call = async (method, params) => {
   if (method === 'session/cancel') { publish({ phase: 'idle', streaming: '' }); return {} }
   if (method === 'session/prompt') {
     window.harnessFixture.sent.push(params.prompt[0].text)
-    publish({ phase: 'thinking', streaming: 'A **streamed** answer with `inline code`…' })
+    if (!window.harnessFixture.holdAdmission) publish({ phase: 'thinking', streaming: 'A **streamed** answer with `inline code`…' })
     if (window.harnessFixture.holdPrompts) return new Promise((resolve) => heldPrompts.push(resolve))
     return { stopReason: 'end_turn' }
   }
