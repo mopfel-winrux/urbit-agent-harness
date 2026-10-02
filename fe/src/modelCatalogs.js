@@ -1,4 +1,6 @@
 // Catalogs supply model capacity, never credentials or capability grants.
+import { FALLBACK_CONTEXT_WINDOW } from './defaults.js'
+
 export async function resolveContextWindow(config, saved, read) {
   try {
     const catalog = await read()
@@ -8,7 +10,7 @@ export async function resolveContextWindow(config, saved, read) {
   const unchanged = config.model === saved?.model && config.url === saved?.url
     && JSON.stringify(config.headers || []) === JSON.stringify(saved?.headers || [])
   const previous = saved?.['max-context']
-  return unchanged && Number.isSafeInteger(previous) && previous > 0 ? previous : 80_000
+  return unchanged && Number.isSafeInteger(previous) && previous > 0 ? previous : FALLBACK_CONTEXT_WINDOW
 }
 
 export function createModelCatalogs(read, { ttl = 300_000, now = Date.now, limit = 32 } = {}) {

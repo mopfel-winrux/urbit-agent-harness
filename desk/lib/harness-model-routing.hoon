@@ -1,7 +1,8 @@
 ::  Ordered, bounded model failover. Routing never carries credentials or
 ::  relaxes the request's privacy policy, instructions, or tool grants.
 /-  h=harness
-/+  auth=harness-auth, provider=harness-provider, j=harness-workspace-json
+/+  auth=harness-auth, provider=harness-provider, j=harness-workspace-json,
+    context=harness-model-context, policy=harness-defaults
 |%
 ++  endpoint
   |=  name=@t
@@ -25,7 +26,7 @@
   ?>  =((lent models) (lent ~(tap in (silt models))))
   models
 ++  next
-  |=  [config=config:h keys=(map @t @t)]
+  |=  [config=config:h keys=(map @t @t) catalogs=model-contexts:h]
   ^-  (unit config:h)
   ?~  fallbacks.config  ~
   =/  choice  i.fallbacks.config
@@ -42,11 +43,11 @@
       model        model.choice
       headers      ~
       key          ''
-      max-context  80.000
+      max-context  fallback-context:policy
     ==
   ?:  =('' (key:auth keys provider.choice))  $(config remaining)
   ?^  (missing:auth keys candidate)  $(config remaining)
-  `candidate
+  `(resolve:context candidate keys catalogs)
 ++  active
   |=  [view=view:h req=@ud]
   ^-  config:h

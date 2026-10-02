@@ -18,10 +18,15 @@ test('missing catalog metadata preserves only the same saved model and route', a
   const saved = { url: '/responses', model: 'luna', headers: [], 'max-context': 872_000 }
   for (const read of [async () => ({ contexts: {} }), async () => { throw Error('unavailable') }]) {
     assert.equal(await resolveContextWindow(saved, saved, read), 872_000)
-    assert.equal(await resolveContextWindow({ ...saved, model: 'unknown' }, saved, read), 80_000)
-    assert.equal(await resolveContextWindow({ ...saved, url: '/other' }, saved, read), 80_000)
-    assert.equal(await resolveContextWindow({ ...saved, headers: [{ name: 'auth-mode', value: 'other' }] }, saved, read), 80_000)
+    assert.equal(await resolveContextWindow({ ...saved, model: 'unknown' }, saved, read), 800_000)
+    assert.equal(await resolveContextWindow({ ...saved, url: '/other' }, saved, read), 800_000)
+    assert.equal(await resolveContextWindow({ ...saved, headers: [{ name: 'auth-mode', value: 'other' }] }, saved, read), 800_000)
   }
+})
+
+test('reported capacity replaces the default even for a smaller model', async () => {
+  const config = { url: '/responses', model: 'small', 'max-context': 800_000 }
+  assert.equal(await resolveContextWindow(config, config, async () => ({ contexts: { small: 32_000 } })), 32_000)
 })
 
 test('concurrent consumers, remounts and expiry share one request per catalog', async () => {

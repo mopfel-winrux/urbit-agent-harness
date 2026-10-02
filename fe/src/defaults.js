@@ -14,13 +14,15 @@ The event transcript is canonical. Avoid repeating an action already completed i
 
 The interface carrying this request is only one client. Act so work remains useful after it disconnects: put durable knowledge in the conversation, and leave the ship more capable without hiding decisions from its user.`
 
+export const FALLBACK_CONTEXT_WINDOW = 800_000
+
 export const defaultConfig = (overrides = {}) => ({
   url: 'https://api.openai.com/v1/responses',
   model: 'gpt-6-luna',
   key: '',
   headers: [],
   system: DEFAULT_SYSTEM_PROMPT,
-  'max-context': 80_000,
+  'max-context': FALLBACK_CONTEXT_WINDOW,
   'js-timeout': 30,
   tools: [{ clay: '/' }, 'web', 'curl', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'corpus', 'workspace', 'tlon'],
   ...overrides,

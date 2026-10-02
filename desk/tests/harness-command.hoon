@@ -17,7 +17,7 @@
   =.  cfg  cfg(system 'Keep me', tools ~[%clay], key 'fixture-secret', headers ~[['x-test' 'private']])
   =/  v=view:h  *view:h
   =/  result  (run:cmd ['model' 'vendor/other'] v(config cfg) builtin-config:policy)
-  =/  expected  cfg(model 'vendor/other', max-context 80.000)
+  =/  expected  cfg(model 'vendor/other', max-context 800.000)
   (expect-eq !>(`expected) !>(config.result))
 ++  test-default-model-preserves-instructions-and-tools
   =/  cfg=config:h  builtin-config:policy

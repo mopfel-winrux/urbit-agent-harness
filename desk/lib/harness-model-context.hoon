@@ -18,6 +18,34 @@
 ++  identity
   |=  [keys=(map @t @t) credential=@t]
   (sham [(endpoint credential) (key:auth keys credential) (key:auth keys 'openai-account')])
+++  credentials
+  |=  config=config:h
+  ^-  (list @t)
+  [(credential-for-config:auth config) (turn fallbacks.config |=(choice=model-choice:h provider.choice))]
+++  remember
+  |=  [catalogs=model-contexts:h keys=(map @t @t) credential=@t windows=(map @t @ud)]
+  ^-  model-contexts:h
+  ?~  windows  catalogs
+  =/  current  (identity keys credential)
+  =/  saved  (~(get by catalogs) credential)
+  =/  retained=(map @t @ud)
+    ?~  saved  ~
+    ?:(=(current identity.u.saved) windows.u.saved ~)
+  ::  Missing metadata keeps a known limit for the same authenticated route.
+  =/  remaining  ~(tap by `(map @t @ud)`windows)
+  |-  ^-  model-contexts:h
+  ?~  remaining  (~(put by catalogs) credential [current retained])
+  =/  [model=@t capacity=@ud]  i.remaining
+  =?  retained  (gth capacity 0)  (~(put by retained) model capacity)
+  $(remaining t.remaining)
+++  resolve
+  |=  [config=config:h keys=(map @t @t) catalogs=model-contexts:h]
+  ^-  config:h
+  =/  credential  (credential-for-config:auth config)
+  =/  saved  (~(get by catalogs) credential)
+  ?~  saved  config
+  ?.  =(identity.u.saved (identity keys credential))  config
+  (apply config credential windows.u.saved)
 ++  request
   |=  [keys=(map @t @t) credential=@t]
   ^-  (list card:agent:gall)

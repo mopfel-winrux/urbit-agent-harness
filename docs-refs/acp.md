@@ -50,7 +50,7 @@ Only `/compact` calls a model. Work management requires current owner or scoped
 workspace authority; the other commands require no tool grant. Model changes retain
 the conversation's instructions, history and tool permissions. A typed model
 name is not an access check; the provider may reject it on the next real prompt.
-Changing to an uncatalogued model uses the same 80,000-token context fallback as
+Changing to an uncatalogued model uses the same 800,000-token context fallback as
 the settings client. `/model default` copies the default's context limit.
 
 Snapshots expose pinned notes as `memory: [{name, body}]`. Edits append

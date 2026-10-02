@@ -66,6 +66,7 @@
       tools=(list tool-grant)
   ==
 +$  model-choice  [provider=@t model=@t]
++$  model-contexts  (map @t [identity=@uvH windows=(map @t @ud)])
 ::  Remote, stateless Streamable HTTP MCP server. Headers are held in
 ::  agent state and copied only onto requests to this exact endpoint.
 ::

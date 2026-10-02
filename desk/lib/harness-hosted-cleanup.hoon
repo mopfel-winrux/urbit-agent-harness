@@ -11,6 +11,7 @@
   =.  serial.xai  +(serial.xai-auth.saved)
   %=  saved
     provider-keys  ~
+    model-contexts  ~
     api-key        ''
     hosted         *state:hosted
     openai-auth    openai

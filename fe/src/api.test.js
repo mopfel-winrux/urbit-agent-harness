@@ -24,7 +24,7 @@ test('new conversations default to an OpenAI-compatible endpoint', () => {
   const config = defaultConfig()
   assert.match(config.url, /api\.openai\.com/)
   assert.equal(config.model, 'gpt-6-luna')
-  assert.equal(config['max-context'], 80_000)
+  assert.equal(config['max-context'], 800_000)
   assert.deepEqual(config.tools, [{ clay: '/' }, 'web', 'curl', 'skills', 'skill-write', 'author', 'subagents', 'peers', 'corpus', 'workspace', 'tlon'])
   assert.deepEqual(config.headers, [])
 })

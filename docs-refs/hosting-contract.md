@@ -33,8 +33,9 @@ replacing owner settings requires an explicit operation.
 `hosted-provision` accepts a complete `providerKeys` snapshot and optional
 `primary` and `fallbacks` model defaults. `primary` is a `{provider, model}`
 object; `fallbacks` is an ordered list of those objects. The primary selects
-an API-key provider endpoint. Model defaults apply only before defaults are
-initialized. Successful owner model changes through `hosted-settings` also
+an API-key provider endpoint. OpenRouter defaults enable zero-data-retention
+routing for the primary and fallback chain. Model defaults apply only before
+defaults are initialized. Successful owner model changes through `hosted-settings` also
 mark defaults initialized, so provisioning and restarts preserve that choice.
 Credential snapshots continue to update platform-owned slots independently.
 

@@ -3,6 +3,7 @@
 /-  h=harness
 |%
 ++  acp-id  'harness'
+++  fallback-context  800.000
 ::  Baseline grants for bounded work. Direct owner turns use the live tool
 ::  catalog; delegated work retains its explicit grants. Current-chat tools
 ::  derive from live hands rather than ambient configuration.
@@ -80,7 +81,7 @@
       ''
       ~
       default-system
-      80.000
+      fallback-context
       default-tools
   ==
 --

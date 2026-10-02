@@ -2,7 +2,7 @@
 ::  Only ingress calls this module. Tool output and model-generated text are
 ::  never interpreted as commands. No credentials, I/O or execution authority.
 /-  h=harness
-/+  hp=harness-provider, failure=harness-failure, context=harness-context, memory=harness-memory
+/+  hp=harness-provider, failure=harness-failure, context=harness-context, memory=harness-memory, policy=harness-defaults
 |%
 +$  command  [name=@t arg=@t]
 ++  whitespace
@@ -154,7 +154,7 @@
     =.  config
       %=  config
         model  arg.parsed
-        max-context  ?:(=(arg.parsed model.config) max-context.config 80.000)
+        max-context  ?:(=(arg.parsed model.config) max-context.config fallback-context:policy)
       ==
     [`config (cat 3 'Model set to: ' (model-label config))]
   ==

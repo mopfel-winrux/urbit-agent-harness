@@ -51,11 +51,14 @@
   ::  new shape loads directly (fresh install or re-load).
   =/  cur  (mole |.(!<(state-0 saved)))
   ?^  cur  u.cur
+  =/  uncached  (mole |.(!<(state-c0 saved)))
+  ?^  uncached  [%0 ~ +.u.uncached]
   =/  runnerless  (mole |.(!<(state-r0 saved)))
-  ?^  runnerless  [%0 *state:runner +.u.runnerless]
+  ?^  runnerless  [%0 ~ *state:runner +.u.runnerless]
   ::  migrate pre-js-timeouts state: carry every field, default the new map.
   =/  o  !<(state-le saved)
   :*  %0
+      ~
       *state:runner
       model-defaults-set.o  xai-auth.o  hosted.o  workspace.o  work-controls.o
       project-clients.o  workspace-search.o  workspace-notes.o  schedules.o  schedule-wake.o

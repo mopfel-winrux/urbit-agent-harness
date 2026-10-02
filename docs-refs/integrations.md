@@ -176,6 +176,6 @@ changing that session's instructions or tool permissions. This is useful for
 clients managing existing conversations after changing defaults. It does not
 retry failed work; submit new input or explicitly retry. React derives context
 budgets from provider model metadata; the settings do not expose a manual budget
-control. Endpoints without published limits use the 80,000-token fallback.
+control. Endpoints without published limits use the 800,000-token fallback.
 
 Keep conversation state in Harness; adapters handle their own transport.

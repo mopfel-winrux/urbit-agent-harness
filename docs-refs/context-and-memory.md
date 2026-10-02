@@ -84,9 +84,16 @@ reserves output and safety headroom. Saving a model selection waits for its
 catalog lookup. Reloading the agent refreshes configured provider catalogs and
 updates saved defaults, peer and summary models, and existing conversations.
 Unavailable metadata preserves saved limits, and a new model with no reported
-capacity uses 80,000 tokens. A capacity update does not retry failed work or
+capacity uses 800,000 tokens. A capacity update does not retry failed work or
 change an in-flight request's frozen route. The Codex subscription catalog
 requires a concrete `client_version` in its URL.
+
+Catalog capacities persist per authenticated provider route and include models
+in fallback chains. Failover checks each candidate against its own reported
+capacity, skips candidates that cannot fit the request, and uses the 800,000-token
+default only when that candidate has no known capacity. A smaller reported limit
+always takes precedence. Credential changes invalidate cached capacity until
+metadata for the selected credentials arrives.
 
 Before inference, compaction compares the encoded request estimate with
 `window - output-budget - floor(window / 10)`. Requests above this threshold

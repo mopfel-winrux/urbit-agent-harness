@@ -3146,10 +3146,11 @@
     =/  =config:h  config.action
     =?  provider-keys  !=('' key.config)
       (put-key:auth provider-keys (credential-for-url:auth url.config) key.config)
-    =.  config  config(key '')
+    =.  config  (resolve:model-context config(key '') provider-keys model-contexts)
     =.  js-timeouts  (~(put by js-timeouts) sid.action js-timeout.action)
     =/  =session:h  [~[[%config-replaced config]] 0]
-    (drive-put sid.action session)
+    =^  cards  state  (drive-put sid.action session)
+    [(weld cards (refresh-model-config config)) state]
   ::
       %send
     =^  stopped  state  (stop-command sid.action text.action)
@@ -3895,7 +3896,7 @@
   ^-  [(list card) session:h]
   =/  missing  (missing:auth provider-keys config.view)
   ?^  missing
-    =/  fallback  (next:routing config.view provider-keys)
+    =/  fallback  (next-fallback sid view kind config.view)
     ?~  fallback  (record-all sid session ~[[%halted u.missing]])
     $(view view(config u.fallback))
   =/  req  next-req.session
@@ -3903,21 +3904,32 @@
   =^  recorded  session
     (record-all sid session ~[[%llm-requested req kind] [%llm-routed req config.view]])
   [(snoc recorded (llm-card sid req kind view (sham log.session))) session]
+++  next-fallback
+  |=  [sid=session-id:h view=view:h kind=request-kind:h config=config:h]
+  ^-  (unit config:h)
+  =/  selected  (next:routing config provider-keys model-contexts)
+  ?~  selected  ~
+  =/  candidate
+    ?:  =(%turn kind)  view(config u.selected)
+    ?~  lcm-plan.view  view(config u.selected)
+    (request:lcm-context view u.lcm-plan.view u.selected)
+  ::  Check each selected model's capacity before dispatch, including when
+  ::  missing primary credentials start failover without an HTTP response.
+  ?:  (gth (estimate:hp candidate kind (skills-visible sid skills)) (input-budget:context max-context.u.selected))
+    $(config u.selected)
+  selected
 ++  try-fallback
   |=  [sid=session-id:h =session:h req=@ud kind=request-kind:h]
   ^-  (unit [cards=(list card) =session:h])
   =/  view  (play:hl log.session)
   =/  config  (active:routing view req)
-  =/  selected  (next:routing config provider-keys)
+  =/  selected  (next-fallback sid view kind config)
   ?~  selected  ~
   =.  config  u.selected
   =/  candidate
     ?:  =(%turn kind)  view(config config)
     ?~  lcm-plan.view  view(config config)
     (request:lcm-context view u.lcm-plan.view config)
-  ::  A smaller fallback must not silently truncate the prompt.
-  ?:  (gth (estimate:hp candidate kind (skills-visible sid skills)) (input-budget:context max-context.config))
-    ~
   =/  request-id  next-req.session
   =.  next-req.session  +(request-id)
   =^  cards  session
@@ -3947,7 +3959,9 @@
 ++  refresh-model-config
   |=  config=config:h
   ^-  (list card)
-  (request:model-context provider-keys (credential-for-config:auth config))
+  %-  zing
+  %+  turn  ~(tap in (silt (credentials:model-context config)))
+  |=(credential=@t (request:model-context provider-keys credential))
 ::
 ++  refresh-model-contexts
   ^-  (list card)
@@ -3959,7 +3973,9 @@
       (murn ~[peer-base compaction.summary-models lcm.summary-models] |=(value=(unit config:h) value))
       (turn ~(val by sessions) |=(session=session:h config:(play:hl log.session)))
     ==
-  =/  credentials  (silt (turn configs credential-for-config:auth))
+  =/  slots=(list @t)
+    (zing (turn configs |=(config=config:h (credentials:model-context config))))
+  =/  credentials  (silt slots)
   %-  zing
   %+  turn  ~(tap in credentials)
   |=(credential=@t (request:model-context provider-keys credential))
@@ -3973,7 +3989,8 @@
   ?~  windows
     ~&  [%harness-model-context-unavailable credential]
     `state
-  =/  apply  |=(config=config:h (apply:model-context config credential u.windows))
+  =.  model-contexts  (remember:model-context model-contexts provider-keys credential u.windows)
+  =/  apply  |=(config=config:h (resolve:model-context config provider-keys model-contexts))
   =.  defaults  (apply defaults)
   =.  peer-base  (bind peer-base apply)
   =.  compaction.summary-models  (bind compaction.summary-models apply)

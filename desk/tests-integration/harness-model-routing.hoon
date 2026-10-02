@@ -115,4 +115,49 @@
     (expect-eq !>(0) !>(~(wyt by streams.finished)))
     (expect-eq !>(0) !>(~(wyt by streams.stopped)))
   ==
+++  test-failover-uses-persisted-catalog-capacity-and-skips-small-models
+  (isolated |=(ignored=* (catalog-failover |)))
+++  test-missing-primary-credentials-use-the-same-fallback-budget
+  (isolated |=(ignored=* (catalog-failover &)))
+++  catalog-failover
+  |=  missing=?
+  =/  initial  fixture
+  =/  cfg  defaults.initial
+  =.  cfg  cfg(fallbacks ~[['openrouter' 'small'] ['openrouter' 'backup']])
+  =?  cfg  missing
+    cfg(url 'https://api.openai.com/v1/responses', zdr |)
+  =.  initial  initial(defaults cfg, sessions (my ~[['fixture' [~[[%config-replaced cfg]] 0]]]))
+  =/  loaded  (~(on-load head bowl) !>(initial))
+  =/  catalogs
+    %+  murn  -.loaded
+    |=  c=card:agent:gall
+    ^-  (unit http-card:renew)
+    ?:(?=([%pass [%model-context *] %arvo %i %request *] c) `c ~)
+  ?>  =(1 (lent catalogs))
+  =/  catalog  (snag 0 catalogs)
+  =/  response=client-response:iris
+    [%finished [200 ~] `['application/json' (as-octs:mimes:html '{"data":[{"id":"small","context_length":32000},{"id":"backup","context_length":128000}]}')]]
+  =/  learned  (~(on-arvo +.loaded bowl) wire.catalog [%iris %http-response response])
+  =/  cached  !<(state-0 ~(on-save +.learned bowl))
+  =/  reloaded  (~(on-load head bowl) !>(cached))
+  ::  This prompt requires the larger fallback's advertised window.
+  =/  prompt  (rap 3 (reap 380.000 'x'))
+  =/  sent  (~(on-poke +.reloaded bowl) %harness-action !>(`action:h`[%send 'fixture' prompt]))
+  =/  first  (snag 0 (requests -.sent))
+  =/  routed
+    ?:  missing  sent
+    (~(on-arvo +.sent bowl) wire.first [%iris %http-response failed])
+  =/  backup  (snag 0 (requests -.routed))
+  =/  saved  !<(state-0 ~(on-save +.routed bowl))
+  =/  view  (play:hl log:(~(got by sessions.saved) 'fixture'))
+  ?>  ?=(^ route.view)
+  ;:  weld
+    (expect-eq !>('https://openrouter.ai/api/v1/models') !>(url.request.catalog))
+    (expect-eq !>('backup') !>((string:j (body backup) 'model')))
+    (expect-eq !>(128.000) !>(max-context.config.u.route.view))
+    (expect-eq !>(800.000) !>(max-context.config.view))
+    (expect-eq !>(model-contexts.cached) !>(model-contexts.saved))
+    (expect-eq !>(zdr.cfg) !>(zdr.config.u.route.view))
+    (expect-eq !>(1) !>((lent (requests -.routed))))
+  ==
 --

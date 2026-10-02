@@ -25,15 +25,31 @@
   =/  cfg  builtin-config:defaults
   =/  args  (need (de:json:html '{"providerKeys":{"openrouter":"platform"},"primary":{"provider":"openrouter","model":"hosted-primary"},"fallbacks":[{"provider":"openrouter","model":"hosted-backup"}]}'))
   =/  out  (apply:provision cfg ~ servers args &)
-  =/  selected  config.out(url device-url:auth, model 'owner-model', headers ~[['owner' 'header']])
+  =/  selected  config.out(url device-url:auth, model 'owner-model', zdr |, headers ~[['owner' 'header']])
   =/  again  (apply:provision selected keys.out servers args |)
   ;:  weld
     (expect-eq !>('https://openrouter.ai/api/v1/chat/completions') !>(url.config.out))
     (expect-eq !>('hosted-primary') !>(model.config.out))
+    (expect !>(zdr.config.out))
     (expect-eq !>(`(list model-choice:h)`~[['openrouter' 'hosted-backup']]) !>(fallbacks.config.out))
     (expect-eq !>(system.cfg) !>(system.config.out))
     (expect-eq !>('platform') !>((key:auth keys.out 'openrouter')))
     (expect-eq !>(selected) !>(config.again))
+  ==
+++  test-direct-provider-default-disables-zdr
+  =/  cfg  builtin-config:defaults
+  =.  zdr.cfg  &
+  =/  args  (need (de:json:html '{"providerKeys":{},"primary":{"provider":"openai","model":"direct-primary"}}'))
+  =/  out  (apply:provision cfg ~ servers args &)
+  (expect !>(!zdr.config.out))
+++  test-owner-zdr-choice-survives-provision
+  =/  args  (need (de:json:html '{"providerKeys":{},"primary":{"provider":"openrouter","model":"hosted-primary"}}'))
+  =/  cfg  builtin-config:defaults
+  =/  enabled  (apply:provision cfg(zdr &) ~ servers args |)
+  =/  disabled  (apply:provision cfg(zdr |) ~ servers args |)
+  ;:  weld
+    (expect !>(zdr.config.enabled))
+    (expect !>(!zdr.config.disabled))
   ==
 ++  test-invalid-primary-is-rejected
   =/  args  (need (de:json:html '{"providerKeys":{},"primary":{"provider":"unknown","model":"fixture"}}'))
