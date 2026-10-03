@@ -2,6 +2,16 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { PROVIDERS } from './providers.js'
 import { authMethod, withAuth, chooseProvider, catalogEndpoint, credentialSlot } from './providerConfig.js'
+import { defaultConfig } from './defaults.js'
+
+test('OpenAI leads provider choices and defaults to device login without rewriting saved routes', () => {
+  assert.equal(Object.keys(PROVIDERS)[0], 'openai')
+  assert.equal(defaultConfig().url, PROVIDERS.openai.deviceEndpoint)
+  assert.equal(chooseProvider({ url: PROVIDERS.openrouter.endpoint }, 'openai').url, PROVIDERS.openai.deviceEndpoint)
+  const saved = { url: PROVIDERS.openai.endpoint, model: 'saved-model' }
+  assert.equal(chooseProvider(saved, 'openai'), saved)
+  assert.equal(chooseProvider({ url: '' }, 'openai', 'api-key').url, PROVIDERS.openai.endpoint)
+})
 
 test('OpenAI auth selects a fixed endpoint, catalog, and credential slot', () => {
   const api = withAuth({ url: 'https://wrong.example', headers: [] }, 'openai', 'api-key')

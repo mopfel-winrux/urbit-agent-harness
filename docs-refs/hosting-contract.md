@@ -39,6 +39,51 @@ defaults are initialized. Successful owner model changes through `hosted-setting
 mark defaults initialized, so provisioning and restarts preserve that choice.
 Credential snapshots continue to update platform-owned slots independently.
 
+## Soul and shared skills
+
+Authenticated Spider requests use `POST /spider/harness/json/hosted-soul/json.json`
+and `POST /spider/harness/json/hosted-skills/json.json` with the ship's existing
+Eyre session cookie and a JSON object body. Both return the hosted envelope
+`{"status":200,"body":...}`; inspect its status as well as the HTTP status.
+The hosted capabilities response advertises `soul: true` and `skills: true`.
+These are owner-authorized configuration operations, not public content APIs.
+
+`hosted-soul` exposes the default system instructions as a text body, not a
+separate filesystem copy. Send `{}` to read `{body, revision}`; send
+`{body, revision}` to replace it using the revision just read. Empty text is
+allowed. The result includes the saved text and revision. This changes the
+instructions inherited by new conversations, not existing conversation
+configurations, provider settings, or tool grants.
+
+`hosted-skills` operates on the same shared skills as the Harness skill editor:
+
+| Request body | Result body |
+| --- | --- |
+| `{}` | Catalog of `{name, desc}` entries, without instruction bodies |
+| `{"name":"example"}` | `{name, desc, body, revision}`, or status 404 |
+| `{"name":"example","desc":"Purpose","body":"Instructions","revision":""}` | Creates an absent skill and returns its full saved record |
+| `{name, desc, body, revision}` | Replaces that skill using its current revision and returns its full saved record |
+
+Writes require a revision. A stale revision returns status 409 without changing
+content; read again before retrying. An empty revision creates a skill only if
+that name is absent. Updates replace one shared skill, never the catalog or
+conversation-local skill experiments. Shared changes are available to later
+skill reads; existing tool grants remain unchanged. These endpoints do not
+delete skills.
+
+Soul text is limited to 65,536 UTF-8 bytes. Skill names are 1–128 bytes,
+descriptions up to 1,024 bytes, and instruction bodies 1–65,536 bytes. Requests
+allow up to 409,600 encoded JSON bytes to accommodate escaping. Unknown fields
+and invalid content fields return status 400; non-object or oversized transport
+requests fail before dispatch.
+
+The focused live check uses `scripts/hosted-content-conformance.mjs` with
+`SHIP_URL=http://127.0.0.1:<port>`, `SHIP_COOKIE=/path/to/private-cookie`, and
+`HOSTED_CONTENT_TEST_SHIP=<ship-name-without-tilde>`. Run it on a local test ship:
+it temporarily edits the soul and creates a uniquely named skill, verifies
+read-back and revision conflicts through both HTTP and native ACP, then restores
+the soul and deletes only its test skill. It makes no provider calls.
+
 ## Health and failure
 
 Report head availability, Tlon Activity/head/publication subscriptions,

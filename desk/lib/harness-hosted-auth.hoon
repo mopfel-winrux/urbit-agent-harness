@@ -107,6 +107,8 @@
       ['apiKeyProviders' %a ~[[%s 'openai'] [%s 'anthropic'] [%s 'xai'] [%s 'openrouter']]]
       ['modelFallbacks' %b &]
       ['openrouterZdr' %b &]
+      ['soul' %b &]
+      ['skills' %b &]
   ==
 ++  prune
   |=  [db=state now=@da]

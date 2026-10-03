@@ -76,7 +76,7 @@
   ^-  config:h
   :*  |
       ~
-      'https://api.openai.com/v1/responses'
+      'https://chatgpt.com/backend-api/codex/responses'
       'gpt-6-luna'
       ''
       ~

@@ -23,8 +23,8 @@ export default function ProviderRoute({ provider, value, onChange }) {
   if (provider === 'connected') return <RunnerSelect value={value} onChange={onChange} />
   if (provider === 'custom') return <label><span>Endpoint</span><input type="url" required value={value.url || ''} onChange={(event) => onChange({ ...value, url: event.target.value })} placeholder="https://inference.example/v1/chat/completions" /></label>
   if (!['openai', 'anthropic', 'xai'].includes(provider)) return null
+  const methods = provider === 'openai' ? ['device', 'api-key'] : ['api-key', 'device']
   return <Select label="Authentication" value={authMethod(provider, value)} onValueChange={(nextValue) => onChange(withAuth(value, provider, nextValue))}>
-    <Select.Option value="api-key">API key</Select.Option>
-    <Select.Option value="device">{provider === 'openai' ? 'Device login (ChatGPT)' : provider === 'xai' ? 'Device login (Grok)' : 'Browser login (Claude)'}</Select.Option>
+    {methods.map(method => <Select.Option key={method} value={method}>{method === 'api-key' ? 'API key' : provider === 'openai' ? 'Device login (ChatGPT)' : provider === 'xai' ? 'Device login (Grok)' : 'Browser login (Claude)'}</Select.Option>)}
   </Select>
 }

@@ -17,7 +17,7 @@ The interface carrying this request is only one client. Act so work remains usef
 export const FALLBACK_CONTEXT_WINDOW = 800_000
 
 export const defaultConfig = (overrides = {}) => ({
-  url: 'https://api.openai.com/v1/responses',
+  url: 'https://chatgpt.com/backend-api/codex/responses',
   model: 'gpt-6-luna',
   key: '',
   headers: [],

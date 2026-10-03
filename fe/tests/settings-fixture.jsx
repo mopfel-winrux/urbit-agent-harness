@@ -100,7 +100,7 @@ api.read = async (path) => {
     if (params.has('hold-config')) await new Promise((resolve) => { window.settingsFixture.releaseConfig = resolve })
     return structuredClone(config)
   }
-  if (path === 'status/openai') return { 'has-key': device || apiKey, 'has-api-key': apiKey, 'has-device-login': device, 'auth-method': device ? 'device' : 'api-key' }
+  if (path === 'status/openai') return { 'has-key': device || apiKey, 'has-api-key': apiKey, 'has-device-login': device, 'auth-method': device || !apiKey ? 'device' : 'api-key' }
   if (path === 'status/xai') return { 'has-key': xaiDevice, 'has-api-key': false, 'has-device-login': xaiDevice, 'auth-method': xaiDevice ? 'device' : 'api-key' }
   if (path === 'status/brave') return { 'has-key': braveKey }
   if (path === 'search') return search

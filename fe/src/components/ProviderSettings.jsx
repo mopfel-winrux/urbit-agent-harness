@@ -15,7 +15,7 @@ export default function ProviderSettings({ provider, resources }) {
   const session = useResource(resources.chat ? resources.session : resources.defaults, null)
   const status = useResource(`status/${provider}`, { 'has-key': false })
   const [key, setKey] = useState('')
-  const [form, setForm] = useState({ url: details.endpoint, model: details.model, headers: [] })
+  const [form, setForm] = useState(() => chooseProvider({}, provider))
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -32,7 +32,7 @@ export default function ProviderSettings({ provider, resources }) {
     if (dirty.current && loaded.current === identity) return
     if (session.loading || status.loading || !session.value) return
     loaded.current = identity
-    const preferred = status.value?.['auth-method'] || 'api-key'
+    const preferred = status.value?.['auth-method']
     let next = chooseProvider(session.value, provider, preferred)
     // Repair the displayed selection when the only saved OpenAI credential is
     // a device login. Persisting it still goes through the ordinary Save path.

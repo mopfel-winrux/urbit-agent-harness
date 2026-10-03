@@ -40,6 +40,7 @@
 /+  work-copy=harness-work-copy
 /+  hosted-auth=harness-hosted-auth
 /+  hosted-settings=harness-hosted-settings
+/+  hosted-content=harness-hosted-content
 /+  hosted-provision=harness-hosted-provision
 /+  hosted-cleanup=harness-hosted-cleanup
 /+  routing=harness-model-routing
@@ -2174,6 +2175,18 @@
     |=  value=json
     ^-  card
     [%give %fact ~[/hosted/[id.request]] %json !>(value)]
+  ?:  =('soul' action.request)
+    =/  attempted  (mule |.((apply-soul:hosted-content defaults args.request)))
+    ?:  ?=(%| -.attempted)
+      [~[(reply (error:hosted-auth 400 'Invalid soul settings.'))] state]
+    =.  defaults  config.p.attempted
+    [~[(reply response.p.attempted)] state]
+  ?:  =('skills' action.request)
+    =/  attempted  (mule |.((apply-skills:hosted-content skills args.request)))
+    ?:  ?=(%| -.attempted)
+      [~[(reply (error:hosted-auth 400 'Invalid skill settings.'))] state]
+    =.  skills  skills.p.attempted
+    [~[(reply response.p.attempted)] state]
   ?:  =('models' action.request)
     ::  Model lists use the same validation and revision check as settings.
     =/  parsed
@@ -2557,7 +2570,7 @@
           'device'
         ?:  &(=(provider (provider-for-url:hp url.defaults)) has-key)
           'api-key'
-        ?:(has-device 'device' 'api-key')
+        ?:(|(has-device &(=('openai' provider) !has-key)) 'device' 'api-key')
       ?:  =('anthropic' provider)
         %-  pairs:enjs:format
         :~  ['has-key' %b |(has-key has-device)]

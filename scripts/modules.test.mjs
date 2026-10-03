@@ -12,6 +12,14 @@ const code = (name) => sources.get(name).split('\n').filter((line) => !line.trim
 const dependencies = (name) => [...code(name).matchAll(/^\/\+  (.+(?:\n {4}.+)*)/gm)]
   .flatMap((match) => match[1].split(',').map((entry) => entry.trim().split('=').at(-1).replace(/^\*/, '')))
 
+test('Ford headers place type imports before library imports', async () => {
+  const root = new URL('../desk/', import.meta.url)
+  for (const path of (await readdir(root, { recursive: true })).filter(path => path.endsWith('.hoon'))) {
+    const source = await readFile(new URL(path, root), 'utf8')
+    assert.doesNotMatch(source, /^\/\+[\s\S]*^\/-/m, path)
+  }
+})
+
 test('work guidance teaches bounded decomposition and quiet cross-ship coordination', () => {
   const tools = code('harness-tools')
   const workspace = tools.match(/:\*\s+'workspace'\s+'((?:\\.|[^'\\])*)'/)?.[1]

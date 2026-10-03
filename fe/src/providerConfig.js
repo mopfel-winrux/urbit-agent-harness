@@ -18,7 +18,7 @@ export function withAuth(config, provider, method) {
   return { ...config, url: method === 'device' && details.deviceEndpoint ? details.deviceEndpoint : details.endpoint, headers }
 }
 
-export function chooseProvider(config, provider, preferredAuth = 'api-key') {
+export function chooseProvider(config, provider, preferredAuth = provider === 'openai' ? 'device' : 'api-key') {
   if (providerOf(config.url) === provider) return config
   const details = PROVIDERS[provider]
   // Do not carry another provider's headers/credentials across a provider switch.

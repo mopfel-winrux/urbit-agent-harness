@@ -1,12 +1,4 @@
 export const PROVIDERS = {
-  openrouter: {
-    title: 'OpenRouter',
-    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-    modelsEndpoint: 'https://openrouter.ai/api/v1/models',
-    model: 'z-ai/glm-5.3-flash',
-    placeholder: 'sk-or-…',
-    copy: 'OpenAI-compatible Chat Completions with OpenRouter model routing.',
-  },
   openai: {
     title: 'OpenAI',
     endpoint: 'https://api.openai.com/v1/responses',
@@ -17,6 +9,14 @@ export const PROVIDERS = {
     deviceModel: 'gpt-6-luna',
     placeholder: 'sk-…',
     copy: 'Use an API key or your ChatGPT device login. Authentication selects the model service.',
+  },
+  openrouter: {
+    title: 'OpenRouter',
+    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+    modelsEndpoint: 'https://openrouter.ai/api/v1/models',
+    model: 'z-ai/glm-5.3-flash',
+    placeholder: 'sk-or-…',
+    copy: 'OpenAI-compatible Chat Completions with OpenRouter model routing.',
   },
   anthropic: {
     title: 'Anthropic',

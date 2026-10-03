@@ -13,13 +13,15 @@
   =/  input  !<((unit json) arg)
   =/  args=json  (fall input [%o ~])
   ?>  ?=(%o -.args)
-  ?>  (lte (met 3 (en:json:html args)) 16.384)
+  ::  Authoring allows a 64 KiB body, including JSON escape expansion.
+  =/  limit  ?:(|(=('soul' action) =('skills' action)) 409.600 16.384)
+  ?>  (lte (met 3 (en:json:html args)) limit)
   ;<  our=@p  bind:m  get-our:io
   ;<  now=@da  bind:m  get-time:io
   ;<  entropy=@uvJ  bind:m  get-entropy:io
   =/  id  (scot %uv (sham [our now entropy action]))
   =/  needs-request-id
-    ?&  !(~(has in (silt ~['settings' 'permissions' 'channels' 'chat-config' 'models'])) action)
+    ?&  !(~(has in (silt ~['settings' 'permissions' 'channels' 'chat-config' 'models' 'soul' 'skills'])) action)
         ?~((optional:j args 'requestId') & |)
     ==
   =?  p.args  needs-request-id

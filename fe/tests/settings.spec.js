@@ -8,6 +8,26 @@ test.beforeEach(async ({ page }) => {
   await expect.poll(() => page.evaluate(() => window.settingsFixture?.requests.length || 0)).toBeGreaterThan(0)
 })
 
+test('OpenAI is first and device login is the fresh default while saved API routes stay selected', async ({ page }) => {
+  const provider = page.getByRole('combobox', { name: 'Provider', exact: true })
+  await expect(provider).toHaveText('OpenAI')
+  await provider.click()
+  await expect(page.getByRole('option').first()).toHaveText('OpenAI')
+  await provider.press('Escape')
+  await page.goto('/apps/harness/tests/settings-fixture.html?page=provider')
+  const auth = page.getByRole('combobox', { name: 'Authentication', exact: true })
+  await expect(auth).toHaveText('Device login (ChatGPT)')
+  await expect(page.getByRole('button', { name: 'Sign in with device code' })).toBeVisible()
+  await auth.click()
+  await expect(page.getByRole('option').first()).toHaveText('Device login (ChatGPT)')
+  await auth.press('Escape')
+  await page.evaluate(config => sessionStorage.setItem('settings-fixture-config', JSON.stringify(config)), defaultConfig({ url: PROVIDERS.openai.endpoint }))
+  await page.reload()
+  await expect(auth).toHaveText('API key')
+  await expect(page.getByLabel('API key', { exact: true })).toBeVisible()
+  expect(await page.evaluate(() => window.settingsFixture.saves)).toEqual([])
+})
+
 for (const surface of ['global', 'conversation']) test(`${surface}: Tlon is a default, independently removable cross-conversation grant`, async ({ page }) => {
   await page.goto(`/apps/harness/tests/settings-fixture.html?page=${surface}`)
   const tool = page.getByRole('checkbox', { name: /^Tlon Read and send messages/ })
@@ -21,6 +41,8 @@ for (const surface of ['global', 'conversation']) test(`${surface}: Tlon is a de
 })
 
 test('context is read from the catalog at save time, even when metadata arrives after selection', async ({ page }) => {
+  await page.goto('/apps/harness/tests/settings-fixture.html?hold-models')
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.requests.length)).toBeGreaterThan(0)
   await expect(page.getByRole('spinbutton')).toHaveCount(0)
   await page.getByRole('combobox', { name: 'Model', exact: true }).fill('test-model')
   await page.evaluate(() => {
@@ -134,12 +156,14 @@ test('MCP ids keep focus while typing and row removal preserves remaining header
 })
 
 test('switching providers fences stale catalogs and does not reuse another model’s limit', async ({ page }) => {
+  await page.goto('/apps/harness/tests/settings-fixture.html?hold-models')
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.requests.length)).toBeGreaterThan(0)
   await chooseOption(page.getByRole('combobox', { name: 'Provider', exact: true }), 'anthropic')
   await expect.poll(() => page.evaluate(() => window.settingsFixture.requests.at(-1).provider)).toBe('anthropic')
   await page.evaluate(() => {
     const f = window.settingsFixture
     f.resolve(f.requests.at(-1).id, { modelInfo: [{ id: 'test-model', contextWindow: 64000 }] })
-    for (const r of f.requests.filter((r) => r.provider === 'openrouter')) f.resolve(r.id, { modelInfo: [{ id: 'test-model', contextWindow: 999999 }] })
+    for (const r of f.requests.filter((r) => r.provider === 'openai')) f.resolve(r.id, { modelInfo: [{ id: 'test-model', contextWindow: 999999 }] })
   })
   await page.getByRole('combobox', { name: 'Model', exact: true }).fill('test-model')
   await expect(page.getByText(/Provider reports 64,000/)).toBeVisible()
@@ -147,7 +171,7 @@ test('switching providers fences stale catalogs and does not reuse another model
   expect(await page.evaluate(() => window.settingsFixture.saves.at(-1)['max-context'])).toBe(64000)
   await page.getByRole('combobox', { name: 'Model', exact: true }).fill('unknown-model')
   await page.getByRole('button', { name: 'Save defaults' }).click()
-  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)['max-context'])).toBe(80000)
+  await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1)['max-context'])).toBe(defaultConfig()['max-context'])
 })
 
 for (const surface of ['global', 'conversation']) {
@@ -157,7 +181,7 @@ for (const surface of ['global', 'conversation']) {
     await chooseOption(page.getByRole('combobox', { name: 'Provider', exact: true }), 'openrouter')
     await chooseOption(page.getByRole('combobox', { name: 'Provider', exact: true }), 'openai')
     await expect(page.getByRole('combobox', { name: 'Authentication', exact: true })).toHaveText('Device login (ChatGPT)')
-    await expect.poll(() => page.evaluate(() => window.settingsFixture.requests.at(-1).url)).toBe(PROVIDERS.openai.deviceModelsEndpoint)
+    await expect.poll(() => page.evaluate(url => window.settingsFixture.requests.some(request => request.url === url), PROVIDERS.openai.deviceModelsEndpoint)).toBe(true)
     const save = page.getByRole('button', { name: surface === 'global' ? 'Save defaults' : 'Save conversation' })
     await save.click()
     await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1).url)).toBe(PROVIDERS.openai.deviceEndpoint)
