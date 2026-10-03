@@ -28,8 +28,21 @@
 +$  upload
   [stage=?(%fetch %put %put-no-acl %grant %hosted-put) storage=@uv key=@t mime=@t public-url=@t bytes=octs]
 +$  route  [binding=@t phase=?(%ready %create %fence %config)]
-+$  state-1
-  $:  %1
++$  lens-record
+  $:  sid=@t
+      signature=@uvH
+      publication=@uvH
+      payload=json
+      final=?
+      stage=?(%sending %sent %failed)
+      attempts=@ud
+      next=(unit @da)
+  ==
++$  lens-sync
+  [enabled=$~(| ?) owner=(unit @p) after=@da records=(map input-id:h lens-record) error=@t]
++$  state-2
+  $:  %2
+      lens=lens-sync
       owner-initialized=@ud
       sibling-moon-owners=$~(| ?)
       sibling-owner-after=@da

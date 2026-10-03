@@ -1,0 +1,31 @@
+.run-lens { flex: 1; min-height: 0; overflow-y: auto; padding: 24px max(24px, calc((100% - 810px) / 2)); }
+.run-lens-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.run-lens .back-button { min-height: 38px; }
+.run-lens h1 { font-size: 22px; margin: 0; }
+.run-lens h2 { font-size: 16px; margin: 0 0 8px; }
+.run-lens h3 { font-size: 13px; margin: 16px 0 8px; }
+.run-lens-help { color: var(--muted); font-size: 13px; line-height: 1.6; max-width: 75ch; }
+.run-lens-picker { margin: 24px 0; display: grid; gap: 8px; }
+.run-lens-picker > .text-button { justify-self: start; }
+.run-lens-summary { display: grid; grid-template-columns: 1fr 2fr; gap: 16px 24px; padding: 20px 0; border-block: 1px solid var(--line); }
+.run-lens-summary div { min-width: 0; }
+.run-lens-summary dt { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+.run-lens-summary dd { margin: 0; font-size: 14px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.run-lens-section { margin: 28px 0; }
+.run-lens-evidence { border-bottom: 1px solid var(--line); }
+.run-lens-evidence summary { cursor: pointer; padding: 12px 0; min-height: 44px; font-size: 13px; overflow-wrap: anywhere; }
+.run-lens-evidence summary span { color: var(--muted); margin-left: 12px; }
+.run-lens-evidence summary:hover { color: var(--accent); }
+.run-lens pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.6; padding: 16px; margin: 8px 0 16px; background: var(--code); border-radius: 7px; }
+.run-lens .run-lens-reply { font-family: inherit; background: transparent; padding: 0; }
+.run-lens .run-lens-source { font-family: inherit; }
+.chat-workspace .lens-toggle { flex-shrink: 0; gap: 6px; }
+.chat-workspace [hidden] { display: none; }
+@media (max-width: 760px) {
+  .run-lens { padding: 20px 16px; }
+  .run-lens-summary { grid-template-columns: 1fr; gap: 16px; }
+  .run-lens-heading { align-items: start; flex-wrap: wrap; }
+  .run-lens .back-button, .run-lens .text-button { min-height: 44px; }
+  .chat-workspace .lens-toggle { padding-inline: 10px; }
+  .chat-workspace .lens-toggle svg { display: none; }
+}

@@ -10,6 +10,7 @@ import { peerTools } from '../peerGrants'
 import TlonIcon from './TlonIcon'
 import TlonProfile from './TlonProfile'
 import TlonModels from './TlonModels'
+import TlonLens from './TlonLens'
 import TlonWork from './TlonWork'
 import PeerTokenLimit from './PeerTokenLimit'
 import { emptyPeers, effectivePeers, applyPeerLimits } from '../peers'
@@ -130,7 +131,7 @@ export default function TlonSettings({ onBack, workOpen = false }) {
         <div className="save-bar"><span role="status">{saved ? 'Saved.' : Object.keys(peerEdits).length ? 'Unsaved peer token limits. Applies to the next peer request.' : 'Changed permissions stop affected Tlon work. Conversations and notes remain; unrelated chats continue.'}</span><button className="button primary" disabled={busy || unavailable || (policy.enabled && !policy.owner && !state.value?.siblingMoonOwners) || (Object.keys(peerEdits).length > 0 && (peers.loading || !!peers.error))}>{busy ? 'Saving…' : 'Save Tlon settings'}</button></div>
       </form>
       <p className="field-note">Manage tasks and reminders from every hand in <a href="#/settings?tab=schedules">Settings → Schedules</a>.</p>
-      <div className="settings-group"><TlonProfile /><TlonModels sessions={state.value?.sessions} /><TlonWork initialOpen={workOpen} /></div>
+      <div className="settings-group"><TlonLens state={state.value} unavailable={busy || unavailable} onUpdate={state.setValue} /><TlonProfile /><TlonModels sessions={state.value?.sessions} /><TlonWork initialOpen={workOpen} /></div>
     </div>
   </main>
 }

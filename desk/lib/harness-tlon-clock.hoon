@@ -4,7 +4,7 @@
 |%
 ::
 ++  deadline
-  |=  [now=@da state=state-1:t]
+  |=  [now=@da state=state-2:t]
   ^-  (unit @da)
   =/  presence-deadlines=(list @da)
     ?.  enabled.policy.state  ~
@@ -17,6 +17,11 @@
     ?.  =(%sending stage.receipt)  ~
     `(add at.receipt ~m1)
   =/  times  (weld presence-deadlines tool-deadlines)
+  =?  times  &(enabled.policy.state enabled.lens.state)
+    %+  weld  times
+    %+  murn  ~(val by records.lens.state)
+    |=  record=lens-record:t
+    next.record
   =?  times  &(enabled.policy.state !watching.state)  [(add now ~s2) times]
   =?  times  &(enabled.policy.state catching-up.state)  [(add now ~s1) times]
   ?~  times  ~

@@ -70,12 +70,11 @@ test('literal reminders show their destination and explicit timezone without imp
   await expect(page.getByText(/Execution: completed · Delivery: uncertain/)).toBeVisible()
 })
 
-test('Tlon settings keep inspection local without export controls', async ({ page }) => {
+test('Tlon settings expose owner sync without enabling it implicitly', async ({ page }) => {
   await page.goto('/apps/harness/tests/tlon-fixture.html')
-  await expect(page.getByRole('heading', { name: 'Steward Lens' })).toHaveCount(0)
-  await expect(page.getByRole('checkbox', { name: /lens/i })).toHaveCount(0)
-  const retry = page.getByRole('button', { name: 'Retry Lens exports', exact: true })
-  await expect(retry).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Context Lens', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Enable owner sync' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Retry sync', exact: true })).toHaveCount(0)
   expect(await page.evaluate(() => window.tlonFixture.saves)).toEqual([])
 })
 

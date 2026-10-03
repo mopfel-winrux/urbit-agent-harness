@@ -6,7 +6,7 @@
 ++  run
   |=  [enabled=? head=? contact=(unit contact:ct) event=?(%load %disable %enable %kick %recover %nack)]
   ^-  (list contact:ct)
-  =/  saved=state-1:t  *state-1:t
+  =/  saved=state-2:t  *state-2:t
   =.  saved  saved(owner-initialized 1, policy [enabled `~zod ~ %mentions ~ ~], watching &, activity-through ~2026.10.1)
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.10.1..00.00.10)

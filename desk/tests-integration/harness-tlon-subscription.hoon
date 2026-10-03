@@ -5,12 +5,12 @@
 /=  adapter  /app/harness-tlon
 |%
 ++  fixture
-  ^-  state-1:t
-  =/  s=state-1:t  *state-1:t
+  ^-  state-2:t
+  =/  s=state-2:t  *state-2:t
   s(owner-initialized 1, policy [& `~zod ~ %mentions ~ ~], activity-through ~2026.10.1, error 'Activity recovery failed')
 ++  run
-  |=  [saved=state-1:t sub=(unit [acked=? path=path]) event=?(%load %wake %kick %enable %disable)]
-  ^-  [cards=(list card:agent:gall) replies=(list json) saved=state-1:t]
+  |=  [saved=state-2:t sub=(unit [acked=? path=path]) event=?(%load %wake %kick %enable %disable)]
+  ^-  [cards=(list card:agent:gall) replies=(list json) saved=state-2:t]
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.10.1..00.00.10)
   =.  wex.bowl  (~(put by wex.bowl) [/head ~zod %harness] [& /hand-events])
@@ -35,7 +35,7 @@
       ==
     ::  Project before validating the result: other effects contain large
     ::  typed payloads unrelated to subscription recovery.
-    [(activity-cards -.out) (replies -.out) !<(state-1:t ~(on-save +.out bowl))]
+    [(activity-cards -.out) (replies -.out) !<(state-2:t ~(on-save +.out bowl))]
   =/  checked
     %+  mink  [attempt %9 2 %0 1]
     |=  [ref=* raw=*]
@@ -50,7 +50,7 @@
     ?:  (lien path |=(part=@ta =(%activity part)))  ``~
     ~
   ?>  ?=(%0 -.checked)
-  ;;([cards=(list card:agent:gall) replies=(list json) saved=state-1:t] product.checked)
+  ;;([cards=(list card:agent:gall) replies=(list json) saved=state-2:t] product.checked)
 ++  replies
   |=  cards=(list card:agent:gall)
   ^-  (list json)

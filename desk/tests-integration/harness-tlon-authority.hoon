@@ -5,8 +5,8 @@
 /=  adapter  /app/harness-tlon
 |%
 ++  fixture
-  ^-  state-1:t
-  =/  s=state-1:t  *state-1:t
+  ^-  state-2:t
+  =/  s=state-2:t  *state-2:t
   =.  owner-initialized.s  1
   =.  policy.s  [& `~nec ~ %mentions ~ ~]
   =.  lanes.s  (my ~[['source' [~nec [%dm ~nec ~] 1 ~[%web]]]])
@@ -16,7 +16,7 @@
   =/  j=schedule:c  *schedule:c
   j(sid 'source', run-sid 'run', binding 'binding', kind %prompt)
 ++  read
-  |=  [saved=state-1:t sid=@t job=(unit schedule:c) allowed=? admin=?]
+  |=  [saved=state-2:t sid=@t job=(unit schedule:c) allowed=? admin=?]
   ^-  noun
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.10)

@@ -7,6 +7,7 @@
 /-  notes=tlon-notes
 /-  hooks=tlon-hooks
 /-  hosted=harness-hosted
+/-  steward=tlon-steward, steward-lens=tlon-steward-lens
 /+  default-agent, dbug, p=harness-tlon-policy,
     continuity=harness-tlon-continuity, io=harness-tlon-io,
     publication=harness-tlon-publication, profile=harness-tlon-profile,
@@ -27,12 +28,13 @@
 /+  permissions=harness-tlon-permissions
 /+  story=harness-tlon-story, input=harness-tlon-input
 /+  observe=harness-observe
+/+  lens-codec=harness-tlon-lens
 |%
 +$  card  card:agent:gall
 +$  storage-source  $%([%credentials creds=credentials:s3] [%hosted token=@t config=json])
 --
 %-  agent:dbug
-=|  state-1:t
+=|  state-2:t
 =*  state  -
 ^-  agent:gall
 =<
@@ -176,6 +178,7 @@
   ^+  cor
   ?.  enabled.policy  cor
   =.  cor  accept-owner-invitations
+  =.  cor  boot-lens
   =.  cor  watch-head
   ::  Gall owns the subscription. An acknowledged watch survives even when
   ::  processing its acknowledgement crashes before saving our local flag.
@@ -279,6 +282,7 @@
       ['headConnected' %b &(head-live ?~(head-watch | acked.u.head-watch))]
       ['publicationsConnected' %b publications-connected]
       ['deliveryMode' %s 'events']
+      ['lens' lens-status]
       ['maintenanceWake' ?~(wake ~ [%s (scot %da u.wake)])]
       ['error' %s error]
       ['pending' (numb:enjs:format ~(wyt by jobs))]
@@ -349,6 +353,30 @@
     (permission-reply inbound 'channels')
       %'harness/tlon/owner'
     (emit (reply owner-status))
+      %'harness/tlon/lens/configure'
+    =/  parsed
+      %-  mole  |.
+      =,  dejs:format
+      ((ot ~[['enabled' bo] ['expectedOwner' (mu (se %p))]]) (need params.inbound))
+    ?~  parsed  (emit (fail '-32602' 'Expected enabled and expectedOwner'))
+    ?.  =(owner.policy +.u.parsed)
+      (emit (fail '-32602' 'Owner changed; reload before enabling Context Lens'))
+    ?:  &(-.u.parsed ?=(~ owner.policy))
+      (emit (fail '-32602' 'Set an explicit owner before syncing Context Lens'))
+    =.  lens  [-.u.parsed owner.policy now.bowl ~ '']
+    =.  cor  boot-lens
+    (emit (reply status))
+      %'harness/tlon/lens/retry'
+    ?.  &(enabled.lens =(owner.lens owner.policy))
+      (emit (fail '-32602' 'Enable Context Lens for the current owner first'))
+    =.  records.lens
+      %-  ~(run by records.lens)
+      |=  record=lens-record:t
+      ?:  =(%sent stage.record)  record
+      record(attempts 0, next `now.bowl)
+    =.  error.lens  ''
+    =.  cor  send-lenses:boot-lens
+    (emit (reply status))
       %'harness/tlon/owner/set'
     =/  parsed
       %-  mole  |.
@@ -1026,6 +1054,8 @@
   =.  error  ''
   ?:  &(=(updated-policy policy) =(siblings sibling-moon-owners))  cor
   =/  before  policy
+  ::  Changing owners never retargets retained private run contents.
+  =?  lens  !=(owner.updated-policy owner.policy)  *lens-sync:t
   =/  sibling-change  !=(siblings sibling-moon-owners)
   =/  affected=(set @t)
     %-  silt
@@ -1083,6 +1113,31 @@
   |=  [wire=wire sign=sign:agent:gall]
   ^+  cor
   ?+  wire  cor
+      [%lens %configure ~]
+    ?.  ?=(%poke-ack -.sign)  cor
+    ?~  p.sign  cor
+    cor(lens lens(error 'Steward is unavailable on this ship. Install or update Tlon, then retry sync.'))
+      [%lens %events ~]
+    ?:  ?=(%kick -.sign)
+      cor(lens lens(error 'Steward disconnected. Retry sync to reconnect.'))
+    ?.  ?=(%fact -.sign)  cor
+    ?.  =(%steward-lens-update-1 p.cage.sign)  cor
+    =/  update  !<(update:v1:steward-lens q.cage.sign)
+    ?.  ?=(%retry-requested -.update)  cor
+    (retry-lens id.update requester.update)
+      [%lens %send @ @ @ ~]
+    ?.  ?=(%poke-ack -.sign)  cor
+    ?.  &(enabled.lens =(owner.lens `(slav %p i.t.t.wire)))  cor
+    =/  id  (slav %uv i.t.t.t.wire)
+    =/  record  (~(get by records.lens) id)
+    ?~  record  cor
+    ?.  =((scot %uv signature.u.record) i.t.t.t.t.wire)  cor
+    ?~  p.sign
+      cor(lens lens(records (~(put by records.lens) id u.record(stage %sent, next ~))))
+    =.  error.lens  'Owner sync was rejected. Trust this bot in the owner ship’s Steward, then retry sync.'
+    =.  records.lens
+      (~(put by records.lens) id u.record(stage %failed, next ?:(=(3 attempts.u.record) ~ `(add now.bowl ~s5))))
+    cor
       [%channel-join @ @ @ ~]
     ?.  ?=(%poke-ack -.sign)  cor
     ?~  p.sign  cor
@@ -1663,6 +1718,7 @@
   ?.  watching  boot
   =?  cor  catching-up  catch-up
   =.  cor  (sync-presence ledger)
+  =.  cor  send-lenses
   schedule
 ::
 ++  recover
@@ -1740,6 +1796,7 @@
   ?.  head-live  schedule
   =.  cor  poll-tools
   =/  hands  ledger
+  =.  cor  (sync-lenses hands)
   =.  state  (detach-routes:continuity state hands)
   =.  cor  (sync-presence hands)
   =.  cor  schedule
@@ -1785,6 +1842,138 @@
   =.  deliveries.engine  (~(put by deliveries.engine) id [0 %claim %uncertain ''])
   (hand:engine %claim id [%claim 'tlon' id 'harness-tlon'])
 ::
+++  lens-status
+  ^-  json
+  %-  pairs:enjs:format
+  :~  ['enabled' %b enabled.lens]
+      ['owner' ?~(owner.lens ~ [%s (scot %p u.owner.lens)])]
+      ['error' %s error.lens]
+      ['retained' (numb:enjs:format ~(wyt by records.lens))]
+      :-  'pending'
+      %-  numb:enjs:format
+      %-  lent
+      (skip ~(val by records.lens) |=(record=lens-record:t =(%sent stage.record)))
+  ==
+::
+++  boot-lens
+  ^+  cor
+  ?.  &(enabled.lens =(owner.lens owner.policy))  cor
+  ?:  =(~ owner.lens)  cor
+  =/  owner  (need owner.lens)
+  =.  cor
+    (emit [%pass /lens/configure %agent [our.bowl %steward] %poke %steward-action-1 !>(`action:v1:steward`[%configure owner])])
+  ?:  (~(has by wex.bowl) /lens/events our.bowl %steward)  cor
+  (emit [%pass /lens/events %agent [our.bowl %steward] %watch /v1/lens])
+::
+++  sync-lenses
+  |=  hands=state:hh
+  ^+  cor
+  ?.  &(enabled.lens =(owner.lens owner.policy))  cor
+  ::  Retain a bounded retry cache, not a second history store. The head's
+  ::  journal and the owner's accepted Steward records remain authoritative.
+  =/  candidates
+    %+  sort
+      %+  skim  ~(tap by observations.hands)
+      |=  [id=input-id:h observation=observation:hh]
+      =/  binding  (~(get by bindings.hands) binding.observation)
+      ?&  ?=(^ binding)
+          =('tlon' hand.u.binding)
+          (gth at.observation after.lens)
+      ==
+    |=  [left=[id=input-id:h observation=observation:hh] right=[id=input-id:h observation=observation:hh]]
+    (gth at.observation.left at.observation.right)
+  =.  candidates  (scag 64 candidates)
+  =.  records.lens
+    %-  my
+    %+  murn  candidates
+    |=  [id=input-id:h observation=observation:hh]
+    ^-  (unit [p=input-id:h q=lens-record:t])
+    =/  cached  (~(get by records.lens) id)
+    ?~(cached ~ `[id u.cached])
+  =.  cor
+    %+  roll  candidates
+    |=  [[id=input-id:h observation=observation:hh] engine=_cor]
+    =/  binding  (~(got by bindings.hands) binding.observation)
+    =/  sid  sid.binding
+    =/  lane  (delivery-lane:engine sid)
+    ?.  ?&(?=(^ lane) live:(lane-authority:engine sid))  engine
+    =/  publication  (~(get by outbox.hands) id)
+    =/  publication-hash  (sham publication)
+    =/  cached  (~(get by records.lens.engine) id)
+    ?:  ?&  ?=(^ cached)
+            final.u.cached
+            =(publication-hash publication.u.cached)
+        ==
+      engine
+    =/  snapshot
+      %-  mole  |.
+      .^([revision=@ud view=view:h next=(unit step:h)] %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/head/[sid]/noun)
+    ?~  snapshot  engine
+    =/  signature  (sham [revision.u.snapshot publication-hash])
+    ?:  ?&(?=(^ cached) =(signature signature.u.cached))  engine
+    =/  base
+      %-  mole  |.
+      (need .^((unit json) %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/run/[sid]/(scot %uv id)/noun))
+    ?~  base  engine
+    =/  payload  (payload:lens-codec u.base to.u.lane observation now.bowl)
+    =/  final=?
+      ?&  ?=(^ publication)
+          ?=(?(%delivered %failed %abandoned) status.u.publication)
+      ==
+    =/  record=lens-record:t
+      [sid signature publication-hash payload final %failed 0 `now.bowl]
+    engine(lens lens.engine(records (~(put by records.lens.engine) id record)))
+  send-lenses
+::
+++  send-lenses
+  ^+  cor
+  ?.  ?&  enabled.policy
+          enabled.lens
+          =(owner.lens owner.policy)
+          !=(~ owner.lens)
+      ==
+    cor
+  =/  owner  (need owner.lens)
+  %+  roll  ~(tap by records.lens)
+  |=  [[id=input-id:h record=lens-record:t] engine=_cor]
+  ?~  next.record  engine
+  ?:  (gth u.next.record now.bowl)  engine
+  ?.  live:(lane-authority:engine sid.record)
+    engine(lens lens.engine(records (~(del by records.lens.engine) id)))
+  ?:  (gte attempts.record 3)
+    engine(lens lens.engine(records (~(put by records.lens.engine) id record(stage %failed, next ~)), error 'Owner sync is awaiting confirmation. Check Steward trust, then retry sync.'))
+  =.  records.lens.engine
+    (~(put by records.lens.engine) id record(stage %sending, attempts +(attempts.record), next `(add now.bowl ~s30)))
+  %:  emit:engine
+    %pass
+    /lens/send/(scot %p owner)/(scot %uv id)/(scot %uv signature.record)
+    %agent  [owner %steward]
+    %poke  %steward-lens-action-1
+    !>(`action:v1:steward-lens`[%entry (scot %uv id) payload.record final.record])
+  ==
+::
+++  retry-lens
+  |=  [id=@t requester=@p]
+  ^+  cor
+  ?.  ?&  enabled.policy
+          enabled.lens
+          =(owner.policy `requester)
+          =(owner.lens owner.policy)
+          head-live
+      ==
+    cor
+  =/  parsed  (slaw %uv id)
+  ?~  parsed  cor
+  =/  hands  ledger
+  =/  observation  (~(get by observations.hands) u.parsed)
+  ?.  ?&(?=(^ observation) ?=(?(%failed %cancelled) phase.u.observation))  cor
+  =/  binding  (~(get by bindings.hands) binding.u.observation)
+  ?.  ?&(?=(^ binding) =('tlon' hand.u.binding) live:(lane-authority sid.u.binding))  cor
+  ?:  (~(has by active.hands) sid.u.binding)  cor
+  ::  A deterministic fresh event deduplicates repeated retry clicks. The
+  ::  normal admission gate obtains current authority and context again.
+  (hand %lens-retry u.parsed [%observe binding.u.observation (cat 3 'lens-retry/' id) actor.u.observation text.u.observation])
+::
 ++  claimed
   |=  [id=@uv result=json]
   ^+  cor
@@ -1820,5 +2009,10 @@
     ::  Optional presentation cannot prevent delivery of the ordinary reply.
     %-  mole  |.
     (need .^((unit @t) %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/work-card/(scot %uv id)/noun))
+  =?  blob  ?&  enabled.lens
+                 =(owner.lens owner.policy)
+                 (~(has by records.lens) input.publication)
+             ==
+    `(pointer:lens-codec our.bowl input.publication blob)
   (emit (publish:messenger /publish/(scot %uv id)/(scot %ud attempt) to.u.lane body.publication last-sent blob))
 --

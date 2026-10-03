@@ -7,6 +7,8 @@ async function action(value) {
   if (value.owner) return acp.call('harness/tlon/owner/set', value.owner)
   if (value.tlon) return acp.call('harness/tlon/configure', { ...value.tlon, expectedOwner: value.tlon.owner, ...(value.tlonRevision ? { expectedRevision: value.tlonRevision } : {}) })
   if (value.tlonProfile) return acp.call('harness/tlon/profile/set', value.tlonProfile)
+  if (value.tlonLens) return acp.call('harness/tlon/lens/configure', value.tlonLens)
+  if (value.retryLens) return acp.call('harness/tlon/lens/retry')
   if (value.cancelCron) return acp.call('harness/cron/cancel', { id: value.cancelCron })
   if (value.clearCron) return acp.call('harness/cron/clear', { id: value.clearCron })
   if (value.retryCron) return acp.call('harness/cron/retry', value.retryCron)
@@ -90,7 +92,12 @@ const runners = async (action, params = {}) => {
   return acp.call('harness/runners', { ...params, action })
 }
 
-export const api = { read, action, models, corpus, search, inbox, login, runners }
+const runs = async (sessionId, params = {}) => {
+  await acp.start()
+  return acp.call('harness/session/runs', { ...params, sessionId })
+}
+
+export const api = { read, action, models, corpus, search, inbox, login, runners, runs }
 
 export function resourcesFor(chat) {
   return {

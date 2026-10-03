@@ -77,8 +77,25 @@ const heldSnapshots = []
 window.harnessFixture = { sent: [], update: publish, stream, holdPrompts: false, snapshotReads: 0, holdSnapshots: false,
   completeSnapshot: (index) => heldSnapshots[index]?.(),
   completePrompt: (index) => heldPrompts[index]?.({ stopReason: 'end_turn' }) }
+window.harnessFixture.runReads = []
+window.harnessFixture.runs = [
+  { lensId: '0v2', createdAt: Date.UTC(2026, 9, 2, 14), preview: 'Explain the head and its hands.', status: 'completed', model: 'test-model', provider: 'fixture',
+    context: { description: 'Journal context at first dispatch; previews are bounded. Provider reasoning and transport credentials are excluded.', sources: [
+      { kind: 'system', label: 'System instructions', included: true, preview: 'Answer using the recorded evidence.' },
+      { kind: 'message', label: 'user', included: true, preview: 'Explain the head and its hands.' },
+    ] },
+    tools: { callCount: 1, runs: [{ id: 'read', name: 'read_file', status: 'completed', argumentDetail: '{"path":"architecture.md"}', resultSummary: 'The journal belongs to the head. Adapters own delivery.' }] },
+    lifecycle: { completedAt: null, durationMs: null }, reply: 'The head owns the journal; hands adapt its effects to their destinations.' },
+  { lensId: '0v1', createdAt: Date.UTC(2026, 9, 1, 14), preview: 'Read the project notes.', status: 'error', model: 'test-model', error: 'The requested file is unavailable.', context: { sources: [] }, tools: { callCount: 0, runs: [] }, reply: null },
+]
 acp.start = async () => {}
 acp.call = async (method, params) => {
+  if (method === 'harness/session/runs') {
+    window.harnessFixture.runReads.push(params)
+    if (window.harnessFixture.runError) throw new Error(window.harnessFixture.runError)
+    const runs = structuredClone(window.harnessFixture.runs)
+    return params.lensId ? runs.find((run) => run.lensId === params.lensId) : { runs, before: null }
+  }
   if (method === 'harness/session/history') {
     const older = historyRows.filter((row) => row.eventCount < params.before)
     const entries = older.slice(-40)

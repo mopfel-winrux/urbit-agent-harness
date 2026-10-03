@@ -8,7 +8,7 @@
   ^-  [deliveries=(map @uv delivery:t) receipts=(list action:hh)]
   =/  bowl=bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.10.1)
-  =/  saved=state-1:t  *state-1:t
+  =/  saved=state-2:t  *state-2:t
   =.  saved
     saved(owner-initialized 1, enabled.policy |, deliveries (my ~[[0v1 [7 %send %uncertain 'external']]]))
   =/  ledger=state:hh  *state:hh
@@ -20,7 +20,7 @@
     =/  sign=sign:agent:gall  [%poke-ack ?:(rejected `~ ~)]
     =/  result
       (~(on-agent +.loaded bowl) /publish/0v1/(scot %ud attempt) sign)
-    =/  retained  !<(state-1:t ~(on-save +.result bowl))
+    =/  retained  !<(state-2:t ~(on-save +.result bowl))
     =/  receipts
       %+  murn  -.result
       |=  card=card:agent:gall

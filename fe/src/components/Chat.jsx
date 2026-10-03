@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../useSession'
 import Transcript from './Transcript'
 import ChatComposer from './ChatComposer'
-import { MoonIcon, SettingsIcon } from './Icons'
+import { InspectIcon, MoonIcon, SettingsIcon } from './Icons'
+import RunLens from './RunLens'
 
 export default function Chat({ chat, theme, onToggleTheme, onSettings, onFork, onSelect }) {
   const session = useSession(chat)
@@ -10,6 +11,8 @@ export default function Chat({ chat, theme, onToggleTheme, onSettings, onFork, o
   const [atBottom, setAtBottom] = useState(true)
   const transcript = useRef(null)
   const follow = useRef(true)
+  const [lensOpen, setLensOpen] = useState(false)
+  const lensButton = useRef(null)
   const phase = loading ? 'loading' : busy && snapshot.phase === 'idle' ? 'thinking' : snapshot.phase
   const entries = snapshot?.entries || []
 
@@ -33,6 +36,7 @@ export default function Chat({ chat, theme, onToggleTheme, onSettings, onFork, o
     <header className="topbar">
       <div className="chat-heading"><div><strong title={chat}>{chat}</strong>{snapshot?.model && <small title={snapshot.model}>{snapshot.model}</small>}</div><div className={`run-status ${busy ? 'prompting' : phase}`} aria-label={`Session ${phase}`}><span />{phase}</div></div>
       <div className="topbar-actions">
+        <button ref={lensButton} className="button ghost lens-toggle" aria-expanded={lensOpen} onClick={() => setLensOpen((open) => !open)}><InspectIcon />Context Lens</button>
         <button className="icon-button" onClick={onSettings} title="Conversation settings" aria-label="Conversation settings"><SettingsIcon /></button>
         <button className="icon-button" onClick={onToggleTheme} title={`Theme: ${theme}. Change theme`} aria-label={`Theme: ${theme}. Change theme`}><MoonIcon /></button>
       </div>
@@ -40,7 +44,8 @@ export default function Chat({ chat, theme, onToggleTheme, onSettings, onFork, o
     {error && <div className="error-banner" role="alert">{error} {snapshot?.error
       ? <button className="text-button" onClick={onSettings}>Model settings</button>
       : <button className="text-button" onClick={session.refresh}>Refresh</button>}</div>}
-    <div className="transcript-region"><section className="transcript" aria-label="Conversation messages" ref={transcript} onScroll={() => {
+    {lensOpen && <RunLens key={chat} chat={chat} revision={snapshot?.revision} onClose={() => { setLensOpen(false); lensButton.current?.focus() }} />}
+    <div className="transcript-region" hidden={lensOpen}><section className="transcript" aria-label="Conversation messages" ref={transcript} onScroll={() => {
       const el = transcript.current
       follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96
       setAtBottom(follow.current)
@@ -51,6 +56,6 @@ export default function Chat({ chat, theme, onToggleTheme, onSettings, onFork, o
     </div></section>
     {!atBottom && <button className="jump-to-latest" onClick={scrollToLatest}>↓ Latest messages</button>}
     </div>
-    <ChatComposer busy={busy} loading={loading} usage={snapshot?.usage} compactions={snapshot?.compactions} onSend={send} onStop={session.stop} />
+    <div hidden={lensOpen}><ChatComposer busy={busy} loading={loading} usage={snapshot?.usage} compactions={snapshot?.compactions} onSend={send} onStop={session.stop} /></div>
   </main>
 }

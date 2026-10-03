@@ -11,10 +11,12 @@ test('the optional JS executor bundles the expected QuickJS binary', async () =>
   assert.equal(createHash('sha256').update(wasm).digest('hex'), 'aa83708e03d77e610a576da47eb77ea4b3e0483c88bf9367ed66dc66810f8423')
   for (const name of ['lib/thread-builder-js.hoon', 'lib/wasm/lia.hoon', 'lib/wasm/parser.hoon', 'lib/wasm/runner/engine.hoon', 'sur/wasm/lia.hoon', 'sur/spider.hoon', 'mar/wasm.hoon']) await access(new URL(name, desk))
 })
-test('the distribution has no Steward export integration', async () => {
-  await assert.rejects(access(new URL('sur/tlon-steward-lens.hoon', desk)))
-  await assert.rejects(access(new URL('lib/harness-tlon-lens.hoon', desk)))
-  await assert.rejects(access(new URL('lib/harness-run-report.hoon', desk)))
+test('Context Lens includes the versioned Steward protocol, not another agent', async () => {
+  await access(new URL('sur/tlon-steward-lens.hoon', desk))
+  await access(new URL('lib/harness-tlon-lens.hoon', desk))
+  await access(new URL('lib/harness-run-report.hoon', desk))
+  await access(new URL('mar/steward/lens/action-1.hoon', desk))
+  await access(new URL('mar/steward/lens/update-1.hoon', desk))
   await assert.rejects(access(new URL('sur/tlon-steward/lens.hoon', desk)))
 })
 test('the distribution declares only the five Harness agents', async () => {

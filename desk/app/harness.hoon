@@ -47,6 +47,7 @@
 /+  mcp=harness-mcp
 /+  tool-catalog=harness-tool-catalog, wire-json=harness-provider-wire
 /+  observe=harness-observe
+/+  run-report=harness-run-report
 |%
 +$  card  card:agent:gall
 ::  Shared state changed by one pass through the session execution loop.
@@ -350,6 +351,8 @@
   ::
       [%x %work-card @ ~]
     ``noun+!>((work-card:hc (slav %uv i.t.t.path)))
+      [%x %run @ @ ~]
+    ``noun+!>((inspect-run:hc i.t.t.path (slav %uv i.t.t.t.path)))
   ::
       [%x %sessions ~]
     :^  ~  ~  %json
@@ -1469,6 +1472,15 @@
   |=  [id=@uv value=(each json @t)]
   ^-  (quip card _state)
   [~ state(work-controls (complete:work-control work-controls id value))]
+::
+++  inspect-run
+  |=  [sid=session-id:h id=input-id:h]
+  ^-  (unit json)
+  =/  current  (~(get by sessions) sid)
+  ?~  current  ~
+  =/  report  (read:run-report u.current id)
+  ?~  report  ~
+  `(with-delivery:run-report u.report (~(get by outbox.hands) id))
 ::
 ++  work-card
   |=  id=@uv
@@ -2758,6 +2770,22 @@
           ['before' before.page]
       ==
     (respond ~ result)
+  ::
+      %'harness/session/runs'
+    ?^  (decode:admin connection)
+      (fail '-32602' 'Run inspection is owner-only')
+    =/  sid  (acp-param-string:wire-codec params 'sessionId')
+    ?~  sid  (fail '-32602' 'Expected sessionId')
+    =/  current  (~(get by sessions) u.sid)
+    ?~  current  (fail '-32602' 'Unknown session')
+    =/  id  (acp-param-string:wire-codec params 'lensId')
+    ?~  id
+      (respond ~ (recent:run-report u.current (acp-param-number:wire-codec params 'before')))
+    =/  parsed  (slaw %uv u.id)
+    ?~  parsed  (fail '-32602' 'Invalid Lens ID')
+    =/  report  (inspect-run u.sid u.parsed)
+    ?~  report  (fail '-32602' 'Unknown run')
+    (respond ~ u.report)
   ::
       %'harness/session/snapshot'
     =/  sid  (acp-param-string:wire-codec params 'sessionId')

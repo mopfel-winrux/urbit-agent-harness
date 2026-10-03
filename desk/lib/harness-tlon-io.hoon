@@ -23,7 +23,6 @@
 ++  publish
   |=  [wire=wire to=destination:t text=@t sent=@da blob=(unit @t)]
   ^-  card
-  =?  blob  ?=(%channel -.to)  ~
   =/  memo=memo:v9:dv  [(text-to-story:story text) our.bowl sent]
   ?-  -.to
       %dm

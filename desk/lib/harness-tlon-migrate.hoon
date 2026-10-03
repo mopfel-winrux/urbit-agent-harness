@@ -1,6 +1,35 @@
 ::  Persisted Tlon state conversion. Runtime policy uses only the current shape.
-/-  *harness-tlon, h=harness, ad=harness-adapter
+/-  *harness-tlon, h=harness, ad=harness-adapter, c=tlon-channels
 |%
++$  state-1
+  $:  %1
+      owner-initialized=@ud
+      sibling-moon-owners=$~(| ?)
+      sibling-owner-after=@da
+      activity-through=@da
+      catching-up=$~(| ?)
+      identities=(map [actor=@p to=destination] @t)
+      routes=(map @t route)
+      cuts=(map @p @da)
+      channel-after=@da
+      channel-cuts=(map nest:c @da)
+      uploads=(map @uv upload)
+      last-sent=@da
+      tool-receipts=(map @uv tool-receipt)
+      computing=(map path presence-lease)
+      policy=policy
+      epoch=@ud
+      after=@da
+      lanes=(map @t lane)
+      jobs=(map @uv job)
+      deliveries=(map @uv delivery)
+      notices=(list notice)
+      next-notice=@ud
+      listeners=(set @t)
+      watching=?
+      wake=(unit @da)
+      error=@t
+  ==
 +$  state-0
   $:  %0
       owner-initialized=@ud
@@ -31,10 +60,17 @@
   ==
 ++  load
   |=  old=vase
-  ^-  state-1
+  ^-  state-2
   ?>  ?=(^ q.old)
-  ?:  =(%1 -.q.old)  !<(state-1 old)
-  =/  saved  !<(state-0 old)
+  ?:  =(%2 -.q.old)  !<(state-2 old)
+  =/  saved
+    ?:  =(%0 -.q.old)  (zero-to-one !<(state-0 old))
+    !<(state-1 old)
+  [%2 *lens-sync +.saved]
+::
+++  zero-to-one
+  |=  saved=state-0
+  ^-  state-1
   =/  next  *state-1
   =.  policy.next  [enabled.policy.saved owner.policy.saved trusted.policy.saved ?:(mentions.policy.saved %mentions %all) ~ ~]
   =.  owner-initialized.next  owner-initialized.saved

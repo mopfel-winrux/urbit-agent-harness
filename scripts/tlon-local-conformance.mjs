@@ -45,8 +45,8 @@ try {
   originals = { defaults: await client.call('harness/defaults'), policy: (await client.call('harness/tlon')).policy }
   await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '', url: `http://127.0.0.1:${server.address().port}/completions`, model: 'local-only-fixture', tools: [], headers: [] } })
   const status = await client.call('harness/tlon/configure', { enabled: true, owner: peer, trusted: [], response: 'mentions', allowed: [], channels: [] })
-  assert.equal(Object.hasOwn(status, 'lens'), false)
-  await assert.rejects(client.call('harness/tlon/lens/retry'), /Unknown Tlon method/)
+  assert.equal(status.lens.enabled, false)
+  await assert.rejects(client.call('harness/tlon/lens/retry'), /Enable Context Lens/)
   await client.call('harness/tlon/watch')
   const da = (((BigInt(Date.now()) * (1n << 64n)) / 1000n) + 170141184475152167957503069145530368000n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
   const sent = await fetch(`${peerUrl}/~/channel/${marker}`, { method: 'PUT', headers: { cookie: peerCookie, 'content-type': 'application/json' }, body: JSON.stringify([{

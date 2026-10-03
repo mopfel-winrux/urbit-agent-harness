@@ -2,7 +2,7 @@
 /+  *test, c=harness-tlon-continuity
 |%
 ++  test-detached-route-keeps-receipts-and-starts-a-fresh-conversation
-  =/  saved=state-1:t  *state-1:t
+  =/  saved=state-2:t  *state-2:t
   =.  saved
     saved(epoch 7, lanes (my ~[['s' dm] ['other' dm]]), routes (my ~[['s' ['binding' %ready]] ['other' ['other-binding' %ready]]]), identities (my ~[[[~bud [%dm ~bud ~]] 's']]), deliveries (my ~[[0v1 [1 %send %uncertain 'external']]]))
   =.  jobs.saved  (my ~[[0v1 [[~bud 'event' [%dm ~bud ~] 'Hello'] 's' %observe '']]])

@@ -7,7 +7,7 @@ import Sidebar from '../src/components/Sidebar'
 import '../src/style.css'
 
 const schedulesPage = new URLSearchParams(location.search).has('schedules')
-let state = { revision: 'revision-1', policy: { enabled: false, owner: '~zod', response: 'mentions', allowed: [], channels: [], trusted: [] }, connected: false, sessions: ['nec-dm-test'] }
+let state = { revision: 'revision-1', ship: '~nec', lens: { enabled: false, pending: 0, error: '' }, policy: { enabled: false, owner: '~zod', response: 'mentions', allowed: [], channels: [], trusted: [] }, connected: false, sessions: ['nec-dm-test'] }
 window.tlonFixture = { saves: [], modelUpdates: [], cron: [], cancelled: [], work: { records: [], next: null, headConnected: true }, workReads: [], recoveries: [], recoveryError: '', profile: { nickname: 'Existing bot', avatar: 'https://example.com/bot.png' }, profileError: '' }
 acp.call = async (method, params) => {
   if (method !== 'harness/session/use-default-model') throw new Error('Unexpected fixture method')
@@ -30,7 +30,13 @@ api.read = async (path) => {
   if (path.startsWith('tlon/work')) { window.tlonFixture.workReads.push(path); return structuredClone(window.tlonFixture.work) }
   return read(path)
 }
-api.action = async ({ tlon, tlonProfile, cancelCron, clearCron, retryCron, hand, retryAdmission }) => {
+api.action = async ({ tlon, tlonProfile, tlonLens, retryLens, cancelCron, clearCron, retryCron, hand, retryAdmission }) => {
+  if (tlonLens) {
+    window.tlonFixture.lensConfig = tlonLens
+    state = { ...state, lens: { ...state.lens, enabled: tlonLens.enabled, owner: tlonLens.expectedOwner } }
+    return structuredClone(state)
+  }
+  if (retryLens) { window.tlonFixture.lensRetry = true; return structuredClone(state) }
   if (retryCron) {
     if (window.tlonFixture.retryError) throw new Error(window.tlonFixture.retryError)
     window.tlonFixture.recoveries.push({ retryCron })

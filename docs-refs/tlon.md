@@ -36,6 +36,43 @@ external changes without overwriting drafts, and waits for Contacts to confirm
 saves. Empty fields clear those attributes; other fields, permissions, and
 conversations stay unchanged.
 
+## Context Lens
+
+Open **Context Lens** in a Harness conversation to inspect its runs. Each input
+has an immutable Lens ID. The inspector shows journal context at first dispatch,
+tool arguments and results, the reply, and hand delivery receipts. Reads do not
+start inference. Provider reasoning, transport headers, and configured API keys
+are excluded. Previews and lists are bounded; the full journal remains on ship.
+The journal does not record per-tool or dispatch timestamps, so those timings
+are unknown rather than estimated. Dynamic tool and skill catalogs are not
+reconstructed from today's configuration.
+
+To show these records in the owner's native Tlon Context Lens:
+
+1. Install a Tlon version with Steward Lens support on both ships, and set an
+   explicit Harness owner in Settings.
+2. On the owner ship, trust the bot: `:steward &steward-action-1 [%trust-bot ~bot]`.
+   Replace `~bot` with the bot's ship name. Sponsorship alone does not grant trust.
+3. Open **Tlon → Context Lens → Enable owner sync** in Harness. This also sets
+   the bot's local Steward owner so owner-requested run retries reach Harness.
+4. Enable Tlon replies and send a new message. Accepted records make the native
+   Lens available; reply attachments point to the run using its Lens ID and bot
+   ship, without embedding context. Owner-DM work controls share the same blob.
+
+Sync is off by default and applies to new Tlon inputs after enabling it. It sends
+private records only to the explicit owner, not sibling administrators or chat
+participants. Changing owners disables sync and clears the adapter's retry
+cache; it never retargets previously captured records. Disabling sync does not
+delete the owner's accepted records or the head's journal.
+
+The adapter retains the latest 64 eligible runs for sync recovery. Updates are
+idempotent Steward entries with bounded automatic attempts; **Retry sync**
+retries pending records without rerunning inference or resending chat replies.
+Sync health is separate from message delivery. Steward's run **Retry** action
+admits a fresh, deduplicated input only for failed or interrupted runs that still
+have current conversation authority and no active run. It uses current context
+and tool permissions; it is not a replay of past external side effects.
+
 ## Ship-wide Tlon tool
 
 The default-enabled **Tlon** grant exposes `tlon` with an `action` argument.

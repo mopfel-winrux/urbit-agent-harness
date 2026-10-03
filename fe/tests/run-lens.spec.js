@@ -1,0 +1,48 @@
+import { expect, test } from '@playwright/test'
+import { chooseOption } from './picker'
+
+test('run inspection is read-only, on demand, and retains the composer draft', async ({ page }) => {
+  await page.goto('/apps/harness/tests/fixture.html')
+  const input = page.getByRole('textbox', { name: 'Message', exact: true })
+  await input.fill('Keep this draft')
+  expect(await page.evaluate(() => window.harnessFixture.runReads)).toEqual([])
+  await page.getByRole('button', { name: 'Context Lens', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Context Lens', exact: true })).toBeFocused()
+  await expect(page.locator('.run-lens-summary')).toContainText('Completed')
+  await page.locator('.run-lens-evidence summary').filter({ hasText: 'read_file' }).click()
+  await expect(page.getByText('The journal belongs to the head. Adapters own delivery.', { exact: true })).toBeVisible()
+  await chooseOption(page.getByLabel('Run', { exact: true }), '0v1')
+  await expect(page.locator('.run-lens-summary')).toContainText('Failed')
+  await expect(page.getByText('No final reply recorded.', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Conversation', exact: true }).click()
+  await expect(input).toHaveValue('Keep this draft')
+  await expect(page.getByRole('button', { name: 'Context Lens', exact: true })).toBeFocused()
+  const reads = await page.evaluate(() => window.harnessFixture.runReads.length)
+  await page.evaluate(() => window.harnessFixture.update({ phase: 'thinking' }))
+  await expect.poll(() => page.evaluate(() => window.harnessFixture.runReads.length)).toBe(reads)
+  expect(await page.evaluate(() => window.harnessFixture.sent)).toEqual([])
+})
+
+test('load failures have explicit recovery and empty conversations are explained', async ({ page }) => {
+  await page.goto('/apps/harness/tests/fixture.html')
+  await page.evaluate(() => { window.harnessFixture.runError = 'Run inspection unavailable' })
+  await page.getByRole('button', { name: 'Context Lens', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Run inspection unavailable')
+  await page.evaluate(() => { window.harnessFixture.runError = ''; window.harnessFixture.runs = [] })
+  await page.getByRole('button', { name: 'Retry loading runs' }).click()
+  await expect(page.getByText('No recorded runs in this conversation. Send a message to start one.')).toBeVisible()
+})
+
+test('owner sync is explicit, owner-fenced and separate from conversation permissions', async ({ page }) => {
+  await page.goto('/apps/harness/tests/tlon-fixture.html')
+  const section = page.getByRole('region', { name: 'Context Lens', exact: true })
+  await expect(section).toContainText(':steward &steward-action-1 [%trust-bot ~nec]')
+  expect(await page.evaluate(() => window.tlonFixture.lensConfig)).toBeUndefined()
+  await section.getByRole('button', { name: 'Enable owner sync' }).click()
+  expect(await page.evaluate(() => window.tlonFixture.lensConfig)).toEqual({ enabled: true, expectedOwner: '~zod' })
+  expect(await page.evaluate(() => window.tlonFixture.saves)).toEqual([])
+  await section.getByRole('button', { name: 'Retry sync', exact: true }).click()
+  expect(await page.evaluate(() => window.tlonFixture.lensRetry)).toBe(true)
+  await section.getByRole('button', { name: 'Disable owner sync' }).click()
+  await expect(section.getByRole('status')).toContainText('Owner sync is off')
+})

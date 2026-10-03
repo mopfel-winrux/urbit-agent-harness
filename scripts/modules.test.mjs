@@ -146,10 +146,15 @@ test('project client reads have no execution imports, owner promotion or noteboo
   assert.doesNotMatch(scoped, /\/v0\/notes\//)
 })
 
-test('run inspection stays local and the adapter has no Steward export or trust effects', async () => {
-  assert.equal(sources.has('harness-run-report'), false, 'no orphaned export-only projection')
+test('local inspection and owner sync share one projection without granting Steward trust', async () => {
+  assert.equal(sources.has('harness-run-report'), true)
   const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
-  assert.doesNotMatch(adapter, /sync-lenses|harness-tlon-lens|%steward|trust-policy|pointer:lens/)
+  const head = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  assert.match(head, /harness\/session\/runs/)
+  assert.match(head, /Run inspection is owner-only/)
+  assert.match(adapter, /sync-lenses/)
+  assert.match(adapter, /owner\.lens owner\.policy/)
+  assert.doesNotMatch(adapter, /%trust-bot|%untrust-bot/)
   assert.doesNotMatch(code('harness-tlon-io'), /steward|trust-policy/)
 })
 

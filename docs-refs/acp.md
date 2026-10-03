@@ -147,6 +147,7 @@ read bodies; **Search content** uses the separate indexed corpus methods below.
 - `harness/session/rename`
 - `harness/session/snapshot`
 - `harness/session/history`
+- `harness/session/runs`
 - `harness/session/verify`
 - `harness/session/recheck`
 - `harness/session/fork`
@@ -213,6 +214,14 @@ the prior entries and cursor. An empty array
 means the transcript is empty. ACP also includes accumulated `streaming` text
 while a normal provider turn is active. Snapshots are readable from any
 authorized connection, not just the one that started a prompt.
+
+`harness/session/runs` is an owner-only inspection endpoint. It takes `sessionId`
+and returns a page of up to 24 input summaries with a numeric `before` cursor.
+Pass that cursor to read earlier inputs, or pass `lensId` to read one bounded
+Context Lens record. Records include the first-dispatch journal context, tool
+arguments/results, reply and hand delivery receipts. Reads never run tools or
+inference. Timings absent from the journal remain null; provider reasoning and
+transport credentials are excluded.
 
 `harness/session/history` takes `sessionId` and optional numeric `before`, an
 exclusive event-count cursor. It returns `revision`, chronological `entries`
