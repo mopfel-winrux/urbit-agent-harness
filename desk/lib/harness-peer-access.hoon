@@ -35,7 +35,9 @@
   ^-  json
   %-  pairs:enjs:format
   :~  ['ships' %a (turn ~(tap by known) row-json)]
-      ['note' %s 'Known permissions reported by remote ships, not a complete network directory. Reports may be stale; the remote ship checks current access and remaining budget on every ask. Use check_peer to refresh a specific ship. An unknown ship or an unavailable discovery protocol does not prove denial.']
+      :*  'note'  %s
+          'Known permissions reported by remote ships, not a complete network directory. Reports may be stale; the remote ship checks current access and remaining budget on every ask. Use check_peer to refresh a specific ship. An unknown ship or an unavailable discovery protocol does not prove denial.'
+      ==
   ==
 ++  changes
   |=  [before=(map @p peer-grant:h) after=(map @p peer-grant:h)]

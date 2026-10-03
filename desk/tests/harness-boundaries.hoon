@@ -1,9 +1,11 @@
 ::  Composition contracts: storage, wire shapes and grants remain independent
 ::  of the reducer. Use fixture credentials only; never inspect real secrets.
-/-  h=harness, w=harness-workspace, hn=harness-notes, ws=harness-workspace-search, pc=harness-project-client, wc=harness-work-control, *harness-store
+/-  h=harness, w=harness-workspace, hn=harness-notes, ws=harness-workspace-search,
+    pc=harness-project-client, wc=harness-work-control, *harness-store
 /-  hosted=harness-hosted, renew=harness-oauth
 /-  c=harness-corpus
-/+  *test, storage=harness-store, policy=harness-defaults, hj=harness-json, hp=harness-provider, ht=harness-tools, hl=harness
+/+  *test, storage=harness-store, policy=harness-defaults, hj=harness-json, hp=harness-provider,
+    ht=harness-tools, hl=harness
 |%
 ++  test-openai-endpoint-migration-preserves-auth-and-transcripts
   =/  saved=state-0  *state-0
@@ -12,23 +14,29 @@
   =.  defaults.saved  cfg
   =.  peer-base.saved  `cfg
   =.  summary-models.saved  [`cfg `cfg]
-  =.  sessions.saved  (my ~[['fixture' [~[[%input-admitted [%user 'Keep me']] [%config-replaced cfg]] 3]]])
+  =.  sessions.saved
+    %-  my
+    ~[['fixture' [~[[%input-admitted [%user 'Keep me']] [%config-replaced cfg]] 3]]]
   =/  source=conversation:c  *conversation:c
-  =.  source  source(sid 'fixture', seen log:(~(got by sessions.saved) 'fixture'), view (play:hl log:(~(got by sessions.saved) 'fixture')))
-  =.  corpus.saved  corpus.saved(names (my ~[['fixture' 0v1c]]), next 0v33, scopes (my ~[[0v1c source]]))
+  =.  source
+    %=  source  sid  'fixture'  seen  log:(~(got by sessions.saved) 'fixture')  view
+        (play:hl log:(~(got by sessions.saved) 'fixture'))
+    ==
+  =.  corpus.saved
+    corpus.saved(names (my ~[['fixture' 0v1c]]), next 0v33, scopes (my ~[[0v1c source]]))
   =.  provider-keys.saved  (my ~[['openai' 'fixture-api'] ['openai-device' 'fixture-subscription']])
   =/  out  (load:storage !>(saved))
   =/  v  (play:hl log:(~(got by sessions.out) 'fixture'))
   ;:  weld
-    (expect-eq !>('https://api.openai.com/v1/responses') !>(url.defaults.out))
-    (expect-eq !>(defaults.out) !>(config.v))
-    (expect-eq !>(`defaults.out) !>(peer-base.out))
-    (expect-eq !>(provider-keys.saved) !>(provider-keys.out))
-    (expect-eq !>(names.corpus.saved) !>(names.corpus.out))
-    (expect-eq !>(0v33) !>(next.corpus.out))
-    (expect-eq !>(config.v) !>(config.view:(~(got by scopes.corpus.out) 0v1c)))
-    (expect-eq !>(~[[%user 'Keep me']]) !>(items.v))
-    (expect-eq !>(out) !>((load:storage !>(out))))
+      (expect-eq !>('https://api.openai.com/v1/responses') !>(url.defaults.out))
+      (expect-eq !>(defaults.out) !>(config.v))
+      (expect-eq !>(`defaults.out) !>(peer-base.out))
+      (expect-eq !>(provider-keys.saved) !>(provider-keys.out))
+      (expect-eq !>(names.corpus.saved) !>(names.corpus.out))
+      (expect-eq !>(0v33) !>(next.corpus.out))
+      (expect-eq !>(config.v) !>(config.view:(~(got by scopes.corpus.out) 0v1c)))
+      (expect-eq !>(~[[%user 'Keep me']]) !>(items.v))
+      (expect-eq !>(out) !>((load:storage !>(out))))
   ==
 ++  test-bootstrap-enables-configurable-local-families
   =/  cfg  builtin-config:policy
@@ -36,7 +44,11 @@
     ~[[%clay ~] %web %curl %skills %skill-write %author %subagents %peers %corpus %workspace %tlon]
   (expect-eq !>(expected) !>(tools.cfg))
 ++  test-rehearsal-keeps-only-inherited-reads
-  =/  out  (rehearsal-tools:ht ~[[%clay /harness/lib] %web %skills %skill-write %author %subagents %peers %mcp %code %future-tool])
+  =/  out
+    %-  rehearsal-tools:ht
+    :~  [%clay /harness/lib]  %web  %skills  %skill-write  %author  %subagents  %peers  %mcp  %code
+        %future-tool
+    ==
   (expect-eq !>(`(list tool-grant:h)`~[[%clay /harness/lib] %skills]) !>(out))
 ++  test-rehearsal-does-not-add-read-authority
   (expect-eq !>(`(list term)`~) !>((rehearsal-tools:ht ~[%web %mcp])))
@@ -65,7 +77,13 @@
   =/  saved=state-0  *state-0
   =.  owners.work-controls.saved  (sy ~[['binding' 'alice']])
   =.  requests.work-controls.saved
-    (my ~[[0v3 ['conversation' 0v1 [%acp 'fixture'] `~zod 'task-create' [%o ~] 0v2 ~2026.9.13 %running ~]]])
+    %-  my
+    :~  :*  0v3
+            :*  'conversation'  0v1  [%acp 'fixture']  `~zod  'task-create'  [%o ~]  0v2  ~2026.9.13
+                %running  ~
+            ==
+        ==
+    ==
   (expect-eq !>(saved) !>((load:storage !>(saved))))
 ++  test-saved-tool-policy-is-not-replaced-by-bootstrap-defaults
   =/  saved=state-0  *state-0
@@ -88,12 +106,19 @@
     !=(`value (~(get by p.view) name))
   (expect !>(&(!matches !(~(has by p.config) 'key') !(~(has by p.view) 'key'))))
 ++  test-schema-discovery-is-not-an-execution-grant
-  (expect !>(&((tool-granted:ht 'http_fetch' ~[%web]) !(tool-granted:ht 'http_fetch' ~[%clay]) !(tool-granted:ht 'invented_tool' all-tools:ht))))
+  %-  expect
+  !>  ?&  (tool-granted:ht 'http_fetch' ~[%web])  !(tool-granted:ht 'http_fetch' ~[%clay])
+          !(tool-granted:ht 'invented_tool' all-tools:ht)
+      ==
 ++  test-work-and-peer-schemas-require-ordinary-json-objects
   =/  defs  (tool-defs:ht ~[%workspace %peers])
   ?>  ?=(%a -.defs)
   %-  zing
-  %+  turn  `(list [@t @t (list @t)])`~[['workspace' 'args' ~['action' 'args']] ['call_peer_tool' 'arguments' ~['ship' 'name' 'arguments']]]
+  %+  turn
+    ^-  (list [@t @t (list @t)])
+    :~  ['workspace' 'args' ~['action' 'args']]
+        ['call_peer_tool' 'arguments' ~['ship' 'name' 'arguments']]
+    ==
   |=  [name=@t key=@t required=(list @t)]
   =/  get
     |=  [j=json k=@t]
@@ -104,16 +129,24 @@
   =/  schema  i.found
   =/  params  (get (get schema 'function') 'parameters')
   ;:  weld
-    (expect-eq !>(`json`[%s 'object']) !>((get (get (get params 'properties') key) 'type')))
-    (expect-eq !>(`json`[%a (turn required |=(n=@t `json`[%s n]))]) !>((get params 'required')))
+      (expect-eq !>(`json`[%s 'object']) !>((get (get (get params 'properties') key) 'type')))
+      (expect-eq !>(`json`[%a (turn required |=(n=@t `json`[%s n]))]) !>((get params 'required')))
   ==
 ++  test-provider-catalog-retains-context-metadata
   =/  jon  (need (de:json:html '{"data":[{"id":"fixture","context_length":12345}]}'))
   (expect-eq !>(`(list model-info:hp)`~[['fixture' `12.345]]) !>((parse-model-list:hp jon)))
 ++  test-provider-catalog-uses-supported-maximum-not-default-working-window
-  =/  jon  (need (de:json:html '{"models":[{"slug":"gpt-6-luna","context_window":272000,"max_context_window":872000}]}'))
+  =/  jon
+    %-  need
+    %-  de:json:html
+    '{"models":[{"slug":"gpt-6-luna","context_window":272000,"max_context_window":872000}]}'
   (expect-eq !>(`(list model-info:hp)`~[['gpt-6-luna' `872.000]]) !>((parse-model-list:hp jon)))
 ++  test-invalid-maximum-does-not-hide-valid-context-metadata
-  =/  jon  (need (de:json:html '{"data":[{"id":"zero","context_length":12345,"max_context_window":0},{"id":"null","context_window":12345,"max_context_window":null}]}'))
-  (expect-eq !>(`(list model-info:hp)`~[['zero' `12.345] ['null' `12.345]]) !>((parse-model-list:hp jon)))
+  =/  jon
+    %-  need
+    %-  de:json:html
+    '{"data":[{"id":"zero","context_length":12345,"max_context_window":0},{"id":"null","context_window":12345,"max_context_window":null}]}'
+  %+  expect-eq
+    !>(`(list model-info:hp)`~[['zero' `12.345] ['null' `12.345]])
+  !>((parse-model-list:hp jon))
 --

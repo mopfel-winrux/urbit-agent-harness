@@ -9,7 +9,10 @@
 ++  test-page-uses-local-position-not-author-sent-time
   =/  page  (scan:p (fixture 21 'message') '')
   ?>  ?=(^ messages.page)
-  (expect !>(&(=(20 (lent messages.page)) =(20 scanned.page) =(`(add ~2026.9.6 2) before.page) =('2' id.i.messages.page))))
+  %-  expect
+  !>  ?&  =(20 (lent messages.page))  =(20 scanned.page)  =(`(add ~2026.9.6 2) before.page)
+          =('2' id.i.messages.page)
+      ==
 ++  test-last-page-has-no-cursor
   =/  page  (scan:p (fixture 20 'message') '')
   (expect !>(&(=(20 (lent messages.page)) =(~ before.page))))
@@ -25,10 +28,16 @@
   (expect !>(&(=(~ messages.page) =(20 scanned.page) =(`(add ~2026.9.6 2) before.page))))
 ++  test-cursors-are-scoped-and-bounded
   =/  token  (cursor:p 0v1 ~2026.9.6)
-  (expect !>(&(=(`~2026.9.6 (position:p 0v1 token)) =(~ (mole |.((position:p 0v2 token)))) =(~ (position:p 0v1 '')) =(~ (mole |.((position:p 0v1 (crip (reap 257 'a')))))))))
+  %-  expect
+  !>  ?&  =(`~2026.9.6 (position:p 0v1 token))  =(~ (mole |.((position:p 0v2 token))))
+          =(~ (position:p 0v1 ''))  =(~ (mole |.((position:p 0v1 (crip (reap 257 'a'))))))
+      ==
 ++  test-query-validation-and-normalization
   =/  make  |=(text=@t (pairs:enjs:format ~[['query' %s text]]))
-  (expect !>(&(=('needle' (query:p (make 'NEEDLE'))) =(~ (mole |.((query:p (make '   '))))) =(~ (mole |.((query:p (make (crip (reap 129 'a'))))))))))
+  %-  expect
+  !>  ?&  =('needle' (query:p (make 'NEEDLE')))  =(~ (mole |.((query:p (make '   ')))))
+          =(~ (mole |.((query:p (make (crip (reap 129 'a')))))))
+      ==
 ++  test-cursor-rejects-zero-position-and-unknown-version
   =/  zero  (cursor:p 0v1 `@da`0)
   =/  future  (scot %uv (jam [%2 0v1 ~2026.9.6]))
@@ -36,9 +45,15 @@
 ++  test-json-budget-does-not-consume-the-first-unreturned-hit
   =/  page  (scan:p (fixture 21 (crip (reap 800 `@t`1))) '')
   =/  json  (encode:p 0v1 page ~ '')
-  (expect !>(&(=(3 (lent messages.page)) =(3 scanned.page) =(`(add ~2026.9.6 19) before.page) (lth (met 3 (en:json:html json)) 24.000))))
+  %-  expect
+  !>  ?&  =(3 (lent messages.page))  =(3 scanned.page)  =(`(add ~2026.9.6 19) before.page)
+          (lth (met 3 (en:json:html json)) 24.000)
+      ==
 ++  test-text-limit-preserves-utf8-without-searchable-synthetic-suffix
   =/  prefix  (crip (reap 799 'a'))
   =/  text  (cat 3 prefix '👍tail')
-  (expect !>(&(=(prefix (clip-text:p text 800)) =(800 (met 3 (clip-text:p (crip (reap 801 'a')) 800))) =('👍' (clip-text:p '👍tail' 4)) =('' (clip-text:p '👍tail' 3)))))
+  %-  expect
+  !>  ?&  =(prefix (clip-text:p text 800))  =(800 (met 3 (clip-text:p (crip (reap 801 'a')) 800)))
+          =('👍' (clip-text:p '👍tail' 4))  =('' (clip-text:p '👍tail' 3))
+      ==
 --

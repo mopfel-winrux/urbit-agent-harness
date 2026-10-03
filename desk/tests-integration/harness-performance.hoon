@@ -1,7 +1,8 @@
 ::  Pure production hot-path timings. No prompts, network or agent evaluation.
 ::  -test /=harness=/tests-integration/harness-performance
 /-  h=harness, hh=harness-hand, c=harness-corpus, w=harness-workspace, *harness-store
-/+  *test, hl=harness, hs=harness-session, hd=harness-hand, ci=harness-corpus, si=harness-session-index, defaults=harness-defaults, j=harness-workspace-json
+/+  *test, hl=harness, hs=harness-session, hd=harness-hand, ci=harness-corpus,
+    si=harness-session-index, defaults=harness-defaults, j=harness-workspace-json
 |%
 ++  work-fixture
   ^-  state:w
@@ -9,13 +10,18 @@
   =/  count=@ud  2.048
   =/  body  (rap 3 (reap 32.768 'x'))
   |-  ^-  state:w
-  ?:  =(0 count)  db
-  =/  id  (cat 3 'record-' (scot %ud count))
-  =/  at=@da  (add ~2026.9.10 (mul count ~s1))
-  =.  tasks.db  (~(put by tasks.db) id ['' 'Task' '' 1 %open ~ '' ~ at])
-  =?  db  (lte count 512)
-    db(artifacts (~(put by artifacts.db) id [0v0 ~ 'Document' 1 (my ~[[1 [at [0v0 'Owner'] ['Document' body ~]]]]) ~ 0 |]), recency (~(put by recency.db) [%artifact id] at))
-  $(count (dec count))
+      ?:  =(0 count)  db
+      =/  id  (cat 3 'record-' (scot %ud count))
+      =/  at=@da  (add ~2026.9.10 (mul count ~s1))
+      =.  tasks.db  (~(put by tasks.db) id ['' 'Task' '' 1 %open ~ '' ~ at])
+      =?  db  (lte count 512)
+        %=  db  artifacts
+            %+  ~(put by artifacts.db)
+              id
+            [0v0 ~ 'Document' 1 (my ~[[1 [at [0v0 'Owner'] ['Document' body ~]]]]) ~ 0 |]
+          recency  (~(put by recency.db) [%artifact id] at)
+        ==
+      $(count (dec count))
 ++  test-work-first-page-costs-at-record-capacity
   =/  db  work-fixture
   =/  owner=authority:w  [& [0v0 'Owner'] 0v0]
@@ -29,42 +35,48 @@
   =/  artifact-rows  (need (get:j artifacts 'items'))
   ?>  &(?=(%a -.task-rows) ?=(%a -.artifact-rows))
   ;:  weld
-    (expect-eq !>(24) !>((lent p.task-rows)))
-    (expect-eq !>(24) !>((lent p.artifact-rows)))
-    (expect-eq !>('record-2.048') !>((string:j (snag 0 p.task-rows) 'id')))
-    (expect-eq !>('record-512') !>((string:j (snag 0 p.artifact-rows) 'id')))
-    (expect !>((lth (met 3 (en:json:html artifacts)) 16.384)))
+      (expect-eq !>(24) !>((lent p.task-rows)))
+      (expect-eq !>(24) !>((lent p.artifact-rows)))
+      (expect-eq !>('record-2.048') !>((string:j (snag 0 p.task-rows) 'id')))
+      (expect-eq !>('record-512') !>((string:j (snag 0 p.artifact-rows) 'id')))
+      (expect !>((lth (met 3 (en:json:html artifacts)) 16.384)))
   ==
 ++  history
   |=  turns=@ud
   ^-  (list event:h)
   =/  log=(list event:h)  ~[[%config-replaced builtin-config:defaults]]
   |-  ^-  (list event:h)
-  ?:  =(0 turns)  log
-  =/  id=@uv  `@uv`turns
-  $(turns (dec turns), log [[%command-completed id 'memory' 'No pinned notes.'] [%input-received [id [%acp 'benchmark'] `~zod ~ ~2026.9.10 [%user '/memory']]] log])
+      ?:  =(0 turns)  log
+      =/  id=@uv  `@uv`turns
+      %=  $  turns  (dec turns)  log
+          :*  [%command-completed id 'memory' 'No pinned notes.']
+              [%input-received [id [%acp 'benchmark'] `~zod ~ ~2026.9.10 [%user '/memory']]]  log
+          ==
+      ==
 ++  fleet
   |=  count=@ud
   ^-  (map session-id:h session:h)
   =/  log  (history 256)
   =|  sessions=(map session-id:h session:h)
   |-  ^-  (map session-id:h session:h)
-  ?:  =(0 count)  sessions
-  =/  sid  (cat 3 'benchmark-' (scot %ud count))
-  $(count (dec count), sessions (~(put by sessions) sid [log 1]))
+      ?:  =(0 count)  sessions
+      =/  sid  (cat 3 'benchmark-' (scot %ud count))
+      $(count (dec count), sessions (~(put by sessions) sid [log 1]))
 ++  interrupted-history
   |=  turns=@ud
   ^-  (list event:h)
   =|  log=(list event:h)
   |-  ^-  (list event:h)
-  ?:  =(0 turns)  log
-  =/  batch=(list event:h)
-    :~  [%cancelled ~ ~ 'interrupted']
-        [%tool-completed 'done' 'http_fetch' 'HTTP 200']
-        [%llm-completed turns %tool-calls [1 1] [%assistant '' ~[['done' 'http_fetch' '{}'] ['pending' 'http_fetch' '{}']]]]
-        [%input-admitted [%user 'check']]
-    ==
-  $(turns (dec turns), log (weld batch log))
+      ?:  =(0 turns)  log
+      =/  batch=(list event:h)
+        :~  [%cancelled ~ ~ 'interrupted']
+            [%tool-completed 'done' 'http_fetch' 'HTTP 200']
+            :*  %llm-completed  turns  %tool-calls  [1 1]
+                [%assistant '' ~[['done' 'http_fetch' '{}'] ['pending' 'http_fetch' '{}']]]
+            ==
+            [%input-admitted [%user 'check']]
+        ==
+      $(turns (dec turns), log (weld batch log))
 ++  test-hot-path-costs
   =/  saved=state-0  *state-0
   =.  sessions.saved  (fleet 128)
@@ -97,7 +109,10 @@
   =/  corpus
     ~>  %bout.[1 'perf-initial-corpus-capture-128']
     (sync:ci *state:c sessions.saved)
-  =/  next  (~(put by sessions.saved) 'benchmark-1' [[[%memory-set 'note' `'updated'] (history 256)] 1])
+  =/  next
+    %+  ~(put by sessions.saved)
+      'benchmark-1'
+    [[[%memory-set 'note' `'updated'] (history 256)] 1]
   =/  modified
     ~>  %bout.[1 'perf-one-session-modified-index-128']
     (update:si sessions.saved next (seed:si sessions.saved) ~2026.9.10)
@@ -105,29 +120,35 @@
     ~>  %bout.[1 'perf-one-session-corpus-sync-128']
     (sync:ci corpus next)
   ;:  weld
-    (expect-eq !>(sessions.saved) !>(sessions.validated))
-    (expect-eq !>(8.193) !>(revision.view))
-    (expect-eq !>((play:hl (weld (flop events) log))) !>(advanced))
-    (expect !>(?=(%o -.snapshot)))
-    (expect !>(?=(^ before.full)))
-    (expect-eq !>(`json`[%n '8154']) !>(before.full))
-    (expect-eq !>(8.192) !>((lent transcript)))
-    (expect-eq !>(1.024) !>((lent cancelled)))
-    (expect-eq !>(128) !>(~(wyt by modified)))
-    (expect-eq !>(128) !>(~(wyt by names.synced)))
+      (expect-eq !>(sessions.saved) !>(sessions.validated))
+      (expect-eq !>(8.193) !>(revision.view))
+      (expect-eq !>((play:hl (weld (flop events) log))) !>(advanced))
+      (expect !>(?=(%o -.snapshot)))
+      (expect !>(?=(^ before.full)))
+      (expect-eq !>(`json`[%n '8154']) !>(before.full))
+      (expect-eq !>(8.192) !>((lent transcript)))
+      (expect-eq !>(1.024) !>((lent cancelled)))
+      (expect-eq !>(128) !>(~(wyt by modified)))
+      (expect-eq !>(128) !>(~(wyt by names.synced)))
   ==
 ++  ledger
   |=  count=@ud
   ^-  state:hh
   =|  db=state:hh
   |-  ^-  state:hh
-  ?:  =(0 count)  db
-  =/  id=@uv  `@uv`count
-  =.  observations.db
-    (~(put by observations.db) id ['binding' 'event' 'actor' 'body' (add ~2026.9.10 (mul count ~s1)) %completed])
-  =.  outbox.db
-    (~(put by outbox.db) id [id 'binding' ?:(=(0 (mod count 2)) 'other-hand' 'one-hand') 'room' 'session' %reply 'retained output' ?:(=(count 1) %pending %delivered) '' '' ~])
-  $(count (dec count))
+      ?:  =(0 count)  db
+      =/  id=@uv  `@uv`count
+      =.  observations.db
+        %+  ~(put by observations.db)
+          id
+        ['binding' 'event' 'actor' 'body' (add ~2026.9.10 (mul count ~s1)) %completed]
+      =.  outbox.db
+        %+  ~(put by outbox.db)
+          id
+        :*  id  'binding'  ?:(=(0 (mod count 2)) 'other-hand' 'one-hand')  'room'  'session'  %reply
+            'retained output'  ?:(=(count 1) %pending %delivered)  ''  ''  ~
+        ==
+      $(count (dec count))
 ++  test-pending-frontier-with-retained-evidence
   =/  db  (ledger 2.048)
   =/  before

@@ -1,6 +1,6 @@
 ::  One revision-checked conversation policy for native and hosted settings.
 /-  t=harness-tlon, g=tlon-groups-ver, c=tlon-channels
-/+  p=harness-tlon-policy, j=harness-workspace-json
+/+  p=harness-tlon-policy, j=harness-workspace-json, paths=harness-tlon-paths
 |%
 ::
 ++  revision
@@ -32,10 +32,15 @@
   ?.  =(`[%s (revision policy epoch)] (get:j args 'revision'))
     [%| 409 'Permissions changed. Reload before saving.']
   =/  parsed
-    %-  mole  |.
+    %-  mole
+    |.
     =,  dejs:format
     =/  value=[enabled=? ships=(list @p) response=@t channels=(map nest:c channel-rule:t)]
-      ((ot ~[['enabled' bo] ['allowedShips' (ar (se %p))] ['response' so] ['channels' json-channels:p]]) args)
+      %-  %-  ot
+          :~  ['enabled' bo]  ['allowedShips' (ar (se %p))]  ['response' so]
+              ['channels' json-channels:p]
+          ==
+      args
     ?>  (lte (lent ships.value) 64)
     =/  ships  (silt ships.value)
     ?>  =(~(wyt in ships) (lent ships.value))
@@ -47,9 +52,9 @@
       |=  [who=@p tools=*]
       (~(has in ships) who)
     %*  .  policy
-      enabled   enabled.value
-      allowed   (~(dif in ships) ~(key by trusted))
-      trusted   trusted
+      enabled  enabled.value
+      allowed  (~(dif in ships) ~(key by trusted))
+      trusted  trusted
       response  response.value
       channels  channels.value
     ==
@@ -96,7 +101,8 @@
   ::  The mobile wire format describes the same native policy. Unsupported
   ::  distinctions fail closed instead of silently granting broader access.
   =/  parsed
-    %-  mole  |.
+    %-  mole
+    |.
     ?>  ?=(%o -.args)
     =/  fields
       %-  silt
@@ -131,29 +137,7 @@
     =/  rules  (get:j args 'channelRules')
     =/  channels  channels.policy
     =?  channels  ?=(^ rules)
-      ?>  ?=(%o -.u.rules)
-      =/  rows
-        %+  turn  ~(tap by p.u.rules)
-        |=  [name=@t value=json]
-        =/  mode  (string:j value 'mode')
-        ?>  |(=('open' mode) =('allowlist' mode))
-        ?>  ?|  =('open' mode)
-                =(ships (silt ((ar:dejs:format (se:dejs:format %p)) (need (get:j value 'allowedShips')))))
-            ==
-        %-  pairs:enjs:format
-        :~  ['channel' %s name]
-            ['response' %s 'mentions']
-            ['everyone' %b =('open' mode)]
-        ==
-      =/  wanted  (json-channels:p [%a rows])
-      ::  Omitted channels turn off; retained channels keep their all mode.
-      =/  kept=(list [p=nest:c q=channel-rule:t])
-        %+  turn  ~(tap by channels)
-        |=  [nest=nest:c rule=channel-rule:t]
-        =/  replacement  (~(get by wanted) nest)
-        ?~  replacement  [nest rule(response %off)]
-        [nest u.replacement(response ?:(=(%all response.rule) %all %mentions))]
-      (~(uni by wanted) (my kept))
+      (chat-channels channels ships u.rules)
     =/  trusted
       %-  my
       %+  skim  ~(tap by trusted.policy)
@@ -165,8 +149,38 @@
       channels  channels
     ==
   ?~  parsed
-    [%| 400 'Harness uses one allowed-ships list for DMs and invitations, with automatic channel discovery. Channel rules allow those ships or everyone; separate ship lists and channel models are unavailable.']
+    :*  %|  400
+        'Harness uses one allowed-ships list for DMs and invitations, with automatic channel discovery. Channel rules allow those ships or everyone; separate ship lists and channel models are unavailable.'
+    ==
   [%& u.parsed]
+::
+++  chat-channels
+  |=  [channels=(map nest:c channel-rule:t) ships=(set @p) rules=json]
+  ^-  (map nest:c channel-rule:t)
+  ?>  ?=(%o -.rules)
+  =/  rows
+    %+  turn  ~(tap by p.rules)
+    |=  [name=@t value=json]
+    =/  mode  (string:j value 'mode')
+    ?>  |(=('open' mode) =('allowlist' mode))
+    ?>  ?|  =('open' mode)
+            .=  ships
+            (silt ((ar:dejs:format (se:dejs:format %p)) (need (get:j value 'allowedShips'))))
+        ==
+    %-  pairs:enjs:format
+    :~  ['channel' %s name]
+        ['response' %s 'mentions']
+        ['everyone' %b =('open' mode)]
+    ==
+  =/  wanted  (json-channels:p [%a rows])
+  ::  Omitted channels turn off; retained channels keep their all mode.
+  =/  kept=(list [p=nest:c q=channel-rule:t])
+    %+  turn  ~(tap by channels)
+    |=  [nest=nest:c rule=channel-rule:t]
+    =/  replacement  (~(get by wanted) nest)
+    ?~  replacement  [nest rule(response %off)]
+    [nest u.replacement(response ?:(=(%all response.rule) %all %mentions))]
+  (~(uni by wanted) (my kept))
 ::
 ++  error
   |=  [status=@ud message=@t]
@@ -205,7 +219,9 @@
     ?~  seat=(~(get by seats.group) who)  |
     ?:  =(0 joined.u.seat)  |
     =/  native=$-([@p nest:g] ?)
-      .^($-([@p nest:g] ?) %gx /(scot %p our.bowl)/groups/(scot %da now.bowl)/v2/groups/(scot %p p.flag)/[q.flag]/channels/can-read/noun)
+      .^  $-([@p nest:g] ?)  %gx
+        (group-can-read:~(. paths [our now]:bowl) flag)
+      ==
     (native who nest)
   --
 --

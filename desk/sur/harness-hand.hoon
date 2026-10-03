@@ -56,9 +56,15 @@
       ::  but no model turn and no interpretation of its text as a command.
       [%notify binding=@t event=@t actor=@t text=@t]
       [%claim hand=@t effect=input-id:h worker=@t]
-      [%receipt hand=@t effect=input-id:h worker=@t status=?(%delivered %failed %uncertain) external=@t]
-      [%receipt-at hand=@t effect=input-id:h worker=@t attempt=@ud status=?(%delivered %failed %uncertain) external=@t]
-      [%resolve hand=@t effect=input-id:h attempt=@ud status=?(%delivered %failed %uncertain %abandoned) external=@t reason=@t]
+      $:  %receipt  hand=@t  effect=input-id:h  worker=@t  status=?(%delivered %failed %uncertain)
+          external=@t
+      ==
+      $:  %receipt-at  hand=@t  effect=input-id:h  worker=@t  attempt=@ud
+          status=?(%delivered %failed %uncertain)  external=@t
+      ==
+      $:  %resolve  hand=@t  effect=input-id:h  attempt=@ud
+          status=?(%delivered %failed %uncertain %abandoned)  external=@t  reason=@t
+      ==
       [%retry hand=@t effect=input-id:h]
       [%status binding=@t]
       [%outbox hand=@t]

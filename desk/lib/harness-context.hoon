@@ -25,11 +25,11 @@
     %reasoning  (met 3 data.item)
     %user  (met 3 body.item)
     %tool  (met 3 body.item)
-    %assistant
-      %+  add  (met 3 body.item)
-      %+  roll  calls.item
-      |=  [call=tool-call:h total=@ud]
-      (add total (met 3 args.call))
+      %assistant
+    %+  add  (met 3 body.item)
+    %+  roll  calls.item
+    |=  [call=tool-call:h total=@ud]
+    (add total (met 3 args.call))
   ==
 ::  Prefer complete exchanges. Tool batches provide additional safe cuts when
 ::  an unfinished exchange grows beyond the conversation's working budget.
@@ -38,10 +38,10 @@
   =|  at=@ud
   =|  reversed-cuts=(list @ud)
   |-  ^-  (list @ud)
-  ?~  items  (flop reversed-cuts)
-  =?  reversed-cuts  ?=([%assistant * ~] i.items)
-    [+(at) reversed-cuts]
-  $(items t.items, at +(at))
+      ?~  items  (flop reversed-cuts)
+      =?  reversed-cuts  ?=([%assistant * ~] i.items)
+        [+(at) reversed-cuts]
+      $(items t.items, at +(at))
 ::  Every call in a batch must have its result before that batch can be cut.
 ++  tool-boundaries
   |=  items=(list item:h)
@@ -49,15 +49,15 @@
   =|  pending=(set @t)
   =|  cuts=(list @ud)
   |-  ^-  (list @ud)
-  ?~  items  (flop cuts)
-  =/  item  i.items
-  =?  pending  ?=(%assistant -.item)
-    (silt (turn calls.item |=(call=tool-call:h id.call)))
-  =?  cuts  ?=([%assistant * ~] item)  [+(at) cuts]
-  =?  cuts  ?&(?=(%tool -.item) (~(has in pending) call-id.item) =(1 ~(wyt in pending)))
-    [+(at) cuts]
-  =?  pending  ?=(%tool -.item)  (~(del in pending) call-id.item)
-  $(items t.items, at +(at))
+      ?~  items  (flop cuts)
+      =/  item  i.items
+      =?  pending  ?=(%assistant -.item)
+        (silt (turn calls.item |=(call=tool-call:h id.call)))
+      =?  cuts  ?=([%assistant * ~] item)  [+(at) cuts]
+      =?  cuts  &(?=(%tool -.item) (~(has in pending) call-id.item) =(1 ~(wyt in pending)))
+        [+(at) cuts]
+      =?  pending  ?=(%tool -.item)  (~(del in pending) call-id.item)
+      $(items t.items, at +(at))
 ::  A checkpoint inside a turn retains that turn's user input verbatim.
 ::  These zero-based positions also retain its original source addresses.
 ++  preserved-input
@@ -65,10 +65,10 @@
   =|  at=@ud
   =|  keep=(list @ud)
   |-  ^-  (list @ud)
-  ?:  |(=(at count) ?=(~ items))  (flop keep)
-  =?  keep  ?=(%user -.i.items)  [at keep]
-  =?  keep  ?=([%assistant * ~] i.items)  ~
-  $(items t.items, at +(at))
+      ?:  |(=(at count) ?=(~ items))  (flop keep)
+      =?  keep  ?=(%user -.i.items)  [at keep]
+      =?  keep  ?=([%assistant * ~] i.items)  ~
+      $(items t.items, at +(at))
 ::  Walk item sizes once to find the preferred retained-tail boundary. Do not
 ::  serialize every growing prefix or repeatedly scan every remaining suffix.
 ++  preferred
@@ -81,16 +81,16 @@
   ?:  (lte bytes (mul target 4))  (rear cuts)
   =|  at=@ud
   |-  ^-  @ud
-  ?>  ?=(^ cuts)
-  ?:  =(at i.cuts)
-    ?:  |(=(~ t.cuts) (lte bytes (mul target 4)))  at
-    $(cuts t.cuts)
-  ?>  ?=(^ sizes)
-  %=  $
-    sizes  t.sizes
-    bytes  (sub bytes i.sizes)
-    at     +(at)
-  ==
+      ?>  ?=(^ cuts)
+      ?:  =(at i.cuts)
+        ?:  |(=(~ t.cuts) (lte bytes (mul target 4)))  at
+        $(cuts t.cuts)
+      ?>  ?=(^ sizes)
+      %=  $
+        sizes  t.sizes
+        bytes  (sub bytes i.sizes)
+        at  +(at)
+      ==
 ++  plan
   |=  $:  view=view:h
           through=@ud
@@ -127,24 +127,24 @@
   ::  exchanges until it can. This is local planning, not provider retries.
   ::  It avoids a quadratic sequence of ever-larger request encodings.
   |-  ^-  (each compaction-plan:h @t)
-  ?>  ?=(^ cuts)
-  =/  count  (rear cuts)
-  =/  size  (estimate view(items (scag count items.view)))
-  ?:  (gth size limit)
-    ?~  t.cuts
-      [%| 'A complete exchange or tool batch exceeds the compaction input budget.']
-    $(cuts (scag (div (lent cuts) 2) `(list @ud)`cuts))
-  :*  %&
-      through
-      count
-      (lent items.view)
-      (source-hash view count)
-      size
-      (output-budget max-context.config.view)
-      url.config.view
-      model.config.view
-      command
-  ==
+      ?>  ?=(^ cuts)
+      =/  count  (rear cuts)
+      =/  size  (estimate view(items (scag count items.view)))
+      ?:  (gth size limit)
+        ?~  t.cuts
+          [%| 'A complete exchange or tool batch exceeds the compaction input budget.']
+        $(cuts (scag (div (lent cuts) 2) `(list @ud)`cuts))
+      :*  %&
+          through
+          count
+          (lent items.view)
+          (source-hash view count)
+          size
+          (output-budget max-context.config.view)
+          url.config.view
+          model.config.view
+          command
+      ==
 ++  validate
   |=  [view=view:h plan=compaction-plan:h stop=stop-reason:h item=item:h]
   ^-  (unit @t)
@@ -152,7 +152,9 @@
     `'Compaction source coverage changed; the previous context was retained.'
   ?.  &(?=([%assistant * ~] item) =(%stop stop))
     `'Compaction did not return a complete summary; the previous context was retained.'
-  ?:  |(=('' body.item) (levy (trip body.item) |=(char=@tD |(=(32 char) =(9 char) =(10 char) =(13 char)))))
+  ?:  ?|  =('' body.item)
+          (levy (trip body.item) |=(char=@tD |(=(32 char) =(9 char) =(10 char) =(13 char))))
+      ==
     `'Compaction returned an empty summary; the previous context was retained.'
   ::  Reject expansion before the next decision, rather than looping on a
   ::  verbose summary. Request-level fit is checked again with the real codec.

@@ -31,22 +31,22 @@
   =/  source  source.u.input
   ?+  -.source  ~
     %acp  ?:(=(`our actor.u.input) `%local ~)
-    %poke
-      ?.  &(=(ship.source our) =(`our actor.u.input))  ~
-      `%local
-    %peer
-      ?.  &(=(`ship.source owner) =(`ship.source actor.u.input))  ~
-      `%peer
-    %hand
-      =/  actor  (slaw %p actor.source)
-      ?.  ?&(?=(^ actor) =('tlon' hand.source) =(`u.actor owner))  ~
-      ::  Public channels and schedules never inherit administrative access.
-      =/  dm  (cat 3 'dm/' (scot %p u.actor))
-      ?.  ?|  =(dm address.source)
-              =((cat 3 dm '/') (end [3 (add 1 (met 3 dm))] address.source))
-          ==
-        ~
-      `%tlon
+      %poke
+    ?.  &(=(ship.source our) =(`our actor.u.input))  ~
+    `%local
+      %peer
+    ?.  &(=(`ship.source owner) =(`ship.source actor.u.input))  ~
+    `%peer
+      %hand
+    =/  actor  (slaw %p actor.source)
+    ?.  &(?=(^ actor) =('tlon' hand.source) =(`u.actor owner))  ~
+    ::  Public channels and schedules never inherit administrative access.
+    =/  dm  (cat 3 'dm/' (scot %p u.actor))
+    ?.  ?|  =(dm address.source)
+            =((cat 3 dm '/') (end [3 (add 1 (met 3 dm))] address.source))
+        ==
+      ~
+    `%tlon
   ==
 ++  peer-source
   |=  log=(list event:h)

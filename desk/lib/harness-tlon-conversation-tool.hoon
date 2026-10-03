@@ -1,7 +1,9 @@
 ::  Explicit ship-wide destinations; callers must hold the broad Tlon grant.
 /-  t=harness-tlon
-/+  spec=harness-tlon-tool, hp=harness-tlon-history-page, reader=harness-tlon-history-read
+/+  spec=harness-tlon-tool, hp=harness-tlon-history-page, reader=harness-tlon-history-read,
+    paths=harness-tlon-paths
 |_  bowl=bowl:gall
++*  read-path  ~(. paths [our now]:bowl)
 ++  available
   |=  to=destination:t
   ^-  ?
@@ -11,7 +13,9 @@
     .^(? %gu /(scot %p our.bowl)/chat/(scot %da now.bowl)/dm/(scot %p who.to))
       %channel
     ?.  .^(? %gu /(scot %p our.bowl)/channels/(scot %da now.bowl)/$)  |
-    .^(? %gu /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/[kind.nest.to]/(scot %p ship.nest.to)/[name.nest.to])
+    .^  ?  %gu
+      (channel:read-path %v4 nest.to)
+    ==
   ==
 ++  history
   |=  [args=json search=?]

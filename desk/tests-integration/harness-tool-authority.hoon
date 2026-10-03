@@ -22,33 +22,39 @@
   =/  server=mcp-server:h  ['Fixture' 'urbit://~zod/mcp-proxy' ~ &]
   =/  events=(list event:h)
     :~  [%tool-requested-2 2 'call' 'call_mcp_tool']
-        [%llm-completed 1 %tool-calls [1 1] [%assistant '' ~[['call' 'call_mcp_tool' '{"server":"fixture","name":"read","arguments":{}}']]]]
+        :*  %llm-completed  1  %tool-calls  [1 1]
+            :*  %assistant  ''
+                ~[['call' 'call_mcp_tool' '{"server":"fixture","name":"read","arguments":{}}']]
+            ==
+        ==
         [%llm-requested 1 %turn]
         [%input-admitted [%user 'Read the result']]
         [%config-replaced config]
     ==
   %*  .  saved
-    defaults       config
+    defaults  config
     local-mcp-seen  1
-    sessions       (my ~[['source' [events 2]]])
-    mcp-servers    (my ~[['fixture' server]])
-    local-mcp      (my ~[[['source' 'call'] [2 'fixture' (sham server) 200 'Completed']]])
+    sessions  (my ~[['source' [events 2]]])
+    mcp-servers  (my ~[['fixture' server]])
+    local-mcp  (my ~[[['source' 'call'] [2 'fixture' (sham server) 200 'Completed']]])
   ==
 ::
 ++  test-stale-mcp-sign-cannot-consume-a-current-request
-  %-  isolated  |=  ignored=*
+  %-  isolated
+  |=  ignored=*
   =/  loaded  (~(on-load head bowl) !>(fixture))
   =/  before  !<(state-0 ~(on-save +.loaded bowl))
   =/  stale  (~(on-agent +.loaded bowl) /local-mcp/source/1/call [%kick ~])
   =/  after  !<(state-0 ~(on-save +.stale bowl))
   ;:  weld
-    (expect-eq !>(sessions.before) !>(sessions.after))
-    (expect-eq !>(local-mcp.before) !>(local-mcp.after))
-    (expect-eq !>(~) !>(-.stale))
+      (expect-eq !>(sessions.before) !>(sessions.after))
+      (expect-eq !>(local-mcp.before) !>(local-mcp.after))
+      (expect-eq !>(~) !>(-.stale))
   ==
 ::
 ++  test-mcp-completion-rechecks-grants-and-server-identity
-  %-  isolated  |=  ignored=*
+  %-  isolated
+  |=  ignored=*
   %-  zing
   %+  turn  `(list term)`~[%grant %disabled %configuration]
   |=  change=term
@@ -56,7 +62,9 @@
   =/  session  (~(got by sessions.initial) 'source')
   =/  config  config:(play:hl log.session)
   =?  sessions.initial  =(%grant change)
-    (~(put by sessions.initial) 'source' session(log [[%config-replaced config(tools ~)] log.session]))
+    %+  ~(put by sessions.initial)
+      'source'
+    session(log [[%config-replaced config(tools ~)] log.session])
   =/  server  (~(got by mcp-servers.initial) 'fixture')
   =?  mcp-servers.initial  =(%disabled change)
     (~(put by mcp-servers.initial) 'fixture' server(enabled |))
@@ -71,9 +79,11 @@
   =/  repeated  (~(on-agent +.completed bowl) /local-mcp/source/2/call [%kick ~])
   =/  after-repeat  !<(state-0 ~(on-save +.repeated bowl))
   ;:  weld
-    (expect-eq !>('rejected: local MCP access or server configuration changed') !>(body.receipt))
-    (expect-eq !>(~) !>(local-mcp.saved))
-    (expect-eq !>(sessions.saved) !>(sessions.after-repeat))
-    (expect-eq !>(~) !>(-.repeated))
+      %+  expect-eq
+        !>('rejected: local MCP access or server configuration changed')
+      !>(body.receipt)
+      (expect-eq !>(~) !>(local-mcp.saved))
+      (expect-eq !>(sessions.saved) !>(sessions.after-repeat))
+      (expect-eq !>(~) !>(-.repeated))
   ==
 --

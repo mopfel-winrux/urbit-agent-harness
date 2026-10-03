@@ -62,7 +62,7 @@
     =/  message  u.message.i.remaining
     %-  some
     %*  .  message
-      text     (clip-text text.message 800)
+      text  (clip-text text.message 800)
       clipped  |(clipped.message (gth (met 3 text.message) 800))
     ==
   =/  size=@ud
@@ -75,9 +75,9 @@
   ?~  candidate  $(remaining t.remaining)
   %=  $
     remaining  t.remaining
-    hits       +(hits)
-    bytes      (add bytes size)
-    result     result(messages [u.candidate messages.result])
+    hits  +(hits)
+    bytes  (add bytes size)
+    result  result(messages [u.candidate messages.result])
   ==
 ++  clip-text
   |=  [text=@t cap=@ud]

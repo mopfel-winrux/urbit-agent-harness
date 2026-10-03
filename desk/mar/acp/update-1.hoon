@@ -20,7 +20,8 @@
     ^-  jsn
     ?-  -.upd
         %connection
-      %-  frond  :-  'connection'
+      %-  frond
+      :-  'connection'
       %-  pairs
       :~  id+(as-string connection.upd)
           open+(as-bool open.upd)
@@ -28,7 +29,8 @@
       ==
     ::
         %messages
-      %-  frond  :-  'messages'
+      %-  frond
+      :-  'messages'
       a+(turn messages.upd message-json)
     ==
   ++  message-json

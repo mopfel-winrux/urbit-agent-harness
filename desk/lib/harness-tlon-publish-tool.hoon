@@ -20,9 +20,9 @@
   |=  kind=@tas
   ^-  @ta
   ?+  kind  !!
-    %chat   %msg
+    %chat  %msg
     %diary  %note
-    %heap   %curio
+    %heap  %curio
   ==
 ++  reference
   |=  args=json
@@ -68,7 +68,9 @@
     :~  ['citation' %s citation]
         ['published' %b visible]
         ['public_path' ?:(visible [%s (cat 3 '/expose' citation)] ~)]
-        ['note' %s 'Relative to this ship HTTP origin. Public reachability depends on hosting; unpublishing cannot erase third-party copies.']
+        :*  'note'  %s
+            'Relative to this ship HTTP origin. Public reachability depends on hosting; unpublishing cannot erase third-party copies.'
+        ==
     ==
   ?:  =('get_publication' action)  [(en:json:html info) ~]
   ?>  =(citation (required:spec args 'confirm' 1.024))
@@ -84,6 +86,11 @@
     (gth sent:+.+.post 0)
   ?>  readable
   =/  payload  (pairs:enjs:format ~[[?:(show 'show' 'hide') %s citation]])
-  :-  (rap 3 'accepted: local public exposure changed; verify get_publication. Public path: /expose' citation ~)
+  :-  %:  rap
+        3
+        'accepted: local public exposure changed; verify get_publication. Public path: /expose'
+        citation
+        ~
+      ==
   `[%pass wire %agent [our.bowl %expose] %poke %json !>(payload)]
 --

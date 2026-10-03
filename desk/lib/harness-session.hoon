@@ -48,7 +48,7 @@
       ?&  ?=(^ reply.i.prefix)
           ?=([~ %reply *] (outcome:head (play:head prefix)))
       ==
-      %llm-completed      ?=([%assistant * ~] item.i.prefix)
+      %llm-completed  ?=([%assistant * ~] item.i.prefix)
     ==
   ?.  complete  [%| 'Branch after a completed assistant reply']
   [%& [[%forked from at ~ ~] prefix] next-req.session]
@@ -64,28 +64,28 @@
     ?^  err.view  'error'
     'idle'
   =/  page=[entries=json before=json]
-    ?:  ?&(?=(^ since) =(u.since revision))  [~ ~]
+    ?:  &(?=(^ since) =(u.since revision))  [~ ~]
     (history session ~)
   |^
-  %-  pairs:enjs:format
-  :~  ['revision' (numb:enjs:format revision)]
-      ['phase' %s phase]
-      ['error' ?~(err.view ~ [%s u.err.view])]
-      ['failure' ?~(err.view ~ (json:failure u.err.view))]
-      ['model' %s model.config.view]
-      ['memory' (memory-json:codec memory.view)]
-      ['usage' (usage-json total.view)]
-      ['compactionUsage' (usage-json compact-usage.view)]
-      ['compactions' (numb:enjs:format compactions)]
-      :-  'origin'
-      ?~  origin.view  ~
-      %-  pairs:enjs:format
-      :~  ['sessionId' %s from.u.origin.view]
-          ['eventCount' (numb:enjs:format at.u.origin.view)]
-      ==
-      ['entries' entries.page]
-      ['before' before.page]
-  ==
+    %-  pairs:enjs:format
+    :~  ['revision' (numb:enjs:format revision)]
+        ['phase' %s phase]
+        ['error' ?~(err.view ~ [%s u.err.view])]
+        ['failure' ?~(err.view ~ (json:failure u.err.view))]
+        ['model' %s model.config.view]
+        ['memory' (memory-json:codec memory.view)]
+        ['usage' (usage-json total.view)]
+        ['compactionUsage' (usage-json compact-usage.view)]
+        ['compactions' (numb:enjs:format compactions)]
+        :-  'origin'
+        ?~  origin.view  ~
+        %-  pairs:enjs:format
+        :~  ['sessionId' %s from.u.origin.view]
+            ['eventCount' (numb:enjs:format at.u.origin.view)]
+        ==
+        ['entries' entries.page]
+        ['before' before.page]
+    ==
   ::  Count completion events in the durable log; the active context only
   ::  contains the retained tail and cannot supply this count.
   ::
@@ -119,22 +119,22 @@
   =/  bytes=@ud  0
   =|  page=(list json)
   |-  ^-  [entries=json before=json]
-  ?~  events  [[%a page] ~]
-  =/  rows  (transcript-event:head at events)
-  ?~  rows  $(events t.events, at (dec at))
-  ?:  |((gte count 40) (gte bytes 262.144))
-    [[%a page] (numb:enjs:format oldest)]
-  =/  projected  (turn rows transcript-row-json:codec)
-  %=  $
-    events  t.events
-    at      (dec at)
-    count   (add count (lent projected))
-    oldest  at
-    bytes
-      %+  add  bytes
-      %+  roll  projected
-      |=  [row=json size=@ud]
-      (add size (met 3 (en:json:html row)))
-    page    (weld projected page)
-  ==
+      ?~  events  [[%a page] ~]
+      =/  rows  (transcript-event:head at events)
+      ?~  rows  $(events t.events, at (dec at))
+      ?:  |((gte count 40) (gte bytes 262.144))
+        [[%a page] (numb:enjs:format oldest)]
+      =/  projected  (turn rows transcript-row-json:codec)
+      %=  $
+        events  t.events
+        at  (dec at)
+        count  (add count (lent projected))
+        oldest  at
+        bytes
+          %+  add  bytes
+          %+  roll  projected
+          |=  [row=json size=@ud]
+          (add size (met 3 (en:json:html row)))
+        page  (weld projected page)
+      ==
 --

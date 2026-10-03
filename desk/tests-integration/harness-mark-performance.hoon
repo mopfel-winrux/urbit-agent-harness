@@ -17,14 +17,14 @@
   =/  left=@ud  100
   =|  count=@ud
   |-  ^-  @ud
-  ?:  =(0 left)  count
-  =/  gat  (mule |.(vale.marc))
-  =/  typ  (mule |.(type.marc))
-  ?>  &(?=(%& -.gat) ?=(%& -.typ))
-  =/  got=vase  (p.gat left)
-  ?>  =(p.got p.typ)
-  ?>  =(q.got left)
-  $(left (dec left), count (add count left))
+      ?:  =(0 left)  count
+      =/  gat  (mule |.(vale.marc))
+      =/  typ  (mule |.(type.marc))
+      ?>  &(?=(%& -.gat) ?=(%& -.typ))
+      =/  got=vase  (p.gat left)
+      ?>  =(p.got p.typ)
+      ?>  =(q.got left)
+      $(left (dec left), count (add count left))
 ++  test-repeated-mark-dispatch
   =/  marc  (build-marc:marks !>(noun-mark))
   =/  legacy  (legacy-marc !>(noun-mark))
@@ -33,7 +33,7 @@
   =/  after
     ~>(%bout.[1 'perf-mark-prepared-dispatch-100'] (run marc))
   ;:  weld
-    (expect-eq !>(5.050) !>(before))
-    (expect-eq !>(before) !>(after))
+      (expect-eq !>(5.050) !>(before))
+      (expect-eq !>(before) !>(after))
   ==
 --

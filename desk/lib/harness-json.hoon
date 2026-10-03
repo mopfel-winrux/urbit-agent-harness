@@ -15,7 +15,7 @@
   ?>  ?=(%o -.row)
   ::  Synthetic cancellation rows share an event position; the call ID separates them.
   =/  row-id
-    ?:  ?&(?=(%tool -.item) (is-cancelled:hl body.item))
+    ?:  &(?=(%tool -.item) (is-cancelled:hl body.item))
       (rap 3 (scot %ud at) ':' call-id.item ~)
     (scot %ud at)
   :-  %o
@@ -129,7 +129,7 @@
   |=  item=item:h
   ^-  json
   ?-  -.item
-      %reasoning  ~
+    %reasoning  ~
       %user
     %-  pairs:enjs:format
     :~  ['role' %s 'user']
@@ -165,23 +165,54 @@
   |=  event=event:h
   ^-  json
   ?-  -.event
-      %llm-reasoning
-    %-  pairs:enjs:format
-    :~  ['type' %s 'llm-reasoning']
-        ['req' (numb:enjs:format req.event)]
-    ==
+      ?(%input-admitted %input-received %command-completed %memory-set %context-received)
+    (input-event-json event)
+      ?(%llm-reasoning %llm-requested %llm-routed %llm-completed %llm-failed)
+    (llm-event-json event)
+      ?(%tool-requested %tool-requested-2 %tool-completed)
+    (tool-event-json event)
+      $?  %compaction-completed  %lcm-planned  %compaction-planned
+          %checkpoint-completed  %compaction-failed
+      ==
+    (compaction-event-json event)
       %config-replaced
     %-  pairs:enjs:format
     :~  ['type' %s 'config']
         ['model' %s model.config.event]
     ==
-  ::
+      %cancelled
+    %-  pairs:enjs:format
+    :~  ['type' %s 'cancelled']
+        ['reason' %s reason.event]
+    ==
+      %forked
+    %-  pairs:enjs:format
+    :~  ['type' %s 'forked']
+        ['from' %s from.event]
+        ['eventCount' (numb:enjs:format at.event)]
+    ==
+      %retried
+    %-  pairs:enjs:format
+    :~  ['type' %s 'retried']
+    ==
+      %halted
+    %-  pairs:enjs:format
+    :~  ['type' %s 'halted']
+        ['reason' %s reason.event]
+    ==
+  ==
+::
+++  input-event-json
+  |=  event=event:h
+  ^-  json
+  ?>  ?=  ?(%input-admitted %input-received %command-completed %memory-set %context-received)
+      -.event
+  ?-  -.event
       %input-admitted
     %-  pairs:enjs:format
     :~  ['type' %s 'input']
         ['item' (item-ui-json item.event)]
     ==
-  ::
       %input-received
     %-  pairs:enjs:format
     :~  ['type' %s 'input']
@@ -189,7 +220,6 @@
         ['source' (input-source-json source.input.event)]
         ['item' (item-ui-json item.input.event)]
     ==
-  ::
       %command-completed
     %-  pairs:enjs:format
     :~  ['type' %s 'command-completed']
@@ -197,34 +227,41 @@
         ['name' %s name.event]
         ['body' %s (clean:text body.event)]
     ==
-  ::
       %memory-set
     %-  pairs:enjs:format
     :~  ['type' %s 'memory-set']
         ['name' %s name.event]
         ['body' ?~(body.event ~ [%s u.body.event])]
     ==
-  ::
       %context-received
     %-  pairs:enjs:format
     :~  ['type' %s 'context-received']
         ['inputId' %s (scot %uv input-id.event)]
         ['body' %s body.event]
     ==
-  ::
+  ==
+::
+++  llm-event-json
+  |=  event=event:h
+  ^-  json
+  ?>  ?=(?(%llm-reasoning %llm-requested %llm-routed %llm-completed %llm-failed) -.event)
+  ?-  -.event
+      %llm-reasoning
+    %-  pairs:enjs:format
+    :~  ['type' %s 'llm-reasoning']
+        ['req' (numb:enjs:format req.event)]
+    ==
       %llm-requested
     %-  pairs:enjs:format
     :~  ['type' %s 'llm-requested']
         ['req' (numb:enjs:format req.event)]
         ['kind' %s kind.event]
     ==
-  ::
       %llm-routed
     %-  pairs:enjs:format
     :~  ['type' %s 'llm-routed']
         ['model' %s model.config.event]
     ==
-  ::
       %llm-completed
     %-  pairs:enjs:format
     :~  ['type' %s 'llm-completed']
@@ -232,33 +269,45 @@
         ['item' (item-ui-json item.event)]
         ['usage' (usage-json usage.event)]
     ==
-  ::
       %llm-failed
     %-  pairs:enjs:format
     :~  ['type' %s 'llm-failed']
         ['err' %s err.event]
     ==
-  ::
+  ==
+::
+++  tool-event-json
+  |=  event=event:h
+  ^-  json
+  ?>  ?=(?(%tool-requested %tool-requested-2 %tool-completed) -.event)
+  ?-  -.event
       %tool-requested
     %-  pairs:enjs:format
     :~  ['type' %s 'tool-requested']
         ['name' %s name.event]
     ==
-  ::
       %tool-requested-2
     %-  pairs:enjs:format
     :~  ['type' %s 'tool-requested']
         ['name' %s name.event]
         ['generation' (numb:enjs:format generation.event)]
     ==
-  ::
       %tool-completed
     %-  pairs:enjs:format
     :~  ['type' %s 'tool']
         ['name' %s name.event]
         ['body' %s body.event]
     ==
-  ::
+  ==
+::
+++  compaction-event-json
+  |=  event=event:h
+  ^-  json
+  ?>  ?=  $?  %compaction-completed  %lcm-planned  %compaction-planned
+              %checkpoint-completed  %compaction-failed
+          ==
+      -.event
+  ?-  -.event
       %compaction-completed
     %-  pairs:enjs:format
     :~  ['type' %s 'compaction']
@@ -289,30 +338,6 @@
     :~  ['type' %s 'compaction-failed']
         ['err' %s err.event]
         ['usage' (usage-json usage.event)]
-    ==
-  ::
-      %cancelled
-    %-  pairs:enjs:format
-    :~  ['type' %s 'cancelled']
-        ['reason' %s reason.event]
-    ==
-  ::
-      %forked
-    %-  pairs:enjs:format
-    :~  ['type' %s 'forked']
-        ['from' %s from.event]
-        ['eventCount' (numb:enjs:format at.event)]
-    ==
-  ::
-      %retried
-    %-  pairs:enjs:format
-    :~  ['type' %s 'retried']
-    ==
-  ::
-      %halted
-    %-  pairs:enjs:format
-    :~  ['type' %s 'halted']
-        ['reason' %s reason.event]
     ==
   ==
 ::  A deliberately compact JSON projection. Native clients can consume the

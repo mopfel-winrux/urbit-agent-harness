@@ -91,8 +91,9 @@
   |=  value=json
   ^-  @t
   =/  all  (get:j value 'sources')
-  ?.  ?&(?=(^ all) ?=(%a -.u.all) ?=(^ p.u.all))  ''
-  %+  cat  3  :-  '\0a\0aSources:\0a'
+  ?.  &(?=(^ all) ?=(%a -.u.all) ?=(^ p.u.all))  ''
+  %+  cat  3
+  :-  '\0a\0aSources:\0a'
   %+  rap  3
   %+  turn  p.u.all
   |=  source=json
@@ -105,7 +106,8 @@
   ^-  @t
   ::  Author-facing fields retain complete values. Versions and routing keys
   ::  bind the canonical request, not the human's reading task.
-  %-  rap  :-  3
+  %-  rap
+  :-  3
   :~  (field args 'title' 'Title: ')
       (field args 'description' '')
       (field args 'status' 'Task status: ')
@@ -123,92 +125,104 @@
   =/  args  (object value 'args')
   =/  name  (title value)
   |^
-  ?:  =('rejected' phase)  'Cancelled. Nothing was changed.'
-  ?:  =('failed' phase)
-    (cat 3 'That change did not complete.' (field value 'result' '\0a'))
-  ?:  =('running' phase)  (cat 3 'Saving changes to ' (cat 3 name '.'))
-  ?:  =('done' phase)  completed
-  preview
-::
-++  completed
-  ?:  =('task-create' action)  (rap 3 ~['Added ' name '.'])
-  ?:  =('project-create' action)  (rap 3 ~['Created ' name '.'])
-  ?:  =('task-reply' action)  delivery-summary
-  ?:  =('review' action)
-    ?:  (boolean:j args 'accept' |)  (rap 3 ~['Saved the draft for ' name '.'])
-    (rap 3 ~['Rejected the draft for ' name '.'])
-  ?:  =('publish' action)  (rap 3 ~['Published ' name '.'])
-  ?:  =('unpublish' action)  (rap 3 ~['Removed the public page for ' name '.'])
-  (rap 3 ~['Saved changes to ' name '.'])
-::
-++  delivery-summary
-  =/  delivery  (object value 'delivery')
-  =/  state  (string delivery 'status')
-  =/  destination  (string delivery 'address')
-  =/  where  ?:(=('' destination) '' (cat 3 ' to ' (line destination)))
-  ?:  =('delivered' state)  (rap 3 ~['Sent the result' where '.'])
-  ?:  =('uncertain' state)  'Delivery could not be verified. Check the destination before sending again.'
-  ?:  =('failed' state)  'The message was not delivered. Check delivery details before trying again.'
-  ?:  =('abandoned' state)  'This delivery is abandoned. It will not be retried.'
-  (rap 3 ~['The result is queued' where '.\0aDelivery is not confirmed yet.'])
-::
-++  preview
-  =/  project  (field value 'projectTitle' 'Project: ')
-  ?:  =('task-reply' action)
-    =/  reply  (object value 'reply')
-    %-  rap  :-  3
-    :~  'Send this result?'
-        (field reply 'address' 'Conversation: ')
-        (field reply 'actor' 'Recipient: ')
-        (field reply 'text' '')
-    ==
-  ?:  =('review' action)
-    =/  content  (object (object value 'proposal') 'content')
-    %-  rap  :-  3
-    :~  ?:((boolean:j args 'accept' |) 'Save this draft?' 'Reject this draft?')
-        (field content 'title' '')
-        (document content)
-        (field args 'reason' 'Reason: ')
-        ?:((boolean:j args 'accept' |) '\0a\0aSaves the document without sending or publishing it.' '')
-    ==
-  ?:  =('publish' action)
-    =/  content  (object (object value 'publication') 'content')
-    %-  rap  :-  3
-    :~  'Publish this document?\0a\0aAnyone with the public link can read this revision.'
-        (field content 'title' '')
-        (document content)
-    ==
-  ?:  =('unpublish' action)  (rap 3 ~['Remove the public page for ' name '?'])
-  ?:  =('member' action)
-    %-  rap  :-  3
-    :~  'Change access to '
-        name
+    ?:  =('rejected' phase)  'Cancelled. Nothing was changed.'
+    ?:  =('failed' phase)
+      (cat 3 'That change did not complete.' (field value 'result' '\0a'))
+    ?:  =('running' phase)  (cat 3 'Saving changes to ' (cat 3 name '.'))
+    ?:  =('done' phase)  completed
+    preview
+  ::
+  ++  completed
+    ?:  =('task-create' action)  (rap 3 ~['Added ' name '.'])
+    ?:  =('project-create' action)  (rap 3 ~['Created ' name '.'])
+    ?:  =('task-reply' action)  delivery-summary
+    ?:  =('review' action)
+      ?:  (boolean:j args 'accept' |)  (rap 3 ~['Saved the draft for ' name '.'])
+      (rap 3 ~['Rejected the draft for ' name '.'])
+    ?:  =('publish' action)  (rap 3 ~['Published ' name '.'])
+    ?:  =('unpublish' action)  (rap 3 ~['Removed the public page for ' name '.'])
+    (rap 3 ~['Saved changes to ' name '.'])
+  ::
+  ++  delivery-summary
+    =/  delivery  (object value 'delivery')
+    =/  state  (string delivery 'status')
+    =/  destination  (string delivery 'address')
+    =/  where  ?:(=('' destination) '' (cat 3 ' to ' (line destination)))
+    ?:  =('delivered' state)  (rap 3 ~['Sent the result' where '.'])
+    ?:  =('uncertain' state)
+      'Delivery could not be verified. Check the destination before sending again.'
+    ?:  =('failed' state)
+      'The message was not delivered. Check delivery details before trying again.'
+    ?:  =('abandoned' state)  'This delivery is abandoned. It will not be retried.'
+    (rap 3 ~['The result is queued' where '.\0aDelivery is not confirmed yet.'])
+  ::
+  ++  preview
+    =/  project  (field value 'projectTitle' 'Project: ')
+    ?:  =('task-reply' action)
+      =/  reply  (object value 'reply')
+      %-  rap
+      :-  3
+      :~  'Send this result?'
+          (field reply 'address' 'Conversation: ')
+          (field reply 'actor' 'Recipient: ')
+          (field reply 'text' '')
+      ==
+    ?:  =('review' action)
+      =/  content  (object (object value 'proposal') 'content')
+      %-  rap
+      :-  3
+      :~  ?:((boolean:j args 'accept' |) 'Save this draft?' 'Reject this draft?')
+          (field content 'title' '')
+          (document content)
+          (field args 'reason' 'Reason: ')
+          ?:  (boolean:j args 'accept' |)
+            '\0a\0aSaves the document without sending or publishing it.'
+          ''
+      ==
+    ?:  =('publish' action)
+      =/  content  (object (object value 'publication') 'content')
+      %-  rap
+      :-  3
+      :~  'Publish this document?\0a\0aAnyone with the public link can read this revision.'
+          (field content 'title' '')
+          (document content)
+      ==
+    ?:  =('unpublish' action)  (rap 3 ~['Remove the public page for ' name '?'])
+    ?:  =('member' action)
+      %-  rap
+      :-  3
+      :~  'Change access to '
+          name
+          '?'
+          (field args 'scope' 'Agent: ')
+          (field args 'role' 'Role: ')
+          ?:(=(~ (fall (get:j args 'role') ~)) '\0aRemove this agent’s project access.' '')
+      ==
+    ?:  =('hand-access' action)
+      %-  rap
+      :-  3
+      :~  ?:  (boolean:j args 'owner' |)
+            'Allow work management from this conversation?'
+          'Remove work management access?'
+          (field args 'actor' 'Person: ')
+          (field args 'binding' 'Connection: ')
+      ==
+    =/  linked
+      ?:  =(`~ (get:j args 'artifact'))  '\0a\0aRemove the linked result.'
+      ?~  (optional:j args 'artifact')  ''
+      (field value 'artifactTitle' 'Result: ')
+    %-  rap
+    :-  3
+    :~  (action-label action)
+        ?:(=('this work' name) '' (cat 3 ' for ' name))
         '?'
-        (field args 'scope' 'Agent: ')
-        (field args 'role' 'Role: ')
-        ?:(=(~ (fall (get:j args 'role') ~)) '\0aRemove this agent’s project access.' '')
+        project
+        (changes args)
+        linked
+        ?:  (boolean:j args 'archived' |)  '\0a\0aArchive this record.'
+        ?:(=(`[%b |] (get:j args 'archived')) '\0a\0aKeep this record active.' '')
     ==
-  ?:  =('hand-access' action)
-    %-  rap  :-  3
-    :~  ?:((boolean:j args 'owner' |) 'Allow work management from this conversation?' 'Remove work management access?')
-        (field args 'actor' 'Person: ')
-        (field args 'binding' 'Connection: ')
-    ==
-  =/  linked
-    ?:  =(`~ (get:j args 'artifact'))  '\0a\0aRemove the linked result.'
-    ?~  (optional:j args 'artifact')  ''
-    (field value 'artifactTitle' 'Result: ')
-  %-  rap  :-  3
-  :~  (action-label action)
-      ?:(=('this work' name) '' (cat 3 ' for ' name))
-      '?'
-      project
-      (changes args)
-      linked
-      ?:  (boolean:j args 'archived' |)  '\0a\0aArchive this record.'
-      ?:(=(`[%b |] (get:j args 'archived')) '\0a\0aKeep this record active.' '')
-  ==
---
+  --
 ++  links
   |=  value=json
   ^-  (list [label=@t command=@t])
@@ -223,13 +237,18 @@
   =?  target  =('' target)  (string result 'id')
   =?  target  =('' target)  (string (object result 'task') 'id')
   ?:  =('pending' phase)
-    =/  label  ?:(&(=('review' action) !(boolean:j args 'accept' |)) 'Reject draft' (action-label action))
-    ~[[label (cat 3 '/work confirm ' id)] ['Cancel' (cat 3 '/work reject ' id)] ['Details' technical]]
+    =/  label
+      ?:(&(=('review' action) !(boolean:j args 'accept' |)) 'Reject draft' (action-label action))
+    :~  [label (cat 3 '/work confirm ' id)]  ['Cancel' (cat 3 '/work reject ' id)]
+        ['Details' technical]
+    ==
   ?:  =('running' phase)  ~[['Check status' inspect] ['Details' technical]]
   ?:  =('task-reply' action)  ~[['Check delivery' inspect] ['Details' technical]]
   ?:  &(=('done' phase) !=('' target))
-    ?:  =('task-create' action)  ~[['View task' (cat 3 '/work task ' (ref 't' target))] ['Details' technical]]
-    ?:  =('project-create' action)  ~[['Open project' (cat 3 '/work project ' (ref 'p' target))] ['Details' technical]]
+    ?:  =('task-create' action)
+      ~[['View task' (cat 3 '/work task ' (ref 't' target))] ['Details' technical]]
+    ?:  =('project-create' action)
+      ~[['Open project' (cat 3 '/work project ' (ref 'p' target))] ['Details' technical]]
     ~[['Tasks' '/work tasks'] ['Details' technical]]
   ~[['Details' technical]]
 ++  footer
@@ -240,7 +259,8 @@
   (rap 3 ~['\0a' label ': ' command])
 ++  receipt
   |=  value=json
-  %-  rap  :-  3
+  %-  rap
+  :-  3
   :~  (summary value)
       ?:(=('pending' (string value 'status')) '\0a\0aPlease confirm within 15 minutes.' '')
       '\0a'

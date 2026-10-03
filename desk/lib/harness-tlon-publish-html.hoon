@@ -18,7 +18,41 @@
   ^-  ?
   ?.  (lth depth 32)  |
   ?:  ?=([%$ [[%$ *] ~]] g.node)  =(~ c.node)
-  ?.  ?=(?(%article %section %div %p %h1 %h2 %h3 %h4 %h5 %h6 %ul %ol %li %blockquote %pre %code %strong %em %b %i %s %del %hr %br %a %img %table %thead %tbody %tr %th %td %caption %figure %figcaption) n.g.node)  |
+  ?.  ?=  $?  %article
+              %section
+              %div
+              %p
+              %h1
+              %h2
+              %h3
+              %h4
+              %h5
+              %h6
+              %ul
+              %ol
+              %li
+              %blockquote
+              %pre
+              %code
+              %strong
+              %em
+              %b
+              %i
+              %s
+              %del
+              %hr
+              %br
+              %a
+              %img
+              %table
+              %thead
+              %tbody
+              %tr
+              %th
+              %td  %caption  %figure  %figcaption
+          ==
+      n.g.node
+    |
   ?&  (levy c.node |=(child=manx (validate child +(depth))))
       %+  levy  a.g.node
       |=  attr=[n=mane v=tape]
@@ -40,7 +74,15 @@
     :-  [%head ~]
     :~  [[%meta ~[[%charset "utf-8"]]] ~]
         [[%meta ~[[%name "viewport"] [%content "width=device-width, initial-scale=1"]]] ~]
-        [[%meta ~[[%http-equiv "Content-Security-Policy"] [%content "default-src 'none'; img-src https: http:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"]]] ~]
+        :*  :*  %meta
+                :~  [%http-equiv "Content-Security-Policy"]
+                    :*  %content
+                        "default-src 'none'; img-src https: http:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"
+                    ==
+                ==
+            ==
+            ~
+        ==
         [[%meta ~[[%name "referrer"] [%content "no-referrer"]]] ~]
         [[%title ~] ~[(text title)]]
     ==

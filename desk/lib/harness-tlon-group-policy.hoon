@@ -48,38 +48,53 @@
           =('add_channel_readers' action)
           =('remove_channel_readers' action)
       ==
-    =/  nest  (group-nest:spec (required:spec args 'channel' 256))
-    ?>  (~(has by channels.group) nest)
-    ?:  =('delete_channel' action)
-      ?>  =((required:spec args 'confirm' 256) (required:spec args 'channel' 256))
-      [%channel nest %del ~]
-    =/  role  (slug:spec (required:spec args 'role' 64))
-    ?>  (~(has by roles.group) role)
-    ?:  =('add_channel_readers' action)
-      [%channel nest %add-readers (silt ~[role])]
-    [%channel nest %del-readers (silt ~[role])]
+    (manage-channel args action group)
   ?:  =('set_group_privacy' action)
     =/  privacy  (required:spec args 'privacy' 16)
     ?>  ?=(?(%secret %private %public) privacy)
     [%entry %privacy privacy]
   ?:  |(=('create_role' action) =('update_role' action))
-    =/  role  (slug:spec (required:spec args 'role' 64))
-    =/  existing  (~(get by roles.group) role)
-    ?:  =('create_role' action)
-      ?>  ?=(~ existing)
-      =/  metadata=data:meta
-        [(required:spec args 'title' 128) (string:spec args 'description' '' 1.024) '' '']
-      [%role (silt ~[role]) %add metadata]
-    ?>  ?=(^ existing)
-    ?>  |((has:spec args 'title') (has:spec args 'description'))
-    =/  title  (string:spec args 'title' title.meta.u.existing 128)
-    ?>  !=('' title)
-    =/  metadata
-      %*  .  meta.u.existing
-        title        title
-        description  (string:spec args 'description' description.meta.u.existing 1.024)
-      ==
-    [%role (silt ~[role]) %edit metadata]
+    (manage-role args action group)
+  (manage-member args action flag group)
+::
+++  manage-channel
+  |=  [args=json action=@t group=group:v9:g]
+  ^-  a-group:v8:g
+  =/  nest  (group-nest:spec (required:spec args 'channel' 256))
+  ?>  (~(has by channels.group) nest)
+  ?:  =('delete_channel' action)
+    ?>  =((required:spec args 'confirm' 256) (required:spec args 'channel' 256))
+    [%channel nest %del ~]
+  =/  role  (slug:spec (required:spec args 'role' 64))
+  ?>  (~(has by roles.group) role)
+  ?:  =('add_channel_readers' action)
+    [%channel nest %add-readers (silt ~[role])]
+  [%channel nest %del-readers (silt ~[role])]
+::
+++  manage-role
+  |=  [args=json action=@t group=group:v9:g]
+  ^-  a-group:v8:g
+  =/  role  (slug:spec (required:spec args 'role' 64))
+  =/  existing  (~(get by roles.group) role)
+  ?:  =('create_role' action)
+    ?>  ?=(~ existing)
+    =/  metadata=data:meta
+      [(required:spec args 'title' 128) (string:spec args 'description' '' 1.024) '' '']
+    [%role (silt ~[role]) %add metadata]
+  ?>  ?=(^ existing)
+  ?>  |((has:spec args 'title') (has:spec args 'description'))
+  =/  title  (string:spec args 'title' title.meta.u.existing 128)
+  ?>  !=('' title)
+  =/  metadata
+    %*  .  meta.u.existing
+      title  title
+      description  (string:spec args 'description' description.meta.u.existing 1.024)
+    ==
+  [%role (silt ~[role]) %edit metadata]
+::
+++  manage-member
+  |=  [args=json action=@t flag=[@p @tas] group=group:v9:g]
+  ^-  a-group:v8:g
   =/  who  (ship:spec (required:spec args 'ship' 128))
   =/  ships  (silt ~[who])
   ?:  ?|  =('kick_member' action)

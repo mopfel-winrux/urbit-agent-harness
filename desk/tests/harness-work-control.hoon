@@ -18,7 +18,11 @@
   =/  original  request
   (expect-eq !>(original(expires (add ~2026.9.13 ~m15))) !>(r))
 ++  test-reply-deduplication-ignores-task-version-and-extra-arguments
-  =/  args  (pairs:enjs:format ~[['id' %s 'task'] ['artifact' %s 'result'] ['revision' %n '1'] ['binding' %s 'binding'] ['actor' %s 'alice']])
+  =/  args
+    %-  pairs:enjs:format
+    :~  ['id' %s 'task']  ['artifact' %s 'result']  ['revision' %n '1']  ['binding' %s 'binding']
+        ['actor' %s 'alice']
+    ==
   =/  r  request
   =.  r  r(action 'task-reply', args args, status %done)
   =/  db=state:c  [~ (my ~[[0v3 r]])]
@@ -27,9 +31,9 @@
   =/  spelling  [%o (~(put by p.args) 'revision' [%s '01'])]
   =/  other  [%o (~(put by p.args) 'actor' [%s 'bob'])]
   ;:  weld
-    (expect-eq !>(`0v3) !>((reply-request:control db altered)))
-    (expect-eq !>(`0v3) !>((reply-request:control db spelling)))
-    (expect-eq !>(~) !>((reply-request:control db other)))
+      (expect-eq !>(`0v3) !>((reply-request:control db altered)))
+      (expect-eq !>(`0v3) !>((reply-request:control db spelling)))
+      (expect-eq !>(~) !>((reply-request:control db other)))
   ==
 ++  test-confirm-accepts-another-message-only-from-the-same-hand-origin
   =/  s  source
@@ -40,7 +44,9 @@
 ++  test-cross-sender-binding-destination-and-incarnation-cannot-confirm
   =/  s  source
   =/  wrongs=(list input-source:h)
-    ~[s(actor 'mallory') s(binding 'other') s(address 'public/channel') s(hand 'other') [%acp 'owner']]
+    :~  s(actor 'mallory')  s(binding 'other')  s(address 'public/channel')  s(hand 'other')
+        [%acp 'owner']
+    ==
   =/  denied
     %+  levy  wrongs
     |=  s=input-source:h
@@ -49,9 +55,9 @@
   =/  incarnation  (confirm:control prepared 0v3 'conversation' 0v4 source ~ 0v2 ~2026.9.13)
   =/  conversation  (confirm:control prepared 0v3 'other' 0v1 source ~ 0v2 ~2026.9.13)
   ;:  weld
-    (expect !>(denied))
-    (expect !>(?=(%| -.incarnation)))
-    (expect !>(?=(%| -.conversation)))
+      (expect !>(denied))
+      (expect !>(?=(%| -.incarnation)))
+      (expect !>(?=(%| -.conversation)))
   ==
 ++  test-expired-and-changed-work-is-not-confirmed
   =/  expired  (confirm:control prepared 0v3 'conversation' 0v1 source ~ 0v2 (add ~2026.9.13 ~m15))
@@ -63,9 +69,9 @@
   =/  done  (complete:control p.out 0v3 [%& [%s 'Recorded']])
   =/  duplicate  (confirm:control p.out 0v3 'conversation' 0v1 source ~ 0v2 ~2026.9.13)
   ;:  weld
-    (expect !>(?=(%| -.duplicate)))
-    (expect-eq !>(done) !>((complete:control done 0v3 [%| 'Late error'])))
-    (expect-eq !>(%done) !>(status:(~(got by requests.done) 0v3)))
+      (expect !>(?=(%| -.duplicate)))
+      (expect-eq !>(done) !>((complete:control done 0v3 [%| 'Late error'])))
+      (expect-eq !>(%done) !>(status:(~(got by requests.done) 0v3)))
   ==
 ++  test-rejection-does-not-undo-submitted-work
   =/  out  (confirm:control prepared 0v3 'conversation' 0v1 source ~ 0v2 ~2026.9.13)
@@ -80,7 +86,9 @@
   =/  unsupported  (prepare:control *state:c 0v4 r(action 'client-create') ~2026.9.13)
   (expect !>(&(?=(%| -.duplicate) ?=(%| -.unsupported))))
 ++  test-bookkeeping-does-not-enter-confirmation
-  %+  roll  `(list @t)`~['project-create' 'task-create' 'task-claim' 'task-assign' 'task-update' 'task-delete']
+  %+  roll
+    ^-  (list @t)
+    ~['project-create' 'task-create' 'task-claim' 'task-assign' 'task-update' 'task-delete']
   |=  [action=@t checks=tang]
   =/  r  request
   =.  r  r(action action)
@@ -88,12 +96,12 @@
   =/  db=state:c  [~ (my ~[[0v3 r]])]
   =/  confirmed  (confirm:control db 0v3 'conversation' 0v1 source ~ 0v2 ~2026.9.13)
   ;:  weld
-    checks
-    (expect !>((bookkeeping-action:j action)))
-    (expect !>((model-action:j action)))
-    (expect !>(!(permitted:control action)))
-    (expect !>(?=(%| -.prepared)))
-    (expect !>(?=(%| -.confirmed)))
+      checks
+      (expect !>((bookkeeping-action:j action)))
+      (expect !>((model-action:j action)))
+      (expect !>(!(permitted:control action)))
+      (expect !>(?=(%| -.prepared)))
+      (expect !>(?=(%| -.confirmed)))
   ==
 ++  test-native-document-changes-invalidate-document-approval
   =/  db  *state:w
@@ -111,10 +119,10 @@
   =/  shown=(list event:h)  ~[[%command-completed 0v9 'work' body]]
   =/  prose=(list event:h)  ~[[%input-received [0v9 [%poke ~zod] `~zod ~ ~2026.9.13 [%user body]]]]
   ;:  weld
-    (expect !>((previewed:control shown 0v3 preview)))
-    (expect !>(!(previewed:control shown 0v4 preview)))
-    (expect !>(!(previewed:control prose 0v3 preview)))
-    (expect !>(!(previewed:control shown 0v3 changed)))
+      (expect !>((previewed:control shown 0v3 preview)))
+      (expect !>(!(previewed:control shown 0v4 preview)))
+      (expect !>(!(previewed:control prose 0v3 preview)))
+      (expect !>(!(previewed:control shown 0v3 changed)))
   ==
 ++  test-stored-request-content-obeys-current-project-access
   =/  db  *state:w
@@ -123,8 +131,8 @@
   =.  r  r(action 'artifact-create', args (pairs:enjs:format ~[['project' %s 'project']]))
   =/  who=authority:w  [| [0v1 'Alice'] 0v1]
   ;:  weld
-    (expect !>((visible:control db who r)))
-    (expect !>(!(visible:control db(projects ~) who r)))
-    (expect !>(!(visible:control db who r(action 'member'))))
+      (expect !>((visible:control db who r)))
+      (expect !>(!(visible:control db(projects ~) who r)))
+      (expect !>(!(visible:control db who r(action 'member'))))
   ==
 --

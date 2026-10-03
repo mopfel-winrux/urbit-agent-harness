@@ -11,11 +11,11 @@
   =|  reversed-run=(list @ud)
   =|  depth=(unit @ud)
   |-  ^-  (list @ud)
-  ?~  remaining  ~
-  =/  node  (~(got by nodes.forest) i.remaining)
-  =.  reversed-run  ?:(=(depth `depth.node) [id.node reversed-run] ~[id.node])
-  ?:  =(fanout (lent reversed-run))  (flop reversed-run)
-  $(remaining t.remaining, depth `depth.node)
+      ?~  remaining  ~
+      =/  node  (~(got by nodes.forest) i.remaining)
+      =.  reversed-run  ?:(=(depth `depth.node) [id.node reversed-run] ~[id.node])
+      ?:  =(fanout (lent reversed-run))  (flop reversed-run)
+      $(remaining t.remaining, depth `depth.node)
 ++  text
   |=  [forest=forest:l ids=(list @ud)]
   ^-  @t
@@ -48,11 +48,11 @@
     =/  remaining  roots.forest
     =|  reversed-prefix=(list @ud)
     |-  ^-  (unit (list @ud))
-    ?~  remaining  ~
-    ?:  =(i.children i.remaining)
-      ?.  =(children (scag (lent children) `(list @ud)`remaining))  ~
-      `(weld (flop reversed-prefix) [id (slag (lent children) `(list @ud)`remaining)])
-    $(remaining t.remaining, reversed-prefix [i.remaining reversed-prefix])
+        ?~  remaining  ~
+        ?:  =(i.children i.remaining)
+          ?.  =(children (scag (lent children) `(list @ud)`remaining))  ~
+          `(weld (flop reversed-prefix) [id (slag (lent children) `(list @ud)`remaining)])
+        $(remaining t.remaining, reversed-prefix [i.remaining reversed-prefix])
   ?~  roots  ~
   `[(~(put by nodes.forest) id [id depth body sources children]) u.roots]
 ::  Old checkpoints keep their original prose and replay semantics. Preserve

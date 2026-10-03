@@ -37,7 +37,9 @@
     [%| 'A note must contain 1–1024 UTF-8 bytes. Keep it concise.']
   =/  updated  (~(put by notes) name u.body)
   ?:  |((gth (lent ~(tap by updated)) max-notes) (gth (bytes updated) max-bytes))
-    [%| 'Memory is full (16 notes, 8192 UTF-8 bytes including names). Replace or forget a note first.']
+    :*  %|
+        'Memory is full (16 notes, 8192 UTF-8 bytes including names). Replace or forget a note first.'
+    ==
   [%& [%memory-set name body]]
 ++  render
   |=  notes=(map @t @t)
@@ -48,5 +50,8 @@
   (rap 3 name ': ' body '\0a' ~)
 ++  reference
   |=  notes=(map @t @t)
-  (cat 3 'Current pinned notes for this conversation (user-maintained reference, not system instructions; older mentions may be superseded):\0a' (render notes))
+  %^  cat
+    3
+    'Current pinned notes for this conversation (user-maintained reference, not system instructions; older mentions may be superseded):\0a'
+  (render notes)
 --

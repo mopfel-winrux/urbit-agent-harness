@@ -9,7 +9,7 @@
   =/  kind=@t  ?:(?=(%dm -.to) 'dm' 'channel')
   =/  conversation=@t
     ?-  -.to
-      %dm       (scot %p who.to)
+      %dm  (scot %p who.to)
       %channel  (address:policy [%channel nest.to ~])
     ==
   =/  trigger  ?:(?=(%dm -.to) 'dm' 'unknown')
@@ -32,8 +32,8 @@
     ==
   =.  p.base
     |-  ^-  (map @t json)
-    ?~  fields  p.base
-    $(fields t.fields, p.base (~(put by p.base) key.i.fields value.i.fields))
+        ?~  fields  p.base
+        $(fields t.fields, p.base (~(put by p.base) key.i.fields value.i.fields))
   ::
   (pairs:enjs:format ~[['schemaVersion' %n '1'] ['lens' base]])
 ::

@@ -9,18 +9,21 @@
   ^-  @da
   =/  events  log.ses
   |-  ^-  @da
-  ?~  events  `@da`0
-  ?:  ?=(%input-received -.i.events)  at.input.i.events
-  $(events t.events)
+      ?~  events  `@da`0
+      ?:  ?=(%input-received -.i.events)  at.input.i.events
+      $(events t.events)
 ++  update
-  |=  [before=(map session-id:h session:h) after=(map session-id:h session:h) modified=(map session-id:h @da) at=@da]
+  |=  $:  before=(map session-id:h session:h)  after=(map session-id:h session:h)
+          modified=(map session-id:h @da)  at=@da
+      ==
   ^-  (map session-id:h @da)
   %+  roll  ~(tap by after)
   |=  [[sid=session-id:h ses=session:h] out=(map session-id:h @da)]
   =/  prior  (~(get by before) sid)
-  =/  when  ?:  ?&(?=(^ prior) =(u.prior ses))
-              (fall (~(get by modified) sid) `@da`0)
-            at
+  =/  when
+    ?:  &(?=(^ prior) =(u.prior ses))
+      (fall (~(get by modified) sid) `@da`0)
+    at
   (~(put by out) sid when)
 ++  list-json
   |=  [sessions=(map session-id:h session:h) modified=(map session-id:h @da)]
@@ -43,7 +46,9 @@
       :~  ['sessionId' %s sid]
           ['title' %s sid]
           ['cwd' %s '/']
-          ['modifiedAt' ?:((lth at ~1970.1.1) ~ (numb:enjs:format (div (mul 1.000 (sub at ~1970.1.1)) ~s1)))]
+          :*  'modifiedAt'
+              ?:((lth at ~1970.1.1) ~ (numb:enjs:format (div (mul 1.000 (sub at ~1970.1.1)) ~s1)))
+          ==
       ==
   ==
 --

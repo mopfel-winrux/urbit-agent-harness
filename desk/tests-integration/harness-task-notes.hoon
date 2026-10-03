@@ -9,67 +9,108 @@
   ?>  ?=(%0 -.out)
   ;;(tang product.out)
 ++  test-notes-record-and-complete-without-claims-agents-or-approvals
-  %-  isolated  |=  ignored=*
-  =/  bowl=bowl:gall  *bowl:gall
+  %-  isolated
+  |=  ignored=*
+  =/  =bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.14)
   =/  saved=state-0  *state-0
   =.  saved  saved(welcome-seen 1, defaults builtin-config:policy)
   =/  loaded  (~(on-load head bowl) !>(saved))
-  =/  created  (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%new 'owner' defaults.saved ~s30]))
+  =/  created
+    %+  ~(on-poke +.loaded bowl)
+      %harness-action
+    !>(`action:h`[%new 'owner' defaults.saved ~s30])
   =/  before  !<(state-0 ~(on-save +.created bowl))
-  =/  noted  (~(on-poke +.created bowl) %harness-action !>(`action:h`[%send 'owner' '/work task-create {"id":"note","title":"Check the forecast"}']))
+  =/  noted
+    %+  ~(on-poke +.created bowl)
+      %harness-action
+    !>(`action:h`[%send 'owner' '/work task-create {"id":"note","title":"Check the forecast"}'])
   =/  recorded  !<(state-0 ~(on-save +.noted bowl))
-  =/  updated  (~(on-poke +.noted bowl) %harness-action !>(`action:h`[%send 'owner' '/work task-update {"id":"note","version":1,"status":"done","outcome":"Answered in the conversation."}']))
+  =/  updated
+    %+  ~(on-poke +.noted bowl)
+      %harness-action
+    !>  ^-  action:h
+        :*  %send  'owner'
+            '/work task-update {"id":"note","version":1,"status":"done","outcome":"Answered in the conversation."}'
+        ==
   =/  after  !<(state-0 ~(on-save +.updated bowl))
-  =/  stale  (~(on-poke +.updated bowl) %harness-action !>(`action:h`[%send 'owner' '/work task-update {"id":"note","version":1,"status":"open"}']))
+  =/  stale
+    %+  ~(on-poke +.updated bowl)
+      %harness-action
+    !>(`action:h`[%send 'owner' '/work task-update {"id":"note","version":1,"status":"open"}'])
   =/  final  !<(state-0 ~(on-save +.stale bowl))
-  =/  edited  (~(on-poke +.stale bowl) %harness-action !>(`action:h`[%send 'owner' '/work task-update {"id":"note","version":2,"title":"Forecast answered","description":"A completed request"}']))
+  =/  edited
+    %+  ~(on-poke +.stale bowl)
+      %harness-action
+    !>  ^-  action:h
+        :*  %send  'owner'
+            '/work task-update {"id":"note","version":2,"title":"Forecast answered","description":"A completed request"}'
+        ==
   =/  changed  !<(state-0 ~(on-save +.edited bowl))
-  =/  deleted  (~(on-poke +.edited bowl) %harness-action !>(`action:h`[%send 'owner' '/work task-delete {"id":"note","version":3}']))
+  =/  deleted
+    %+  ~(on-poke +.edited bowl)
+      %harness-action
+    !>(`action:h`[%send 'owner' '/work task-delete {"id":"note","version":3}'])
   =/  removed  !<(state-0 ~(on-save +.deleted bowl))
-  =/  replies  (murn log:(~(got by sessions.after) 'owner') |=(e=event:h ?:(?=(%command-completed -.e) `body.e ~)))
+  =/  replies
+    %+  murn
+      log:(~(got by sessions.after) 'owner')
+    |=(e=event:h ?:(?=(%command-completed -.e) `body.e ~))
   ?>  ?=(^ replies)
   ;:  weld
-    (expect-eq !>('Check the forecast') !>(title:(~(got by tasks.workspace.recorded) 'note')))
-    (expect-eq !>(%done) !>(status:(~(got by tasks.workspace.after) 'note')))
-    (expect-eq !>(~) !>(artifact:(~(got by tasks.workspace.after) 'note')))
-    (expect-eq !>('') !>(project:(~(got by tasks.workspace.after) 'note')))
-    (expect-eq !>(~) !>(requests.work-controls.after))
-    (expect-eq !>(projects.workspace.before) !>(projects.workspace.after))
-    (expect-eq !>(~(key by sessions.before)) !>(~(key by sessions.after)))
-    (expect-eq !>(workspace.after) !>(workspace.final))
-    (expect-eq !>('Forecast answered') !>(title:(~(got by tasks.workspace.changed) 'note')))
-    (expect-eq !>(%done) !>(status:(~(got by tasks.workspace.changed) 'note')))
-    (expect-eq !>('Answered in the conversation.') !>(outcome:(~(got by tasks.workspace.changed) 'note')))
-    (expect-eq !>(~) !>(tasks.workspace.removed))
-    (expect-eq !>(~) !>(requests.work-controls.removed))
-    (expect-eq !>(projects.workspace.before) !>(projects.workspace.removed))
-    (expect-eq !>(artifacts.workspace.before) !>(artifacts.workspace.removed))
-    (expect-eq !>(~(key by sessions.before)) !>(~(key by sessions.removed)))
-    (expect !>(?=(^ (find (trip 'Answered in the conversation.') (trip i.replies)))))
-    (expect !>(!(lien (weld -.noted -.updated) |=(c=card:agent:gall ?=([%pass * %arvo %i *] c)))))
+      %+  expect-eq
+        !>('Check the forecast')
+      !>(title:(~(got by tasks.workspace.recorded) 'note'))
+      (expect-eq !>(%done) !>(status:(~(got by tasks.workspace.after) 'note')))
+      (expect-eq !>(~) !>(artifact:(~(got by tasks.workspace.after) 'note')))
+      (expect-eq !>('') !>(project:(~(got by tasks.workspace.after) 'note')))
+      (expect-eq !>(~) !>(requests.work-controls.after))
+      (expect-eq !>(projects.workspace.before) !>(projects.workspace.after))
+      (expect-eq !>(~(key by sessions.before)) !>(~(key by sessions.after)))
+      (expect-eq !>(workspace.after) !>(workspace.final))
+      %+  expect-eq
+        !>('Forecast answered')
+      !>(title:(~(got by tasks.workspace.changed) 'note'))
+      (expect-eq !>(%done) !>(status:(~(got by tasks.workspace.changed) 'note')))
+      %+  expect-eq
+        !>('Answered in the conversation.')
+      !>(outcome:(~(got by tasks.workspace.changed) 'note'))
+      (expect-eq !>(~) !>(tasks.workspace.removed))
+      (expect-eq !>(~) !>(requests.work-controls.removed))
+      (expect-eq !>(projects.workspace.before) !>(projects.workspace.removed))
+      (expect-eq !>(artifacts.workspace.before) !>(artifacts.workspace.removed))
+      (expect-eq !>(~(key by sessions.before)) !>(~(key by sessions.removed)))
+      %-  expect
+      !>(?=(^ (find (trip 'Answered in the conversation.') (trip i.replies))))
+      %-  expect
+      !>(!(lien (weld -.noted -.updated) |=(c=card:agent:gall ?=([%pass * %arvo %i *] c))))
   ==
 ::
 ++  test-finish-shortcut-uses-current-version-and-keeps-the-result
-  %-  isolated  |=  ignored=*
-  =/  bowl=bowl:gall  *bowl:gall
+  %-  isolated
+  |=  ignored=*
+  =/  =bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.10.1)
   =/  saved=state-0  *state-0
   =.  saved  saved(local-mcp-seen 1, defaults builtin-config:policy)
   =.  sessions.saved  (my ~[['owner' [~[[%config-replaced defaults.saved]] 0]]])
   =.  tasks.workspace.saved
-    (my ~[['note' ['' 'Verify the answer' '' 7 %blocked ~ 'Evidence checked' ~ now.bowl]]])
+    %-  my
+    ~[['note' ['' 'Verify the answer' '' 7 %blocked ~ 'Evidence checked' ~ now.bowl]]]
   =/  loaded  (~(on-load head bowl) !>(saved))
   =/  finished
-    (~(on-poke +.loaded bowl) %harness-action !>(`action:h`[%send 'owner' '/work finish note']))
+    %+  ~(on-poke +.loaded bowl)
+      %harness-action
+    !>(`action:h`[%send 'owner' '/work finish note'])
   =/  after  !<(state-0 ~(on-save +.finished bowl))
   =/  task  (~(got by tasks.workspace.after) 'note')
   ;:  weld
-    (expect-eq !>(%done) !>(status.task))
-    (expect-eq !>(8) !>(version.task))
-    (expect-eq !>('Evidence checked') !>(outcome.task))
-    (expect-eq !>(~) !>(artifact.task))
-    (expect-eq !>(~) !>(requests.work-controls.after))
-    (expect !>(!(lien -.finished |=(card=card:agent:gall ?=([%pass * %arvo %i *] card)))))
+      (expect-eq !>(%done) !>(status.task))
+      (expect-eq !>(8) !>(version.task))
+      (expect-eq !>('Evidence checked') !>(outcome.task))
+      (expect-eq !>(~) !>(artifact.task))
+      (expect-eq !>(~) !>(requests.work-controls.after))
+      %-  expect
+      !>(!(lien -.finished |=(card=card:agent:gall ?=([%pass * %arvo %i *] card))))
   ==
 --

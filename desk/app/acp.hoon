@@ -11,9 +11,9 @@
 |%
 +$  card  card:agent:gall
 +$  state-0  [%0 connections=(map connection-id:v1:ac connection:v1:ac)]
-++  max-connections       256
-++  max-payload-bytes     1.048.576
-++  max-id-bytes          128
+++  max-connections  256
+++  max-payload-bytes  1.048.576
+++  max-id-bytes  128
 --
 %-  agent:dbug
 =|  state-0
@@ -22,8 +22,8 @@
 =<
   |_  =bowl:gall
   +*  this  .
-      def   ~(. (default-agent this %.n) bowl)
-      cor   ~(. +> [bowl ~])
+      def  ~(. (default-agent this %.n) bowl)
+      cor  ~(. +> [bowl ~])
   ++  on-init  `this
   ++  on-save  !>(state)
   ++  on-load
@@ -47,7 +47,7 @@
     ?>  =(src our):bowl
     (peek:cor path)
   ++  on-agent  |=([=wire =sign:agent:gall] `this)
-  ++  on-arvo   |=([=wire sign=sign-arvo] `this)
+  ++  on-arvo  |=([=wire sign=sign-arvo] `this)
   ++  on-leave  |=(path `this)
   ++  on-fail
     |=  [=term =tang]
@@ -56,7 +56,7 @@
     [~ this]
   --
 |_  [=bowl:gall cards=(list card)]
-++  cor   .
+++  cor  .
 ++  abet  [(flop cards) state]
 ++  emit  |=(=card cor(cards [card cards]))
 ++  give  |=(=gift:agent:gall (emit %give gift))
@@ -68,32 +68,32 @@
   ?>  =(%acp-action-1 mark)
   =+  !<(=action:v1:ac vase)
   ?-  -.action
-    %open   (open connection.action)
-    %send   (send connection.action target.action payload.action)
-    %ack    (ack connection.action target.action through.action)
+    %open  (open connection.action)
+    %send  (send connection.action target.action payload.action)
+    %ack  (ack connection.action target.action through.action)
     %close  (close connection.action reason.action)
-    %drop   (drop connection.action)
+    %drop  (drop connection.action)
   ==
 ::
 ++  watch
   |=  =path
   ^+  cor
   ?+  path  ~|(bad-acp-watch-path+path !!)
-    [%v1 %agent ~]
-      %+  roll  ~(tap by connections.state)
-      |=  [[id=connection-id:v1:ac connection=connection:v1:ac] result=_cor]
-      =/  messages  (queued connection %agent)
-      ?~  messages  result
-      (give-agent-update:result [%messages id %agent messages])
-    ::
-    [%v1 @ ?(%client %agent) ~]
-      =/  id=connection-id:v1:ac  i.t.path
-      =/  target=peer:v1:ac  i.t.t.path
-      =/  connection  (~(get by connections.state) id)
-      ?~  connection  ~|(unknown-acp-connection+id !!)
-      =/  reason  ?~(closed.u.connection ~ `reason.u.closed.u.connection)
-      =.  cor  (give-update [%connection id open.u.connection reason] id target)
-      (give-update [%messages id target (queued u.connection target)] id target)
+      [%v1 %agent ~]
+    %+  roll  ~(tap by connections.state)
+    |=  [[id=connection-id:v1:ac connection=connection:v1:ac] result=_cor]
+    =/  messages  (queued connection %agent)
+    ?~  messages  result
+    (give-agent-update:result [%messages id %agent messages])
+      ::
+      [%v1 @ ?(%client %agent) ~]
+    =/  id=connection-id:v1:ac  i.t.path
+    =/  target=peer:v1:ac  i.t.t.path
+    =/  connection  (~(get by connections.state) id)
+    ?~  connection  ~|(unknown-acp-connection+id !!)
+    =/  reason  ?~(closed.u.connection ~ `reason.u.closed.u.connection)
+    =.  cor  (give-update [%connection id open.u.connection reason] id target)
+    (give-update [%messages id target (queued u.connection target)] id target)
   ==
 ::
 ++  peek
@@ -133,7 +133,7 @@
     ?>  open.u.found
     (give-connection id & ~)
   ?>  (lth ~(wyt by connections.state) max-connections)
-  =/  connection=connection:v1:ac  [& now.bowl ~ 1 1 ~ ~]
+  =/  =connection:v1:ac  [& now.bowl ~ 1 1 ~ ~]
   =.  connections.state  (~(put by connections.state) id connection)
   (give-connection id & ~)
 ::
@@ -154,8 +154,8 @@
       (lte (lent chars) max-id-bytes)
       %+  levy  chars
       |=  char=@tD
-      ?|  ?&((gte char 'a') (lte char 'z'))
-          ?&((gte char '0') (lte char '9'))
+      ?|  &((gte char 'a') (lte char 'z'))
+          &((gte char '0') (lte char '9'))
           =('-' char)
       ==
   ==
@@ -170,8 +170,8 @@
   ~|  acp-queue-capacity+id
   ?>  (room:queue-budget connections.state id target payload)
   =/  sequence  ?:(=(target %client) next-to-client.u.found next-to-agent.u.found)
-  =/  message=message:v1:ac  [sequence now.bowl payload]
-  =/  connection=connection:v1:ac  u.found
+  =/  =message:v1:ac  [sequence now.bowl payload]
+  =/  =connection:v1:ac  u.found
   =.  connection
     ?:  =(target %client)
       %=  connection
@@ -183,7 +183,7 @@
       next-to-agent  +(sequence)
     ==
   =.  connections.state  (~(put by connections.state) id connection)
-  =/  update=update:v1:ac  [%messages id target ~[message]]
+  =/  =update:v1:ac  [%messages id target ~[message]]
   =.  cor  (give-update update id target)
   ::  The harness receives agent-bound traffic from the shared subscription.
   ?:  =(target %client)  cor
@@ -194,7 +194,7 @@
   ^+  cor
   =/  found  (~(get by connections.state) id)
   ?~  found  ~|(unknown-acp-connection+id !!)
-  =/  connection=connection:v1:ac  u.found
+  =/  =connection:v1:ac  u.found
   =.  connection
     ?:  =(target %client)
       connection(to-client (drop-through to-client.connection through))

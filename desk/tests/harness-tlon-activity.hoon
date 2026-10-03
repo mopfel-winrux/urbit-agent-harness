@@ -16,7 +16,11 @@
   (expect !>(=(expected (times (weld (scag 16 first) second)))))
 ++  test-final-page-and-empty-feed
   =/  final  (newer:p fixture (add ~2026.9.6 33) 17)
-  (expect !>(&(=(7 (lent final)) =(~ (newer:p ~ ~2026.9.6 17)) =(~ (newer:p fixture (add ~2026.9.6 40) 17)))))
+  %-  expect
+  !>  ?&  =(7 (lent final))
+          =(~ (newer:p ~ ~2026.9.6 17))
+          =(~ (newer:p fixture (add ~2026.9.6 40) 17))
+      ==
 ++  test-deleted-cursor-position-does-not-prevent-continuation
   =/  result  (del:on-stream:v10:a fixture (add ~2026.9.6 16))
   =/  tree  +.result
@@ -25,6 +29,9 @@
   =/  excess  (mole |.((newer:p fixture ~2026.9.6 18)))
   (expect !>(&(=(~ (newer:p fixture ~2026.9.6 0)) =(~ excess))))
 ++  test-new-activity-variants-do-not-become-input
-  =/  event=event:v10:a  [[%note-create 1 1 [~bud %test] ~ 'Title' ~bud] | |]
-  (expect !>(&(=(~ (supported:p event)) =(`[%dm-invite %ship ~bud] (supported:p [[%dm-invite %ship ~bud] | |])))))
+  =/  =event:v10:a  [[%note-create 1 1 [~bud %test] ~ 'Title' ~bud] | |]
+  %-  expect
+  !>  ?&  =(~ (supported:p event))
+          =(`[%dm-invite %ship ~bud] (supported:p [[%dm-invite %ship ~bud] | |]))
+      ==
 --

@@ -28,9 +28,9 @@
   =/  =shed:khan  (tbjs code gap)
   =/  args=inline-args:spider  [~ `tid [our.bowl q.byk.bowl da+now.bowl] shed]
   :+  [%pass `wire`[%jswatch tid ~] %agent [our.bowl %spider] %watch /thread-result/[tid]]
-      [%pass `wire`[%jspoke tid ~] %agent [our.bowl %spider] %poke %spider-inline !>(args)]
-      ?:  =(`@dr`0 gap)  ~
-      ~[[%pass `wire`[%jsdog tid ~] %arvo %b %wait deadline]]
+    [%pass `wire`[%jspoke tid ~] %agent [our.bowl %spider] %poke %spider-inline !>(args)]
+  ?:  =(`@dr`0 gap)  ~
+  ~[[%pass `wire`[%jsdog tid ~] %arvo %b %wait deadline]]
 ::  +rehearse-poke: a rehearse_skill tool call becomes a poke to ourselves
 ::
 ++  rehearse-poke
@@ -60,11 +60,11 @@
     [%tool-completed id.call name.call 'rejected: tool or path is not granted for this session']
   =/  body=@t
     ?+  name.call  (cat 3 'unknown tool: ' name.call)
-      %'calculate'        (evaluate:calculator args.call)
-      %'current_time'     (current-time now.bowl)
-      %'read_desk_file'   (read-desk-file args.call)
+      %'calculate'  (evaluate:calculator args.call)
+      %'current_time'  (current-time now.bowl)
+      %'read_desk_file'  (read-desk-file args.call)
       %'list_desk_files'  (list-desk-files args.call)
-      %'read_skill'       (read-skill args.call skills)
+      %'read_skill'  (read-skill args.call skills)
         %'list_desk_scopes'
       %-  en:json:html
       :-  %a
@@ -94,7 +94,8 @@
     ?:  (lth number 10)  "0{(a-co:co number)}"
     (a-co:co number)
   =/  utc=@t
-    (crip "{(a-co:co y.date)}-{(pad m.date)}-{(pad d.t.date)}T{(pad h.t.date)}:{(pad m.t.date)}:{(pad s.t.date)}Z")
+    %-  crip
+    "{(a-co:co y.date)}-{(pad m.date)}-{(pad d.t.date)}T{(pad h.t.date)}:{(pad m.t.date)}:{(pad s.t.date)}Z"
   =/  seconds  (div (sub now ~1970.1.1) ~s1)
   =/  weekdays=(list @t)
     ~['Sunday' 'Monday' 'Tuesday' 'Wednesday' 'Thursday' 'Friday' 'Saturday']
@@ -144,7 +145,8 @@
   =/  base=path  /(scot %p our.bowl)/[i.u.target]/(scot %da now.bowl)
   =*  spur  t.u.target
   =/  result
-    %-  mole  |.
+    %-  mole
+    |.
     ?.  .^(? %cu (weld base spur))  'error: no such file'
     =/  ext  (rear spur)
     ::  %q reads the stored noun without invoking desk-defined marks. Scoped
@@ -167,7 +169,8 @@
   ?~  u.target  'error: need at least /desk'
   =/  base=path  /(scot %p our.bowl)/[i.u.target]/(scot %da now.bowl)
   =/  result
-    %-  mole  |.
+    %-  mole
+    |.
     =/  paths  .^((list path) %ct (weld base t.u.target))
     =/  input  (need (de:json:html args))
     =/  names  (sort (turn paths |=(entry=path (crip (spud entry)))) aor)
@@ -252,7 +255,7 @@
   ?:  forbidden  ~
   ?~  (de-purl:html p.u.url)  ~
   =/  method  (~(get by p.u.parsed) 'method')
-  ?:  ?&(?=(^ method) !=([%s 'GET'] u.method))  ~
+  ?:  &(?=(^ method) !=([%s 'GET'] u.method))  ~
   ?:  (~(has by p.u.parsed) 'body')  ~
   =/  =request:http  [%'GET' p.u.url ~ ~]
   :-  ~
@@ -338,7 +341,10 @@
   :-  ~
   :*  %pass  /peer-rpc-request/[sid]/(scot %ud generation)/[id.call]
       %agent  [our.bowl dap.bowl]  %poke  %harness-effect
-      !>(`effect:h`[generation [%peer-rpc sid id.call u.who ?:(=('list_peer_tools' name.call) ~ name) u.args]])
+      !>  ^-  effect:h
+          :*  generation
+              [%peer-rpc sid id.call u.who ?:(=('list_peer_tools' name.call) ~ name) u.args]
+          ==
   ==
 ++  admin-card
   |=  [sid=session-id:h generation=@ud call=tool-call:h]
@@ -348,7 +354,7 @@
   =/  raw  (fall (tool-str args.call 'params') '{}')
   ?:  (gth (met 3 raw) 65.536)  ~
   =/  params  (de:json:html raw)
-  ?.  ?&(?=(^ params) ?=(%o -.u.params))  ~
+  ?.  &(?=(^ params) ?=(%o -.u.params))  ~
   :-  ~
   :*  %pass  /admin-request/[sid]/(scot %ud generation)/[id.call]
       %agent  [our.bowl dap.bowl]  %poke  %harness-effect

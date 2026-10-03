@@ -72,7 +72,10 @@
   |=  saved=state-0
   ^-  state-1
   =/  next  *state-1
-  =.  policy.next  [enabled.policy.saved owner.policy.saved trusted.policy.saved ?:(mentions.policy.saved %mentions %all) ~ ~]
+  =.  policy.next
+    :*  enabled.policy.saved  owner.policy.saved  trusted.policy.saved
+        ?:(mentions.policy.saved %mentions %all)  ~  ~
+    ==
   =.  owner-initialized.next  owner-initialized.saved
   =.  sibling-moon-owners.next  sibling-moon-owners.saved
   =.  sibling-owner-after.next  sibling-owner-after.saved

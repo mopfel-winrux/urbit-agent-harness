@@ -9,14 +9,14 @@
 ::
 ++  test-owner-envelope-retains-the-shared-run-content
   =/  base  (pairs:enjs:format ~[['lensId' %s '0v1'] ['context' %s 'private context']])
-  =/  observation=observation:hh  ['binding' 'event' '~bud' 'Question' ~2026.10.2 %completed]
+  =/  =observation:hh  ['binding' 'event' '~bud' 'Question' ~2026.10.2 %completed]
   =/  envelope  (payload:lens base [%dm ~bud ~] observation ~2026.10.2)
   =/  report  (field envelope 'lens')
   ;:  weld
-    (expect-eq !>(`json`[%n '1']) !>((field envelope 'schemaVersion')))
-    (expect-eq !>(`json`[%s 'private context']) !>((field report 'context')))
-    (expect-eq !>(`json`[%s 'dm']) !>((field report 'chatType')))
-    (expect-eq !>(`json`[%s '~bud']) !>((field (field report 'triggerDetails') 'conversationId')))
+      (expect-eq !>(`json`[%n '1']) !>((field envelope 'schemaVersion')))
+      (expect-eq !>(`json`[%s 'private context']) !>((field report 'context')))
+      (expect-eq !>(`json`[%s 'dm']) !>((field report 'chatType')))
+      (expect-eq !>(`json`[%s '~bud']) !>((field (field report 'triggerDetails') 'conversationId')))
   ==
 ::
 ++  test-pointer-contains-only-identity-and-preserves-work-controls
@@ -26,11 +26,11 @@
   =/  pointer  i.p.parsed
   ?>  ?=(%o -.pointer)
   ;:  weld
-    (expect-eq !>(`json`[%s 'tlon-context-lens']) !>((field pointer 'type')))
-    (expect-eq !>(`json`[%s '0v1']) !>((field pointer 'lensId')))
-    (expect-eq !>(`json`[%s '~nec']) !>((field pointer 'botShip')))
-    (expect-eq !>(4) !>(~(wyt by p.pointer)))
-    (expect-eq !>(`json`[%s 'tlon-a2ui']) !>((field i.t.p.parsed 'type')))
+      (expect-eq !>(`json`[%s 'tlon-context-lens']) !>((field pointer 'type')))
+      (expect-eq !>(`json`[%s '0v1']) !>((field pointer 'lensId')))
+      (expect-eq !>(`json`[%s '~nec']) !>((field pointer 'botShip')))
+      (expect-eq !>(4) !>(~(wyt by p.pointer)))
+      (expect-eq !>(`json`[%s 'tlon-a2ui']) !>((field i.t.p.parsed 'type')))
   ==
 ::
 ++  test-state-migration-preserves-policy-and-delivery-with-sync-off
@@ -39,10 +39,10 @@
   =.  deliveries.saved  (my ~[[0v1 `delivery:t`[2 %send %uncertain 'external']]])
   =/  current  (load:migration !>(saved))
   ;:  weld
-    (expect-eq !>(policy.saved) !>(policy.current))
-    (expect-eq !>(deliveries.saved) !>(deliveries.current))
-    (expect !>(!enabled.lens.current))
-    (expect-eq !>(current) !>((load:migration !>(current))))
+      (expect-eq !>(policy.saved) !>(policy.current))
+      (expect-eq !>(deliveries.saved) !>(deliveries.current))
+      (expect !>(!enabled.lens.current))
+      (expect-eq !>(current) !>((load:migration !>(current))))
   ==
 ::
 ++  test-sync-recovery-has-a-bounded-maintenance-deadline
@@ -53,7 +53,9 @@
   =.  records.lens.state
     (my ~[[0v1 `lens-record:t`['sid' 0v1 0v1 ~ | %sending 1 `~2026.10.2..00.00.30]]])
   ;:  weld
-    (expect-eq !>(`(unit @da)`[~ ~2026.10.2..00.00.30]) !>((deadline:clock ~2026.10.2 state)))
-    (expect-eq !>(`(unit @da)`~) !>((deadline:clock ~2026.10.2 state(lens lens.state(enabled |)))))
+      (expect-eq !>(`(unit @da)`[~ ~2026.10.2..00.00.30]) !>((deadline:clock ~2026.10.2 state)))
+      %+  expect-eq
+        !>(`(unit @da)`~)
+      !>((deadline:clock ~2026.10.2 state(lens lens.state(enabled |))))
   ==
 --

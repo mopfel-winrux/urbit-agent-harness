@@ -58,80 +58,14 @@
   =/  action  (required:spec args 'action' 32)
   ?>  (handles action)
   ?:  =('list_group_invites' action)
-    =/  rows  ~(tap by foreigns)
-    =/  items
-      %+  turn  rows
-      |=  [flag=[@p @tas] foreign=foreign:v8:g]
-      %-  pairs:enjs:format
-      :~  ['group' %s (group-id flag)]
-          ['title' %s ?~(preview.foreign '' title.meta.u.preview.foreign)]
-          ['has_invite' %b (invited foreign)]
-          ['progress' ?~(progress.foreign ~ [%s u.progress.foreign])]
-      ==
-    [(en:json:html (directory:spec args items)) ~]
+    (list-invites args)
   ?:  |(=('list_roles' action) =('list_group_requests' action))
     =/  flag  (flag:spec (required:spec args 'group' 256))
     =/  group  (~(got by groups) flag)
     ?:  =('list_roles' action)
-      =/  rows  ~(tap by roles.group)
-      =/  items
-        %+  turn  rows
-        |=  [id=@tas role=role:v9:g]
-        %-  pairs:enjs:format
-        :~  ['role' %s id]
-            ['title' %s title.meta.role]
-            ['description' %s description.meta.role]
-            ['admin' %b (~(has in admins.group) id)]
-        ==
-      [(en:json:html (directory:spec args items)) ~]
-    ?>  (admin:policy our.bowl -.flag group)
-    ::  Never expose invitation tokens, referral links or request bodies.
-    =/  pending  ~(tap in ~(key by pending.admissions.group))
-    =/  requests  ~(tap in ~(key by requests.admissions.group))
-    =/  invites  ~(tap in ~(key by invited.admissions.group))
-    =/  ships
-      |=  rows=(list @p)
-      :-  %a
-      %+  turn  (scag 100 (slag (offset:spec args) rows))
-      |=  who=@p
-      [%s (scot %p who)]
-    =/  result
-      =/  next-offset  (add (offset:spec args) 100)
-      =/  more
-        ?|  (gth (lent pending) next-offset)
-            (gth (lent requests) next-offset)
-            (gth (lent invites) next-offset)
-        ==
-      %-  pairs:enjs:format
-      :~  ['pending' (ships pending)]
-          ['requests' (ships requests)]
-          ['invited' (ships invites)]
-          ['has_more' %b more]
-          ['next_offset' ?:(more [%s (scot %ud next-offset)] ~)]
-      ==
-    [(en:json:html result) ~]
-  =/  card=card:agent:gall
-    ?:  =('create_group' action)
-      [%pass wire %agent [our.bowl %groups] %poke %group-command !>(`c-groups:v8:g`[%create (create:policy args our.bowl groups)])]
-    =/  flag  (flag:spec (required:spec args 'group' 256))
-    ?:  =('request_group_invite' action)
-      ?>  !(~(has by groups) flag)
-      [%pass wire %agent [our.bowl %groups] %poke %group-knock !>(flag)]
-    ?:  ?|  =('accept_group_invite' action)
-            =('decline_group_invite' action)
-            =('cancel_group_join' action)
-        ==
-      ?>  !(~(has by groups) flag)
-      =/  foreign  (~(got by foreigns) flag)
-      ?:  =('cancel_group_join' action)
-        ?>  ?=(^ progress.foreign)
-        [%pass wire %agent [our.bowl %groups] %poke %group-cancel !>(flag)]
-      ?>  (invited foreign)
-      ?:  =('accept_group_invite' action)
-        [%pass wire %agent [our.bowl %groups] %poke %group-join !>([flag &])]
-      [%pass wire %agent [our.bowl %groups] %poke %invite-decline !>(flag)]
-    =/  group  (~(got by groups) flag)
-    [%pass wire %agent [our.bowl %groups] %poke %group-action-4 !>(`a-groups:v8:g`[%group flag (manage:policy args our.bowl flag group)])]
+      (list-roles args group)
+    (list-requests args flag group)
+  =/  =card:agent:gall  (command args wire action)
   =/  body
     %+  rap  3
     :~  'accepted: local Tlon acknowledged '
@@ -139,4 +73,93 @@
         '; verify with list_roles/list_members/list_group_requests/list_group_invites; remote completion is not confirmed'
     ==
   [body `card]
+::
+++  list-invites
+  |=  args=json
+  ^-  [body=@t effect=(unit card:agent:gall)]
+  =/  rows  ~(tap by foreigns)
+  =/  items
+    %+  turn  rows
+    |=  [flag=[@p @tas] foreign=foreign:v8:g]
+    %-  pairs:enjs:format
+    :~  ['group' %s (group-id flag)]
+        ['title' %s ?~(preview.foreign '' title.meta.u.preview.foreign)]
+        ['has_invite' %b (invited foreign)]
+        ['progress' ?~(progress.foreign ~ [%s u.progress.foreign])]
+    ==
+  [(en:json:html (directory:spec args items)) ~]
+::
+++  list-roles
+  |=  [args=json group=group:v9:g]
+  ^-  [body=@t effect=(unit card:agent:gall)]
+  =/  rows  ~(tap by roles.group)
+  =/  items
+    %+  turn  rows
+    |=  [id=@tas role=role:v9:g]
+    %-  pairs:enjs:format
+    :~  ['role' %s id]
+        ['title' %s title.meta.role]
+        ['description' %s description.meta.role]
+        ['admin' %b (~(has in admins.group) id)]
+    ==
+  [(en:json:html (directory:spec args items)) ~]
+::
+++  list-requests
+  |=  [args=json flag=[@p @tas] group=group:v9:g]
+  ^-  [body=@t effect=(unit card:agent:gall)]
+  ?>  (admin:policy our.bowl -.flag group)
+  ::  Never expose invitation tokens, referral links or request bodies.
+  =/  pending  ~(tap in ~(key by pending.admissions.group))
+  =/  requests  ~(tap in ~(key by requests.admissions.group))
+  =/  invites  ~(tap in ~(key by invited.admissions.group))
+  =/  ships
+    |=  rows=(list @p)
+    :-  %a
+    %+  turn  (scag 100 (slag (offset:spec args) rows))
+    |=  who=@p
+    [%s (scot %p who)]
+  =/  result
+    =/  next-offset  (add (offset:spec args) 100)
+    =/  more
+      ?|  (gth (lent pending) next-offset)
+          (gth (lent requests) next-offset)
+          (gth (lent invites) next-offset)
+      ==
+    %-  pairs:enjs:format
+    :~  ['pending' (ships pending)]
+        ['requests' (ships requests)]
+        ['invited' (ships invites)]
+        ['has_more' %b more]
+        ['next_offset' ?:(more [%s (scot %ud next-offset)] ~)]
+    ==
+  [(en:json:html result) ~]
+::
+++  command
+  |=  [args=json wire=wire action=@t]
+  ^-  card:agent:gall
+  ?:  =('create_group' action)
+    :*  %pass  wire  %agent  [our.bowl %groups]  %poke  %group-command
+        !>(`c-groups:v8:g`[%create (create:policy args our.bowl groups)])
+    ==
+  =/  flag  (flag:spec (required:spec args 'group' 256))
+  ?:  =('request_group_invite' action)
+    ?>  !(~(has by groups) flag)
+    [%pass wire %agent [our.bowl %groups] %poke %group-knock !>(flag)]
+  ?:  ?|  =('accept_group_invite' action)
+          =('decline_group_invite' action)
+          =('cancel_group_join' action)
+      ==
+    ?>  !(~(has by groups) flag)
+    =/  foreign  (~(got by foreigns) flag)
+    ?:  =('cancel_group_join' action)
+      ?>  ?=(^ progress.foreign)
+      [%pass wire %agent [our.bowl %groups] %poke %group-cancel !>(flag)]
+    ?>  (invited foreign)
+    ?:  =('accept_group_invite' action)
+      [%pass wire %agent [our.bowl %groups] %poke %group-join !>([flag &])]
+    [%pass wire %agent [our.bowl %groups] %poke %invite-decline !>(flag)]
+  =/  group  (~(got by groups) flag)
+  :*  %pass  wire  %agent  [our.bowl %groups]  %poke  %group-action-4
+      !>(`a-groups:v8:g`[%group flag (manage:policy args our.bowl flag group)])
+  ==
 --

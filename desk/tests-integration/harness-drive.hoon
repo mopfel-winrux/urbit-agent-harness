@@ -12,7 +12,7 @@
   ;;(tang product.result)
 ::
 ++  tool-batch
-  =/  bowl=bowl:gall  *bowl:gall
+  =/  =bowl:gall  *bowl:gall
   =.  our.bowl  ~zod
   =.  src.bowl  ~zod
   =.  dap.bowl  %harness
@@ -77,11 +77,11 @@
     ?.  |(?=([%tool-2 *] p.card) ?=([%runjs *] p.card))  ~
     `p.card
   ;:  weld
-    (expect-eq !>(expected) !>(completed))
-    (expect-eq !>(expected-requests) !>(requested))
-    (expect-eq !>(~) !>(skills.after))
-    (expect-eq !>(~) !>(staged.after))
-    (expect-eq !>(7) !>(next-req.session))
-    (expect-eq !>(~[/tool-2/batch/7/fetch /runjs/batch/script]) !>(deferred))
+      (expect-eq !>(expected) !>(completed))
+      (expect-eq !>(expected-requests) !>(requested))
+      (expect-eq !>(~) !>(skills.after))
+      (expect-eq !>(~) !>(staged.after))
+      (expect-eq !>(7) !>(next-req.session))
+      (expect-eq !>(~[/tool-2/batch/7/fetch /runjs/batch/script]) !>(deferred))
   ==
 --

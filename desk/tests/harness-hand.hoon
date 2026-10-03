@@ -25,10 +25,10 @@
   =/  db  (detach-session:hd admitted 'session' ~2000.1.2)
   =/  res  (apply:hd db [%observe 'binding' 'new' 'alice' 'Hello'] ~2000.1.2)
   ;:  weld
-    (expect-eq !>(~) !>(queue.db))
-    (expect-eq !>(%cancelled) !>(phase:(~(got by observations.db) id)))
-    (expect !>(!enabled:(~(got by bindings.db) 'binding')))
-    (expect !>(?=(%| -.res)))
+      (expect-eq !>(~) !>(queue.db))
+      (expect-eq !>(%cancelled) !>(phase:(~(got by observations.db) id)))
+      (expect !>(!enabled:(~(got by bindings.db) 'binding')))
+      (expect !>(?=(%| -.res)))
   ==
 ++  test-detach-abandons-only-undispatched-output
   =/  completed  completed
@@ -36,12 +36,12 @@
   =/  db  (detach-session:hd completed 'session' ~2000.1.2)
   =/  in-flight  (detach-session:hd claimed 'session' ~2000.1.2)
   ;:  weld
-    (expect-eq !>(%abandoned) !>(status:(~(got by outbox.db) id)))
-    (expect-eq !>(observations.completed) !>(observations.db))
-    (expect-eq !>(outbox.claimed) !>(outbox.in-flight))
-    (expect-eq !>(controls.claimed) !>(controls.in-flight))
-    (expect-eq !>(db) !>((detach-session:hd db 'session' ~2000.1.3)))
-    (expect-eq !>(completed) !>((detach-session:hd completed 'unrelated' ~2000.1.2)))
+      (expect-eq !>(%abandoned) !>(status:(~(got by outbox.db) id)))
+      (expect-eq !>(observations.completed) !>(observations.db))
+      (expect-eq !>(outbox.claimed) !>(outbox.in-flight))
+      (expect-eq !>(controls.claimed) !>(controls.in-flight))
+      (expect-eq !>(db) !>((detach-session:hd db 'session' ~2000.1.3)))
+      (expect-eq !>(completed) !>((detach-session:hd completed 'unrelated' ~2000.1.2)))
   ==
 ++  test-deduplicates-source-events
   =/  res  (apply:hd admitted [%observe 'binding' 'message-1' 'alice' 'Hello'] ~2000.1.2)
@@ -55,12 +55,18 @@
   (expect !>(?=(%| -.res)))
 ++  test-one-active-input-per-session
   =/  running  (start:hd admitted 'session' id)
-  (expect !>(&(=(`id (next:hd admitted 'session')) =(~ (next:hd running 'session')) =(~ (next:hd admitted 'elsewhere')))))
+  %-  expect
+  !>  ?&  =(`id (next:hd admitted 'session'))  =(~ (next:hd running 'session'))
+          =(~ (next:hd admitted 'elsewhere'))
+      ==
 ++  test-reply-is-separate-from-delivery
   =/  db  completed
   =/  pub  (need (~(get by outbox.db) id))
   =/  obs  (need (~(get by observations.db) id))
-  (expect !>(&(=(%completed phase.obs) =(%pending status.pub) =('The answer' body.pub) =('opaque/thread' address.pub) =(~ active.db))))
+  %-  expect
+  !>  ?&  =(%completed phase.obs)  =(%pending status.pub)  =('The answer' body.pub)
+          =('opaque/thread' address.pub)  =(~ active.db)
+      ==
 ++  test-claim-is-exclusive
   =/  other  (apply:hd claimed [%claim 'chat' id 'worker-2'] ~2000.1.1)
   =/  again  (apply:hd claimed [%claim 'chat' id 'worker-1'] ~2000.1.2)
@@ -84,7 +90,10 @@
   ?>  ?=(%& -.failed)
   =/  again  (apply:hd db.p.failed [%retry 'chat' id] ~2000.1.2)
   ?>  ?=(%& -.again)
-  (expect !>(&(=(~ queue.db.p.again) =(~ active.db.p.again) =(observations.baseline observations.db.p.again))))
+  %-  expect
+  !>  ?&  =(~ queue.db.p.again)  =(~ active.db.p.again)
+          =(observations.baseline observations.db.p.again)
+      ==
 ++  test-disable-hides-undelivered-output
   =/  disabled  (apply:hd completed [%enable 'binding' %.n] ~2000.1.1)
   ?>  ?=(%& -.disabled)
@@ -139,18 +148,34 @@
   =/  blocked  (apply:hd db.p.third [%observe 'three' 'first' 'alice' 'No'] ~2000.1.1)
   (expect !>(?=(%| -.blocked)))
 ++  test-recovery-fences-old-receipts
-  =/  recovered  (apply:hd claimed [%resolve 'chat' id 1 %failed '' 'Destination confirmed no message'] ~2000.1.2)
+  =/  recovered
+    %^  apply:hd
+      claimed
+      [%resolve 'chat' id 1 %failed '' 'Destination confirmed no message']
+    ~2000.1.2
   ?>  ?=(%& -.recovered)
   =/  retried  (apply:hd db.p.recovered [%retry 'chat' id] ~2000.1.2)
   ?>  ?=(%& -.retried)
   =/  new-claim  (apply:hd db.p.retried [%claim 'chat' id 'worker-1'] ~2000.1.2)
   ?>  ?=(%& -.new-claim)
-  =/  stale  (apply:hd db.p.new-claim [%receipt-at 'chat' id 'worker-1' 1 %delivered 'late'] ~2000.1.2)
-  =/  correct  (apply:hd db.p.new-claim [%receipt-at 'chat' id 'worker-1' 3 %delivered 'new'] ~2000.1.2)
+  =/  stale
+    %^  apply:hd
+      db.p.new-claim
+      [%receipt-at 'chat' id 'worker-1' 1 %delivered 'late']
+    ~2000.1.2
+  =/  correct
+    %^  apply:hd
+      db.p.new-claim
+      [%receipt-at 'chat' id 'worker-1' 3 %delivered 'new']
+    ~2000.1.2
   (expect !>(&(?=(%| -.stale) ?=(%& -.correct))))
 ++  test-owner-can-abandon-without-pretending-delivery
   =/  baseline  completed
-  =/  res  (apply:hd claimed [%resolve 'chat' id 1 %abandoned '' 'Do not publish this answer'] ~2000.1.2)
+  =/  res
+    %^  apply:hd
+      claimed
+      [%resolve 'chat' id 1 %abandoned '' 'Do not publish this answer']
+    ~2000.1.2
   ?>  ?=(%& -.res)
   =/  db  db.p.res
   =/  pub  (need (~(get by outbox.db) id))
@@ -193,19 +218,31 @@
   =/  cfg=binding:hh  ['mail' 'opaque' 'other-session' ~['alice'] %.y]
   =/  registered  (apply:hd archivable [%register cfg] ~2000.1.1)
   ?>  ?=(%& -.registered)
-  =/  observed  (apply:hd db.p.registered [%observe 'hand--0' 'mail-1' 'alice' 'Keep this'] ~2000.1.1)
+  =/  observed
+    %^  apply:hd
+      db.p.registered
+      [%observe 'hand--0' 'mail-1' 'alice' 'Keep this']
+    ~2000.1.1
   ?>  ?=(%& -.observed)
   =/  before  db.p.observed
-  =/  done  (apply:hd before [%retire 'binding' (archive-digest:hd before 'binding') 'archive.jsonl'] ~2000.1.2)
+  =/  done
+    %^  apply:hd
+      before
+      [%retire 'binding' (archive-digest:hd before 'binding') 'archive.jsonl']
+    ~2000.1.2
   ?>  ?=(%& -.done)
   =/  after  db.p.done
   =/  kept  (input-id:hd 'hand--0' 'mail-1')
-  (expect !>(&((~(has by bindings.after) 'hand--0') (~(has by observations.after) kept) =(queue.before queue.after) =(next-binding.before next-binding.after))))
+  %-  expect
+  !>  ?&  (~(has by bindings.after) 'hand--0')  (~(has by observations.after) kept)
+          =(queue.before queue.after)  =(next-binding.before next-binding.after)
+      ==
 ++  test-register-skips-detached-retained-identities
   =/  cfg=binding:hh  ['mail' 'opaque' 'session' ~['alice'] %.y]
   =/  obs=observation:hh  ['hand--1' 'event' 'alice' 'Kept' ~2000.1.1 %completed]
   =/  db  *state:hh
-  =.  db  db(observations (~(put by observations.db) (input-id:hd 'hand--1' 'event') obs), next-binding 1)
+  =.  db
+    db(observations (~(put by observations.db) (input-id:hd 'hand--1' 'event') obs), next-binding 1)
   =/  added  (apply:hd db [%register cfg] ~2000.1.2)
   ?>  ?=(%& -.added)
   (expect !>((~(has by bindings.db.p.added) 'hand--2')))

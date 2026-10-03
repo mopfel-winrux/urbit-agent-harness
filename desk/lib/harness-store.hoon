@@ -18,7 +18,9 @@
     sessions  sessions
     defaults  (migrate-config defaults.state)
     peer-base  (bind peer-base.state migrate-config)
-    summary-models  [(bind compaction.summary-models.state migrate-config) (bind lcm.summary-models.state migrate-config)]
+    summary-models  :*  (bind compaction.summary-models.state migrate-config)
+                        (bind lcm.summary-models.state migrate-config)
+                    ==
   ==
 ++  migrate-conversation
   |=  old=conversation:c

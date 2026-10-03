@@ -1,20 +1,23 @@
 ::  A complete platform key snapshot replaces only platform-owned slots.
 /-  h=harness
-/+  ht=harness-tools, j=harness-workspace-json, routing=harness-model-routing, policy=harness-defaults
+/+  ht=harness-tools, j=harness-workspace-json, routing=harness-model-routing,
+    policy=harness-defaults
 |%
 ++  apply
-  |=  [config=config:h keys=(map @t @t) servers=(map mcp-server-id:h mcp-server:h) args=json initialize=?]
+  |=  $:  config=config:h  keys=(map @t @t)  servers=(map mcp-server-id:h mcp-server:h)  args=json
+          initialize=?
+      ==
   ^-  [config=config:h keys=(map @t @t)]
   =/  supplied  (need (get:j args 'providerKeys'))
   =/  primary  (get:j args 'primary')
   =?  config  &(initialize ?=(^ primary))
     =/  choice  (snag 0 (parse:routing [%a ~[u.primary]]))
     %*  .  config
-      url          (endpoint:routing provider.choice)
-      model        model.choice
-      zdr          =('openrouter' provider.choice)
-      key          ''
-      headers      ~
+      url  (endpoint:routing provider.choice)
+      model  model.choice
+      zdr  =('openrouter' provider.choice)
+      key  ''
+      headers  ~
       max-context  fallback-context:policy
     ==
   =/  fallbacks  (get:j args 'fallbacks')

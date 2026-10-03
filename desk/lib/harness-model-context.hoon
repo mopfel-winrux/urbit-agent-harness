@@ -7,13 +7,13 @@
   |=  credential=@t
   ^-  (unit @t)
   ?+  credential  ~
-    %openai            `'https://api.openai.com/v1/models'
-    %openai-device     `device-models:auth
-    %anthropic         `'https://api.anthropic.com/v1/models?limit=1000'
+    %openai  `'https://api.openai.com/v1/models'
+    %openai-device  `device-models:auth
+    %anthropic  `'https://api.anthropic.com/v1/models?limit=1000'
     %anthropic-device  `'https://api.anthropic.com/v1/models?limit=1000'
-    %xai               `'https://api.x.ai/v1/models'
-    %xai-device        `xai-models:auth
-    %openrouter        `'https://openrouter.ai/api/v1/models'
+    %xai  `'https://api.x.ai/v1/models'
+    %xai-device  `xai-models:auth
+    %openrouter  `'https://openrouter.ai/api/v1/models'
   ==
 ++  identity
   |=  [keys=(map @t @t) credential=@t]
@@ -21,7 +21,9 @@
 ++  credentials
   |=  config=config:h
   ^-  (list @t)
-  [(credential-for-config:auth config) (turn fallbacks.config |=(choice=model-choice:h provider.choice))]
+  :*  (credential-for-config:auth config)
+      (turn fallbacks.config |=(choice=model-choice:h provider.choice))
+  ==
 ++  remember
   |=  [catalogs=model-contexts:h keys=(map @t @t) credential=@t windows=(map @t @ud)]
   ^-  model-contexts:h
@@ -34,10 +36,10 @@
   ::  Missing metadata keeps a known limit for the same authenticated route.
   =/  remaining  ~(tap by `(map @t @ud)`windows)
   |-  ^-  model-contexts:h
-  ?~  remaining  (~(put by catalogs) credential [current retained])
-  =/  [model=@t capacity=@ud]  i.remaining
-  =?  retained  (gth capacity 0)  (~(put by retained) model capacity)
-  $(remaining t.remaining)
+      ?~  remaining  (~(put by catalogs) credential [current retained])
+      =/  [model=@t capacity=@ud]  i.remaining
+      =?  retained  (gth capacity 0)  (~(put by retained) model capacity)
+      $(remaining t.remaining)
 ++  resolve
   |=  [config=config:h keys=(map @t @t) catalogs=model-contexts:h]
   ^-  config:h
@@ -60,7 +62,9 @@
     [['anthropic-beta' 'oauth-2025-04-20'] headers]
   =.  headers  (headers:auth keys u.url headers)
   =.  headers
-    [?:(=('anthropic' credential) ['x-api-key' token] ['authorization' (cat 3 'Bearer ' token)]) headers]
+    :*  ?:(=('anthropic' credential) ['x-api-key' token] ['authorization' (cat 3 'Bearer ' token)])
+        headers
+    ==
   :_  ~
   :*  %pass
       /model-context/[credential]/(scot %uv (identity keys credential))
@@ -72,7 +76,12 @@
   |=  response=client-response:iris
   ^-  (unit (map @t @ud))
   ?.  ?=(%finished -.response)  ~
-  ?.  &((gte status-code.response-header.response 200) (lth status-code.response-header.response 300))  ~
+  ?.  ?&  (gte status-code.response-header.response 200)
+          %+  lth
+            status-code.response-header.response
+          300
+      ==
+    ~
   ?~  full-file.response  ~
   ?:  (gth p.data.u.full-file.response 16.777.216)  ~
   =/  body  (de:json:html q.data.u.full-file.response)

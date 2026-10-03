@@ -10,7 +10,9 @@
     `[%pass /tool-2/s/1/call %arvo %i %request [%'GET' 'https://example.com/' ~ ~] [0 0]]
   (expect-eq !>(expected) !>(got))
 ++  test-fetch-accepts-explicit-get-for-older-clients
-  (expect-eq !>((fetch '{"url":"https://example.com/"}')) !>((fetch '{"url":"https://example.com/","method":"GET"}')))
+  %+  expect-eq
+    !>((fetch '{"url":"https://example.com/"}'))
+  !>((fetch '{"url":"https://example.com/","method":"GET"}'))
 ++  test-fetch-rejects-mutations-and-bodies-before-dispatch
   =/  args=(list @t)
     :~  '{"url":"https://example.com/","method":"POST"}'

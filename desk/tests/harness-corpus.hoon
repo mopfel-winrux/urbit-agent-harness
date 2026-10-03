@@ -10,18 +10,18 @@
   |=  db=state:c
   =/  fuel=@ud  1.000
   |-  ^-  state:c
-  ?~  queued.db  db
-  ?>  (gth fuel 0)
-  $(db (work:corpus db 2 1.024), fuel (dec fuel))
+      ?~  queued.db  db
+      ?>  (gth fuel 0)
+      $(db (work:corpus db 2 1.024), fuel (dec fuel))
 ++  ready
   (drain (capture:corpus *state:c 'first' log))
 ++  test-backfill-is-bounded-and-resumable
   =/  first  (work:corpus (capture:corpus *state:c 'first' log) 1 1.024)
   =/  rest  (drain first)
   ;:  weld
-    (expect-eq !>(0) !>(count.first))
-    (expect-eq !>(2) !>(count.rest))
-    (expect-eq !>(1) !>((lent hits:(search:idx index.rest 'original' ~ 10))))
+      (expect-eq !>(0) !>(count.first))
+      (expect-eq !>(2) !>(count.rest))
+      (expect-eq !>(1) !>((lent hits:(search:idx index.rest 'original' ~ 10))))
   ==
 ++  test-capture-is-idempotent
   (expect-eq !>(ready) !>((capture:corpus ready 'first' log)))
@@ -31,9 +31,9 @@
   =/  unchanged  (sync:corpus old sessions)
   =/  removed  (sync:corpus old ~)
   ;:  weld
-    (expect-eq !>(old) !>(unchanged))
-    (expect-eq !>(0) !>(count.removed))
-    (expect-eq !>(next.old) !>(next.removed))
+      (expect-eq !>(old) !>(unchanged))
+      (expect-eq !>(0) !>(count.removed))
+      (expect-eq !>(next.old) !>(next.removed))
   ==
 ++  test-input-arriving-during-backfill-is-not-lost-or-reordered
   =/  first  (work:corpus (capture:corpus *state:c 'first' log) 1 1.024)
@@ -43,9 +43,9 @@
   =/  source  (~(got by scopes.db) scope)
   =/  record  (~(got by records.source) 3)
   ;:  weld
-    (expect-eq !>(3) !>(count.db))
-    (expect-eq !>('Arrived during backfill.') !>(body.record))
-    (expect-eq !>(revision:(play:hl more)) !>(revision.view.source))
+      (expect-eq !>(3) !>(count.db))
+      (expect-eq !>('Arrived during backfill.') !>(body.record))
+      (expect-eq !>(revision:(play:hl more)) !>(revision.view.source))
   ==
 ++  test-renaming-keeps-corpus-coordinates
   =/  old  ready
@@ -57,17 +57,17 @@
   =/  removed  (retire:corpus old 'first')
   =/  db  (drain (capture:corpus removed 'first' log))
   ;:  weld
-    (expect !>(!(~(has by scopes.removed) scope)))
-    (expect !>(!=(scope (~(got by names.db) 'first'))))
-    (expect-eq !>(0) !>(count.removed))
+      (expect !>(!(~(has by scopes.removed) scope)))
+      (expect !>(!=(scope (~(got by names.db) 'first'))))
+      (expect-eq !>(0) !>(count.removed))
   ==
 ++  test-rebuild-preserves-addresses-and-resets-index-epoch
   =/  old  ready
   =/  db  (drain (rebuild:corpus old ~2024.2.1))
   ;:  weld
-    (expect-eq !>(names.old) !>(names.db))
-    (expect-eq !>(count.old) !>(count.db))
-    (expect-eq !>(`~2024.2.1) !>(built-at.index.db))
+      (expect-eq !>(names.old) !>(names.db))
+      (expect-eq !>(count.old) !>(count.db))
+      (expect-eq !>(`~2024.2.1) !>(built-at.index.db))
   ==
 ++  test-config-and-provider-failures-are-not-indexed
   =/  cfg  *config:h
@@ -81,7 +81,11 @@
 ++  test-non-tlon-hand-material-enters-the-same-corpus
   =/  events=(list event:h)
     :~  [%context-received 0v2 'Source material from a future hand.']
-        [%input-received [0v2 [%hand 'binding' 'mail' 'thread' 'event' 'actor'] ~ ~ ~2024.1.2 [%user 'Mail question.']]]
+        :*  %input-received
+            :*  0v2  [%hand 'binding' 'mail' 'thread' 'event' 'actor']  ~  ~  ~2024.1.2
+                [%user 'Mail question.']
+            ==
+        ==
     ==
   =/  db  (drain (capture:corpus ready 'other' events))
   (expect-eq !>(1) !>((lent hits:(search:idx index.db 'future hand' ~ 10))))
@@ -97,14 +101,14 @@
   =/  final  (work:corpus second 10 8)
   =/  source  (~(got by scopes.final) (~(got by names.final) 'budget'))
   ;:  weld
-    (expect-eq !>(0) !>(count.reversed))
-    (expect-eq !>(1) !>(count.first))
-    (expect-eq !>(2) !>(count.second))
-    (expect-eq !>(3) !>(count.final))
-    (expect-eq !>('first oversized body') !>(body:(~(got by records.source) 1)))
-    (expect-eq !>('short') !>(body:(~(got by records.source) 2)))
-    (expect-eq !>('last oversized body') !>(body:(~(got by records.source) 3)))
-    (expect-eq !>(reversed) !>((work:corpus reversed 0 8)))
-    (expect-eq !>(reversed) !>((work:corpus reversed 10 0)))
+      (expect-eq !>(0) !>(count.reversed))
+      (expect-eq !>(1) !>(count.first))
+      (expect-eq !>(2) !>(count.second))
+      (expect-eq !>(3) !>(count.final))
+      (expect-eq !>('first oversized body') !>(body:(~(got by records.source) 1)))
+      (expect-eq !>('short') !>(body:(~(got by records.source) 2)))
+      (expect-eq !>('last oversized body') !>(body:(~(got by records.source) 3)))
+      (expect-eq !>(reversed) !>((work:corpus reversed 0 8)))
+      (expect-eq !>(reversed) !>((work:corpus reversed 10 0)))
   ==
 --

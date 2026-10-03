@@ -39,14 +39,22 @@
   =/  messages=(list message:v1:ac)
     ~[[1 now:bowl 'one'] [2 now:bowl 'two']]
   ;:  weld
-    (expect-eq !>(2) !>((lent -.one)))
-    (expect-eq !>(1) !>((lent -.client)))
-    (expect-eq !>(`(list update:v1:ac)`~[[%connection 'fixture' & ~] [%messages 'fixture' %agent messages]]) !>((updates -.replay)))
-    (expect-eq !>(`(list update:v1:ac)`~[[%messages 'fixture' %agent messages]]) !>((updates -.shared)))
-    (expect-eq !>(`(list update:v1:ac)`~[[%connection 'fixture' & ~] [%messages 'fixture' %agent (slag 1 messages)]]) !>((updates -.remaining)))
-    (expect-eq !>([2 3]) !>([next-to-client.connection next-to-agent.connection]))
-    (expect-eq !>([1 1]) !>([~(wyt by to-client.connection) ~(wyt by to-agent.connection)]))
-    (expect-eq !>(~) !>(-.acked))
+      (expect-eq !>(2) !>((lent -.one)))
+      (expect-eq !>(1) !>((lent -.client)))
+      %+  expect-eq
+        !>  ^-  (list update:v1:ac)
+            ~[[%connection 'fixture' & ~] [%messages 'fixture' %agent messages]]
+      !>((updates -.replay))
+      %+  expect-eq
+        !>(`(list update:v1:ac)`~[[%messages 'fixture' %agent messages]])
+      !>((updates -.shared))
+      %+  expect-eq
+        !>  ^-  (list update:v1:ac)
+            ~[[%connection 'fixture' & ~] [%messages 'fixture' %agent (slag 1 messages)]]
+      !>((updates -.remaining))
+      (expect-eq !>([2 3]) !>([next-to-client.connection next-to-agent.connection]))
+      (expect-eq !>([1 1]) !>([~(wyt by to-client.connection) ~(wyt by to-agent.connection)]))
+      (expect-eq !>(~) !>(-.acked))
   ==
 ++  test-close-retains-queued-messages-until-acknowledged
   =/  opened  (poke start [%open 'fixture'])
@@ -58,11 +66,14 @@
   =/  acked  (poke +.closed [%ack 'fixture' %client 1])
   =/  dropped  (poke +.acked [%drop 'fixture'])
   ;:  weld
-    (expect-eq !>(`(list update:v1:ac)`~[[%connection 'fixture' | `'done'] [%connection 'fixture' | `'done']]) !>((updates -.closed)))
-    (expect-eq !>(~) !>(-.repeated))
-    (expect !>(?=(%| -.blocked)))
-    (expect !>(?=(%| -.rejected)))
-    (expect-eq !>(0) !>(~(wyt by (saved +.dropped))))
+      %+  expect-eq
+        !>  ^-  (list update:v1:ac)
+            ~[[%connection 'fixture' | `'done'] [%connection 'fixture' | `'done']]
+      !>((updates -.closed))
+      (expect-eq !>(~) !>(-.repeated))
+      (expect !>(?=(%| -.blocked)))
+      (expect !>(?=(%| -.rejected)))
+      (expect-eq !>(0) !>(~(wyt by (saved +.dropped))))
   ==
 ++  test-transport-rejects-remote-and-invalid-admission
   =/  foreign  bowl
@@ -72,8 +83,8 @@
   =/  invalid  (mule |.((poke start [%open 'Bad ID'])))
   =/  missing  (mule |.((poke start [%send 'missing' %agent 'payload'])))
   ;:  weld
-    (expect !>(?=(%| -.remote)))
-    (expect !>(?=(%| -.invalid)))
-    (expect !>(?=(%| -.missing)))
+      (expect !>(?=(%| -.remote)))
+      (expect !>(?=(%| -.invalid)))
+      (expect !>(?=(%| -.missing)))
   ==
 --

@@ -118,12 +118,12 @@
     [%| 'Generate a distinct key for each runner']
   =/  runner
     %*  .  *runner:r
-      label    label
-      digest   (shax key)
+      label  label
+      digest  (shax key)
       revoked  |
       created  now
-      seen     now
-      next     1
+      seen  now
+      next  1
     ==
   [%& db(registry (~(put by registry.db) id runner)) (status id runner now)]
 ::

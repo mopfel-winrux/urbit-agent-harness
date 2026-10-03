@@ -12,9 +12,9 @@
   %=  saved
     provider-keys  ~
     model-contexts  ~
-    api-key        ''
-    hosted         *state:hosted
-    openai-auth    openai
-    xai-auth       xai
+    api-key  ''
+    hosted  *state:hosted
+    openai-auth  openai
+    xai-auth  xai
   ==
 --

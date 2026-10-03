@@ -1,6 +1,7 @@
 ::  Hosting manages model defaults, never conversation policy or tool grants.
 /-  h=harness
-/+  auth=harness-auth, provider=harness-provider, hosted=harness-hosted-auth, j=harness-workspace-json
+/+  auth=harness-auth, provider=harness-provider, hosted=harness-hosted-auth,
+    j=harness-workspace-json
 /+  routing=harness-model-routing
 |%
 ::
@@ -17,7 +18,9 @@
     %+  turn  `(list @t)`~['openai' 'anthropic' 'xai' 'openrouter']
     |=  name=@t
     [name [%b !=('' (key:auth keys name))]]
-  =/  subscription  (~(has in (silt ~['openai-device' 'anthropic-device' 'xai-device'])) (credential-for-config:auth config))
+  =/  subscription
+    %-  ~(has in (silt ~['openai-device' 'anthropic-device' 'xai-device']))
+    (credential-for-config:auth config)
   =/  fallbacks
     %+  turn  fallbacks.config
     |=  choice=model-choice:h
@@ -73,22 +76,26 @@
       ==
     invalid
   =/  url=@t
-    ?:  =('openai' provider)  ?:(=('subscription' method) device-url:auth 'https://api.openai.com/v1/responses')
+    ?:  =('openai' provider)
+      ?:(=('subscription' method) device-url:auth 'https://api.openai.com/v1/responses')
     ?:  =('anthropic' provider)  'https://api.anthropic.com/v1/messages'
-    ?:  =('xai' provider)  ?:(=('subscription' method) xai-url:auth 'https://api.x.ai/v1/chat/completions')
-    ?:  &(=('openrouter' provider) =('api-key' method))  'https://openrouter.ai/api/v1/chat/completions'
+    ?:  =('xai' provider)
+      ?:(=('subscription' method) xai-url:auth 'https://api.x.ai/v1/chat/completions')
+    ?:  &(=('openrouter' provider) =('api-key' method))
+      'https://openrouter.ai/api/v1/chat/completions'
     ''
   ?:  =('' url)  [config keys (error:hosted 400 'Unsupported provider or authentication method.')]
   =/  headers=(list [name=@t value=@t])
-    ?:  &(=('anthropic' provider) =('subscription' method))  ~[['anthropic-beta' 'oauth-2025-04-20']]
+    ?:  &(=('anthropic' provider) =('subscription' method))
+      ~[['anthropic-beta' 'oauth-2025-04-20']]
     ~
   =/  selected
     %*  .  config
-      url      url
-      model    model
-      key      ''
+      url  url
+      model  model
+      key  ''
       headers  headers
-      zdr      zdr
+      zdr  zdr
     ==
   =/  chain  (get:j args 'fallbacks')
   =?  fallbacks.selected  ?=(^ chain)  (parse:routing u.chain)

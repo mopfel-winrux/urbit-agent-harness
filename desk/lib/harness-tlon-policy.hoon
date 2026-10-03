@@ -104,7 +104,7 @@
   ^-  @t
   =/  surface=@t
     ?-  -.to
-      %dm       ?~(parent.to 'dm' 'dm-thread')
+      %dm  ?~(parent.to 'dm' 'dm-thread')
       %channel  (cat 3 (end 3^24 name.nest.to) ?~(parent.to '' '-thread'))
     ==
   ::  Human-readable identity with a 128-bit scope suffix. Stable for this
@@ -126,11 +126,20 @@
       `[p.id.key.event key.event [%dm p.whom.event ~] (story-to-text:story content.event) &]
         %dm-reply
       ?.  ?=(%ship -.whom.event)  ~
-      `[p.id.key.event key.event [%dm p.whom.event `id.parent.event] (story-to-text:story content.event) &]
+      :-  ~
+      :*  p.id.key.event  key.event  [%dm p.whom.event `id.parent.event]
+          (story-to-text:story content.event)  &
+      ==
         %post
-      `[p.id.key.event key.event [%channel channel.event ~] (text:input our content.event) mention.event]
+      :-  ~
+      :*  p.id.key.event  key.event  [%channel channel.event ~]  (text:input our content.event)
+          mention.event
+      ==
         %reply
-      `[p.id.key.event key.event [%channel channel.event `time.parent.event] (text:input our content.event) |(mention.event =(our p.id.parent.event))]
+      :-  ~
+      :*  p.id.key.event  key.event  [%channel channel.event `time.parent.event]
+          (text:input our content.event)  |(mention.event =(our p.id.parent.event))
+      ==
     ==
   ?~  item  ~
   ?:  =(actor.u.item our)  ~
@@ -221,7 +230,7 @@
   ?>  ?=(?(%off %mentions %all) response.parsed)
   ?>  (lte (lent allowed.parsed) 64)
   ?>  =(~(wyt in (silt allowed.parsed)) (lent allowed.parsed))
-  =/  policy=policy:t
+  =/  =policy:t
     :*  enabled.parsed
         owner.parsed
         (my trusted.parsed)

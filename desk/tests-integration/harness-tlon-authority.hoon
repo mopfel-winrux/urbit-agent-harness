@@ -18,7 +18,7 @@
 ++  read
   |=  [saved=state-2:t sid=@t job=(unit schedule:c) allowed=? admin=?]
   ^-  noun
-  =/  bowl=bowl:gall  *bowl:gall
+  =/  =bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.9.10)
   =.  wex.bowl  (~(put by wex.bowl) [/head ~zod %harness] [& /hand-events])
   =/  attempt
@@ -51,28 +51,30 @@
   =/  s  fixture
   =/  j  job
   ;:  weld
-    (equal !>(`hand-authority:ad`[& ~]) !>((read s 'source' ~ & |)))
-    (equal !>(`hand-authority:ad`[& `~[%web %tlon-read %tlon-write]]) !>((read s 'run' `j & |)))
-    (equal !>(`hand-authority:ad`[& `~]) !>((read s 'run' `j(kind %reminder) & |)))
-    (equal !>(&) !>((read s 'source' ~ & &)))
-    (equal !>(|) !>((read s 'run' `j & &)))
+      (equal !>(`hand-authority:ad`[& ~]) !>((read s 'source' ~ & |)))
+      (equal !>(`hand-authority:ad`[& `~[%web %tlon-read %tlon-write]]) !>((read s 'run' `j & |)))
+      (equal !>(`hand-authority:ad`[& `~]) !>((read s 'run' `j(kind %reminder) & |)))
+      (equal !>(&) !>((read s 'source' ~ & &)))
+      (equal !>(|) !>((read s 'run' `j & &)))
   ==
 ++  test-revocation-and-source-binding-changes-are-fresh-on-each-check
   =/  s  fixture
   =/  j  job
   ;:  weld
-    (equal !>(`hand-authority:ad`[| ~]) !>((read s 'run' `j | |)))
-    (equal !>(`hand-authority:ad`[& `~[%web %tlon-read %tlon-write]]) !>((read s 'run' `j & |)))
-    (equal !>(`hand-authority:ad`[| ~]) !>((read s 'run' `j(binding 'replaced') & |)))
-    (equal !>(`hand-authority:ad`[| ~]) !>((read s(enabled.policy |) 'run' `j & |)))
-    (equal !>(`hand-authority:ad`[| ~]) !>((read s(routes (my ~[['source' ['binding' %config]]])) 'run' `j & |)))
+      (equal !>(`hand-authority:ad`[| ~]) !>((read s 'run' `j | |)))
+      (equal !>(`hand-authority:ad`[& `~[%web %tlon-read %tlon-write]]) !>((read s 'run' `j & |)))
+      (equal !>(`hand-authority:ad`[| ~]) !>((read s 'run' `j(binding 'replaced') & |)))
+      (equal !>(`hand-authority:ad`[| ~]) !>((read s(enabled.policy |) 'run' `j & |)))
+      %+  equal
+        !>(`hand-authority:ad`[| ~])
+      !>((read s(routes (my ~[['source' ['binding' %config]]])) 'run' `j & |))
   ==
 ++  test-trusted-lanes-keep-tool-ceilings
   =/  s  fixture
   =.  policy.s  [& ~ (my ~[[~nec ~[%web]]]) %mentions ~ ~]
   ;:  weld
-    (equal !>(`hand-authority:ad`[& `~[%web %tlon-read %tlon-write]]) !>((read s 'source' ~ & |)))
-    (equal !>(|) !>((read s 'source' ~ & &)))
-    (equal !>(`hand-authority:ad`[| ~]) !>((read s(trusted.policy ~) 'source' ~ & |)))
+      (equal !>(`hand-authority:ad`[& `~[%web %tlon-read %tlon-write]]) !>((read s 'source' ~ & |)))
+      (equal !>(|) !>((read s 'source' ~ & &)))
+      (equal !>(`hand-authority:ad`[| ~]) !>((read s(trusted.policy ~) 'source' ~ & |)))
   ==
 --

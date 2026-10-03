@@ -41,33 +41,33 @@
   =/  size=@ud  0
   =/  count=@ud  0
   |-  ^-  (list json)
-  ?~  tools  (flop reversed-rows)
-  ?:  =(50 count)  (flop reversed-rows)
-  =/  name  (str:w i.tools 'name')
-  ?>  !=('' name)
-  =/  row
-    %-  pairs:enjs:format
-    :~  ['name' %s name]
-        ['description' %s (brief (str:w i.tools 'description'))]
-    ==
-  =/  bytes  (add 1 (met 3 (en:json:html row)))
-  ?:  (gth (add size bytes) 12.000)
-    ?>  ?=(^ reversed-rows)
-    (flop reversed-rows)
-  %=  $
-    tools          t.tools
-    reversed-rows  [row reversed-rows]
-    size           (add size bytes)
-    count          +(count)
-  ==
+      ?~  tools  (flop reversed-rows)
+      ?:  =(50 count)  (flop reversed-rows)
+      =/  name  (str:w i.tools 'name')
+      ?>  !=('' name)
+      =/  row
+        %-  pairs:enjs:format
+        :~  ['name' %s name]
+            ['description' %s (brief (str:w i.tools 'description'))]
+        ==
+      =/  bytes  (add 1 (met 3 (en:json:html row)))
+      ?:  (gth (add size bytes) 12.000)
+        ?>  ?=(^ reversed-rows)
+        (flop reversed-rows)
+      %=  $
+        tools  t.tools
+        reversed-rows  [row reversed-rows]
+        size  (add size bytes)
+        count  +(count)
+      ==
 ++  brief
   |=  text=@t
   ^-  @t
   ?:  (lte (met 3 text) 160)  text
   =/  cap=@ud  160
   |-  ^-  @t
-  =/  next  (cut 3 [cap 1] text)
-  ::  Stop before an incomplete UTF-8 character, not inside its bytes.
-  ?:  &((gte next 128) (lth next 192) (gth cap 0))  $(cap (dec cap))
-  (cat 3 (end [3 cap] text) '...')
+      =/  next  (cut 3 [cap 1] text)
+      ::  Stop before an incomplete UTF-8 character, not inside its bytes.
+      ?:  &((gte next 128) (lth next 192) (gth cap 0))  $(cap (dec cap))
+      (cat 3 (end [3 cap] text) '...')
 --

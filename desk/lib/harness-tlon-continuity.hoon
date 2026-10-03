@@ -14,7 +14,7 @@
     %+  murn  ~(tap by routes.saved)
     |=  [sid=@t route=route:t]
     =/  binding  (~(get by bindings.hands) binding.route)
-    ?:(?&(?=(^ binding) !enabled.u.binding) `sid ~)
+    ?:(&(?=(^ binding) !enabled.u.binding) `sid ~)
   ?:  =(~ detached)  saved
   =.  epoch.saved  +(epoch.saved)
   =.  identities.saved
@@ -50,17 +50,17 @@
   |=  event=incoming-event:v8:a
   ^-  (unit @p)
   ?+  -.event  ~
-    %dm-post       `p.id.key.event
-    %dm-reply      `p.id.key.event
-    %post          `p.id.key.event
-    %reply         `p.id.key.event
-    %group-join    `ship.event
-    %group-kick    `ship.event
-    %group-role    `ship.event
-    %group-ask     `ship.event
+    %dm-post  `p.id.key.event
+    %dm-reply  `p.id.key.event
+    %post  `p.id.key.event
+    %reply  `p.id.key.event
+    %group-join  `ship.event
+    %group-kick  `ship.event
+    %group-role  `ship.event
+    %group-ask  `ship.event
     %group-invite  `ship.event
-    %contact       `who.event
-    %dm-invite     ?:(?=(%ship -.whom.event) `p.whom.event ~)
+    %contact  `who.event
+    %dm-invite  ?:(?=(%ship -.whom.event) `p.whom.event ~)
   ==
 ::
 ++  authority-for
@@ -90,13 +90,13 @@
   =/  actors=(set @p)
     %-  silt
     ;:  weld
-      (turn ~(tap by known) |=([[actor=@p to=destination:t] sid=@t] actor))
-      ~(tap in ~(key by trusted.before))
-      ~(tap in ~(key by trusted.new))
-      ~(tap in allowed.before)
-      ~(tap in allowed.new)
-      ?~(owner.before ~ ~[u.owner.before])
-      ?~(owner.new ~ ~[u.owner.new])
+        (turn ~(tap by known) |=([[actor=@p to=destination:t] sid=@t] actor))
+        ~(tap in ~(key by trusted.before))
+        ~(tap in ~(key by trusted.new))
+        ~(tap in allowed.before)
+        ~(tap in allowed.new)
+        ?~(owner.before ~ ~[u.owner.before])
+        ?~(owner.new ~ ~[u.owner.new])
     ==
   %+  roll  ~(tap in actors)
   |=  [actor=@p cutoffs=(map @p @da)]
@@ -111,7 +111,9 @@
   ^-  (map nest:c @da)
   ::  Removed overrides retain a cutoff until a default change covers it.
   =?  prior  !=(response.before response.after)  ~
-  =/  nests  (~(uni in ~(key by prior)) (~(uni in ~(key by channels.before)) ~(key by channels.after)))
+  =/  nests
+    %-  ~(uni in ~(key by prior))
+    (~(uni in ~(key by channels.before)) ~(key by channels.after))
   %+  roll  ~(tap in nests)
   |=  [nest=nest:c cutoffs=(map nest:c @da)]
   =/  cutoff=(unit @da)
@@ -143,9 +145,9 @@
   |=  event=incoming-event:v8:a
   ^-  @da
   ?+  -.event  `@da`0
-    %dm-post   time.key.event
+    %dm-post  time.key.event
     %dm-reply  time.key.event
-    %post      time.key.event
-    %reply     time.key.event
+    %post  time.key.event
+    %reply  time.key.event
   ==
 --

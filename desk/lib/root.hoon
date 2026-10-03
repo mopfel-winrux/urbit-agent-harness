@@ -1,6 +1,7 @@
 ::  Minimal root nexus for the Harness distribution.
 ::
-/+  nexus, tarball, loader, io=fiberio, ball-api, http-utils, server, session-nexus=harness-session-nexus
+/+  nexus, tarball, loader, io=fiberio, ball-api, http-utils, server,
+    session-nexus=harness-session-nexus
 ^-  nexus:nexus
 |%
 ++  on-load
@@ -56,7 +57,7 @@
   |=  =prod:fiber:nexus
   =/  m  (fiber:fiber:nexus ,~)
   ^-  process:fiber:nexus
-  ?+    rail  stay:m
+  ?+  rail  stay:m
       [[%agents %main %shadow-inputs ~] @]
     ((on-file:session-nexus rail blot) prod)
       [[%sys %eyre %requests ~] @]

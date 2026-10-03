@@ -1,6 +1,7 @@
 ::  Role changes grant access, not subscriptions. Reconcile only our own role
 ::  notifications, using the native group's live read policy and joined state.
 /-  a=tlon-activity-ver, g=tlon-groups-ver, ng=tlon-groups, dv=tlon-channels-ver
+/+  paths=harness-tlon-paths
 |%
 ++  target
   |=  [our=@p enabled=? event=incoming-event:v8:a]
@@ -33,26 +34,31 @@
   &(!(~(has in active-channels.group) nest) (can-read our nest))
 ++  io
   |_  bowl=bowl:gall
+  +*  read-path  ~(. paths [our now]:bowl)
   ++  join
     |=  [flag=flag:g nest=nest:g]
     ^-  card:agent:gall
     =/  wire  /channel-join/[p.nest]/(scot %p p.q.nest)/[q.q.nest]
     ?:  ?=(?(%chat %diary %heap) p.nest)
-      [%pass wire %agent [our.bowl %channels] %poke %channel-action-2 !>(`a-channels:v10:dv`[%channel nest %join flag])]
+      :*  %pass  wire  %agent  [our.bowl %channels]  %poke  %channel-action-2
+          !>(`a-channels:v10:dv`[%channel nest %join flag])
+      ==
     ::  Native group-linked apps (including Notes) own their subscriptions.
     [%pass wire %agent [our.bowl p.nest] %poke %group-channel-join !>(`channel-join:ng`[nest flag])]
   ++  reconcile
     |=  flag=flag:g
     ^-  (list card:agent:gall)
     ?.  .^(? %gu /(scot %p our.bowl)/groups/(scot %da now.bowl)/$)  ~
-    =/  groups=groups:v9:g
+    =/  =groups:v9:g
       .^(groups:v9:g %gx /(scot %p our.bowl)/groups/(scot %da now.bowl)/v2/groups/noun)
     =/  group  (~(get by groups) flag)
     ?~  group  ~
     ::  Use Groups' own policy, including bans and admin roles. Do not infer
     ::  authority from the roles carried in a potentially replayed notification.
     =/  can-read=$-([@p nest:g] ?)
-      .^($-([@p nest:g] ?) %gx /(scot %p our.bowl)/groups/(scot %da now.bowl)/v2/groups/(scot %p p.flag)/[q.flag]/channels/can-read/noun)
+      .^  $-([@p nest:g] ?)  %gx
+        (group-can-read:read-path flag)
+      ==
     =/  channels=v-channels:v9:dv
       ?.  .^(? %gu /(scot %p our.bowl)/channels/(scot %da now.bowl)/$)  ~
       .^(v-channels:v9:dv %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/v-channels/noun)

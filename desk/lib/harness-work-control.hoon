@@ -1,7 +1,8 @@
 ::  Bounded confirmation policy shared by all human conversation ingress.
 ::  The head supplies authenticated provenance and checks current authority.
 /-  h=harness, c=harness-work-control, w=harness-workspace, hh=harness-hand
-/+  j=harness-workspace-json, workspace=harness-workspace, view=harness-work-view, copy=harness-work-copy
+/+  j=harness-workspace-json, workspace=harness-workspace, view=harness-work-view,
+    copy=harness-work-copy
 |%
 ::
 ++  capacity  2.048
@@ -16,26 +17,33 @@
   ^-  ?
   ?.  =(-.a -.b)  |
   ?+  -.a  |
-    %acp   &(?=(%acp -.b) =(client.a client.b))
+    %acp  &(?=(%acp -.b) =(client.a client.b))
     %poke  &(?=(%poke -.b) =(ship.a ship.b))
-    %hand
-      ?&  ?=(%hand -.b)
-          =(binding.a binding.b)
-          =(hand.a hand.b)
-          =(address.a address.b)
-          =(actor.a actor.b)
-      ==
+      %hand
+    ?&  ?=(%hand -.b)
+        =(binding.a binding.b)
+        =(hand.a hand.b)
+        =(address.a address.b)
+        =(actor.a actor.b)
+    ==
   ==
 ::
 ++  matches
   |=  [request=request:c sid=@t scope=@uv source=input-source:h actor=(unit @p)]
   ^-  ?
-  &((same-origin source.request source) =(sid.request sid) =(scope.request scope) =(actor.request actor))
+  ?&  (same-origin source.request source)  =(sid.request sid)  =(scope.request scope)
+      =(actor.request actor)
+  ==
 ::
 ++  permitted
   |=  action=@t
   ^-  ?
-  (lien `(list @t)`~['hand-access' 'project-edit' 'member' 'artifact-create' 'artifact-save' 'artifact-archive' 'propose' 'review' 'publish' 'unpublish' 'task-reply'] |=(name=@t =(name action)))
+  %+  lien
+    ^-  (list @t)
+    :~  'hand-access'  'project-edit'  'member'  'artifact-create'  'artifact-save'
+        'artifact-archive'  'propose'  'review'  'publish'  'unpublish'  'task-reply'
+    ==
+  |=(name=@t =(name action))
 ::
 ++  reply-key
   |=  args=json
@@ -74,12 +82,13 @@
     %+  skim  ~(tap by requests.db)
     |=  [id=@uv request=request:c]
     (active request now)
-  ?:  (gte (lent outstanding) capacity)  [%| 'Too many active work approvals. Settle pending work before preparing another change.']
+  ?:  (gte (lent outstanding) capacity)
+    [%| 'Too many active work approvals. Settle pending work before preparing another change.']
   =.  request
     %=  request
       expires  (add now ~m15)
-      status   %pending
-      result   ~
+      status  %pending
+      result  ~
     ==
   [%& db(requests (~(put by requests.db) id request))]
 ::
@@ -90,11 +99,16 @@
   ::  Moving to running consumes the confirmation before dispatch.
   =/  request  (~(get by requests.db) id)
   ?~  request  [%| 'Work request not found.']
-  ?.  (matches u.request sid scope source actor)  [%| 'Confirm from the same conversation and sender that requested this action.']
+  ?.  (matches u.request sid scope source actor)
+    [%| 'Confirm from the same conversation and sender that requested this action.']
   ?.  (permitted action.u.request)  [%| 'Unsupported work action.']
-  ?.  =(%pending status.u.request)  [%| 'This work request is already settled or submitted; inspect its result instead of repeating it.']
+  ?.  =(%pending status.u.request)
+    :*  %|
+        'This work request is already settled or submitted; inspect its result instead of repeating it.'
+    ==
   ?:  (gte now expires.u.request)  [%| 'Work confirmation expired. Prepare the action again.']
-  ?.  =(fence fence.u.request)  [%| 'Work changed. Inspect the current record and prepare the action again.']
+  ?.  =(fence fence.u.request)
+    [%| 'Work changed. Inspect the current record and prepare the action again.']
   [%& db(requests (~(put by requests.db) id u.request(status %running)))]
 ::
 ++  reject
@@ -102,8 +116,10 @@
   ^-  (each state:c @t)
   =/  request  (~(get by requests.db) id)
   ?~  request  [%| 'Work request not found.']
-  ?.  (matches u.request sid scope source actor)  [%| 'Reject from the same conversation and sender that requested this action.']
-  ?.  =(%pending status.u.request)  [%| 'Only a pending request can be rejected; rejection cannot undo a submitted operation.']
+  ?.  (matches u.request sid scope source actor)
+    [%| 'Reject from the same conversation and sender that requested this action.']
+  ?.  =(%pending status.u.request)
+    [%| 'Only a pending request can be rejected; rejection cannot undo a submitted operation.']
   [%& db(requests (~(put by requests.db) id u.request(status %rejected)))]
 ::
 ++  complete
@@ -145,12 +161,19 @@
   (sham [action args artifact proposal group task])
 ::
 ++  fence
-  |=  [db=state:w hands=state:hh names=(map @t @uv) owners=(set [binding=@t actor=@t]) action=@t args=json]
+  |=  $:  db=state:w
+          hands=state:hh
+          names=(map @t @uv)
+          owners=(set [binding=@t actor=@t])
+          action=@t
+          args=json
+      ==
   ^-  @uvH
   =/  base  (snapshot db action args)
   ?.  |(=('task-reply' action) =('hand-access' action))  base
   =/  target
-    %-  mule  |.
+    %-  mule
+    |.
     =/  key  (string:j args 'binding')
     =/  binding  (~(got by bindings.hands) key)
     :*  binding
@@ -196,7 +219,11 @@
       ['inspect' %s (cat 3 '/work result ' key)]
       ['confirm' %s (cat 3 '/work confirm ' key)]
       ['reject' %s (cat 3 '/work reject ' key)]
-      ['result' ?~(result.request ~ ?:(?=(%& -.u.result.request) p.u.result.request [%s p.u.result.request]))]
+      :*  'result'
+          ?~  result.request
+            ~
+          ?:(?=(%& -.u.result.request) p.u.result.request [%s p.u.result.request])
+      ==
   ==
 ::
 ++  resolve

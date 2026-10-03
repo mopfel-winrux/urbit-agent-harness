@@ -6,7 +6,7 @@
 ++  poke
   |=  [saved=state-0 act=action:h no-scries=?]
   ^-  [(list card:agent:gall) state-0]
-  =/  bowl=bowl:gall  *bowl:gall
+  =/  =bowl:gall  *bowl:gall
   =.  our.bowl  ~zod
   =.  src.bowl  ~zod
   =.  now.bowl  ~2026.9.8
@@ -29,13 +29,13 @@
   =/  same  (poke +.first [%grant ~nec [~[%web] ~ 0 ~]] &)
   =/  removed  (poke +.same [%revoke ~nec] |)
   ;:  weld
-    (expect-eq !>(1) !>((lent -.first)))
-    (expect-eq !>(~) !>(-.same))
-    (expect-eq !>(1) !>((lent -.removed)))
-    (expect-eq !>(~) !>(announced-access:+.removed))
+      (expect-eq !>(1) !>((lent -.first)))
+      (expect-eq !>(~) !>(-.same))
+      (expect-eq !>(1) !>((lent -.removed)))
+      (expect-eq !>(~) !>(announced-access:+.removed))
   ==
 ++  test-routine-acknowledgements-do-not-read-other-agents
-  =/  bowl=bowl:gall  *bowl:gall
+  =/  =bowl:gall  *bowl:gall
   =.  our.bowl  ~zod
   =.  now.bowl  ~2026.9.8
   =/  saved=state-0  *state-0
@@ -52,7 +52,7 @@
   ?>  ?=(%0 -.out)
   (expect !>(;;(? product.out)))
 ++  test-existing-remote-report-does-not-refresh-local-permissions
-  =/  bowl=bowl:gall  *bowl:gall
+  =/  =bowl:gall  *bowl:gall
   =.  our.bowl  ~zod
   =.  src.bowl  ~nec
   =.  now.bowl  ~2026.9.8

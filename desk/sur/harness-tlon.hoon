@@ -19,14 +19,20 @@
 +$  input  [actor=@p event=@t to=destination text=@t]
 +$  lane  [actor=@p to=destination epoch=@ud tools=(list tool-grant:h)]
 +$  job  [input=input sid=@t stage=?(%create %bind %observe %error) error=@t]
-+$  delivery  [attempt=@ud stage=?(%claim %send %receipt) status=?(%delivered %failed %uncertain) external=@t]
++$  delivery  $:  attempt=@ud
+                  stage=?(%claim %send %receipt)
+                  status=?(%delivered %failed %uncertain)
+                  external=@t
+              ==
 +$  publication-proof  [to=destination sent=@da id=@da]
 +$  notice  [sequence=@ud at=@da kind=@t actor=@p address=@t event=@t]
 +$  presence-lease  [at=@da tools=(set @t)]
 +$  tool-receipt
   [request=tool-request:ad stage=?(%sending %done %uncertain) body=@t at=@da]
 +$  upload
-  [stage=?(%fetch %put %put-no-acl %grant %hosted-put) storage=@uv key=@t mime=@t public-url=@t bytes=octs]
+  $:  stage=?(%fetch %put %put-no-acl %grant %hosted-put)  storage=@uv  key=@t  mime=@t
+      public-url=@t  bytes=octs
+  ==
 +$  route  [binding=@t phase=?(%ready %create %fence %config)]
 +$  lens-record
   $:  sid=@t

@@ -1,5 +1,6 @@
 ::  Gall persistence envelope. Runtime bookkeeping is not session semantics.
-/-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, corpus=harness-corpus, cron=harness-cron, work=harness-workspace
+/-  h=harness, hh=harness-hand, ac=acp, oauth=harness-oauth, corpus=harness-corpus,
+    cron=harness-cron, work=harness-workspace
 /-  hn=harness-notes
 /-  ws=harness-workspace-search
 /-  pc=harness-project-client

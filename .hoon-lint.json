@@ -1,0 +1,19 @@
+{
+  "line_width": 100,
+  "max_arm_lines": 80,
+  "max_indent": 24,
+  "audit": false,
+  "disabled_rules": [],
+  "exclude": [
+    ".git",
+    "target",
+    "node_modules",
+    "dist",
+    "dist-dev",
+    "zig-out",
+    ".zig-cache",
+    "vendor",
+    "desk-deps",
+    "test-results"
+  ]
+}

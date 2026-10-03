@@ -6,10 +6,10 @@
   =.  remote-access.saved  (remember:access ~ ~nec `[~[%web] ~ 1.000 ~] ~2024.1.1)
   =/  loaded  (load:storage !>(saved))
   ;:  weld
-    (expect-eq !>(remote-access.saved) !>(remote-access.loaded))
-    (expect-eq !>(loaded) !>((load:storage !>(loaded))))
-    (expect-eq !>(~) !>(peers.loaded))
-    (expect-eq !>(`[~[%web] ~ 1.000 ~]) !>(grant:(~(got by remote-access.loaded) ~nec)))
+      (expect-eq !>(remote-access.saved) !>(remote-access.loaded))
+      (expect-eq !>(loaded) !>((load:storage !>(loaded))))
+      (expect-eq !>(~) !>(peers.loaded))
+      (expect-eq !>(`[~[%web] ~ 1.000 ~]) !>(grant:(~(got by remote-access.loaded) ~nec)))
   ==
 ++  test-revocation-replaces-prior-report
   =/  known  (remember:access ~ ~nec `[~ ~ 0 ~] ~2024.1.1)
@@ -20,10 +20,10 @@
   =/  new=(map @p peer-grant:h)  (my ~[[~nec [~[%web] ~ 100 ~]] [~zod [~ ~ 0 ~]]])
   =/  out  (malt (changes:access old new))
   ;:  weld
-    (expect-eq !>(3) !>(~(wyt by out)))
-    (expect-eq !>(~) !>((~(got by out) ~bud)))
-    (expect-eq !>(`[~[%web] ~ 100 ~]) !>((~(got by out) ~nec)))
-    (expect-eq !>(~) !>((changes:access new new)))
+      (expect-eq !>(3) !>(~(wyt by out)))
+      (expect-eq !>(~) !>((~(got by out) ~bud)))
+      (expect-eq !>(`[~[%web] ~ 100 ~]) !>((~(got by out) ~nec)))
+      (expect-eq !>(~) !>((changes:access new new)))
   ==
 ++  test-unknown-tool-reports-are-ignored
   =/  known  (remember:access ~ ~nec `[~ ~ 0 ~] ~2024.1.1)

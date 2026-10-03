@@ -20,11 +20,17 @@
   ^-  @t
   ?:  ?=(%| -.result)  (cat 3 'error: ' p.result)
   ?:  ?=(%s -.p.result)  p.p.result
-  ?:  ?&(?=(^ (get:j p.result 'title')) ?=(^ (get:j p.result 'status')) ?=(^ (get:j p.result 'project')))
+  ?:  ?&  ?=(^ (get:j p.result 'title'))  ?=(^ (get:j p.result 'status'))
+          ?=(^ (get:j p.result 'project'))
+      ==
     (render:view 'task' [%o ~] p.result)
-  ?:  ?&(?=(^ (get:j p.result 'title')) ?=(^ (get:j p.result 'members')) ?=(^ (get:j p.result 'archived')))
+  ?:  ?&  ?=(^ (get:j p.result 'title'))  ?=(^ (get:j p.result 'members'))
+          ?=(^ (get:j p.result 'archived'))
+      ==
     (render:view 'project' [%o ~] p.result)
-  ?:  ?&(?=(^ (get:j p.result 'inspect')) ?=(^ (get:j p.result 'args')) ?=(^ (get:j p.result 'status')))
+  ?:  ?&  ?=(^ (get:j p.result 'inspect'))  ?=(^ (get:j p.result 'args'))
+          ?=(^ (get:j p.result 'status'))
+      ==
     (receipt:view p.result)
   (en:json:html p.result)
 --

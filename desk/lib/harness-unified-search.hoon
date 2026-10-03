@@ -55,11 +55,14 @@
   |=  [fence=@t raw=@t]
   ^-  (unit cursor)
   ?.  (lte (met 3 raw) 4.096)  ~
-  %-  mole  |.
+  %-  mole
+  |.
   =/  json  (need (de:json:html raw))
   ?>  =((string:wj json 'fence') fence)
   =/  kind  (string:wj json 'kind')
-  ?>  (lien `(list @t)`~['conversation' 'artifact' 'project' 'task'] |=(item=@t =(item kind)))
+  ?>  %+  lien
+        `(list @t)`~['conversation' 'artifact' 'project' 'task']
+      |=(item=@t =(item kind))
   =/  rank  (number:wj json 'rank' 2)
   ?>  (lte rank 1)
   :*  rank
@@ -96,7 +99,9 @@
   |=(revision=@ud (live:wi index workspace [key revision]))
 ::
 ++  workspace-hit
-  |=  [index=state:s workspace=state:w authority=authority:w key=key:s matches=(set @ud) fence=@t rank=@ud]
+  |=  $:  index=state:s  workspace=state:w  authority=authority:w  key=key:s  matches=(set @ud)
+          fence=@t  rank=@ud
+      ==
   ^-  (unit hit)
   ::  Group only live, readable revisions before choosing the representative.
   =/  matches  (versions index workspace authority key matches)
@@ -136,7 +141,7 @@
   |=  [workspace=state:w value=json terms=(set @t) rank=@ud]
   ^-  json
   ?>  ?=(%o -.value)
-  =/  key=key:s  [;;(?(%artifact %project %task) (string:wj value 'kind')) (string:wj value 'id')]
+  =/  =key:s  [;;(?(%artifact %project %task) (string:wj value 'kind')) (string:wj value 'id')]
   =/  texts  (need (source:wi workspace [key (number:wj value 'revision' 0)]))
   =/  preview  (match-preview:ci texts terms)
   =.  p.value  (~(put by p.value) 'snippet' [%s snippet.preview])
@@ -224,8 +229,15 @@
   ?.  =(fence (string:wj args 'searchToken'))
     [%| 'Search content or access changed. Run the search again to inspect matching revisions.']
   =/  id  (string:wj args 'id')
-  =/  key=key:s  [%artifact id]
-  =/  matches  (versions index workspace authority key (fall (~(get by (search:wi index query)) key) *(set @ud)))
+  =/  =key:s  [%artifact id]
+  =/  matches
+    %:  versions
+      index
+      workspace
+      authority
+      key
+      (fall (~(get by (search:wi index query)) key) *(set @ud))
+    ==
   =/  numbers  (sort ~(tap in matches) gth)
   =/  offset  (number:wj args 'offset' 0)
   =/  limit  (number:wj args 'limit' 16)
@@ -270,9 +282,17 @@
   =/  kind  (string:wj args 'kind')
   ?>  |(=('artifact' kind) =('project' kind) =('task' kind))
   =/  id  (string:wj args 'id')
-  =/  key=key:s  [;;(?(%artifact %project %task) kind) id]
+  =/  =key:s  [;;(?(%artifact %project %task) kind) id]
   =/  revision  ?:(=('artifact' kind) (number:wj args 'revision' 0) 0)
-  =/  matches  (versions index workspace authority key (fall (~(get by (search:wi index query)) key) *(set @ud)))
-  ?.  (~(has in matches) revision)  [%| 'This record no longer matches the search or is no longer available.']
+  =/  matches
+    %:  versions
+      index
+      workspace
+      authority
+      key
+      (fall (~(get by (search:wi index query)) key) *(set @ud))
+    ==
+  ?.  (~(has in matches) revision)
+    [%| 'This record no longer matches the search or is no longer available.']
   [%& (read:wj workspace authority ?:(=('artifact' kind) 'revision' kind) args)]
 --

@@ -4,8 +4,9 @@
     hp=harness-tlon-history-page,
     hist=harness-tlon-history,
     story=harness-tlon-story,
-    message=harness-tlon-message-tool
+    message=harness-tlon-message-tool, paths=harness-tlon-paths
 |_  bowl=bowl:gall
++*  read-path  ~(. paths [our now]:bowl)
 ++  handles
   |=  action=@t
   =/  actions=(list @t)
@@ -60,7 +61,9 @@
   =/  snapshot=[parent=(unit message:hp) rows=(list row:hp)]
     ?^  parent
       =/  post=(may:v7:c writ:v7:c)
-        .^((may:v7:c writ:v7:c) %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/v4/club/(scot %uv id)/writs/writ/id/(scot %p -.u.parent)/(scot %ud +.u.parent)/chat-writ-4)
+        .^  (may:v7:c writ:v7:c)  %gx
+          (club-post:read-path id u.parent)
+        ==
       ?>  ?=(%& -.post)
       =/  rows
         ?~  before
@@ -97,7 +100,7 @@
   ?:  =('leave_club' action)  [%team our.bowl |]
   ?:  =('invite_to_club' action)  [%hive our.bowl (ship:spec (required:spec args 'ship' 128)) &]
   ?>  =('send_club' action)
-  =/  memo=memo:v9:dv  [(text-to-story:story (required:spec args 'text' 16.384)) our.bowl sent]
+  =/  =memo:v9:dv  [(text-to-story:story (required:spec args 'text' 16.384)) our.bowl sent]
   :-  %writ
   ?.  (has:spec args 'parent')  [[our.bowl sent] %add [memo chat+/ ~ ~] `sent]
   [(dm-id:spec (required:spec args 'parent' 256)) %reply [our.bowl sent] ~ %add [memo ~] `sent]
@@ -108,12 +111,21 @@
   ?:  =('list_clubs' action)
     [(en:json:html (directory:spec args (turn ~(tap by clubs) metadata))) ~]
   ?:  =('create_club' action)
-    =/  id=id:club:v7:c  (end [7 1] (sham [our.bowl sent wire]))
+    =/  =id:club:v7:c  (end [7 1] (sham [our.bowl sent wire]))
     ?>  !(~(has by clubs) id)
     =/  who  (ship:spec (required:spec args 'ship' 128))
     ?>  !=(our.bowl who)
-    :-  (rap 3 'accepted: local group DM creation; club=' (scot %uv id) '; invitees have not necessarily joined' ~)
-    `[%pass wire %agent [our.bowl %chat] %poke %chat-club-create !>(`create:club:v7:c`[id (silt ~[who])])]
+    :-  %:  rap
+          3
+          'accepted: local group DM creation; club='
+          (scot %uv id)
+          '; invitees have not necessarily joined'
+          ~
+        ==
+    :-  ~
+    :*  %pass  wire  %agent  [our.bowl %chat]  %poke  %chat-club-create
+        !>(`create:club:v7:c`[id (silt ~[who])])
+    ==
   =/  id  (club-id args)
   =/  crew  (~(got by clubs) id)
   ?:  =('get_club' action)  [(en:json:html (metadata id crew)) ~]
@@ -124,7 +136,9 @@
       ?:((has:spec args 'parent') `(dm-id:spec (required:spec args 'parent' 256)) ~)
     =/  root  (fall parent message-id)
     =/  post=(may:v7:c writ:v7:c)
-      .^((may:v7:c writ:v7:c) %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/v4/club/(scot %uv id)/writs/writ/id/(scot %p -.root)/(scot %ud +.root)/chat-writ-4)
+      .^  (may:v7:c writ:v7:c)  %gx
+        (club-post:read-path id root)
+      ==
     ?>  ?=(%& -.post)
     =/  record
       ?~  parent  (dm-post:hp +.post)
@@ -136,7 +150,7 @@
             (~(has in team.crew) our.bowl)
             =(%done net.crew)
         ==
-    =/  diff=diff:dm:v7:c
+    =/  =diff:dm:v7:c
       ?~  parent  [message-id %del ~]
       [u.parent %reply message-id ~ %del ~]
     =/  command=action:club:v7:c  [id (sham [wire sent]) %writ diff]

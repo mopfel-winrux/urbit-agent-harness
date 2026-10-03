@@ -60,7 +60,8 @@
   ?.  (valid-id:work id)  [%| 'Invalid client credential ID']
   =/  found  (~(get by db) id)
   ?:  =('client-revoke' action)
-    ?.  &(?=(^ found) =(project project.u.found))  [%| 'Client credential not found in this project']
+    ?.  &(?=(^ found) =(project project.u.found))
+      [%| 'Client credential not found in this project']
     ::  Repeating a revocation reports the same outcome, never reactivates it.
     =/  credential  u.found(revoked ?~(revoked.u.found `now revoked.u.found))
     [%& (~(put by db) id credential) (one id credential archived.u.record now)]
@@ -96,8 +97,8 @@
   =/  credential
     %*  .  *credential:pc
       project  project
-      label    label
-      digest   hash
+      label  label
+      digest  hash
       created  now
       expires  (add now (mul days ~d1))
     ==
@@ -122,7 +123,12 @@
 ++  read-action
   |=  action=@t
   ^-  ?
-  (lien `(list @t)`~['help' 'projects' 'project' 'artifacts' 'artifact' 'revisions' 'revision' 'proposals' 'proposal' 'tasks' 'task'] |=(item=@t =(item action)))
+  %+  lien
+    ^-  (list @t)
+    :~  'help'  'projects'  'project'  'artifacts'  'artifact'  'revisions'  'revision'  'proposals'
+        'proposal'  'tasks'  'task'
+    ==
+  |=(item=@t =(item action))
 ::
 ++  view
   |=  [db=state:w project=@t]
@@ -153,12 +159,12 @@
     |=  [key=record-key:w at=@da]
     ?:(=(%project kind.key) =(project id.key) (~(has by artifacts) id.key))
   %*  .  *state:w
-    recency    recency
+    recency  recency
     artifacts  artifacts
-    projects   (my ~[[project record(members (my ~[[0v1 %reader]]))]])
+    projects  (my ~[[project record(members (my ~[[0v1 %reader]]))]])
     proposals  proposals
-    tasks      tasks
-    writes     writes.db
+    tasks  tasks
+    writes  writes.db
   ==
 ::
 ++  read
@@ -167,7 +173,11 @@
   ?.  (read-action action)  [%| 'This project key permits reads only']
   ?:  =('help' action)
     =/  actions
-      %+  turn  `(list @t)`~['projects' 'project' 'artifacts' 'artifact' 'revisions' 'revision' 'proposals' 'proposal' 'tasks' 'task']
+      %+  turn
+        ^-  (list @t)
+        :~  'projects'  'project'  'artifacts'  'artifact'  'revisions'  'revision'  'proposals'
+            'proposal'  'tasks'  'task'
+        ==
       |=  name=@t
       [%s name]
     :-  %&
@@ -175,10 +185,13 @@
     :~  ['access' %s 'read-only']
         ['project' %s project]
         ['actions' %a actions]
-        ['limits' %s 'Lists: offset and limit 1–4. Bodies: offset and fixed revision, at most 8000 bytes. No conversations, tools, membership, credentials, approval, or publication.']
+        :*  'limits'  %s
+            'Lists: offset and limit 1–4. Bodies: offset and fixed revision, at most 8000 bytes. No conversations, tools, membership, credentials, approval, or publication.'
+        ==
     ==
   =/  attempted
-    %-  mule  |.
+    %-  mule
+    |.
     (read:j (view db project) [| [0v1 'Project reader'] 0v1] action args)
   ?.  ?=(%& -.attempted)  [%| 'Record unavailable in this project or invalid read parameters']
   [%& p.attempted]

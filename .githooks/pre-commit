@@ -1,0 +1,3 @@
+#!/bin/sh
+# Check exact staged Hoon blobs without changing the index or working tree.
+exec hoon-lint check --staged

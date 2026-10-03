@@ -12,7 +12,7 @@
 ++  exercise
   |=  connection=@t
   ^-  tang
-  =/  bowl=bowl:gall  *bowl:gall
+  =/  =bowl:gall  *bowl:gall
   =.  our.bowl  ~zod
   =.  src.bowl  ~zod
   =.  now.bowl  ~2026.9.12
@@ -22,37 +22,40 @@
   =/  loaded  (~(on-load head bowl) !>(saved))
   =/  before  !<(state-0 ~(on-save +.loaded bowl))
   =/  frame=@t  '{"jsonrpc":"2.0","id":1,"method":"harness/inbox","params":{"state":"attention"}}'
-  =/  update=update:v1:ac  [%messages connection %agent ~[[1 now.bowl frame]]]
+  =/  =update:v1:ac  [%messages connection %agent ~[[1 now.bowl frame]]]
   =/  read  (~(on-agent +.loaded bowl) /acp/watch [%fact %acp-update-1 !>(update)])
   =/  after  !<(state-0 ~(on-save +.read bowl))
   =/  payload=@t
     =/  cards  -.read
     |-  ^-  @t
-    ?~  cards  !!
-    =/  card  i.cards
-    ?:  ?=([%pass [%acp %send ~] %agent * %poke %acp-action-1 *] card)
-      =/  [pass=* wire=* agent=* target=* poke=* mark=* data=vase]  card
-      =/  action  !<(action:v1:ac data)
-      ?>  ?=(%send -.action)
-      payload.action
-    ?:  ?=([%pass [%admin %result ~] %agent * %poke %harness-admin-result *] card)
-      =/  [pass=* wire=* agent=* target=* poke=* mark=* data=vase]  card
-      =/  decoded  !<([@t @t] data)
-      +.decoded
-    $(cards t.cards)
+        ?~  cards  !!
+        =/  card  i.cards
+        ?:  ?=([%pass [%acp %send ~] %agent * %poke %acp-action-1 *] card)
+          =/  [pass=* wire=* agent=* target=* poke=* mark=* data=vase]  card
+          =/  action  !<(action:v1:ac data)
+          ?>  ?=(%send -.action)
+          payload.action
+        ?:  ?=([%pass [%admin %result ~] %agent * %poke %harness-admin-result *] card)
+          =/  [pass=* wire=* agent=* target=* poke=* mark=* data=vase]  card
+          =/  decoded  !<([@t @t] data)
+          +.decoded
+        $(cards t.cards)
   =/  response  (need (de:json:html payload))
   =/  result  (get:j response 'result')
   =/  denied  (get:j response 'error')
   ;:  weld
-    (expect-eq !>(workspace.before) !>(workspace.after))
-    (expect-eq !>(workspace-notes.before) !>(workspace-notes.after))
-    (expect-eq !>(hands.before) !>(hands.after))
-    (expect-eq !>(schedules.before) !>(schedules.after))
-    (expect-eq !>(sessions.before) !>(sessions.after))
-    (expect !>((lien -.read |=(c=card:agent:gall ?=([%pass [%acp %ack ~] %agent * %poke %acp-action-1 *] c)))))
-    ?:  ?=(^ (decode:admin connection))
-      (expect !>(&(?=(^ denied) ?=(~ result))))
-    (expect !>(&(?=(^ result) ?=(~ denied))))
+      (expect-eq !>(workspace.before) !>(workspace.after))
+      (expect-eq !>(workspace-notes.before) !>(workspace-notes.after))
+      (expect-eq !>(hands.before) !>(hands.after))
+      (expect-eq !>(schedules.before) !>(schedules.after))
+      (expect-eq !>(sessions.before) !>(sessions.after))
+      %-  expect
+      !>  %+  lien
+            -.read
+          |=(c=card:agent:gall ?=([%pass [%acp %ack ~] %agent * %poke %acp-action-1 *] c))
+      ?:  ?=(^ (decode:admin connection))
+        (expect !>(&(?=(^ denied) ?=(~ result))))
+      (expect !>(&(?=(^ result) ?=(~ denied))))
   ==
 ++  test-owner-read-is-projection-only
   (isolated |=(ignored=* (exercise 'inbox-owner-fixture')))

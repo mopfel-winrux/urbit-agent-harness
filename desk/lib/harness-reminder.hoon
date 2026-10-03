@@ -45,8 +45,8 @@
       ==
   =/  date
     %*  .  (yore ~2000.1.1)
-      y    year-number
-      m    month
+      y  year-number
+      m  month
       d.t  day
       h.t  hour
       m.t  minute

@@ -141,193 +141,232 @@
   |=  [db=state:hh action=action:hh now=@da]
   ^-  (each [db=state:hh result=json] @t)
   ?-  -.action
-      %register
-    =/  id=@t  (cat 3 'hand--' (scot %ud next-binding.db))
-    =.  next-binding.db  +(next-binding.db)
-    ::  Allocation skips every retained identity, including detached bindings.
-    ?:  ?|  (~(has by bindings.db) id)
-            (~(has in retired.db) id)
-            (lien retirements.db |=(receipt=retirement:hh =(binding.receipt id)))
-            (lien ~(val by observations.db) |=(observation=observation:hh =(binding.observation id)))
-        ==
-      $(db db)
-    (bind-config db id config.action)
-  ::
-      %bind
-    ?:  (generated id.action)  [%| 'The hand-- namespace is allocated by register']
-    ?:  &(!(~(has by bindings.db) id.action) (gte (add ~(wyt in retired.db) ~(wyt by bindings.db)) 4.096))
-      [%| 'Named binding identity capacity reached; use register']
-    (bind-config db id.action config.action)
-  ::
+    %register  (apply-register db action now)
+    %bind  (apply-bind db action now)
       %enable
     =/  config  (~(get by bindings.db) id.action)
     ?~  config  [%| 'Unknown binding']
     =.  bindings.db  (~(put by bindings.db) id.action u.config(enabled enabled.action))
     [%& db (status-json db id.action)]
-  ::
-      %remove
-    =/  config  (~(get by bindings.db) id.action)
-    ?~  config  [%| 'Unknown binding']
-    ?:  (lien ~(val by observations.db) |=(observation=observation:hh =(binding.observation id.action)))
-      [%| 'Export and retire a binding that has observations']
-    =.  bindings.db  (~(del by bindings.db) id.action)
-    =?  retired.db  !(generated id.action)  (~(put in retired.db) id.action)
-    [%& db (pairs:enjs:format ~)]
-  ::
-      %observe
-    =/  config  (~(get by bindings.db) binding.action)
-    ?~  config  [%| 'Unknown binding']
-    ?.  enabled.u.config  [%| 'Binding is disabled']
-    ?.  (lien actors.u.config |=(actor=@t =(actor actor.action)))
-      [%| 'Actor is not allowed by this binding']
-    ?.  ?&  !=('' event.action)
-            !=('' text.action)
-            (lte (met 3 text.action) 65.536)
-            (lte (met 3 event.action) 512)
-        ==
-      [%| 'Expected nonempty source event and text within admission limits']
-    =/  id  (input-id binding.action event.action)
-    =/  seen  (~(get by observations.db) id)
-    ::  Replays return their first admission even when the queue is now full.
-    ?^  seen
-      ?.  &(=(actor.action actor.u.seen) =(text.action text.u.seen))
-        [%| 'Source event already admitted with different content']
-      [%& db (admission-json id u.seen)]
-    ?:  (gte (lent queue.db) 128)  [%| 'Admission queue is full; retry the same source event later']
-    =/  counts=[binding=@ud session=@ud]  (queued-counts db binding.action sid.u.config)
-    ?:  |((gte binding.counts 8) (gte session.counts 16))
-      [%| 'This binding or session has reached its waiting-work limit']
-    ?:  (gte ~(wyt by observations.db) 2.048)
-      [%| 'Hand ledger capacity reached; export and retire settled bindings']
-    ?:  (gte (lent (skim ~(val by observations.db) |=(observation=observation:hh =(binding.observation binding.action)))) 256)
-      [%| 'Binding ledger capacity reached; export and rotate its binding']
-    =/  observation=observation:hh  [binding.action event.action actor.action text.action now %queued]
-    =.  observations.db  (~(put by observations.db) id observation)
-    =.  queue.db  (snoc queue.db id)
-    [%& db (admission-json id observation)]
-  ::
-      %notify
-    ::  A literal notification shares admission and delivery bookkeeping,
-    ::  but completes immediately without entering model execution.
-    =/  id  (input-id binding.action event.action)
-    =/  old  (~(get by observations.db) id)
-    =/  admitted  $(action [%observe binding.action event.action actor.action text.action])
-    ?:  ?=(%| -.admitted)  admitted
-    ?^  old
-      =/  publication  (~(get by outbox.db) id)
-      ?.  ?&  ?=(^ publication)
-              =(%completed phase.u.old)
-              =(%reply kind.u.publication)
-              =(text.action body.u.publication)
-          ==
-        [%| 'Source event already belongs to different work']
-      [%& db (admission-json id u.old)]
-    =.  db  db.p.admitted
-    =/  observation  (~(got by observations.db) id)
-    =/  config  (~(got by bindings.db) binding.action)
-    =/  publication=publication:hh
-      :*  id  binding.action  hand.config  address.config  sid.config
-          %reply  text.action  %pending  ''  ''  ~
-      ==
-    =.  observations.db  (~(put by observations.db) id observation(phase %completed))
-    =.  queue.db  (skip queue.db |=(queued=input-id:h =(id queued)))
-    =.  outbox.db  (~(put by outbox.db) id publication)
-    [%& db (admission-json id observation(phase %completed))]
-  ::
-      %claim
-    ?.  (lte (met 3 worker.action) 128)  [%| 'Worker identity exceeds its limit']
-    =/  publication  (~(get by outbox.db) effect.action)
-    ?~  publication  [%| 'Unknown effect']
-    ?.  &(=(hand.action hand.u.publication) !=('' worker.action))  [%| 'Wrong hand or missing worker identity']
-    =/  config  (~(get by bindings.db) binding.u.publication)
-    ?.  ?&(?=(^ config) enabled.u.config)  [%| 'Binding is disabled']
-    ?.  |(=(%pending status.u.publication) &(=(%claimed status.u.publication) =(worker.action worker.u.publication)))
-      [%| 'Effect is not available to this worker']
-    ?:  =(%claimed status.u.publication)  [%& db (claim-json db effect.action u.publication %.n)]
-    =.  u.publication
-      %=  u.publication
-        status    %claimed
-        worker    worker.action
-        receipts  [[now %claimed worker.action ''] receipts.u.publication]
-      ==
-    =/  control  (get-control db effect.action)
-    =.  controls.db  (~(put by controls.db) effect.action control(attempt +(attempt.control)))
-    =.  outbox.db  (~(put by outbox.db) effect.action u.publication)
-    [%& db (claim-json db effect.action u.publication %.y)]
-  ::
+    %remove  (apply-remove db action now)
+    %observe  (apply-observe db action now)
+    %notify  (apply-notify db action now)
+    %claim  (apply-claim db action now)
       %receipt
     =/  control  (get-control db effect.action)
     ?.  =(1 attempt.control)  [%| 'An explicit attempt is required after recovery or retry']
     $(action [%receipt-at hand.action effect.action worker.action 1 status.action external.action])
-  ::
-      %receipt-at
-    ?.  (lte (met 3 external.action) 2.048)  [%| 'External receipt exceeds its limit']
-    =/  publication  (~(get by outbox.db) effect.action)
-    ?~  publication  [%| 'Unknown effect']
-    ?.  =(attempt.action attempt:(get-control db effect.action))  [%| 'Stale delivery attempt']
-    ?.  &(=(hand.action hand.u.publication) !=('' worker.action) =(worker.action worker.u.publication))
-      [%| 'Receipt does not match the claiming hand and worker']
-    ?:  =(status.action status.u.publication)
-      ?.  =(external.action external.u.publication)  [%| 'Conflicting receipt']
-      [%& db (publication-json db effect.action u.publication)]
-    ?.  ?=(?(%claimed %uncertain) status.u.publication)  [%| 'Effect cannot accept this receipt']
-    =/  value=publication:hh  u.publication
-    =.  value
-      %=  value
-        status    status.action
-        external  external.action
-        receipts  [[now status.action worker.action external.action] receipts.value]
-      ==
-    =.  outbox.db  (~(put by outbox.db) effect.action value)
-    [%& db (publication-json db effect.action value)]
-  ::
-      %retry
-    =/  publication  (~(get by outbox.db) effect.action)
-    ?~  publication  [%| 'Unknown effect']
-    ?.  &(=(hand.action hand.u.publication) =(%failed status.u.publication))
-      [%| 'Only a confirmed failed delivery may be retried; reconcile uncertain outcomes first']
-    ?:  (gte (lent receipts.u.publication) 96)  [%| 'Delivery retry budget exhausted; resolve or abandon the publication']
-    =.  u.publication
-      %=  u.publication
-        status    %pending
-        worker    ''
-        external  ''
-        receipts  [[now %pending '' ''] receipts.u.publication]
-      ==
-    =.  outbox.db  (~(put by outbox.db) effect.action u.publication)
-    [%& db (publication-json db effect.action u.publication)]
-  ::
+    %receipt-at  (apply-receipt-at db action now)
+    %retry  (apply-retry db action now)
       %status
     ?.  (~(has by bindings.db) binding.action)  [%| 'Unknown binding']
     [%& db (status-json db binding.action)]
-  ::
       %outbox
     [%& db (outbox-json db hand.action)]
-  ::
       %publications
     [%& db (publications-json db hand.action after.action limit.action)]
-  ::
       %effect
     =/  publication  (~(get by outbox.db) effect.action)
     ?~  publication  [%| 'Unknown effect']
     ?.  =(hand.action hand.u.publication)  [%| 'Wrong hand']
     [%& db (publication-json db effect.action u.publication)]
-  ::
       %resolve
     (resolve db action now)
-  ::
       %health
     [%& db (health-json db hand.action now)]
-  ::
       %archive
     (archive db binding.action)
-  ::
       %records
     [%& db (records-json db binding.action after.action limit.action)]
-  ::
       %retire
     (retire db binding.action digest.action location.action now)
   ==
+::
+++  apply-register
+  |=  [db=state:hh action=action:hh now=@da]
+  ^-  (each [db=state:hh result=json] @t)
+  ?>  ?=(%register -.action)
+  =/  id=@t  (cat 3 'hand--' (scot %ud next-binding.db))
+  =.  next-binding.db  +(next-binding.db)
+  ::  Allocation skips every retained identity, including detached bindings.
+  ?:  ?|  (~(has by bindings.db) id)
+          (~(has in retired.db) id)
+          (lien retirements.db |=(receipt=retirement:hh =(binding.receipt id)))
+          %+  lien
+            ~(val by observations.db)
+          |=(observation=observation:hh =(binding.observation id))
+      ==
+    $(db db)
+  (bind-config db id config.action)
+::
+++  apply-bind
+  |=  [db=state:hh action=action:hh now=@da]
+  ^-  (each [db=state:hh result=json] @t)
+  ?>  ?=(%bind -.action)
+  ?:  (generated id.action)  [%| 'The hand-- namespace is allocated by register']
+  ?:  ?&  !(~(has by bindings.db) id.action)
+          (gte (add ~(wyt in retired.db) ~(wyt by bindings.db)) 4.096)
+      ==
+    [%| 'Named binding identity capacity reached; use register']
+  (bind-config db id.action config.action)
+::
+++  apply-remove
+  |=  [db=state:hh action=action:hh now=@da]
+  ^-  (each [db=state:hh result=json] @t)
+  ?>  ?=(%remove -.action)
+  =/  config  (~(get by bindings.db) id.action)
+  ?~  config  [%| 'Unknown binding']
+  ?:  %+  lien
+        ~(val by observations.db)
+      |=(observation=observation:hh =(binding.observation id.action))
+    [%| 'Export and retire a binding that has observations']
+  =.  bindings.db  (~(del by bindings.db) id.action)
+  =?  retired.db  !(generated id.action)  (~(put in retired.db) id.action)
+  [%& db (pairs:enjs:format ~)]
+::
+++  apply-observe
+  |=  [db=state:hh action=action:hh now=@da]
+  ^-  (each [db=state:hh result=json] @t)
+  ?>  ?=(%observe -.action)
+  =/  config  (~(get by bindings.db) binding.action)
+  ?~  config  [%| 'Unknown binding']
+  ?.  enabled.u.config  [%| 'Binding is disabled']
+  ?.  (lien actors.u.config |=(actor=@t =(actor actor.action)))
+    [%| 'Actor is not allowed by this binding']
+  ?.  ?&  !=('' event.action)
+          !=('' text.action)
+          (lte (met 3 text.action) 65.536)
+          (lte (met 3 event.action) 512)
+      ==
+    [%| 'Expected nonempty source event and text within admission limits']
+  =/  id  (input-id binding.action event.action)
+  =/  seen  (~(get by observations.db) id)
+  ::  Replays return their first admission even when the queue is now full.
+  ?^  seen
+    ?.  &(=(actor.action actor.u.seen) =(text.action text.u.seen))
+      [%| 'Source event already admitted with different content']
+    [%& db (admission-json id u.seen)]
+  ?:  (gte (lent queue.db) 128)  [%| 'Admission queue is full; retry the same source event later']
+  =/  counts=[binding=@ud session=@ud]  (queued-counts db binding.action sid.u.config)
+  ?:  |((gte binding.counts 8) (gte session.counts 16))
+    [%| 'This binding or session has reached its waiting-work limit']
+  ?:  (gte ~(wyt by observations.db) 2.048)
+    [%| 'Hand ledger capacity reached; export and retire settled bindings']
+  ?:  %+  gte
+        %-  lent
+        %+  skim
+          ~(val by observations.db)
+        |=(observation=observation:hh =(binding.observation binding.action))
+      256
+    [%| 'Binding ledger capacity reached; export and rotate its binding']
+  =/  =observation:hh  [binding.action event.action actor.action text.action now %queued]
+  =.  observations.db  (~(put by observations.db) id observation)
+  =.  queue.db  (snoc queue.db id)
+  [%& db (admission-json id observation)]
+::
+++  apply-notify
+  |=  [db=state:hh action=action:hh now=@da]
+  ^-  (each [db=state:hh result=json] @t)
+  ?>  ?=(%notify -.action)
+  ::  A literal notification shares admission and delivery bookkeeping,
+  ::  but completes immediately without entering model execution.
+  =/  id  (input-id binding.action event.action)
+  =/  old  (~(get by observations.db) id)
+  =/  admitted  (apply db [%observe binding.action event.action actor.action text.action] now)
+  ?:  ?=(%| -.admitted)  admitted
+  ?^  old
+    =/  publication  (~(get by outbox.db) id)
+    ?.  ?&  ?=(^ publication)
+            =(%completed phase.u.old)
+            =(%reply kind.u.publication)
+            =(text.action body.u.publication)
+        ==
+      [%| 'Source event already belongs to different work']
+    [%& db (admission-json id u.old)]
+  =.  db  db.p.admitted
+  =/  observation  (~(got by observations.db) id)
+  =/  config  (~(got by bindings.db) binding.action)
+  =/  =publication:hh
+    :*  id  binding.action  hand.config  address.config  sid.config
+        %reply  text.action  %pending  ''  ''  ~
+    ==
+  =.  observations.db  (~(put by observations.db) id observation(phase %completed))
+  =.  queue.db  (skip queue.db |=(queued=input-id:h =(id queued)))
+  =.  outbox.db  (~(put by outbox.db) id publication)
+  [%& db (admission-json id observation(phase %completed))]
+::
+++  apply-claim
+  |=  [db=state:hh action=action:hh now=@da]
+  ^-  (each [db=state:hh result=json] @t)
+  ?>  ?=(%claim -.action)
+  ?.  (lte (met 3 worker.action) 128)  [%| 'Worker identity exceeds its limit']
+  =/  publication  (~(get by outbox.db) effect.action)
+  ?~  publication  [%| 'Unknown effect']
+  ?.  &(=(hand.action hand.u.publication) !=('' worker.action))
+    [%| 'Wrong hand or missing worker identity']
+  =/  config  (~(get by bindings.db) binding.u.publication)
+  ?.  &(?=(^ config) enabled.u.config)  [%| 'Binding is disabled']
+  ?.  ?|  =(%pending status.u.publication)
+          &(=(%claimed status.u.publication) =(worker.action worker.u.publication))
+      ==
+    [%| 'Effect is not available to this worker']
+  ?:  =(%claimed status.u.publication)  [%& db (claim-json db effect.action u.publication %.n)]
+  =.  u.publication
+    %=  u.publication
+      status  %claimed
+      worker  worker.action
+      receipts  [[now %claimed worker.action ''] receipts.u.publication]
+    ==
+  =/  control  (get-control db effect.action)
+  =.  controls.db  (~(put by controls.db) effect.action control(attempt +(attempt.control)))
+  =.  outbox.db  (~(put by outbox.db) effect.action u.publication)
+  [%& db (claim-json db effect.action u.publication %.y)]
+::
+++  apply-receipt-at
+  |=  [db=state:hh action=action:hh now=@da]
+  ^-  (each [db=state:hh result=json] @t)
+  ?>  ?=(%receipt-at -.action)
+  ?.  (lte (met 3 external.action) 2.048)  [%| 'External receipt exceeds its limit']
+  =/  publication  (~(get by outbox.db) effect.action)
+  ?~  publication  [%| 'Unknown effect']
+  ?.  =(attempt.action attempt:(get-control db effect.action))  [%| 'Stale delivery attempt']
+  ?.  ?&  =(hand.action hand.u.publication)  !=('' worker.action)
+          =(worker.action worker.u.publication)
+      ==
+    [%| 'Receipt does not match the claiming hand and worker']
+  ?:  =(status.action status.u.publication)
+    ?.  =(external.action external.u.publication)  [%| 'Conflicting receipt']
+    [%& db (publication-json db effect.action u.publication)]
+  ?.  ?=(?(%claimed %uncertain) status.u.publication)  [%| 'Effect cannot accept this receipt']
+  =/  value=publication:hh  u.publication
+  =.  value
+    %=  value
+      status  status.action
+      external  external.action
+      receipts  [[now status.action worker.action external.action] receipts.value]
+    ==
+  =.  outbox.db  (~(put by outbox.db) effect.action value)
+  [%& db (publication-json db effect.action value)]
+::
+++  apply-retry
+  |=  [db=state:hh action=action:hh now=@da]
+  ^-  (each [db=state:hh result=json] @t)
+  ?>  ?=(%retry -.action)
+  =/  publication  (~(get by outbox.db) effect.action)
+  ?~  publication  [%| 'Unknown effect']
+  ?.  &(=(hand.action hand.u.publication) =(%failed status.u.publication))
+    [%| 'Only a confirmed failed delivery may be retried; reconcile uncertain outcomes first']
+  ?:  (gte (lent receipts.u.publication) 96)
+    [%| 'Delivery retry budget exhausted; resolve or abandon the publication']
+  =.  u.publication
+    %=  u.publication
+      status  %pending
+      worker  ''
+      external  ''
+      receipts  [[now %pending '' ''] receipts.u.publication]
+    ==
+  =.  outbox.db  (~(put by outbox.db) effect.action u.publication)
+  [%& db (publication-json db effect.action u.publication)]
 ::
 ++  bind-config
   |=  [db=state:hh id=@t config=binding:hh]
@@ -346,7 +385,9 @@
   ?^  existing
     ?.  =(u.existing config)  [%| 'Binding identities are immutable; use a new id']
     [%& db (status-json db id)]
-  ?:  |((~(has in retired.db) id) (lien ~(val by observations.db) |=(observation=observation:hh =(binding.observation id))))
+  ?:  ?|  (~(has in retired.db) id)
+          (lien ~(val by observations.db) |=(observation=observation:hh =(binding.observation id)))
+      ==
     [%| 'Retired binding ids cannot be reused']
   ?:  (gte ~(wyt by bindings.db) 256)  [%| 'Binding limit reached']
   =.  bindings.db  (~(put by bindings.db) id config)
@@ -389,11 +430,13 @@
   ::  Recovery advances the attempt so a late worker cannot overwrite it.
   =/  attempt=@ud  +(attempt.control)
   =.  controls.db
-    (~(put by controls.db) effect.action [attempt [[now attempt status.action reason.action] resolutions.control]])
+    %+  ~(put by controls.db)
+      effect.action
+    [attempt [[now attempt status.action reason.action] resolutions.control]]
   =.  u.publication
     %=  u.publication
-      status    status.action
-      worker    ''
+      status  status.action
+      worker  ''
       external  external.action
       receipts  [[now status.action '' external.action] receipts.u.publication]
     ==
@@ -407,7 +450,10 @@
     %+  murn  ~(tap by outbox.db)
     |=  [id=input-id:h publication=publication:hh]
     ^-  (unit json)
-    ?.  &(=(hand hand.publication) |(=(%claimed status.publication) =(%uncertain status.publication)))  ~
+    ?.  ?&  =(hand hand.publication)
+            |(=(%claimed status.publication) =(%uncertain status.publication))
+        ==
+      ~
     =/  age=@dr  ?~(receipts.publication ~s0 (sub now (min now at.i.receipts.publication)))
     %-  some
     %-  pairs:enjs:format
@@ -449,7 +495,7 @@
     |=  [id=input-id:h publication=publication:hh]
     ^-  (unit input-id:h)
     ?.  &(=(hand hand.publication) !(terminal status.publication))  ~
-    ?:  ?&(?=(^ after) (lte id u.after))  ~
+    ?:  &(?=(^ after) (lte id u.after))  ~
     =/  config  (~(get by bindings.db) binding.publication)
     ?~  config  ~
     ?.  enabled.u.config  ~
@@ -478,7 +524,7 @@
   |=  [db=state:hh binding=@t]
   ^-  (each [db=state:hh result=json] @t)
   =/  config  (~(get by bindings.db) binding)
-  ?:  ?&(?=(^ config) enabled.u.config)  [%| 'Disable the binding before exporting it']
+  ?:  &(?=(^ config) enabled.u.config)  [%| 'Disable the binding before exporting it']
   =/  ids  (binding-ids db binding)
   ?:  &(=(~ config) =(~ ids))  [%| 'Unknown binding']
   =/  working=?
@@ -534,8 +580,12 @@
   ^-  (each [db=state:hh result=json] @t)
   =/  prior  (skim retirements.db |=(r=retirement:hh &(=(binding binding.r) =(digest digest.r))))
   ?^  prior
-    ?.  &(=(digest digest.i.prior) =(location location.i.prior))  [%| 'Conflicting retirement receipt']
-    [%& db (pairs:enjs:format ~[['retired' %s binding] ['digest' %s (scot %uv digest)] ['location' %s location]])]
+    ?.  &(=(digest digest.i.prior) =(location location.i.prior))
+      [%| 'Conflicting retirement receipt']
+    :*  %&  db
+        %-  pairs:enjs:format
+        ~[['retired' %s binding] ['digest' %s (scot %uv digest)] ['location' %s location]]
+    ==
   =/  ready  (archive db binding)
   ?:  ?=(%| -.ready)  ready
   ?.  =(digest (archive-digest db binding))  [%| 'Archive changed; export it again before retiring']
@@ -549,14 +599,18 @@
       db
         %=  db
           observations  (~(del by observations.db) i.ids)
-          outbox        (~(del by outbox.db) i.ids)
-          controls      (~(del by controls.db) i.ids)
+          outbox  (~(del by outbox.db) i.ids)
+          controls  (~(del by controls.db) i.ids)
         ==
     ==
   =.  bindings.db  (~(del by bindings.db) binding)
   =?  retired.db  !(generated binding)  (~(put in retired.db) binding)
-  =.  retirements.db  [[binding digest location now] (scag (min 127 (lent retirements.db)) retirements.db)]
-  [%& db (pairs:enjs:format ~[['retired' %s binding] ['digest' %s (scot %uv digest)] ['location' %s location]])]
+  =.  retirements.db
+    [[binding digest location now] (scag (min 127 (lent retirements.db)) retirements.db)]
+  :*  %&  db
+      %-  pairs:enjs:format
+      ~[['retired' %s binding] ['digest' %s (scot %uv digest)] ['location' %s location]]
+  ==
 ::
 ++  next
   |=  [db=state:hh sid=session-id:h]
@@ -578,8 +632,8 @@
   =/  observation  (need (~(get by observations.db) id))
   %=  db
     observations  (~(put by observations.db) id observation(phase %running))
-    queue         (skip queue.db |=(i=input-id:h =(i id)))
-    active        (~(put by active.db) sid id)
+    queue  (skip queue.db |=(i=input-id:h =(i id)))
+    active  (~(put by active.db) sid id)
   ==
 ::
 ++  finish
@@ -589,20 +643,20 @@
   ?~  id  db
   =/  observation  (need (~(get by observations.db) u.id))
   =/  config  (need (~(get by bindings.db) binding.observation))
-  =/  phase=phase:hh
+  =/  =phase:hh
     ?-  kind
-      %reply      %completed
-      %failure    %failed
+      %reply  %completed
+      %failure  %failed
       %cancelled  %cancelled
     ==
-  =/  publication=publication:hh
+  =/  =publication:hh
     :*  u.id  binding.observation  hand.config  address.config  sid
         kind  body  %pending  ''  ''  ~
     ==
   %=  db
     observations  (~(put by observations.db) u.id observation(phase phase))
-    active        (~(del by active.db) sid)
-    outbox        (~(put by outbox.db) u.id publication)
+    active  (~(del by active.db) sid)
+    outbox  (~(put by outbox.db) u.id publication)
   ==
 ::
 ++  cancel-queued
@@ -635,14 +689,18 @@
   ?.  &(=(sid sid.publication) =(%pending status.publication))  ledger
   =.  publication
     %=  publication
-      status    %abandoned
+      status  %abandoned
       receipts  [[now %abandoned '' ''] receipts.publication]
     ==
   =/  control  (get-control ledger id)
   =.  control
-    control(resolutions [[now attempt.control %abandoned 'Conversation deleted before dispatch'] resolutions.control])
+    %=  control  resolutions
+        :*  [now attempt.control %abandoned 'Conversation deleted before dispatch']
+            resolutions.control
+        ==
+    ==
   %=  ledger
-    outbox    (~(put by outbox.ledger) id publication)
+    outbox  (~(put by outbox.ledger) id publication)
     controls  (~(put by controls.ledger) id control)
   ==
 ::
@@ -662,8 +720,10 @@
       notify+(ot ~[binding+so event+so actor+so text+so])
       claim+(ot ~[hand+so effect+id worker+so])
       receipt+(ot ~[hand+so effect+id worker+so status+json-receipt-status external+so])
-      receipt-at+(ot ~[hand+so effect+id worker+so attempt+ni status+json-receipt-status external+so])
-      resolve+(ot ~[hand+so effect+id attempt+ni status+json-resolution-status external+so reason+so])
+      :-  %receipt-at
+      (ot ~[hand+so effect+id worker+so attempt+ni status+json-receipt-status external+so])
+      :-  %resolve
+      (ot ~[hand+so effect+id attempt+ni status+json-resolution-status external+so reason+so])
       retry+(ot ~[hand+so effect+id])
       status+(ot ~[binding+so])
       outbox+(ot ~[hand+so])

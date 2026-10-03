@@ -17,7 +17,10 @@
   =/  db  (notify seed)
   =/  id  (input-id:hd 'b' 'reminder')
   =/  pub  (~(got by outbox.db) id)
-  (expect !>(?&(=(~ queue.db) =(~ active.db) =(%completed phase:(~(got by observations.db) id)) =(%pending status.pub) =('/forget literal text' body.pub) =('thread' address.pub))))
+  %-  expect
+  !>  ?&  =(~ queue.db)  =(~ active.db)  =(%completed phase:(~(got by observations.db) id))
+          =(%pending status.pub)  =('/forget literal text' body.pub)  =('thread' address.pub)
+      ==
 ++  test-duplicate-notification-does-not-repeat-delivery
   =/  db  (notify seed)
   (expect-eq !>(db) !>((notify db)))
@@ -30,7 +33,11 @@
 ++  test-notification-cannot-promote-queued-human-input
   =/  accepted  (apply:hd seed [%observe 'b' 'reminder' 'alice' '/forget literal text'] ~2026.9.6)
   ?>  ?=(%& -.accepted)
-  =/  result  (apply:hd db.p.accepted [%notify 'b' 'reminder' 'alice' '/forget literal text'] ~2026.9.6)
+  =/  result
+    %^  apply:hd
+      db.p.accepted
+      [%notify 'b' 'reminder' 'alice' '/forget literal text']
+    ~2026.9.6
   (expect !>(?=(%| -.result)))
 ++  test-disabled-binding-rejects-notification
   =/  disabled  (apply:hd seed [%enable 'b' |] ~2026.9.6)

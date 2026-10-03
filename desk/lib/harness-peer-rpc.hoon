@@ -8,7 +8,7 @@
   |=  message=peer-rpc:h
   ^-  ask-id:h
   ?-  -.message
-    %tools   id.message
+    %tools  id.message
     %invoke  id.message
     %result  id.message
   ==

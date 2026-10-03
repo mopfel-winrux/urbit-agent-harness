@@ -10,12 +10,12 @@
 /+  sj=tlon-story-json
 /*  quick-js-wasm  %wasm  /quick-js-emcc/wasm
 ::
-=*  strand       strand:spider
-=*  cw           coin-wasm:wasm-sur:wasm
-=*  lv           lia-value:lia-sur:wasm
+=*  strand  strand:spider
+=*  cw  coin-wasm:wasm-sur:wasm
+=*  lv  lia-value:lia-sur:wasm
 =*  script-form  script-raw-form:lia-sur:wasm
 =*  strand-form  strand-form-raw:rand
-=*  yield        script-yield:lia-sur:wasm
+=*  yield  script-yield:lia-sur:wasm
 ::  Types, interfaces
 ::
 =>  |%
@@ -53,7 +53,7 @@
           %-  unit
           $:  id=@tas
               thread=$-((list lv) (strand-form (list lv)))
-      ==  ==
+          ==  ==
     --
 ::
 ::  Thread builder helping functions
@@ -85,14 +85,14 @@
         |=  [val=json out=(list @t)]
         ^+  out
         ?~  val  ['null' out]
-        ?-    -.val
+        ?-  -.val
             %a
           ?~  p.val  ['[]' out]
-          =.  out    ['[' out]
+          =.  out  ['[' out]
           !.
           |-  ^+  out
-          =.  out  ^$(val i.p.val)
-          ?~(t.p.val [']' out] $(p.val t.p.val, out [',' out]))
+              =.  out  ^$(val i.p.val)
+              ?~(t.p.val [']' out] $(p.val t.p.val, out [',' out]))
         ::
             %b
           [?:(p.val 'true' 'false') out]
@@ -109,8 +109,8 @@
           =.  out  ['{' out]
           !.
           |-  ^+  out
-          =.  out  ^$(val q.i.viz, out [':' [(scap p.i.viz) out]])
-          ?~(t.viz ['}' out] $(viz t.viz, out [',' out]))
+              =.  out  ^$(val q.i.viz, out [':' [(scap p.i.viz) out]])
+              ?~(t.viz ['}' out] $(viz t.viz, out [',' out]))
         ==
       ::
       ++  scap
@@ -120,62 +120,62 @@
         =/  len  (met 3 val)
         =|  [i=@ud pos=@ud]
         |-  ^-  @t
-        ?:  =(len i)
-          (rap 3 (flop ['"' (rsh [3 pos] val) out]))
-        =/  car  (cut 3 [i 1] val)
-        ?:  ?&  (gte car 0x20)
-                (lte car 0x7e)
-                !=(car '"')
-                !=(car '\\')
-            ==
-          $(i +(i))
-        =/  cap
-          ?+  car  (crip '\\' 'u' ((x-co 4):co car))
-            %0xa    '\\n'
-            %'"'   '\\"'
-            %'\\'  '\\\\'
-          ==
-        $(i +(i), pos +(i), out [cap (cut 3 [pos (sub i pos)] val) out])
+            ?:  =(len i)
+              (rap 3 (flop ['"' (rsh [3 pos] val) out]))
+            =/  car  (cut 3 [i 1] val)
+            ?:  ?&  (gte car 0x20)
+                    (lte car 0x7e)
+                    !=(car '"')
+                    !=(car '\\')
+                ==
+              $(i +(i))
+            =/  cap
+              ?+  car  (crip '\\' 'u' ((x-co 4):co car))
+                %0xa  '\\n'
+                %'"'  '\\"'
+                %'\\'  '\\\\'
+              ==
+            $(i +(i), pos +(i), out [cap (cut 3 [pos (sub i pos)] val) out])
       --
     ::    
     ++  function-table
       ^-  (list table-entry)
-      =*  v-sur-channels   v9:channels-ver-sur
-      =*  flag             =>  v-sur-channels  flag
-      =*  nest             =>  v-sur-channels  nest
-      =*  channels         =>  v-sur-channels  channels
-      =*  channel          =>  v-sur-channels  channel
-      =*  post             =>  v-sur-channels  post
-      =*  posts            =>  v-sur-channels  posts
-      =*  memo             =>  v-sur-channels  memo
-      =*  on-posts         =>  v-sur-channels  on-posts
-      =*  reply-chan       =>  v-sur-channels  reply
-      =*  replies-chan     =>  v-sur-channels  replies
+      =*  v-sur-channels  v9:channels-ver-sur
+      =*  flag  =>  v-sur-channels  flag
+      =*  nest  =>  v-sur-channels  nest
+      =*  channels  =>  v-sur-channels  channels
+      =*  channel  =>  v-sur-channels  channel
+      =*  post  =>  v-sur-channels  post
+      =*  posts  =>  v-sur-channels  posts
+      =*  memo  =>  v-sur-channels  memo
+      =*  on-posts  =>  v-sur-channels  on-posts
+      =*  reply-chan  =>  v-sur-channels  reply
+      =*  replies-chan  =>  v-sur-channels  replies
       =*  on-replies-chan  =>  v-sur-channels  on-replies
-      =*  story            =>  v-sur-channels  story
-      =*  action-c         =>  v-sur-channels  a-channels
-      =*  tomb-channels    =>  v-sur-channels  tombstone
-      =*  mo-posts         ((mp time (each post tomb-channels)) lte)
+      =*  story  =>  v-sur-channels  story
+      =*  action-c  =>  v-sur-channels  a-channels
+      =*  tomb-channels  =>  v-sur-channels  tombstone
+      =*  mo-posts  ((mp time (each post tomb-channels)) lte)
       ::
-      =*  v-sur-chat       v6:chat-ver-sur
-      =*  dm               =>  v-sur-chat  dm
-      =*  writ             =>  v-sur-chat  writ
-      =*  writs            =>  v-sur-chat  writs
-      =*  reply-dm         =>  v-sur-chat  reply
-      =*  replies-dm       =>  v-sur-chat  replies
-      =*  club             =>  v-sur-chat  club
-      =*  id-club          =>  v-sur-chat  id:club
-      =*  action-club      =>  v-sur-chat  action:club
-      =*  action-dm        =>  v-sur-chat  action:dm
-      =*  tomb-chat        =>  v-sur-chat  tombstone
-      =*  mo-writs         ((mp time (each writ tomb-chat)) lte)
+      =*  v-sur-chat  v6:chat-ver-sur
+      =*  dm  =>  v-sur-chat  dm
+      =*  writ  =>  v-sur-chat  writ
+      =*  writs  =>  v-sur-chat  writs
+      =*  reply-dm  =>  v-sur-chat  reply
+      =*  replies-dm  =>  v-sur-chat  replies
+      =*  club  =>  v-sur-chat  club
+      =*  id-club  =>  v-sur-chat  id:club
+      =*  action-club  =>  v-sur-chat  action:club
+      =*  action-dm  =>  v-sur-chat  action:dm
+      =*  tomb-chat  =>  v-sur-chat  tombstone
+      =*  mo-writs  ((mp time (each writ tomb-chat)) lte)
       ::
-      =*  v-sur-groups     v9:groups-ver-sur
-      =*  flag             =>  v-sur-groups  flag
-      =*  groups           =>  v-sur-groups  groups
-      =*  seat             =>  v-sur-groups  seat
-      =*  role-groups      =>  v-sur-groups  role-id
-      =*  action-g         =>  v-sur-groups  a-groups
+      =*  v-sur-groups  v9:groups-ver-sur
+      =*  flag  =>  v-sur-groups  flag
+      =*  groups  =>  v-sur-groups  groups
+      =*  seat  =>  v-sur-groups  seat
+      =*  role-groups  =>  v-sur-groups  role-id
+      =*  action-g  =>  v-sur-groups  a-groups
       ::
       =/  m-js  (script:lia-sur:wasm @ acc-mold)
       =/  m-rand  (strand (list lv))
@@ -191,12 +191,12 @@
         =,  arr
         =|  strs=(list cord)
         |-  ^-  form:m
-        ?:  =(argc-w 0)
-          ~&  `@t`(rap 3 (join ' ' strs))
-          return-undefined
-        =.  argc-w  (dec argc-w)
-        ;<  str=cord  try:m  (get-js-string (add (mul 8 argc-w) argv-u))
-        $(strs [str strs])
+            ?:  =(argc-w 0)
+              ~&  `@t`(rap 3 (join ' ' strs))
+              return-undefined
+            =.  argc-w  (dec argc-w)
+            ;<  str=cord  try:m  (get-js-string (add (mul 8 argc-w) argv-u))
+            $(strs [str strs])
       ::
       ::::  console.error
         ::
@@ -209,12 +209,12 @@
         =,  arr
         =|  strs=(list cord)
         |-  ^-  form:m
-        ?:  =(argc-w 0)
-          ~&  >>>  `@t`(rap 3 (join ' ' strs))
-          return-undefined
-        =.  argc-w  (dec argc-w)
-        ;<  str=cord  try:m  (get-js-string (add (mul 8 argc-w) argv-u))
-        $(strs [str strs])
+            ?:  =(argc-w 0)
+              ~&  >>>  `@t`(rap 3 (join ' ' strs))
+              return-undefined
+            =.  argc-w  (dec argc-w)
+            ;<  str=cord  try:m  (get-js-string (add (mul 8 argc-w) argv-u))
+            $(strs [str strs])
       ::
       ::::  console.warn
         ::
@@ -227,12 +227,12 @@
         =,  arr
         =|  strs=(list cord)
         |-  ^-  form:m
-        ?:  =(argc-w 0)
-          ~&  >>  `@t`(rap 3 (join ' ' strs))
-          return-undefined
-        =.  argc-w  (dec argc-w)
-        ;<  str=cord  try:m  (get-js-string (add (mul 8 argc-w) argv-u))
-        $(strs [str strs])
+            ?:  =(argc-w 0)
+              ~&  >>  `@t`(rap 3 (join ' ' strs))
+              return-undefined
+            =.  argc-w  (dec argc-w)
+            ;<  str=cord  try:m  (get-js-string (add (mul 8 argc-w) argv-u))
+            $(strs [str strs])
       ::
       ::::  console.info
         ::
@@ -245,12 +245,12 @@
         =,  arr
         =|  strs=(list cord)
         |-  ^-  form:m
-        ?:  =(argc-w 0)
-          ~&  >>  `@t`(rap 3 (join ' ' strs))
-          return-undefined
-        =.  argc-w  (dec argc-w)
-        ;<  str=cord  try:m  (get-js-string (add (mul 8 argc-w) argv-u))
-        $(strs [str strs])
+            ?:  =(argc-w 0)
+              ~&  >>  `@t`(rap 3 (join ' ' strs))
+              return-undefined
+            =.  argc-w  (dec argc-w)
+            ;<  str=cord  try:m  (get-js-string (add (mul 8 argc-w) argv-u))
+            $(strs [str strs])
       :: 
       ::::  urbit_thread.load_txt_file
         ::
@@ -341,7 +341,7 @@
             =/  las=@ta  (rear u.pax)
             ?.  =(%txt las)
               (throw-error (rap 3 'Invalid path extension: want txt, got ' las ~))
-            ;<  *         try:m  (set-txt-file-ext u.pax txt)
+            ;<  *  try:m  (set-txt-file-ext u.pax txt)
             return-undefined
         :-  ~
         :-  id
@@ -378,15 +378,15 @@
             ;<  url-jon=json  try:m  (load-json argv-u)
             =/  lur=(unit @t)
               ?~  url-jon  ~
-              ?+    -.url-jon  ~
-                  %s  `p.url-jon
+              ?+  -.url-jon  ~
+                %s  `p.url-jon
                   %o
                 ?~  href=(~(get by p.url-jon) %href)  ~
                 ?.  ?=(%s -.u.href)  ~
                 `p.u.href
               ==
             ::
-            ?~  lur   (throw-error 'Unrecognized type in fetch_sync')
+            ?~  lur  (throw-error 'Unrecognized type in fetch_sync')
             ;<  tom=json  try:m
               =/  m  (script:lia-sur:wasm json acc-mold)
               ^-  form:m
@@ -418,7 +418,7 @@
         ^-  form:m-rand
         ?>  ?=([[%vase p=*] ~] l)
         =+  !<(sam=hiss:eyre p.l)
-        ;<  res=(unit httr:eyre)  bind:m  (fetch-url-ted sam)  
+        ;<  res=(unit httr:eyre)  bind:m  (fetch-url-ted sam)
         ?~  res  (pure:m ~)
         (pure:m vase+!>(u.res) ~)
       ::
@@ -441,7 +441,7 @@
           (pure:m ~(tap in ~(key by channels)))
         ::
         :-  :-  ~
-            :-  'urbit_thread'^'tlon'^'get_channels'^~ 
+            :-  'urbit_thread'^'tlon'^'get_channels'^~
             |=  [ctx-u=@ this-u=@ argc-w=@ argv-u=@]
             =/  m  m-js
             ^-  form:m
@@ -902,8 +902,8 @@
             ::
             =/  eny=@uv  (cut 8 [0 1] eny.bol)
             |-  ^-  @uv
-            ?.  (~(has in herd) eny)  eny
-            $(eny +(eny))
+                ?.  (~(has in herd) eny)  eny
+                $(eny +(eny))
           ::
           =/  act=action-club  [zem unique %hive our.bol her &]
           (poke:sio [our.bol %chat] chat-club-action-1+!>(act))
@@ -1198,8 +1198,8 @@
             ::
             =/  eny=@uv  (cut 8 [0 1] eny.bol)
             |-  ^-  @uv
-            ?.  (~(has in herd) eny)  eny
-            $(eny +(eny))
+                ?.  (~(has in herd) eny)  eny
+                $(eny +(eny))
           ::
           =/  act=action-club
             :*  p.who
@@ -1469,7 +1469,7 @@
               (get-targets-ext ~ `@ta`tag-str)
             ::
             (store-json a+(turn ~(tap in s) ship:enjs))
-            
+
         :-  ~
         :-  id
         |=  l=(pole lv)
@@ -1536,7 +1536,7 @@
       ^-  form:m
       =,  arr
       ;<  ptr-u=@  try:m  (call-1 'malloc' p.data ~)
-      ;<  ~        try:m  (memwrite ptr-u data)
+      ;<  ~  try:m  (memwrite ptr-u data)
       (return:m ptr-u)
     ::  +malloc-cord: allocate and write a null-terminated cord
     ::
@@ -1554,10 +1554,10 @@
       =,  arr
       =|  args-atoms=(list @)
       |-  ^-  form:m
-      ?~  args  (call func (flop args-atoms))
-      ?@  i.args  $(args t.args, args-atoms [i.args args-atoms])
-      ;<  atom=@  try:m  i.args
-      $(args t.args, args-atoms [atom args-atoms])
+          ?~  args  (call func (flop args-atoms))
+          ?@  i.args  $(args t.args, args-atoms [i.args args-atoms])
+          ;<  atom=@  try:m  i.args
+          $(args t.args, args-atoms [atom args-atoms])
     ::  +ding: complex call-1
     ::
     ++  ding
@@ -1580,8 +1580,8 @@
       ::
       =/  code-len  (met 3 code)
       ;<  code-u=@  try:m  (malloc-write +(code-len) code)
-      ;<  res-u=@   try:m  (call-1 'QTS_Eval' ctx-u code-u code-len fil-u 0 0 ~)
-      ;<  *         try:m  (call 'free' code-u ~)
+      ;<  res-u=@  try:m  (call-1 'QTS_Eval' ctx-u code-u code-len fil-u 0 0 ~)
+      ;<  *  try:m  (call 'free' code-u ~)
       (return:m res-u)
     ::  +mayb-error: check is JSValue* is an exception
     ::
@@ -1593,9 +1593,9 @@
       ;<  acc=acc-mold  try:m  get-acc
       =+  (get-js-ctx acc)
       ::
-      ;<  err-u=@   try:m  (call-1 'QTS_ResolveException' ctx-u res-u ~)
+      ;<  err-u=@  try:m  (call-1 'QTS_ResolveException' ctx-u res-u ~)
       ?:  =(0 err-u)  (return:m ~)
-      ;<  str-u=@   try:m  (call-1 'QTS_GetString' ctx-u err-u ~)
+      ;<  str-u=@  try:m  (call-1 'QTS_GetString' ctx-u err-u ~)
       ;<  str=cord  try:m  (get-c-string str-u)
       (return:m `str)
     ::  +get-c-string: load a null-terminated string
@@ -1608,11 +1608,11 @@
       =/  len=@  0
       =/  cursor=@  ptr
       |-  ^-  form:m
-      ;<  char=octs  try:m  (memread cursor 1)
-      ?.  =(0 q.char)
-        $(len +(len), cursor +(cursor))
-      ;<  =octs  try:m  (memread ptr len)
-      (return:m q.octs)
+          ;<  char=octs  try:m  (memread cursor 1)
+          ?.  =(0 q.char)
+            $(len +(len), cursor +(cursor))
+          ;<  =octs  try:m  (memread ptr len)
+          (return:m q.octs)
     ::  +get-js-string: load a JSValue-represented string
     ::
     ++  get-js-string
@@ -1661,8 +1661,8 @@
       ?^  err  (return:m err)
       ::
       ;<  nam-val-u=@  try:m  (call-1 'QTS_NewString' ctx-u nam-u ~)  ::  free string value?
-      ;<  undef-u=@    try:m  (call-1 'QTS_GetUndefined' ~)
-      ;<  *            try:m
+      ;<  undef-u=@  try:m  (call-1 'QTS_GetUndefined' ~)
+      ;<  *  try:m
         %:  call  'QTS_DefineProp'
           ctx-u
           obj-u
@@ -1700,8 +1700,8 @@
       ;<  crd-u=@  try:m  (malloc-cord cord)
       ;<  str-u=@  try:m  (call-1 'QTS_NewString' ctx-u crd-u ~)
       ;<  is-eq=@  try:m  (call-1 'QTS_IsEqual' ctx-u val-u str-u 0 ~)  :: QTS_EqualOp_SameValue
-      ;<  *        try:m  (call 'QTS_FreeValuePointer' ctx-u str-u ~)
-      ;<  *        try:m  (call 'free' crd-u ~)
+      ;<  *  try:m  (call 'QTS_FreeValuePointer' ctx-u str-u ~)
+      ;<  *  try:m  (call 'free' crd-u ~)
       (return:m !=(is-eq 0))
     ::  +make-error: create an Exception object with a custom message
     ::
@@ -1715,7 +1715,7 @@
       ::
       ;<  err-u=@  try:m  (call-1 'QTS_NewError' ctx-u ~)
       =/  field=cord  'message'
-      ;<  *        try:m
+      ;<  *  try:m
         %:  ring  'QTS_SetProp'
           ctx-u
           err-u
@@ -1739,15 +1739,15 @@
     ++  rule-ship-club
       %+  cook  |=((each @p id:club:v6:chat-ver-sur) +<)
       ;~  pose
-        (stag %& ;~(pfix sig fed:ag))
-        (stag %| ;~(pfix (jest '0v') viz:ag))  ::  XX review
+          (stag %& ;~(pfix sig fed:ag))
+          (stag %| ;~(pfix (jest '0v') viz:ag))  ::  XX review
       ==
     ::  +parse-path: friendly path parser, replaces .ext with /ext
     :: 
     ++  parse-path
       |=  xap=cord
       |^  ^-  (unit path)
-      (rush xap path-rule)
+          (rush xap path-rule)
       ::  path element sans `.`
       ::
       ++  urs-ab-dotless
@@ -1763,29 +1763,30 @@
           ?.  =(~ (rear p))  `p
           ~
         ;~  pfix
-          ::  optional starting /
-          ::
-          (punt fas)
-        ::::
-          ::  foo/bar/baz.abc
-          ::
-          |-
-          =*  this  $
-          %+  knee  *path  |.  ~+
-          ;~  pose
-            ::  done
+            ::  optional starting /
             ::
-            (full (easy ~))
+            (punt fas)
           ::::
-            ::  foo.bar
+            ::  foo/bar/baz.abc
             ::
-            %+  cook  |=([a=@ta b=@ta] ~[a b])
-            (full ;~(plug urs-ab-dotless ;~(pfix dot urs:ab)))
-          ::::
-            ::  foo | foo/...
-            ::
-            ;~(plug urs:ab ;~(pose (full (easy ~)) ;~(pfix fas this)))
-          ==
+            |-
+            =*  this  $
+            %+  knee  *path
+            |.  ~+
+                ;~  pose
+                    ::  done
+                    ::
+                    (full (easy ~))
+                  ::::
+                    ::  foo.bar
+                    ::
+                    %+  cook  |=([a=@ta b=@ta] ~[a b])
+                    (full ;~(plug urs-ab-dotless ;~(pfix dot urs:ab)))
+                  ::::
+                    ::  foo | foo/...
+                    ::
+                    ;~(plug urs:ab ;~(pose (full (easy ~)) ;~(pfix fas this)))
+                ==
         ==
       --
     ::  +return-undefined: return a pointer to a copy of `undefined` constant
@@ -1812,9 +1813,9 @@
       ;<  acc=acc-mold  try:m  get-acc
       =+  (get-js-ctx acc)
       ::
-      ;<  type-u=@   try:m  (call-1 'QTS_Typeof' ctx-u ptr-u ~)
+      ;<  type-u=@  try:m  (call-1 'QTS_Typeof' ctx-u ptr-u ~)
       ;<  type=cord  try:m  (get-c-string type-u)
-      ?+    type  ~&(json-unsupported-type+type (return:m ~))
+      ?+  type  ~&(json-unsupported-type+type (return:m ~))
           ?(%'number' %'bigint')
         ;<  float=@rd  try:m  (call-1 'QTS_GetFloat64' ctx-u ptr-u ~)
         (return:m n+(rsh 3^2 (scot %rd float)))
@@ -1832,7 +1833,7 @@
         ::  test for ~
         ::
         ;<  null-u=@  try:m  (call-1 'QTS_GetNull' ~)
-        ;<  is-eq=@   try:m  (call-1 'QTS_IsEqual' ctx-u ptr-u null-u 0 ~)
+        ;<  is-eq=@  try:m  (call-1 'QTS_IsEqual' ctx-u ptr-u null-u 0 ~)
         ?:  !=(0 is-eq)
           (return:m ~)
         ::  test for %a
@@ -1847,16 +1848,17 @@
           ==
         ::
         ;<  err=(unit cord)  try:m  (mayb-error len-u)
-        ;<  undef-u=@        try:m  (call-1 'QTS_GetUndefined' ~)
+        ;<  undef-u=@  try:m  (call-1 'QTS_GetUndefined' ~)
         ::
         ;<  is-undef=@  try:m  (call-1 'QTS_IsEqual' ctx-u len-u undef-u 0 ~)
         ?:  |(?=(^ err) !=(is-undef 0))  ::  obj.length either failed or undefined
           ::  object
           ::
           ;<  out-ptrs-u=@  try:m  (call-1 'malloc' 4 ~)
-          ;<  out-len-u=@   try:m  (call-1 'malloc' 4 ~)
-          ;<  err-u=@       try:m
-            (call-1 'QTS_GetOwnPropertyNames' ctx-u out-ptrs-u out-len-u ptr-u 1 ~)  ::  JS_GPN_STRING_MASK
+          ;<  out-len-u=@  try:m  (call-1 'malloc' 4 ~)
+          ::  1 selects JS_GPN_STRING_MASK.
+          ;<  err-u=@  try:m
+            (call-1 'QTS_GetOwnPropertyNames' ctx-u out-ptrs-u out-len-u ptr-u 1 ~)
           ::
           ?:  !=(err-u 0)
             ;<  str=cord  try:m  (get-js-string err-u)
@@ -1870,39 +1872,39 @@
           ;<  *  try:m  (call 'free' out-len-u ~)
           ;<  *  try:m  (call 'free' out-ptrs-u ~)
           |-  ^-  form:m
-          ?:  =(len-w 0)  (return:m o+(molt pairs))
-          =/  idx=@  (dec len-w)
-          ;<  nam-val-octs=octs  try:m  (memread (add arr-u (mul 4 idx)) 4)
-          =/  nam-val-u=@  q.nam-val-octs
-          ;<  name=cord    try:m  (get-js-string nam-val-u)
-          ;<  val-u=@      try:m
-            %:  call-1  'QTS_GetProp'
-              ctx-u
-              ptr-u
-              nam-val-u
-              ~
-            ==
-          ::
-          ;<  jon-child=json  try:m  (load-json val-u)
-          $(len-w (dec len-w), pairs [[name jon-child] pairs])
+              ?:  =(len-w 0)  (return:m o+(molt pairs))
+              =/  idx=@  (dec len-w)
+              ;<  nam-val-octs=octs  try:m  (memread (add arr-u (mul 4 idx)) 4)
+              =/  nam-val-u=@  q.nam-val-octs
+              ;<  name=cord  try:m  (get-js-string nam-val-u)
+              ;<  val-u=@  try:m
+                %:  call-1  'QTS_GetProp'
+                  ctx-u
+                  ptr-u
+                  nam-val-u
+                  ~
+                ==
+              ::
+              ;<  jon-child=json  try:m  (load-json val-u)
+              $(len-w (dec len-w), pairs [[name jon-child] pairs])
         ::  array
         ::
         ;<  len-d=@rd  try:m  (call-1 'QTS_GetFloat64' ctx-u len-u ~)
         =/  len=@  (abs:si (need (toi:rd len-d)))
         =|  vals=(list json)
         |-  ^-  form:m
-        ?:  =(len 0)  (return:m a+vals)
-        =/  idx=@  (dec len)
-        ;<  val-u=@  try:m
-          %:  ding  'QTS_GetProp'
-            ctx-u
-            ptr-u
-            (call-1 'QTS_NewFloat64' ctx-u (sun:rd idx) ~)
-            ~
-          ==
-        ::
-        ;<  jon-child=json  try:m  (load-json val-u)
-        $(len (dec len), vals [jon-child vals])
+            ?:  =(len 0)  (return:m a+vals)
+            =/  idx=@  (dec len)
+            ;<  val-u=@  try:m
+              %:  ding  'QTS_GetProp'
+                ctx-u
+                ptr-u
+                (call-1 'QTS_NewFloat64' ctx-u (sun:rd idx) ~)
+                ~
+              ==
+            ::
+            ;<  jon-child=json  try:m  (load-json val-u)
+            $(len (dec len), vals [jon-child vals])
       ==
     ::  +store-json-name: create a global object from JSON noun
     ::
@@ -1984,13 +1986,13 @@
         ?.  ?=(%s -.u.tod)  ~
         ?+  p.u.tod  ~
           %'CONNECT'  `%conn
-          %'DELETE'   `%delt
-          %'GET'      `%get
-          %'HEAD'     `%head
+          %'DELETE'  `%delt
+          %'GET'  `%get
+          %'HEAD'  `%head
           %'OPTIONS'  `%opts
-          %'POST'     `%post
-          %'PUT'      `%put
-          %'TRACE'    `%trac
+          %'POST'  `%post
+          %'PUT'  `%put
+          %'TRACE'  `%trac
         ==
       ::
       ?~  met  ~
@@ -2002,15 +2004,16 @@
         ?:  ?=(%a -.u.tod)
           =/  l=(unit (list [@t @t]))
             |-  ^-  (unit (list [@t @t]))
-            ?~  p.u.tod  `~
-            ?.  ?=([%a [[%s *] [%s *] ~]] i.p.u.tod)  ~
-            =/  tel=(unit (list [@t @t]))  $(p.u.tod t.p.u.tod)
-            ?~  tel  ~
-            =*  arr  p.i.p.u.tod
-            `[[p.i.arr p.i.t.arr] u.tel]
+                ?~  p.u.tod  `~
+                ?.  ?=([%a [[%s *] [%s *] ~]] i.p.u.tod)  ~
+                =/  tel=(unit (list [@t @t]))  $(p.u.tod t.p.u.tod)
+                ?~  tel  ~
+                =*  arr  p.i.p.u.tod
+                `[[p.i.arr p.i.t.arr] u.tel]
           ::
           ?~  l  ~
-          :-  ~  =<  q
+          :-  ~
+          =<  q
           %^  spin  u.l  *math:eyre
           |=  [[k=@t v=@t] j=(jar @t @t)]
           ^-  [* math:eyre]
@@ -2078,14 +2081,15 @@
       =/  m  (script:lia-sur:wasm (list cw) acc-mold)
       ^-  form:m
       ?>  ?=([[%i32 @] [%i64 @] [%i32 time-u=@] ~] args)
-      =,  arr  =,  args
-      ;<  l=(pole lv)   try:m  (call-ext %get-bowl ~)
+      =,  arr
+      =,  args
+      ;<  l=(pole lv)  try:m  (call-ext %get-bowl ~)
       ?>  ?=([[%vase owl=*] ~] l)
       =+  !<(bol=bowl:rand owl.l)
       ;<  tor=acc-mold  try:m  get-acc
       =+  !<(=acc tor)
       =.  acc  acc(bowl `bol)
-      ;<  ~             try:m  (set-acc !>(acc))
+      ;<  ~  try:m  (set-acc !>(acc))
       ::
       =/  time=@da  now.bol
       ::  WASI time is in ns
@@ -2157,7 +2161,7 @@
   ^+  acc
   ?~  js.i  acc
   %=  acc
-    m      (~(put by m.acc) mag-w.acc u.js.i)
+    m  (~(put by m.acc) mag-w.acc u.js.i)
     mag-w  +(mag-w.acc)
   ==
 ::
@@ -2186,17 +2190,17 @@
       ;<  acc=acc-mold  try:m  get-acc
       =+  (get-js-ctx acc)
       ::
-      ;<  undef-u=@        try:m  (call-1 'QTS_GetUndefined' ~)
-      ;<  urb-u=@          try:m  (call-1 'QTS_NewObject' ctx-u ~)
+      ;<  undef-u=@  try:m  (call-1 'QTS_GetUndefined' ~)
+      ;<  urb-u=@  try:m  (call-1 'QTS_NewObject' ctx-u ~)
       ;<  *  try:m
         =/  m  (script:lia-sur:wasm * acc-mold)
         |-  ^-  form:m
-        ?~  list-js-imports  (return:m ~)
-        =/  i  i.list-js-imports
-        ?.  ?=([%'urbit_thread' @ ~] name.i)
-          $(list-js-imports t.list-js-imports)
-        ;<  *  try:m  (register-function i.t.name.i mag-w.i urb-u)
-        $(list-js-imports t.list-js-imports)
+            ?~  list-js-imports  (return:m ~)
+            =/  i  i.list-js-imports
+            ?.  ?=([%'urbit_thread' @ ~] name.i)
+              $(list-js-imports t.list-js-imports)
+            ;<  *  try:m  (register-function i.t.name.i mag-w.i urb-u)
+            $(list-js-imports t.list-js-imports)
       ::
       ::  add urbit.tlon object for Tlon API
       ::
@@ -2227,12 +2231,12 @@
       ;<  *  try:m
         =/  m  (script:lia-sur:wasm * acc-mold)
         |-  ^-  form:m
-        ?~  list-js-imports  (return:m ~)
-        =/  i  i.list-js-imports
-        ?.  ?=([%'urbit_thread' %'tlon' @ ~] name.i)
-          $(list-js-imports t.list-js-imports)
-        ;<  *  try:m  (register-function i.t.t.name.i mag-w.i tlon-u)
-        $(list-js-imports t.list-js-imports)
+            ?~  list-js-imports  (return:m ~)
+            =/  i  i.list-js-imports
+            ?.  ?=([%'urbit_thread' %'tlon' @ ~] name.i)
+              $(list-js-imports t.list-js-imports)
+            ;<  *  try:m  (register-function i.t.t.name.i mag-w.i tlon-u)
+            $(list-js-imports t.list-js-imports)
       ::
       ::  add urbit.pals object for Pals API
       ::
@@ -2263,12 +2267,12 @@
       ;<  *  try:m
         =/  m  (script:lia-sur:wasm * acc-mold)
         |-  ^-  form:m
-        ?~  list-js-imports  (return:m ~)
-        =/  i  i.list-js-imports
-        ?.  ?=([%'urbit_thread' %'pals' @ ~] name.i)
-          $(list-js-imports t.list-js-imports)
-        ;<  *  try:m  (register-function i.t.t.name.i mag-w.i pals-u)
-        $(list-js-imports t.list-js-imports)
+            ?~  list-js-imports  (return:m ~)
+            =/  i  i.list-js-imports
+            ?.  ?=([%'urbit_thread' %'pals' @ ~] name.i)
+              $(list-js-imports t.list-js-imports)
+            ;<  *  try:m  (register-function i.t.t.name.i mag-w.i pals-u)
+            $(list-js-imports t.list-js-imports)
       ::
       (return:m urb-u)
     ::
@@ -2299,26 +2303,26 @@
       ^-  form:m
       =,  arr
       =/  filename=cord  'script-eval.js'
-      ;<  run-u=@    try:m  (call-1 'QTS_NewRuntime' ~)
-      ;<  ctx-u=@    try:m  (call-1 'QTS_NewContext' run-u 0 ~)
-      ;<  fil-u=@    try:m  (malloc-cord filename)
+      ;<  run-u=@  try:m  (call-1 'QTS_NewRuntime' ~)
+      ;<  ctx-u=@  try:m  (call-1 'QTS_NewContext' run-u 0 ~)
+      ;<  fil-u=@  try:m  (malloc-cord filename)
       =|  tor=acc
       =.  tor  tor(run-u run-u, ctx-u ctx-u, fil-u fil-u)
-      ;<  ~          try:m  (set-acc !>(tor))
+      ;<  ~  try:m  (set-acc !>(tor))
       ;<  global-this-u=@  try:m  (call-1 'QTS_GetGlobalObject' ctx-u ~)
-      ;<  undef-u=@        try:m  (call-1 'QTS_GetUndefined' ~)
+      ;<  undef-u=@  try:m  (call-1 'QTS_GetUndefined' ~)
       ::  `require` registration is special-cased
       ::
       ;<  *  try:m  (register-function 'require' 0 global-this-u)
-      ;<  *                try:m
+      ;<  *  try:m
         =/  m  (script:lia-sur:wasm * acc-mold)
         |-  ^-  form:m
-        ?~  list-js-imports  (return:m ~)
-        =/  i  i.list-js-imports
-        ?.  ?=([@ ~] name.i)
-          $(list-js-imports t.list-js-imports)
-        ;<  *  try:m  (register-function i.name.i mag-w.i global-this-u)
-        $(list-js-imports t.list-js-imports)
+            ?~  list-js-imports  (return:m ~)
+            =/  i  i.list-js-imports
+            ?.  ?=([@ ~] name.i)
+              $(list-js-imports t.list-js-imports)
+            ;<  *  try:m  (register-function i.name.i mag-w.i global-this-u)
+            $(list-js-imports t.list-js-imports)
       ::
       ::  define `module` object
       ::
@@ -2367,15 +2371,15 @@
       ;<  console-u=@  try:m
         (call-1 'QTS_GetProp' ctx-u global-this-u console-str-u ~)
       ::
-      ;<  *                try:m
+      ;<  *  try:m
         =/  m  (script:lia-sur:wasm * acc-mold)
         |-  ^-  form:m
-        ?~  list-js-imports  (return:m ~)
-        =/  i  i.list-js-imports
-        ?.  ?=([%console @ ~] name.i)
-          $(list-js-imports t.list-js-imports)
-        ;<  *  try:m  (register-function i.t.name.i mag-w.i console-u)
-        $(list-js-imports t.list-js-imports)
+            ?~  list-js-imports  (return:m ~)
+            =/  i  i.list-js-imports
+            ?.  ?=([%console @ ~] name.i)
+              $(list-js-imports t.list-js-imports)
+            ;<  *  try:m  (register-function i.t.name.i mag-w.i console-u)
+            $(list-js-imports t.list-js-imports)
       ::
       ;<  fun-u=@  try:m
         %-  js-eval
@@ -2406,10 +2410,10 @@
       ::
       :: imports the interface library via require, exports a function to module.exports
       ::
-      ;<  res-u=@          try:m  (js-eval code)
+      ;<  res-u=@  try:m  (js-eval code)
       ;<  err=(unit cord)  try:m  (mayb-error res-u)
       ?^  err  (ret |+[u.err 'failed to export the script function'])
-      ;<  res-u=@          try:m
+      ;<  res-u=@  try:m
         %-  js-eval
         '''
         globalThis.__result = undefined;
@@ -2419,13 +2423,13 @@
         '''
       ::
       ;<  dump-u=@  try:m  (call-1 'malloc' 4 ~)  ::  XX use scratch arena for things like that
-      ;<  *         try:m
+      ;<  *  try:m
         (call 'QTS_ExecutePendingJob' run-u ^~((sub (bex 32) 1)) dump-u ~)
       ::
       ;<  err=(unit cord)  try:m  (mayb-error res-u)
       ?^  err  (ret |+[u.err 'failed to call the exported function'])
       ;<  pro-u=@  try:m  (js-eval 'globalThis.__result')
-      ;<  str=cord         try:m  (get-js-string pro-u)
+      ;<  str=cord  try:m  (get-js-string pro-u)
       (ret &+str)
     ::
     ::  +qts-host-call-function: Wasm import to resolve JS imports
@@ -2443,7 +2447,8 @@
               ==
           args
       ::
-      =,  arr  =,  args
+      =,  arr
+      =,  args
       ;<  acc=acc-mold  try:m  get-acc
       =/  arrow=$-([@ @ @ @] (script-form @ acc-mold))
         ?:  =(0 magic-w.args)  require
@@ -2483,41 +2488,41 @@
   =/  m  (strand (each cord (pair cord cord)))
   ;<  *  bind:m  (pure:m &+%$)
   |-  ^-  form:m
-  =*  restart-loop  $
-  =/  =seed:lia-sur:wasm  [quick-js-wasm (return:runnable:wasm ~) ~ imports]
-  ::  A %jinx hint arms a CPU-time timer around each wasm engine step.
-  ::  urwasm interprets Wasm as one uninterrupted Nock computation between
-  ::  host yields, so a non-terminating JS loop would otherwise wedge the
-  ::  ship's event for the whole thread; jinx bails it after `gap` of CPU
-  ::  time, failing the Spider thread cleanly. gap 0 means unbounded (no
-  ::  hint). See urbit/vere pkg/noun/nock.c _n_hint_fore.
-  =^  [yil=(yield (list lv)) *]  seed
-    ?:  =(`@dr`0 gap)  (run:wasm &+(main code) seed hint)
-    ~>(%jinx.gap (run:wasm &+(main code) seed hint))
-  |-  ^-  form:m
-  =*  block-loop  $
-  ?-    -.yil
-      %0
-    (pure:m (get-result p.yil))
-  ::
-      %1
-    ?:  ?=(%restart name.yil)
-      ::  free state, run anew
-      ::
-      =^  *  seed
-        ?:  =(`@dr`0 gap)  (run:wasm |+~ seed hint)
-        ~>(%jinx.gap (run:wasm |+~ seed hint))
-      restart-loop
-    ::  resolve block, continue
-    ::
-    ;<  res=(list lv)  bind:m  ((~(got by lia-imports) name.yil) args.yil)
-    =^  [yil1=(yield (list lv)) *]  seed
-      ?:  =(`@dr`0 gap)  (run:wasm |+res seed hint)
-      ~>(%jinx.gap (run:wasm |+res seed hint))
-    block-loop(yil yil1)
-  ::
-      %2
-    (strand-fail:rand %thread-js ~['Wasm VM crashed'])
-  ==
+      =*  restart-loop  $
+      =/  =seed:lia-sur:wasm  [quick-js-wasm (return:runnable:wasm ~) ~ imports]
+      ::  A %jinx hint arms a CPU-time timer around each wasm engine step.
+      ::  urwasm interprets Wasm as one uninterrupted Nock computation between
+      ::  host yields, so a non-terminating JS loop would otherwise wedge the
+      ::  ship's event for the whole thread; jinx bails it after `gap` of CPU
+      ::  time, failing the Spider thread cleanly. gap 0 means unbounded (no
+      ::  hint). See urbit/vere pkg/noun/nock.c _n_hint_fore.
+      =^  [yil=(yield (list lv)) *]  seed
+        ?:  =(`@dr`0 gap)  (run:wasm &+(main code) seed hint)
+        ~>(%jinx.gap (run:wasm &+(main code) seed hint))
+      |-  ^-  form:m
+          =*  block-loop  $
+          ?-  -.yil
+              %0
+            (pure:m (get-result p.yil))
+          ::
+              %1
+            ?:  ?=(%restart name.yil)
+              ::  free state, run anew
+              ::
+              =^  *  seed
+            ?:  =(`@dr`0 gap)  (run:wasm |+~ seed hint)
+            ~>(%jinx.gap (run:wasm |+~ seed hint))
+              restart-loop
+            ::  resolve block, continue
+            ::
+            ;<  res=(list lv)  bind:m  ((~(got by lia-imports) name.yil) args.yil)
+            =^  [yil1=(yield (list lv)) *]  seed
+              ?:  =(`@dr`0 gap)  (run:wasm |+res seed hint)
+              ~>(%jinx.gap (run:wasm |+res seed hint))
+            block-loop(yil yil1)
+          ::
+              %2
+            (strand-fail:rand %thread-js ~['Wasm VM crashed'])
+          ==
 ::  ;<  res
 (pure:m !>(0+res))

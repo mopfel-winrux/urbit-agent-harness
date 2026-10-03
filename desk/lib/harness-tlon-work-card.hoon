@@ -27,7 +27,11 @@
   =/  argument  ?~(parsed '' arg.u.parsed)
   ?:  =('help' action)
     ?.  =(text (topic:help argument))  ~
-    `(navigation input (topic:help argument) ~[['Tasks' '/work tasks'] ['Projects' '/work projects']])
+    :-  ~
+    %^  navigation
+      input
+      (topic:help argument)
+    ~[['Tasks' '/work tasks'] ['Projects' '/work projects']]
   ?:  |(=('project-new' action) =('task-new' action))
     ?.  &(=(~ (creation:view action argument)) =(text (creation-help:view action argument)))  ~
     `(navigation input (creation-help:view action argument) ~[['Projects' '/work projects']])
@@ -37,13 +41,22 @@
   =/  args  (mole |.((read-arguments:view db action (need (arguments:view action argument)))))
   ?~  args  ~
   =/  result
-    %-  mole  |.
+    %-  mole
+    |.
     ?>  ?=(%o -.u.args)
     =/  limit  (min 4 (number:j u.args 'limit' 4))
-    (read:j db who action [%o (~(put by (~(put by p.u.args) 'paged' [%b &])) 'limit' (numb:enjs:format limit))])
-  =/  refresh=(list [label=@t command=@t])  ~[['Refresh view' prompt] ['Projects' '/work projects'] ['Tasks' '/work tasks']]
-  ?~  result  `(navigation input 'This view is unavailable. Refresh to check current access.' refresh)
-  =/  links  ?:(more (all-actions:view action u.args u.result) (actions:view action u.args u.result))
+    %:  read:j
+      db
+      who
+      action
+      [%o (~(put by (~(put by p.u.args) 'paged' [%b &])) 'limit' (numb:enjs:format limit))]
+    ==
+  =/  refresh=(list [label=@t command=@t])
+    ~[['Refresh view' prompt] ['Projects' '/work projects'] ['Tasks' '/work tasks']]
+  ?~  result
+    `(navigation input 'This view is unavailable. Refresh to check current access.' refresh)
+  =/  links
+    ?:(more (all-actions:view action u.args u.result) (actions:view action u.args u.result))
   =/  body  (summary:view action u.args u.result)
   =/  expected  (rap 3 ~[body '\0a' (footer:copy links)])
   ?.  =(text expected)
@@ -101,20 +114,24 @@
         ==
     ==
   =?  components  ?=(^ utilities)
-    (snoc components (pairs:enjs:format ~[['id' %s 'utilities'] ['component' %s 'Row'] ['children' %a utilities]]))
+    %+  snoc
+      components
+    (pairs:enjs:format ~[['id' %s 'utilities'] ['component' %s 'Row'] ['children' %a utilities]])
   =?  components  &(?=(^ rows) ?=(^ utilities))
     (snoc components (pairs:enjs:format ~[['id' %s 'divider'] ['component' %s 'Divider']]))
   =/  buttons=(list json)
     =/  remaining  links
     =/  index=@ud  0
     |-  ^-  (list json)
-    ?~  remaining  ~
-    =/  id  (snag index numbered)
-    =/  short  (utility i.remaining)
-    ?^  short
-      (weld (button id label.u.short command.i.remaining primary.u.short) $(remaining t.remaining, index +(index)))
-    :-  (choice id label.i.remaining command.i.remaining)
-    $(remaining t.remaining, index +(index))
+        ?~  remaining  ~
+        =/  id  (snag index numbered)
+        =/  short  (utility i.remaining)
+        ?^  short
+          %+  weld
+            (button id label.u.short command.i.remaining primary.u.short)
+          $(remaining t.remaining, index +(index))
+        :-  (choice id label.i.remaining command.i.remaining)
+        $(remaining t.remaining, index +(index))
   (surface (cat 3 'harness-work-view-' (scot %uv input)) (weld components buttons) &)
 ++  utility
   |=  [label=@t command=@t]
@@ -164,13 +181,16 @@
   ^-  (unit [id=@uv inspected=?])
   =/  command  (has-command-result input text log)
   =/  direct
-    %-  mole  |.
+    %-  mole
+    |.
     ?>  command
     =/  receipt  (need expected)
     ?>  =(text (receipt:view receipt))
     =/  id  (slav %uv (string:j receipt 'id'))
     =/  request  (~(got by requests.db) id)
-    ?>  &((matches:control request sid scope source ~) =(`[%s action.request] (get:j receipt 'action')))
+    ?>  ?&  (matches:control request sid scope source ~)
+            =(`[%s action.request] (get:j receipt 'action'))
+        ==
     ?>  =(`args.request (get:j receipt 'args'))
     [id &]
   ?^  direct  direct
@@ -248,10 +268,19 @@
   =/  key  (key:copy value)
   =/  ready  &(inspected current =(%pending status.request))
   ?:  &(inspected !current =(%pending status.request))
-    (navigation id 'This approval changed or expired.\0aOpen the task or project and choose the change again.' ~[['Tasks' '/work tasks'] ['Projects' '/work projects']])
+    %^  navigation
+      id
+      'This approval changed or expired.\0aOpen the task or project and choose the change again.'
+    ~[['Tasks' '/work tasks'] ['Projects' '/work projects']]
   ?:  &(inspected |(current !=(%pending status.request)))
-    (navigation id (rap 3 ~[(summary:copy value) ?:(ready '\0a\0aPlease confirm within 15 minutes.' '')]) (links:copy value))
-  =/  message  ?:(!current 'This approval changed or expired.' (cat 3 'Review the proposed change to ' (title:copy value)))
+    %^  navigation
+      id
+      (rap 3 ~[(summary:copy value) ?:(ready '\0a\0aPlease confirm within 15 minutes.' '')])
+    (links:copy value)
+  =/  message
+    ?:  !current
+      'This approval changed or expired.'
+    (cat 3 'Review the proposed change to ' (title:copy value))
   ::  Uninspected model replies keep their ordinary prose; the optional card
   ::  only opens a head-generated preview and cannot hide the model's answer.
   =/  components=(list json)
@@ -262,7 +291,10 @@
         ==
         (pairs:enjs:format ~[['id' %s 'title'] ['component' %s 'Text'] ['text' %s message]])
     ==
-  (surface (cat 3 'harness-work-' key) (weld components (button 'inspect' 'Review' (cat 3 '/work result ' key) &)) |)
+  %^  surface
+    (cat 3 'harness-work-' key)
+    (weld components (button 'inspect' 'Review' (cat 3 '/work result ' key) &))
+  |
 ++  surface
   |=  [surface=@t components=(list json) fallback=?]
   ^-  @t

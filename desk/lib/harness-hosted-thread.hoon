@@ -20,8 +20,11 @@
   ;<  now=@da  bind:m  get-time:io
   ;<  entropy=@uvJ  bind:m  get-entropy:io
   =/  id  (scot %uv (sham [our now entropy action]))
+  =/  direct-actions
+    %-  silt
+    ~['settings' 'permissions' 'channels' 'chat-config' 'models' 'soul' 'skills']
   =/  needs-request-id
-    ?&  !(~(has in (silt ~['settings' 'permissions' 'channels' 'chat-config' 'models' 'soul' 'skills'])) action)
+    ?&  !(~(has in direct-actions) action)
         ?~((optional:j args 'requestId') & |)
     ==
   =?  p.args  needs-request-id

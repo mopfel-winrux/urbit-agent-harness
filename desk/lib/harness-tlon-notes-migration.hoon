@@ -2,8 +2,9 @@
 ::  A fresh plan binds source content, permissions and destination state.
 /-  n=tlon-notes, g=tlon-groups-ver, d=tlon-channels-ver
 /+  spec=harness-tlon-tool, md=harness-tlon-notes-markdown,
-    hp=harness-tlon-history-page
+    hp=harness-tlon-history-page, paths=harness-tlon-paths
 |_  bowl=bowl:gall
++*  read-path  ~(. paths [our now]:bowl)
 +$  plan
   $:  preview=json
       flag=flag:n
@@ -11,6 +12,19 @@
       batch=(list [title=@t body=@t])
       revision=@t
       widening=?
+  ==
+::
++$  collection
+  $:  eligible=@ud
+      skipped=@ud
+      imported=@ud
+      conflicts=@ud
+      comments=@ud
+      reactions=@ud
+      bytes=@ud
+      batch-bytes=@ud
+      batch=(list [title=@t body=@t])
+      titles=(list json)
   ==
 ::
 ++  handles
@@ -88,45 +102,114 @@
   =/  channel  (required:spec args 'channel' 256)
   =/  nest  (nest:spec channel)
   ?>  &(=(%diary kind.nest) =(our.bowl ship.nest))
-  =/  perm=perm:v9:d
-    .^(perm:v9:d %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/diary/(scot %p ship.nest)/[name.nest]/perm/channel-perm)
+  =/  =perm:v9:d
+    .^(perm:v9:d %gx (channel-permissions:read-path nest))
   =/  group-flag=flag:n  group.perm
   ?>  =(our.bowl ship.group-flag)
-  =/  groups=groups:v9:g
+  =/  =groups:v9:g
     .^(groups:v9:g %gx /(scot %p our.bowl)/groups/(scot %da now.bowl)/v2/groups/noun)
   =/  group  (~(got by groups) group-flag)
   =/  source  (~(got by channels.group) nest)
-  =/  write-widening  (widening readers.source writers.perm admins.group =(%public privacy.admissions.group))
-  =/  flag=flag:n
+  =/  write-widening
+    %:  widening
+      readers.source
+      writers.perm
+      admins.group
+      =(%public privacy.admissions.group)
+    ==
+  =/  =flag:n
     ?:  (has:spec args 'notebook')  (flag:spec (required:spec args 'notebook' 256))
     [our.bowl %unused]
   =/  [folder=@ud folders=(list folder:n) notes=(list note:n) target=(unit channel:v9:g)]
-    ?.  (has:spec args 'notebook')  [0 ~ ~ ~]
-    ?>  =(our.bowl ship.flag)
-    =/  target  (~(got by channels.group) [%notes flag])
-    ?>  =(readers.source readers.target)
-    =/  folders=(list folder:n)
-      .^((list folder:n) %gx /(scot %p our.bowl)/notes/(scot %da now.bowl)/v0/folders/(scot %p ship.flag)/[name.flag]/noun)
-    =/  detail=notebook-detail:n
-      .^(notebook-detail:n %gx /(scot %p our.bowl)/notes/(scot %da now.bowl)/v0/notebook/(scot %p ship.flag)/[name.flag]/noun)
-    =/  folder  (number:spec args 'folder_id' +(id.notebook.detail))
-    ?>  (lien folders |=(item=folder:n =(folder id.item)))
-    =/  notes=(list note:n)
-      .^((list note:n) %gx /(scot %p our.bowl)/notes/(scot %da now.bowl)/v0/notes/(scot %p ship.flag)/[name.flag]/noun)
-    ?>  (lte (lent notes) 10.000)
-    [folder folders notes `target]
+    (destination args flag source group)
   =/  prior  (index notes)
   ::  One coherent local snapshot, bounded with one lookahead row. Outline
   ::  retains full essays and reply counts without fetching comment bodies.
   =/  page=paged-posts:v10:d
-    .^(paged-posts:v10:d %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v5/diary/(scot %p ship.nest)/[name.nest]/posts/newest/5.001/outline/channel-posts-5)
+    .^  paged-posts:v10:d  %gx
+      (weld (channel-posts:read-path %v5 nest) /newest/5.001/outline/channel-posts-5)
+    ==
   =/  rows  (tap:on-posts:v10:d posts.page)
   ?>  ?&  (lte total.page 5.000)
           =((lent rows) total.page)
           =(~ older.page)
       ==
   =/  revision
-    (scot %uv (sham [%notes-migration channel page group-flag group perm flag folder folders notes target]))
+    %+  scot
+      %uv
+    (sham [%notes-migration channel page group-flag group perm flag folder folders notes target])
+  =+  (collect channel rows prior folder)
+  =/  remaining  (sub eligible imported)
+  =/  preview
+    %-  pairs:enjs:format
+    :~  ['channel' %s channel]
+        ['group' %s (group-id group-flag)]
+        ['suggested_title' %s title.meta.source]
+        ['readers' %a (turn ~(tap in readers.source) |=(role=@tas [%s role]))]
+        ['writers' %a (turn ~(tap in writers.perm) |=(role=@tas [%s role]))]
+        ['write_widening' %b write-widening]
+        ['eligible' (numb:enjs:format eligible)]
+        ['skipped_deleted_or_stub' (numb:enjs:format skipped)]
+        ['already_imported' (numb:enjs:format imported)]
+        ['conflicts' (numb:enjs:format conflicts)]
+        ['remaining' (numb:enjs:format remaining)]
+        ['batch_count' (numb:enjs:format (lent batch))]
+        ['body_bytes' (numb:enjs:format bytes)]
+        ['batch_bytes' (numb:enjs:format batch-bytes)]
+        ['archive_comments' (numb:enjs:format comments)]
+        ['archive_reactions' (numb:enjs:format reactions)]
+        ['preview_titles' %a (flop titles)]
+        ['ready' %b &(?=(^ target) =(conflicts 0) (gth (lent batch) 0))]
+        ['complete' %b &(?=(^ target) =(remaining 0) =(conflicts 0))]
+        ['revision' ?~(target ~ [%s revision])]
+        :*  'confirm'
+            ?~  target
+              ~
+            [%s (rap 3 channel ' -> ' (group-id flag) '/folder/' (scot %ud folder) ~)]
+        ==
+        ['folder_id' ?~(target ~ [%s (scot %ud folder)])]
+        :*  'note'  %s
+            'Source diary is preserved unchanged. Replies/reactions, native revision history and dynamic references remain in the source; authors/timestamps and source links are recorded in imported Markdown. Create a group notebook with these exact readers, then re-plan with notebook. Confirm each batch; allow_write_widening=true requires explicit consent when flagged. Re-plan after every batch. Modified imports are conflicts, never overwritten.'
+        ==
+    ==
+  ?>  (lte (met 3 (en:json:html preview)) 23.000)
+  [preview flag folder (flop batch) revision write-widening]
+::
+++  destination
+  |=  $:  args=json
+          flag=flag:n
+          source=channel:v9:g
+          group=group:v9:g
+      ==
+  ^-  [folder=@ud folders=(list folder:n) notes=(list note:n) target=(unit channel:v9:g)]
+  ?.  (has:spec args 'notebook')  [0 ~ ~ ~]
+  ?>  =(our.bowl ship.flag)
+  =/  target  (~(got by channels.group) [%notes flag])
+  ?>  =(readers.source readers.target)
+  =/  folders=(list folder:n)
+    .^  (list folder:n)  %gx
+      /(scot %p our.bowl)/notes/(scot %da now.bowl)/v0/folders/(scot %p ship.flag)/[name.flag]/noun
+    ==
+  =/  detail=notebook-detail:n
+    .^  notebook-detail:n  %gx
+      /(scot %p our.bowl)/notes/(scot %da now.bowl)/v0/notebook/(scot %p ship.flag)/[name.flag]/noun
+    ==
+  =/  folder  (number:spec args 'folder_id' +(id.notebook.detail))
+  ?>  (lien folders |=(item=folder:n =(folder id.item)))
+  =/  notes=(list note:n)
+    .^  (list note:n)  %gx
+      /(scot %p our.bowl)/notes/(scot %da now.bowl)/v0/notes/(scot %p ship.flag)/[name.flag]/noun
+    ==
+  ?>  (lte (lent notes) 10.000)
+  [folder folders notes `target]
+::
+++  collect
+  |=  $:  channel=@t
+          rows=(list [@da (may:v10:d post:v10:d)])
+          prior=(map @t (list note:n))
+          folder=@ud
+      ==
+  ^-  collection
   =/  eligible=@ud  0
   =/  skipped=@ud  0
   =/  imported=@ud  0
@@ -139,37 +222,11 @@
   =/  titles=(list json)  ~
   =/  blocked=?  |
   |-
-  ^-  plan
+  ^-  collection
   ?~  rows
-    =/  remaining  (sub eligible imported)
-    =/  preview
-      %-  pairs:enjs:format
-      :~  ['channel' %s channel]
-          ['group' %s (group-id group-flag)]
-          ['suggested_title' %s title.meta.source]
-          ['readers' %a (turn ~(tap in readers.source) |=(role=@tas [%s role]))]
-          ['writers' %a (turn ~(tap in writers.perm) |=(role=@tas [%s role]))]
-          ['write_widening' %b write-widening]
-          ['eligible' (numb:enjs:format eligible)]
-          ['skipped_deleted_or_stub' (numb:enjs:format skipped)]
-          ['already_imported' (numb:enjs:format imported)]
-          ['conflicts' (numb:enjs:format conflicts)]
-          ['remaining' (numb:enjs:format remaining)]
-          ['batch_count' (numb:enjs:format (lent batch))]
-          ['body_bytes' (numb:enjs:format bytes)]
-          ['batch_bytes' (numb:enjs:format batch-bytes)]
-          ['archive_comments' (numb:enjs:format comments)]
-          ['archive_reactions' (numb:enjs:format reactions)]
-          ['preview_titles' %a (flop titles)]
-          ['ready' %b &(?=(^ target) =(conflicts 0) (gth (lent batch) 0))]
-          ['complete' %b &(?=(^ target) =(remaining 0) =(conflicts 0))]
-          ['revision' ?~(target ~ [%s revision])]
-          ['confirm' ?~(target ~ [%s (rap 3 channel ' -> ' (group-id flag) '/folder/' (scot %ud folder) ~)])]
-          ['folder_id' ?~(target ~ [%s (scot %ud folder)])]
-          ['note' %s 'Source diary is preserved unchanged. Replies/reactions, native revision history and dynamic references remain in the source; authors/timestamps and source links are recorded in imported Markdown. Create a group notebook with these exact readers, then re-plan with notebook. Confirm each batch; allow_write_widening=true requires explicit consent when flagged. Re-plan after every batch. Modified imports are conflicts, never overwritten.']
-      ==
-    ?>  (lte (met 3 (en:json:html preview)) 23.000)
-    [preview flag folder (flop batch) revision write-widening]
+    :*  eligible  skipped  imported  conflicts  comments  reactions
+        bytes  batch-bytes  batch  titles
+    ==
   =/  row  +.i.rows
   ?:  ?=(%| -.row)  $(rows t.rows, skipped +(skipped))
   =/  post  +.row
@@ -201,8 +258,8 @@
       ==
     $(rows t.rows, blocked &)
   %=  $
-    rows         t.rows
-    batch        [[title.note body.note] batch]
+    rows  t.rows
+    batch  [[title.note body.note] batch]
     batch-bytes  (add batch-bytes size)
   ==
 ::
@@ -239,5 +296,10 @@
     [(en:json:html preview.data) ~]
   =/  data  (approved args)
   ?>  ?=([@ @ ~] wire)
-  ['pending: verifying native Notes affiliation' `[%pass /tlon-notes-migration/[i.t.wire] %agent [our.bowl %notes] %watch /v0/notes/(scot %p ship.flag.data)/[name.flag.data]/stream]]
+  :*  'pending: verifying native Notes affiliation'
+      :-  ~
+      :*  %pass  /tlon-notes-migration/[i.t.wire]  %agent  [our.bowl %notes]  %watch
+          /v0/notes/(scot %p ship.flag.data)/[name.flag.data]/stream
+      ==
+  ==
 --

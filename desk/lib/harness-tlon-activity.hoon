@@ -10,12 +10,12 @@
   =/  out=[left=@ud rows=(list row)]  [limit ~]
   =.  out
     |-  ^+  out
-    ?:  |(?=(~ tree) =(0 left.out))  out
-    ?:  (lte at.n.tree after)  $(tree r.tree)
-    =.  out  $(tree l.tree)
-    ?:  =(0 left.out)  out
-    =.  out  [(dec left.out) [n.tree rows.out]]
-    $(tree r.tree)
+        ?:  |(?=(~ tree) =(0 left.out))  out
+        ?:  (lte at.n.tree after)  $(tree r.tree)
+        =.  out  $(tree l.tree)
+        ?:  =(0 left.out)  out
+        =.  out  [(dec left.out) [n.tree rows.out]]
+        $(tree r.tree)
   (flop rows.out)
 ++  supported
   |=  event=event:v10:a

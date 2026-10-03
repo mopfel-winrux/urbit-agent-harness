@@ -56,9 +56,11 @@ build only writes files.
 ## Local checks
 
 ```sh
+hoon-lint check desk
 npm test --prefix fe
 node --test acp/hand-client.test.mjs
 node --test scripts/modules.test.mjs
+node --test scripts/hoon-lint.test.mjs
 zig build
 node --test scripts/distribution.test.mjs
 ```
@@ -71,6 +73,47 @@ Production assembly excludes the runtime's development test suite and its Ford
 imports. The dynamic namespace includes compiler bootstrap marks and `%noun`,
 which the head/verifier exchange requires. An artifact check does not replace
 a cold installation and real Gall compilation.
+
+### Hoon formatting and analysis
+
+Install `hoon-lint` on `PATH`. The repository configuration checks Hoon 135
+sources and excludes assembled output and dependency checkouts.
+
+```sh
+hoon-lint fix --diff desk
+hoon-lint fix desk
+hoon-lint check desk
+hoon-lint verify desk
+hoon-lint lint --audit desk
+```
+
+`fix` applies AST-guarded layout and shorthand changes. `verify` checks parsing,
+rewrite preservation and formatting idempotence in memory. Long lines, large
+arms and audit hints remain advisory: review them with subject, authorization
+and state-flow context instead of treating them as automatic fixes.
+
+Enable the tracked Git hook for this checkout after checking for an existing
+hook setup:
+
+```sh
+git config --get core.hooksPath
+git config core.hooksPath .githooks
+```
+
+With another hook manager, add `hoon-lint check --staged` to its pre-commit hook
+instead. The check reads exact index blobs, including partially staged files;
+it never formats, stages or modifies working-tree files. A missing binary or
+failed formatting/structural check blocks the commit.
+
+Type analysis needs the assembled desk's imports, not just this source overlay:
+
+```sh
+hoon-lint analyze --system-prelude --desk zig-out zig-out/sur/harness.hoon
+```
+
+Native coverage gaps are reported separately from proven errors and fail the
+analysis check. Parsing and formatting checks do not establish type correctness;
+desk compilation and native behavioral tests remain separate checks.
 
 ## Native tests
 

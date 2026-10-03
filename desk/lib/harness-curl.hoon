@@ -11,23 +11,43 @@
       :-  'function'
       %-  pairs:enjs:format
       :~  ['name' %s 'curl']
-          ['description' %s 'Make an HTTP(S) request with explicit method, headers and body. Can write to external services and reach private addresses. No credentials are supplied automatically. No automatic retries; an interrupted mutation may already have succeeded. Redirects are opt-in and forward the original method, headers and body, including credentials. Returns status, headers and bounded body text. Native HTTP client, not a shell command.']
+          :*  'description'  %s
+              'Make an HTTP(S) request with explicit method, headers and body. Can write to external services and reach private addresses. No credentials are supplied automatically. No automatic retries; an interrupted mutation may already have succeeded. Redirects are opt-in and forward the original method, headers and body, including credentials. Returns status, headers and bounded body text. Native HTTP client, not a shell command.'
+          ==
           :-  'parameters'
           %-  pairs:enjs:format
           :~  ['type' %s 'object']
               ['required' %a ~[[%s 'url']]]
               :-  'properties'
               %-  pairs:enjs:format
-              :~  ['url' (field 'string' 'HTTP(S) URL, up to 8192 bytes. No destination allowlist.')]
-                  ['method' (field 'string' 'GET (default), HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE or CONNECT. These are the methods supported by the native runtime.')]
+              :~  :*  'url'
+                      %+  field
+                        'string'
+                      'HTTP(S) URL, up to 8192 bytes. No destination allowlist.'
+                  ==
+                  :*  'method'
+                      %+  field
+                        'string'
+                      'GET (default), HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE or CONNECT. These are the methods supported by the native runtime.'
+                  ==
                   :-  'headers'
                   %-  pairs:enjs:format
                   :~  ['type' %s 'object']
-                      ['description' %s 'Explicit HTTP header names mapped to string values, including Authorization if needed. Nothing is injected.']
+                      :*  'description'  %s
+                          'Explicit HTTP header names mapped to string values, including Authorization if needed. Nothing is injected.'
+                      ==
                       ['additionalProperties' (pairs:enjs:format ~[['type' %s 'string']])]
                   ==
-                  ['body' (field 'string' 'Optional request body, including an empty string; up to 4 MiB UTF-8. Set Content-Type explicitly when needed.')]
-                  ['redirects' (field 'integer' 'Native redirect budget, 0 (default) through 20. The runtime follows 301/303/307 with absolute Location URLs, forwarding the original method, headers and body. Other redirects are returned for inspection.')]
+                  :*  'body'
+                      %+  field
+                        'string'
+                      'Optional request body, including an empty string; up to 4 MiB UTF-8. Set Content-Type explicitly when needed.'
+                  ==
+                  :*  'redirects'
+                      %+  field
+                        'integer'
+                      'Native redirect budget, 0 (default) through 20. The runtime follows 301/303/307 with absolute Location URLs, forwarding the original method, headers and body. Other redirects are returned for inspection.'
+                  ==
               ==
           ==
       ==
@@ -72,42 +92,42 @@
   ?:  (lien (trip p.u.url) |=(c=@t |((lte c 32) (gte c 127) =(c 92))))  ~
   ?~  (de-purl:html p.u.url)  ~
   =/  method  (~(get by p.u.arguments) 'method')
-  ?:  ?&(?=(^ method) !?=([%s *] u.method))  ~
+  ?:  &(?=(^ method) !?=([%s *] u.method))  ~
   =/  verb=@t
     ?~  method  'GET'
     ?>  ?=([%s *] u.method)
     p.u.method
   ?.  ?=(?(%'GET' %'HEAD' %'POST' %'PUT' %'PATCH' %'DELETE' %'OPTIONS' %'TRACE' %'CONNECT') verb)  ~
   =/  raw  (~(get by p.u.arguments) 'headers')
-  ?:  ?&(?=(^ raw) !?=([%o *] u.raw))  ~
+  ?:  &(?=(^ raw) !?=([%o *] u.raw))  ~
   =/  headers=(list [@t json])
     ?~  raw  ~
     ?>  ?=([%o *] u.raw)
     ~(tap by p.u.raw)
   ?:  (gth (lent headers) 128)  ~
   ?.  (levy headers valid-header)  ~
-  =/  header-list=header-list:http
+  =/  =header-list:http
     %+  turn  headers
     |=  [key=@t value=json]
     ^-  [@t @t]
     ?>  ?=([%s *] value)
     [key p.value]
   =/  body  (~(get by p.u.arguments) 'body')
-  ?:  ?&(?=(^ body) !?=([%s *] u.body))  ~
+  ?:  &(?=(^ body) !?=([%s *] u.body))  ~
   =/  data=(unit octs)
     ?~  body  ~
     ?>  ?=([%s *] u.body)
     `(as-octs:mimes:html p.u.body)
-  ?:  ?&(?=(^ data) (gth p.u.data 4.194.304))  ~
+  ?:  &(?=(^ data) (gth p.u.data 4.194.304))  ~
   =/  redirects  (~(get by p.u.arguments) 'redirects')
-  ?:  ?&(?=(^ redirects) !?=([%n *] u.redirects))  ~
+  ?:  &(?=(^ redirects) !?=([%n *] u.redirects))  ~
   =/  count=(unit @ud)
     ?~  redirects  `0
     ?>  ?=([%n *] u.redirects)
     (slaw %ud p.u.redirects)
   ?~  count  ~
   ?:  (gth u.count 20)  ~
-  =/  request=request:http  [verb p.u.url header-list data]
+  =/  =request:http  [verb p.u.url header-list data]
   :-  ~
   :*  %pass
       `wire`[%tool-2 `@ta`sid (scot %ud generation) `@ta`id.call ~]
@@ -120,7 +140,8 @@
 ++  response
   |=  reply=client-response:iris
   ^-  @t
-  ?:  ?=(%cancel -.reply)  'error: request cancelled by runtime; an external mutation may already have succeeded'
+  ?:  ?=(%cancel -.reply)
+    'error: request cancelled by runtime; an external mutation may already have succeeded'
   ?:  ?=(%progress -.reply)  'error: incomplete HTTP response'
   =/  header-text=@t
     %+  roll  headers.response-header.reply

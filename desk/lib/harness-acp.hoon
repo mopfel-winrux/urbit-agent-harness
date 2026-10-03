@@ -198,7 +198,7 @@
   |=  item=item:h
   ^-  (list card)
   ?-  -.item
-      %reasoning  ~
+    %reasoning  ~
       %user
     =/  update  (acp-text-update 'user_message_chunk' body.item)
     ~[(acp-session-update-card connection sid update)]

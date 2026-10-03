@@ -17,20 +17,26 @@
     %base  ~
     %contact  ~[['ship' %s (scot %p who.value)]]
     %group  ~[['group' %s (flag flag.value)]]
-    %channel
-      :~  ['channel' %s (nest nest.value)]
-          ['group' %s (flag group.value)]
-      ==
-    %thread
-      :~  ['channel' %s (nest channel.value)]
-          ['group' %s (flag group.value)]
-          ['parent' %s (scot %da time.key.value)]
-      ==
-    %dm  ~[?:(?=(%ship -.whom.value) ['ship' %s (scot %p p.whom.value)] ['club' %s (scot %uv p.whom.value)])]
-    %dm-thread
-      :~  ?:(?=(%ship -.whom.value) ['ship' %s (scot %p p.whom.value)] ['club' %s (scot %uv p.whom.value)])
-          ['parent' %s (rap 3 (scot %p p.id.key.value) '/' (scot %da q.id.key.value) ~)]
-      ==
+      %channel
+    :~  ['channel' %s (nest nest.value)]
+        ['group' %s (flag group.value)]
+    ==
+      %thread
+    :~  ['channel' %s (nest channel.value)]
+        ['group' %s (flag group.value)]
+        ['parent' %s (scot %da time.key.value)]
+    ==
+      %dm
+    :~  ?:  ?=(%ship -.whom.value)
+          ['ship' %s (scot %p p.whom.value)]
+        ['club' %s (scot %uv p.whom.value)]
+    ==
+      %dm-thread
+    :~  ?:  ?=(%ship -.whom.value)
+          ['ship' %s (scot %p p.whom.value)]
+        ['club' %s (scot %uv p.whom.value)]
+        ['parent' %s (rap 3 (scot %p p.id.key.value) '/' (scot %da q.id.key.value) ~)]
+    ==
   ==
 ++  message-fields
   |=  [id=@t text=@t mention=?]
@@ -49,26 +55,26 @@
     ==
   =/  details=(list [@t json])
     ?+  -.incoming  ~
-      %post
-        %^  message-fields
-          (scot %da time.key.incoming)
-          (story-to-text:story content.incoming)
-        mention.incoming
-      %reply
-        %^  message-fields
-          (scot %da time.key.incoming)
-          (story-to-text:story content.incoming)
-        mention.incoming
-      %dm-post
-        %^  message-fields
-          (rap 3 (scot %p p.id.key.incoming) '/' (scot %da q.id.key.incoming) ~)
-          (story-to-text:story content.incoming)
-        mention.incoming
-      %dm-reply
-        %^  message-fields
-          (rap 3 (scot %p p.id.key.incoming) '/' (scot %da q.id.key.incoming) ~)
-          (story-to-text:story content.incoming)
-        mention.incoming
+        %post
+      %^  message-fields
+        (scot %da time.key.incoming)
+        (story-to-text:story content.incoming)
+      mention.incoming
+        %reply
+      %^  message-fields
+        (scot %da time.key.incoming)
+        (story-to-text:story content.incoming)
+      mention.incoming
+        %dm-post
+      %^  message-fields
+        (rap 3 (scot %p p.id.key.incoming) '/' (scot %da q.id.key.incoming) ~)
+        (story-to-text:story content.incoming)
+      mention.incoming
+        %dm-reply
+      %^  message-fields
+        (rap 3 (scot %p p.id.key.incoming) '/' (scot %da q.id.key.incoming) ~)
+        (story-to-text:story content.incoming)
+      mention.incoming
     ==
   (pairs:enjs:format (weld fields details))
 ++  read
@@ -79,7 +85,9 @@
   ?>  ?=(?(%all %mentions %replies %unreads) filter)
   ?:  =('unreads' filter)
     =/  rows=(list [source=source:v8:a summary=activity-summary:v8:a])
-      .^((list [source:v8:a activity-summary:v8:a]) %gx /(scot %p our.bowl)/activity/(scot %da now.bowl)/v4/activity/unreads/noun)
+      .^  (list [source:v8:a activity-summary:v8:a])  %gx
+        /(scot %p our.bowl)/activity/(scot %da now.bowl)/v4/activity/unreads/noun
+      ==
     =/  items
       %+  turn  rows
       |=  row=[source=source:v8:a summary=activity-summary:v8:a]
@@ -92,8 +100,10 @@
   =/  scope  (sham [%tlon-inbox our.bowl filter])
   =/  before  (position:hp scope (string:spec args 'cursor' '' 256))
   =/  start  ?~(before now.bowl u.before)
-  =/  feed=feed:v8:a
-    .^(feed:v8:a %gx /(scot %p our.bowl)/activity/(scot %da now.bowl)/v5/feed/[filter]/11/(scot %ud start)/noun)
+  =/  =feed:v8:a
+    .^  feed:v8:a  %gx
+      /(scot %p our.bowl)/activity/(scot %da now.bowl)/v5/feed/[filter]/11/(scot %ud start)/noun
+    ==
   ::  The eleventh bundle proves continuation; each visible bundle has three events.
   =/  rows  (scag 10 feed.feed)
   =/  items
