@@ -87,7 +87,8 @@
   ^-  @t
   ?>  &((gth (met 3 raw) 0) (lte (met 3 raw) 2.048))
   ?>  !(lien (trip raw) |=(c=@t |((lte c 32) =(c '#') =(c '?') =(c '@'))))
-  =/  url  ?:  |(=('https://' (end 3^8 raw)) =('http://' (end 3^7 raw)))  raw
+  =/  url
+    ?:  |(=('https://' (end 3^8 raw)) =('http://' (end 3^7 raw)))  raw
     (cat 3 'https://' raw)
   =/  parsed  (need (de-purl:html url))
   ?>  &(=(~ r.parsed) =([~ ~] q.parsed))
@@ -100,7 +101,8 @@
     |=  [value=json section=@t key=@t]
     ^-  @t
     =/  found
-      %-  mole  |.
+      %-  mole
+      |.
       =/  fields  (object value)
       =/  update  (object (~(got by fields) 'storage-update'))
       =/  values  (object (~(got by update) section))
@@ -160,7 +162,9 @@
   =/  date-parts=date  (yore now)
   =/  pad  |=(n=@ud ^-(tape ?:((lth n 10) "0{(a-co:co n)}" (a-co:co n))))
   =/  day=@t  (crip "{(a-co:co y.date-parts)}{(pad m.date-parts)}{(pad d.t.date-parts)}")
-  =/  stamp=@t  (crip "{(trip day)}T{(pad h.t.date-parts)}{(pad m.t.date-parts)}{(pad s.t.date-parts)}Z")
+  =/  stamp=@t
+    %-  crip
+    "{(trip day)}T{(pad h.t.date-parts)}{(pad m.t.date-parts)}{(pad s.t.date-parts)}Z"
   =/  base  (origin endpoint.config)
   =/  host  (rsh [3 ?:(=('https://' (end 3^8 base)) 8 7)] base)
   =/  object-path  (s3-uri-encode (rap 3 '/' bucket.config '/' key ~) &)
@@ -174,7 +178,8 @@
   =/  wire-acl  &(acl (spaces base))
   =/  signed  (cat 3 'cache-control;content-type;host' ?:(wire-acl ';x-amz-acl' ''))
   =/  query
-    %-  rap  :-  3
+    %-  rap
+    :-  3
     :~  'X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential='
         credential
         '&X-Amz-Date='
@@ -184,7 +189,8 @@
         ?:(acl '&x-amz-acl=public-read' '')
     ==
   =/  canonical
-    %-  rap  :-  3
+    %-  rap
+    :-  3
     :~  'PUT\0a'
         object-path
         '\0a'
@@ -205,6 +211,8 @@
   =/  signature  (s3-hex (s3-hmac-sha256 [32 signing-key] [(met 3 to-sign) to-sign]))
   :*  (rap 3 base object-path '?' query '&X-Amz-Signature=' signature ~)
       public-url
-      (weld ~[['Content-Type' mime] ['Cache-Control' 'public, max-age=3600']] ?:(wire-acl ~[['x-amz-acl' 'public-read']] ~))
+      %+  weld
+        ~[['Content-Type' mime] ['Cache-Control' 'public, max-age=3600']]
+      ?:(wire-acl ~[['x-amz-acl' 'public-read']] ~)
   ==
 --

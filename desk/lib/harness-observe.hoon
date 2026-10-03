@@ -7,37 +7,37 @@
   |=  event=event:h
   ^-  (unit [level=volume:l name=@t data=log-data:l])
   ?+  -.event  ~
-    %llm-completed
-      ?.  =(%stop stop.event)  ~
-      ::  Usage belongs to this final request, not the preceding tool rounds.
-      :-  ~
-      :*  %info
-          'harness.turn.completed'
-          :~  ['request' (numb:enjs:format req.event)]
-              ['prompt_tokens' (numb:enjs:format prompt.usage.event)]
-              ['completion_tokens' (numb:enjs:format completion.usage.event)]
-          ==
-      ==
-    %llm-failed
-      :-  ~
-      :*  %error
-          'harness.inference.failed'
-          :~  ['request' (numb:enjs:format req.event)]
-              ['kind' %s kind:(describe:failure err.event)]
-          ==
-      ==
-    %compaction-failed
-      :-  ~
-      :*  %error
-          'harness.compaction.failed'
-          :~  ['request' (numb:enjs:format req.event)]
-              ['kind' %s kind:(describe:failure err.event)]
-          ==
-      ==
-    %halted
-      `[%warn 'harness.turn.halted' ~[['kind' %s kind:(describe:failure reason.event)]]]
-    %cancelled
-      `[%info 'harness.turn.cancelled' ~]
+      %llm-completed
+    ?.  =(%stop stop.event)  ~
+    ::  Usage belongs to this final request, not the preceding tool rounds.
+    :-  ~
+    :*  %info
+        'harness.turn.completed'
+        :~  ['request' (numb:enjs:format req.event)]
+            ['prompt_tokens' (numb:enjs:format prompt.usage.event)]
+            ['completion_tokens' (numb:enjs:format completion.usage.event)]
+        ==
+    ==
+      %llm-failed
+    :-  ~
+    :*  %error
+        'harness.inference.failed'
+        :~  ['request' (numb:enjs:format req.event)]
+            ['kind' %s kind:(describe:failure err.event)]
+        ==
+    ==
+      %compaction-failed
+    :-  ~
+    :*  %error
+        'harness.compaction.failed'
+        :~  ['request' (numb:enjs:format req.event)]
+            ['kind' %s kind:(describe:failure err.event)]
+        ==
+    ==
+      %halted
+    `[%warn 'harness.turn.halted' ~[['kind' %s kind:(describe:failure reason.event)]]]
+      %cancelled
+    `[%info 'harness.turn.cancelled' ~]
   ==
 ++  tell
   |=  [=bowl:gall sid=@t level=volume:l name=@t data=log-data:l]

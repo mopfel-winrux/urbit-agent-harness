@@ -8,14 +8,18 @@
   =.  old
     %=  old
       defaults  config
-      sessions  (my ~[['retained' [~[[%input-admitted [%user 'Keep my work']] [%config-replaced config]] 7]]])
+      sessions  %-  my
+                :~  :*  'retained'
+                        [~[[%input-admitted [%user 'Keep my work']] [%config-replaced config]] 7]
+                    ==
+                ==
       provider-keys  (my ~[['openrouter' 'fixture-key']])
       js-timeouts  (my ~[['retained' ~s45]])
     ==
   =/  migrated  (envelope:storage !>(old))
   ;:  weld
-    (expect-eq !>(+.old) !>(+>.migrated))
-    (expect-eq !>(~) !>(model-contexts.migrated))
-    (expect-eq !>(migrated) !>((envelope:storage !>(migrated))))
+      (expect-eq !>(+.old) !>(+>.migrated))
+      (expect-eq !>(~) !>(model-contexts.migrated))
+      (expect-eq !>(migrated) !>((envelope:storage !>(migrated))))
   ==
 --

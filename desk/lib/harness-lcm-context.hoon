@@ -19,25 +19,25 @@
   =/  children  (group:lcm lcm.view)
   ?:  !=(~ children)
     |-  ^-  (each lcm-plan:h @t)
-    =/  source  (text:lcm lcm.view children)
-    =/  candidate  view(config branch, summary ~, items ~[[%user source]])
-    =/  input  (estimate candidate)
-    ?:  (gth input (input-budget:context max-context.branch))
-      ?:  (lte (lent children) 2)
-        [%| 'Summary nodes exceed the LCM model input budget; choose a larger LCM model.']
-      $(children (scag 2 `(list @ud)`children))
-    =/  checkpoint=compaction-plan:h
-      :*  through
-          0
-          (lent items.view)
-          (source-hash:context view 0)
-          input
-          (output-budget:context max-context.branch)
-          url.branch
-          model.branch
-          command
-      ==
-    [%& checkpoint ~ children]
+        =/  source  (text:lcm lcm.view children)
+        =/  candidate  view(config branch, summary ~, items ~[[%user source]])
+        =/  input  (estimate candidate)
+        ?:  (gth input (input-budget:context max-context.branch))
+          ?:  (lte (lent children) 2)
+            [%| 'Summary nodes exceed the LCM model input budget; choose a larger LCM model.']
+          $(children (scag 2 `(list @ud)`children))
+        =/  checkpoint=compaction-plan:h
+          :*  through
+              0
+              (lent items.view)
+              (source-hash:context view 0)
+              input
+              (output-budget:context max-context.branch)
+              url.branch
+              model.branch
+              command
+          ==
+        [%& checkpoint ~ children]
   =/  selected
     (plan-for:context view(config leaf, summary ~) through command max-context.config.view estimate)
   ?:  ?=(%| -.selected)  selected
@@ -55,10 +55,10 @@
     ?~  children.plan  (scag count.checkpoint.plan items.view)
     `(list item:h)`~[[%user (text:lcm lcm.view children.plan)]]
   %=  view
-    config   config
+    config  config
     summary  ~
-    items    items
-    memory   ~
+    items  items
+    memory  ~
   ==
 ++  validate
   |=  [view=view:h plan=lcm-plan:h stop=stop-reason:h item=item:h]
@@ -73,7 +73,7 @@
   ::  summaries that happen to share the conversation's active context.
   =/  selected
     %=  checkpoint.plan
-      count   count
+      count  count
       source  (source-hash:context source count)
     ==
   (validate:context source selected stop item)

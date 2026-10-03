@@ -102,7 +102,7 @@
   ^-  form:m
   |=  tin=strand-input:strand
   ?+  in.tin  `[%skip ~]
-      ~  `[%wait ~]
+    ~  `[%wait ~]
       [~ %agent * %fact *]
     ?.  =(watch+wire (scag +((lent wire)) wire.u.in.tin))
       `[%skip ~]
@@ -117,7 +117,7 @@
   ^-  form:m
   |=  tin=strand-input:strand
   ?+  in.tin  `[%skip ~]
-      ~  `[%wait ~]
+    ~  `[%wait ~]
       [~ %agent * %fact *]
     ?.  =(watch+wire wire.u.in.tin)
       `[%skip ~]
@@ -132,7 +132,7 @@
   ^-  form:m
   |=  tin=strand-input:strand
   ?+  in.tin  `[%skip ~]
-      ~  `[%wait ~]
+    ~  `[%wait ~]
       [~ %agent * %kick *]
     ?.  =(watch+wire wire.u.in.tin)
       `[%skip ~]
@@ -148,7 +148,7 @@
       ;<  =vase  bind:m  ((handle ,vase) (take-poke %echo))
       =/  message=tape  !<(tape vase)
       %-  (slog leaf+"{message}..." ~)
-      ;<  ~      bind:m  (sleep ~s2)
+      ;<  ~  bind:m  (sleep ~s2)
       %-  (slog leaf+"{message}.." ~)
       (pure:m ~)
   ::
@@ -163,7 +163,7 @@
   =/  m  (strand ,path)
   |=  tin=strand-input:strand
   ?+  in.tin  `[%skip ~]
-      ~  `[%wait ~]
+    ~  `[%wait ~]
       [~ %watch *]
     `[%done path.u.in.tin]
   ==
@@ -174,7 +174,7 @@
   ^-  form:m
   |=  tin=strand-input:strand
   ?+  in.tin  `[%skip ~]
-      ~  `[%wait ~]
+    ~  `[%wait ~]
       [~ %sign [%wait @ ~] %behn %wake *]
     ?.  |(?=(~ until) =(`u.until (slaw %da i.t.wire.u.in.tin)))
       `[%skip ~]
@@ -187,8 +187,8 @@
   =/  m  (strand ,[spar:ames fragment-size=@ud num-fragments=@ud])
   ^-  form:m
   |=  tin=strand-input:strand
-  ?+    in.tin  `[%skip ~]
-      ~  `[%wait ~]
+  ?+  in.tin  `[%skip ~]
+    ~  `[%wait ~]
     ::
       [~ %sign * %ames %sage sage=*]
     ?.  =(wire wire.u.in.tin)
@@ -206,8 +206,8 @@
   =/  m  (strand ,sage:mess:ames)
   ^-  form:m
   |=  tin=strand-input:strand
-  ?+    in.tin  `[%skip ~]
-      ~  `[%wait ~]
+  ?+  in.tin  `[%skip ~]
+    ~  `[%wait ~]
     ::
       [~ %sign * %ames %sage sage=*]
     ?.  =(wire wire.u.in.tin)
@@ -221,8 +221,8 @@
   =/  m  (strand ,[spar:ames (unit (unit page))])
   ^-  form:m
   |=  tin=strand-input:strand
-  ?+    in.tin  `[%skip ~]
-      ~  `[%wait ~]
+  ?+  in.tin  `[%skip ~]
+    ~  `[%wait ~]
     ::
       [~ %sign * %ames %near ^ *]
     ?.  =(wire wire.u.in.tin)
@@ -236,7 +236,7 @@
   ^-  form:m
   |=  tin=strand-input:strand
   ?+  in.tin  `[%skip ~]
-      ~  `[%wait ~]
+    ~  `[%wait ~]
       [~ %agent * %poke-ack *]
     ?.  =(wire wire.u.in.tin)
       `[%skip ~]
@@ -251,7 +251,7 @@
   ^-  form:m
   |=  tin=strand-input:strand
   ?+  in.tin  `[%skip ~]
-      ~  `[%wait ~]
+    ~  `[%wait ~]
       [~ %agent * %watch-ack *]
     ?.  =(watch+wire wire.u.in.tin)
       `[%skip ~]
@@ -421,7 +421,7 @@
   |=  [=wire =spar:ames]
   =/  m  (strand ,~)
   ^-  form:m
-  ?+    path.spar  !!
+  ?+  path.spar  !!
       $%  [%ames bone=@ %cork ~]
           [%ames bone=@ %sent seq=@ ~]
           [%flow bone=@ =dire:ames %cork ~]
@@ -474,7 +474,7 @@
   =/  when  (add now time)
   =/  =card:agent:gall
     [%pass /timeout/(scot %da when) %arvo %b %wait when]
-  ;<  ~        bind:m  (send-raw-card card)
+  ;<  ~  bind:m  (send-raw-card card)
   |=  tin=strand-input:strand
   =*  loop  $
   ?:  ?&  ?=([~ %sign [%timeout @ ~] %behn %wake *] in.tin)
@@ -506,7 +506,7 @@
   ^-  form:m
   |=  tin=strand-input:strand
   ?+  in.tin  `[%skip ~]
-      ~  `[%wait ~]
+    ~  `[%wait ~]
     ::
       [~ %sign [%request ~] %iris %http-response %cancel *]
     ::NOTE  iris does not (yet?) retry after cancel, so it means failure
@@ -539,7 +539,7 @@
   ^-  form:m
   |=  tin=strand-input:strand
   ?+  in.tin  `[%skip ~]
-      ~  `[%wait ~]
+    ~  `[%wait ~]
       [~ %sign [%request ~] %iris %http-response %cancel *]
     `[%done ~]
       [~ %sign [%request ~] %iris %http-response %finished *]
@@ -560,7 +560,7 @@
   =/  m  (strand ,cord)
   ^-  form:m
   =/  =request:http  [%'GET' (crip url) ~ ~]
-  ;<  ~                      bind:m  (send-request request)
+  ;<  ~  bind:m  (send-request request)
   ;<  =client-response:iris  bind:m  take-client-response
   (extract-body client-response)
 ::
@@ -600,8 +600,8 @@
   =*  arg  +<
   =/  m  (strand ,vase)
   ^-  form:m
-  ;<    =riot:clay
-      bind:m
+  ;<  =riot:clay
+    bind:m
     (warp ship desk ~ %sing %a case spur)
   ?>  ?=(^ riot)
   ?>  ?=(%vase p.r.u.riot)
@@ -709,7 +709,7 @@
   ^-  form:m
   |=  tin=strand-input:strand
   ?+  in.tin  `[%skip ~]
-      ~  `[%wait ~]
+    ~  `[%wait ~]
       [~ %sign * ?(%behn %clay) %writ *]
     ?.  =(wire wire.u.in.tin)
       `[%skip ~]
@@ -780,10 +780,10 @@
     =/  res  (form.u.active tin)
     =/  =output:m
       ?-  -.next.res
-          %wait  `[%wait ~]
-          %skip  `[%cont ..$(queue (~(put to queue) in.tin))]
-          %cont  `[%cont ..$(active `[in.u.active self.next.res forms.u.active])]
-          %done  (continue(active ~, state value.next.res) bowl.tin)
+        %wait  `[%wait ~]
+        %skip  `[%cont ..$(queue (~(put to queue) in.tin))]
+        %cont  `[%cont ..$(active `[in.u.active self.next.res forms.u.active])]
+        %done  (continue(active ~, state value.next.res) bowl.tin)
           %fail
         ?:  &(?=(^ forms.u.active) ?=(%ignore p.err.next.res))
           %=  $
@@ -801,14 +801,14 @@
   =/  m  (strand ,result)
   =|  try=@ud
   |-  ^-  form:m
-  =*  loop  $
-  ?:  =(crash-after `try)
-    (strand-fail %retry-too-many ~)
-  ;<  ~                  bind:m  (backoff try ~m1)
-  ;<  res=(unit result)  bind:m  computation
-  ?^  res
-    (pure:m u.res)
-  loop(try +(try))
+      =*  loop  $
+      ?:  =(crash-after `try)
+        (strand-fail %retry-too-many ~)
+      ;<  ~  bind:m  (backoff try ~m1)
+      ;<  res=(unit result)  bind:m  computation
+      ?^  res
+        (pure:m u.res)
+      loop(try +(try))
 ::
 ++  backoff
   |=  [try=@ud limit=@dr]
@@ -845,11 +845,11 @@
   =/  =wall
     (zing (turn (flop tang) (cury wash [0 80])))
   |-  ^-  form:m
-  =*  loop  $
-  ?~  wall
-    (pure:m ~)
-  ;<  ~  bind:m  (flog-text i.wall)
-  loop(wall t.wall)
+      =*  loop  $
+      ?~  wall
+        (pure:m ~)
+      ;<  ~  bind:m  (flog-text i.wall)
+      loop(wall t.wall)
 ::
 ++  trace
   |=  =tang
@@ -907,10 +907,10 @@
   ;<  =bowl:spider  bind:m  get-bowl
   =/  tid  (scot %ta (cat 3 'strand_' (scot %uv (sham file eny.bowl))))
   =/  poke-vase  !>(`start-args:spider`[`tid.bowl `tid byk.bowl file args])
-  ;<  ~      bind:m  (watch-our /awaiting/[tid] %spider /thread-result/[tid])
-  ;<  ~      bind:m  (poke-our %spider %spider-start poke-vase)
+  ;<  ~  bind:m  (watch-our /awaiting/[tid] %spider /thread-result/[tid])
+  ;<  ~  bind:m  (poke-our %spider %spider-start poke-vase)
   ;<  =cage  bind:m  (take-fact /awaiting/[tid])
-  ;<  ~      bind:m  (take-kick /awaiting/[tid])
+  ;<  ~  bind:m  (take-kick /awaiting/[tid])
   ?+  p.cage  ~|([%strange-thread-result p.cage file tid] !!)
     %thread-done  (pure:m %& q.cage)
     %thread-fail  (pure:m %| !<([term tang] q.cage))

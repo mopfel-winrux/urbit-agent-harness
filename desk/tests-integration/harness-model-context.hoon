@@ -46,15 +46,20 @@
 ++  requests
   |=  cards=(list card:agent:gall)
   ^-  (list http-card:renew)
-  (murn cards |=(c=card:agent:gall ^-((unit http-card:renew) ?:(?=([%pass [%model-context *] %arvo %i %request *] c) `c ~))))
+  %+  murn
+    cards
+  |=  c=card:agent:gall
+  ^-((unit http-card:renew) ?:(?=([%pass [%model-context *] %arvo %i %request *] c) `c ~))
 ++  reply
   |=  raw=@t
   ^-  client-response:iris
   [%finished [200 ~] `['application/json' (as-octs:mimes:html raw)]]
 ++  catalog
-  (reply '{"models":[{"slug":"gpt-6-luna","context_window":272000,"max_context_window":872000},{"slug":"gpt-6-astra","context_window":272000,"max_context_window":872000}]}')
+  %-  reply
+  '{"models":[{"slug":"gpt-6-luna","context_window":272000,"max_context_window":872000},{"slug":"gpt-6-astra","context_window":272000,"max_context_window":872000}]}'
 ++  test-reload-refreshes-every-known-route-without-retrying-work
-  %-  isolated  |=  ignored=*
+  %-  isolated
+  |=  ignored=*
   =/  loaded  (~(on-load head bowl) !>(fixture))
   =/  initial  !<(state-0 ~(on-save +.loaded bowl))
   =/  sent  (requests -.loaded)
@@ -65,45 +70,68 @@
   =/  repeated  !<(state-0 ~(on-save +.again bowl))
   =/  failed  (play:hl log:(~(got by sessions.saved) 'failed'))
   =/  pending  (play:hl log:(~(got by sessions.saved) 'pending'))
-  ?>  ?&(?=(^ peer-base.saved) ?=(^ compaction.summary-models.saved) ?=(^ lcm.summary-models.saved) ?=(^ route.pending))
+  ?>  ?&  ?=(^ peer-base.saved)
+          ?=(^ compaction.summary-models.saved)
+          ?=(^ lcm.summary-models.saved)
+          ?=(^ route.pending)
+      ==
   ;:  weld
-    (expect-eq !>(1) !>((lent sent)))
-    (expect-eq !>(%'GET') !>(method.request.request))
-    (expect-eq !>(device-models:auth) !>(url.request.request))
-    (expect !>((lien header-list.request.request |=([name=@t value=@t] &(=('chatgpt-account-id' name) =(value 'fixture-account'))))))
-    (expect-eq !>(872.000) !>(max-context.defaults.saved))
-    (expect-eq !>(872.000) !>(max-context.u.peer-base.saved))
-    (expect-eq !>(872.000) !>(max-context.u.compaction.summary-models.saved))
-    (expect-eq !>(872.000) !>(max-context.u.lcm.summary-models.saved))
-    (expect-eq !>(872.000) !>(max-context.config.failed))
-    (expect-eq !>(`'context budget exhausted') !>(err.failed))
-    (expect-eq !>(~[[%user 'Keep the current request']]) !>(items.failed))
-    (expect-eq !>(`[0 %turn]) !>(pending.pending))
-    (expect-eq !>(80.000) !>(max-context.config.u.route.pending))
-    (expect-eq !>((~(got by sessions.initial) 'unknown')) !>((~(got by sessions.saved) 'unknown')))
-    (expect-eq !>((~(got by sessions.initial) 'custom')) !>((~(got by sessions.saved) 'custom')))
-    (expect-eq !>(saved) !>(repeated))
-    (expect !>(!(lien -.updated |=(c=card:agent:gall ?=([%pass * %arvo %i %request *] c)))))
+      (expect-eq !>(1) !>((lent sent)))
+      (expect-eq !>(%'GET') !>(method.request.request))
+      (expect-eq !>(device-models:auth) !>(url.request.request))
+      %-  expect
+      !>  %+  lien
+            header-list.request.request
+          |=([name=@t value=@t] &(=('chatgpt-account-id' name) =(value 'fixture-account')))
+      (expect-eq !>(872.000) !>(max-context.defaults.saved))
+      (expect-eq !>(872.000) !>(max-context.u.peer-base.saved))
+      (expect-eq !>(872.000) !>(max-context.u.compaction.summary-models.saved))
+      (expect-eq !>(872.000) !>(max-context.u.lcm.summary-models.saved))
+      (expect-eq !>(872.000) !>(max-context.config.failed))
+      (expect-eq !>(`'context budget exhausted') !>(err.failed))
+      (expect-eq !>(~[[%user 'Keep the current request']]) !>(items.failed))
+      (expect-eq !>(`[0 %turn]) !>(pending.pending))
+      (expect-eq !>(80.000) !>(max-context.config.u.route.pending))
+      %+  expect-eq
+        !>((~(got by sessions.initial) 'unknown'))
+      !>((~(got by sessions.saved) 'unknown'))
+      %+  expect-eq
+        !>((~(got by sessions.initial) 'custom'))
+      !>((~(got by sessions.saved) 'custom'))
+      (expect-eq !>(saved) !>(repeated))
+      %-  expect
+      !>(!(lien -.updated |=(c=card:agent:gall ?=([%pass * %arvo %i %request *] c))))
   ==
 ++  test-unavailable-or-invalid-metadata-preserves-saved-capacity
-  %-  isolated  |=  ignored=*
+  %-  isolated
+  |=  ignored=*
   =/  loaded  (~(on-load head bowl) !>(fixture))
   =/  initial  !<(state-0 ~(on-save +.loaded bowl))
   =/  request  (snag 0 (requests -.loaded))
   %-  zing
   %+  turn
-    `(list client-response:iris)`~[[%finished [401 ~] ~] (reply 'invalid JSON') (reply '{"models":[{"slug":"gpt-6-luna","max_context_window":0}]}')]
+    ^-  (list client-response:iris)
+    :~  [%finished [401 ~] ~]  (reply 'invalid JSON')
+        (reply '{"models":[{"slug":"gpt-6-luna","max_context_window":0}]}')
+    ==
   |=  response=client-response:iris
   =/  updated  (~(on-arvo +.loaded bowl) wire.request [%iris %http-response response])
   (expect-eq !>(initial) !>(!<(state-0 ~(on-save +.updated bowl))))
 ++  test-credential-identity-fences-late-catalog-responses
-  %-  isolated  |=  ignored=*
+  %-  isolated
+  |=  ignored=*
   =/  loaded  (~(on-load head bowl) !>(fixture))
   =/  request  (snag 0 (requests -.loaded))
   =/  initial  !<(state-0 ~(on-save +.loaded bowl))
-  =.  provider-keys.initial  (~(put by provider-keys.initial) 'openai-device' 'replacement-token')
+  =.  provider-keys.initial
+    %+  ~(put by provider-keys.initial)
+      'openai-device'
+    'replacement-token'
   =/  reloaded  (~(on-load +.loaded bowl) !>(initial))
   =/  current  !<(state-0 ~(on-save +.reloaded bowl))
-  =/  updated  (~(on-arvo +.reloaded bowl) wire.request [%iris %http-response catalog])
+  =/  updated
+    %+  ~(on-arvo +.reloaded bowl)
+      wire.request
+    [%iris %http-response catalog]
   (expect-eq !>(current) !>(!<(state-0 ~(on-save +.updated bowl))))
 --

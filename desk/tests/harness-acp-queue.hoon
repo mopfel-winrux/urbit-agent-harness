@@ -14,13 +14,19 @@
   =/  con  con
   =.  to-client.con  (queue 1.024)
   =/  db  (my ~[['client' con]])
-  (expect !>(&(=([1.024 0] (usage:q to-client.con)) !(room:q db 'client' %client '') (room:q db 'client' %agent ''))))
+  %-  expect
+  !>  ?&  =([1.024 0] (usage:q to-client.con))  !(room:q db 'client' %client '')
+          (room:q db 'client' %agent '')
+      ==
 ++  test-peer-byte-bound
   =/  body  (crip (reap 4.194.304 'a'))
   =/  con  con
   =.  to-client.con  (my ~[[1 [1 ~2026.9.6 body]]])
   =/  db  (my ~[['client' con]])
-  (expect !>(&(=(1 ~(wyt by to-client.con)) !(room:q db 'client' %client 'a') (room:q db 'client' %agent 'a'))))
+  %-  expect
+  !>  ?&  =(1 ~(wyt by to-client.con))  !(room:q db 'client' %client 'a')
+          (room:q db 'client' %agent 'a')
+      ==
 ++  test-global-count-bound-includes-both-directions
   =/  full  con
   =.  to-client.full  (queue 1.024)
@@ -32,7 +38,10 @@
   =/  full  con
   =.  to-client.full  (my ~[[1 [1 ~2026.9.6 body]]])
   =/  db  (my ~[['one' full] ['two' full] ['three' full] ['four' full] ['empty' con]])
-  (expect !>(&(=(1 ~(wyt by to-client.full)) !(room:q db 'empty' %client 'a') (room:q db 'empty' %client ''))))
+  %-  expect
+  !>  ?&  =(1 ~(wyt by to-client.full))  !(room:q db 'empty' %client 'a')
+          (room:q db 'empty' %client '')
+      ==
 ++  test-acknowledged-space-is-reusable-without-a-state-migration
   =/  full  con
   =.  to-client.full  (queue 1.024)

@@ -9,7 +9,7 @@
   ^-  [(list card:agent:gall) state-2:t]
   =/  attempt
     |.
-    =/  bowl=bowl:gall  *bowl:gall
+    =/  =bowl:gall  *bowl:gall
     =.  now.bowl  ~2026.9.6
     =/  out  (~(on-load adapter bowl) saved)
     [-.out !<(state-2:t ~(on-save +.out bowl))]
@@ -20,8 +20,16 @@
   |=  phase=?(%fetch %put %grant %hosted-put)
   ^-  state-2:t
   =/  state=state-2:t  *state-2:t
-  =.  uploads.state  (my ~[[0v1 `upload:t`[phase 0v2 'key' 'image/png' 'https://storage.googleapis.com/bucket/key' [2 1]]]])
-  =.  tool-receipts.state  (my ~[[0v1 `tool-receipt:t`[['s' 1 ['call' 'tlon_upload_image' '{}']] %sending '' ~2026.9.6]]])
+  =.  uploads.state
+    %-  my
+    :~  :*  0v1
+            ^-  upload:t
+            [phase 0v2 'key' 'image/png' 'https://storage.googleapis.com/bucket/key' [2 1]]
+        ==
+    ==
+  =.  tool-receipts.state
+    %-  my
+    ~[[0v1 `tool-receipt:t`[['s' 1 ['call' 'tlon_upload_image' '{}']] %sending '' ~2026.9.6]]]
   =/  out  (load !>(state))
   ::  Reload may cancel the old duct and publish a result, never request HTTP.
   ?>  !(lien -.out |=(c=card:agent:gall ?=([%pass * %arvo %i %request *] c)))
@@ -29,11 +37,17 @@
 ++  test-native-download-reload-is-known-not-uploaded
   =/  state  (reload %fetch)
   =/  receipt  (~(got by tool-receipts.state) 0v1)
-  (expect !>(&(=(~ uploads.state) =(%done stage.receipt) ?=(^ (find "before any upload" (trip body.receipt))))))
+  %-  expect
+  !>  ?&  =(~ uploads.state)  =(%done stage.receipt)
+          ?=(^ (find "before any upload" (trip body.receipt)))
+      ==
 ++  test-hosted-grant-reload-is-uncertain-without-claiming-a-put
   =/  state  (reload %grant)
   =/  receipt  (~(got by tool-receipts.state) 0v1)
-  (expect !>(&(=(~ uploads.state) =(%uncertain stage.receipt) ?=(^ (find "no image PUT was sent" (trip body.receipt))))))
+  %-  expect
+  !>  ?&  =(~ uploads.state)  =(%uncertain stage.receipt)
+          ?=(^ (find "no image PUT was sent" (trip body.receipt)))
+      ==
 ++  test-hosted-put-reload-discards-bytes-without-retrying
   =/  state  (reload %hosted-put)
   (expect !>(&(=(~ uploads.state) =(%uncertain stage:(~(got by tool-receipts.state) 0v1)))))

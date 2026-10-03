@@ -8,11 +8,11 @@
   =/  ses  (~(got by sessions.+.out) 'welcome')
   =/  view  (play:hl log.ses)
   ;:  weld
-    (expect-eq !>(`'welcome') !>(-.out))
-    (expect-eq !>(~[[%assistant message:welcome ~]]) !>(items.view))
-    (expect-eq !>(0) !>(next-req.ses))
-    (expect-eq !>(~) !>(pending.view))
-    (expect-eq !>(~) !>((decide:hl view |=(~ 0))))
+      (expect-eq !>(`'welcome') !>(-.out))
+      (expect-eq !>(~[[%assistant message:welcome ~]]) !>(items.view))
+      (expect-eq !>(0) !>(next-req.ses))
+      (expect-eq !>(~) !>(pending.view))
+      (expect-eq !>(~) !>((decide:hl view |=(~ 0))))
   ==
 ++  test-open-is-idempotent-and-deletion-survives-reload
   =/  out  (ensure:welcome *state-0)
@@ -21,8 +21,8 @@
   =/  deleted  saved(sessions ~)
   =/  reopened  (ensure:welcome (load:storage !>(deleted)))
   ;:  weld
-    (expect-eq !>([~ saved]) !>(again))
-    (expect-eq !>([~ deleted]) !>(reopened))
+      (expect-eq !>([~ saved]) !>(again))
+      (expect-eq !>([~ deleted]) !>(reopened))
   ==
 ++  test-existing-users-are-not-interrupted
   =/  saved=state-0  *state-0
@@ -30,9 +30,9 @@
   =.  sessions.saved  (my ~[['existing' [~[[%config-replaced builtin-config:defaults]] 0]]])
   =/  out  (ensure:welcome (load:storage !>(saved)))
   ;:  weld
-    (expect-eq !>(~) !>(-.out))
-    (expect-eq !>(sessions.saved) !>(sessions.+.out))
-    (expect-eq !>(peer-budget-resets.saved) !>(peer-budget-resets.+.out))
-    (expect-eq !>(1) !>(welcome-seen.+.out))
+      (expect-eq !>(~) !>(-.out))
+      (expect-eq !>(sessions.saved) !>(sessions.+.out))
+      (expect-eq !>(peer-budget-resets.saved) !>(peer-budget-resets.+.out))
+      (expect-eq !>(1) !>(welcome-seen.+.out))
   ==
 --

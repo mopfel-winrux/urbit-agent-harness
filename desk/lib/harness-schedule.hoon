@@ -45,95 +45,85 @@
   ?>  ?=(%add -.action)
   ?>  enabled.source
   ?>  (lien actors.source |=(actor=@t =(actor actor.action)))
-  =/  job=job:c
-    ::  Literal reminders keep both their exact text and source destination.
-    ?:  =(%reminder kind.action)
-      =/  fields=[at=@t destination=@t text=@t]
-        %.  args.action
-        %-  ot:dejs:format
-        ~[at+so:dejs:format destination+so:dejs:format text+so:dejs:format]
-      ?>  =(destination.fields address.source)
-      ?>  &((gth (met 3 text.fields) 0) (lte (met 3 text.fields) 4.096))
-      =/  time  (parse:reminder at.fields now)
-      %*  .  *job:c
-        kind         %reminder
-        timezone     timezone.time
-        destination  address.source
-        sid          sid.source
-        run-sid      ''
-        expression   at.fields
-        pattern      *pattern:c
-        prompt       text.fields
-        tools        tools
-        next         at.time
-        remaining    1
-        state        %active
-        reason       ''
-        last         ~
-      ==
-    ::  Model work either runs once at an exact time or follows a UTC pattern.
-    ?>  ?=(%o -.args.action)
-    ?:  (~(has by p.args.action) 'at')
-      =/  fields=[at=@t prompt=@t]
-        %.  args.action
-        %-  ot:dejs:format
-        ~[at+so:dejs:format prompt+so:dejs:format]
-      ?>  &((gth (met 3 prompt.fields) 0) (lte (met 3 prompt.fields) 4.096))
-      =/  time  (parse:reminder at.fields now)
-      %*  .  *job:c
-        kind         %prompt
-        timezone     timezone.time
-        destination  address.source
-        sid          sid.source
-        run-sid      ''
-        expression   at.fields
-        pattern      *pattern:c
-        prompt       prompt.fields
-        tools        tools
-        next         at.time
-        remaining    1
-        state        %active
-        reason       ''
-        last         ~
-      ==
-    =/  fields=[schedule=@t timezone=@t prompt=@t runs=@t]
-      %.  args.action
-      %-  ot:dejs:format
-      :~  schedule+so:dejs:format
-          timezone+so:dejs:format
-          prompt+so:dejs:format
-          runs+so:dejs:format
-      ==
-    ?>  =('UTC' timezone.fields)
-    ?>  &((gth (met 3 prompt.fields) 0) (lte (met 3 prompt.fields) 4.096))
-    =/  runs  (number:calendar runs.fields)
-    ?>  &((gth runs 0) (lte runs 100))
-    =/  pattern  (parse:calendar schedule.fields)
+  =/  =job:c
     %*  .  *job:c
-      kind         %prompt
-      timezone     'UTC'
+      kind  kind.action
       destination  address.source
-      sid          sid.source
-      run-sid      ''
-      expression   schedule.fields
-      pattern      pattern
-      prompt       prompt.fields
-      tools        tools
-      next         (need (next:calendar pattern now))
-      remaining    runs
-      state        %active
-      reason       ''
-      last         ~
+      sid  sid.source
+      run-sid  (cat 3 'schedule-' (scot %uv id.action))
+      tools  tools
+      state  %active
+      reason  ''
+      last  ~
     ==
-  =.  run-sid.job  (cat 3 'schedule-' (scot %uv id.action))
+  =.  job  (configure-job args.action job now)
   [binding.action actor.action hand.source (fingerprint action) job]
+::
+++  configure-job
+  |=  [args=json job=job:c now=@da]
+  ^-  job:c
+  ::  Literal reminders keep both their exact text and source destination.
+  ?:  =(%reminder kind.job)
+    =/  fields=[at=@t destination=@t text=@t]
+      %.  args
+      %-  ot:dejs:format
+      ~[at+so:dejs:format destination+so:dejs:format text+so:dejs:format]
+    ?>  =(destination.fields destination.job)
+    ?>  &((gth (met 3 text.fields) 0) (lte (met 3 text.fields) 4.096))
+    =/  time  (parse:reminder at.fields now)
+    %*  .  job
+      timezone  timezone.time
+      expression  at.fields
+      pattern  *pattern:c
+      prompt  text.fields
+      next  at.time
+      remaining  1
+    ==
+  ::  Model work either runs once at an exact time or follows a UTC pattern.
+  ?>  ?=(%o -.args)
+  ?:  (~(has by p.args) 'at')
+    =/  fields=[at=@t prompt=@t]
+      %.  args
+      %-  ot:dejs:format
+      ~[at+so:dejs:format prompt+so:dejs:format]
+    ?>  &((gth (met 3 prompt.fields) 0) (lte (met 3 prompt.fields) 4.096))
+    =/  time  (parse:reminder at.fields now)
+    %*  .  job
+      timezone  timezone.time
+      expression  at.fields
+      pattern  *pattern:c
+      prompt  prompt.fields
+      next  at.time
+      remaining  1
+    ==
+  =/  fields=[schedule=@t timezone=@t prompt=@t runs=@t]
+    %.  args
+    %-  ot:dejs:format
+    :~  schedule+so:dejs:format
+        timezone+so:dejs:format
+        prompt+so:dejs:format
+        runs+so:dejs:format
+    ==
+  ?>  =('UTC' timezone.fields)
+  ?>  &((gth (met 3 prompt.fields) 0) (lte (met 3 prompt.fields) 4.096))
+  =/  runs  (number:calendar runs.fields)
+  ?>  &((gth runs 0) (lte runs 100))
+  =/  pattern  (parse:calendar schedule.fields)
+  %*  .  job
+    timezone  'UTC'
+    expression  schedule.fields
+    pattern  pattern
+    prompt  prompt.fields
+    next  (need (next:calendar pattern now))
+    remaining  runs
+  ==
 ::
 ++  busy
   |=  [job=job:c db=state:hh]
   ^-  ?
   ::  Reservation and admission evidence can arrive separately. Keep a
   ::  reserved input busy until its observation establishes execution state.
-  ?:  ?&(?=(^ last.job) !(~(has by observations.db) u.last.job))  &
+  ?:  &(?=(^ last.job) !(~(has by observations.db) u.last.job))  &
   ?|  %+  lien  ~(val by observations.db)
       |=  observation=observation:hh
       ?&  =(run-sid.job binding.observation)
@@ -159,8 +149,8 @@
   =/  source=binding:hh  [hand.job destination.job sid.job ~[actor.job] &]
   =/  next  (create [%add id binding.job actor.job kind.job args] source tools.job now)
   %*  .  next
-    run-sid      run-sid.job
-    last         last.job
+    run-sid  run-sid.job
+    last  last.job
     fingerprint  fingerprint.job
   ==
 ::
@@ -201,7 +191,7 @@
   ?:  ?=(%input-admitted -.i.events)  |
   ?.  ?=(%input-received -.i.events)  $(events t.events)
   =/  source  source.input.i.events
-  ?&(?=(%hand -.source) =(binding binding.source))
+  &(?=(%hand -.source) =(binding binding.source))
 ::
 ++  clearable
   |=  [job=job:c db=state:hh]
@@ -220,7 +210,7 @@
   =.  job
     %*  .  job
       remaining  (dec remaining.job)
-      last       `input
+      last  `input
     ==
   ?:  =(0 remaining.job)  job(state %complete)
   =/  next  (next:calendar pattern.job now)

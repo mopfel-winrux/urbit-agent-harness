@@ -54,9 +54,9 @@
       %italics  (rap 3 '*' (inlines p.node +(depth)) '*' ~)
       %strike  (rap 3 '~~' (inlines p.node +(depth)) '~~' ~)
       %blockquote  (prefixed '> ' (inlines p.node +(depth)))
-      ?(%inline-code %code)
-        =/  marks  (fence p.node)
-        (rap 3 marks ' ' p.node ' ' marks ~)
+        ?(%inline-code %code)
+      =/  marks  (fence p.node)
+      (rap 3 marks ' ' p.node ' ' marks ~)
       %ship  (scot %p p.node)
       %sect  (rap 3 '@' ?~(p.node 'all' p.node) ~)
       %block  (escape (rap 3 q.node ' [block ' (scot %ud p.node) ']' ~))
@@ -93,16 +93,16 @@
     ?-  -.block
       %image  (rap 3 '![' (escape alt.block) '](' (url src.block) ')' ~)
       %cite  (rap 3 '`' (spat (print:cite cite.block)) '`' ~)
-      %header
-        =/  count  (sub (rsh [3 1] p.block) '0')
-        (rap 3 (crip (reap count '#')) ' ' (inlines q.block 0) ~)
+        %header
+      =/  count  (sub (rsh [3 1] p.block) '0')
+      (rap 3 (crip (reap count '#')) ' ' (inlines q.block 0) ~)
       %listing  (listing p.block 0)
       %rule  '---'
-      %code
-        =/  marks  (fence code.block)
-        ::  A malformed language label is rejected, not allowed to break out.
-        ?>  !(lien (trip lang.block) |=(c=@t |((lte c 32) =(c '`'))))
-        (rap 3 marks lang.block '\0a' code.block '\0a' marks ~)
+        %code
+      =/  marks  (fence code.block)
+      ::  A malformed language label is rejected, not allowed to break out.
+      ?>  !(lien (trip lang.block) |=(c=@t |((lte c 32) =(c '`'))))
+      (rap 3 marks lang.block '\0a' code.block '\0a' marks ~)
       %link  (rap 3 '<' (url url.block) '>' ~)
     ==
   (cat 3 one '\0a\0a')

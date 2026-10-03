@@ -8,8 +8,8 @@
   =/  who=(unit @p)
     ?+  -.event  ~
       %dm-invite  ?:(?=(%ship -.whom.event) `p.whom.event ~)
-      %dm-post  ?:(?&(?=(%ship -.whom.event) =(p.whom.event p.id.key.event)) `p.id.key.event ~)
-      %dm-reply  ?:(?&(?=(%ship -.whom.event) =(p.whom.event p.id.key.event)) `p.id.key.event ~)
+      %dm-post  ?:(&(?=(%ship -.whom.event) =(p.whom.event p.id.key.event)) `p.id.key.event ~)
+      %dm-reply  ?:(&(?=(%ship -.whom.event) =(p.whom.event p.id.key.event)) `p.id.key.event ~)
       %post  ?:(mention.event `p.id.key.event ~)
       %reply  ?:(|(mention.event =(our p.id.parent.event)) `p.id.key.event ~)
     ==

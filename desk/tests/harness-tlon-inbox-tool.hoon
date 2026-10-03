@@ -32,7 +32,7 @@
 ++  read-feed
   |=  count=@ud
   ^-  json
-  =/  bowl=bowl:gall  *bowl:gall
+  =/  =bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~lux, src ~lux, now ~2026.10.1)
   =/  bundles=(list activity-bundle:v8:a)
     ?:  =(0 count)  ~
@@ -64,12 +64,12 @@
   =/  scope  (sham [%tlon-inbox ~lux 'mentions'])
   =/  next  (cursor:hp scope (sub ~2026.10.1 10))
   ;:  weld
-    (expect-eq !>(10) !>((lent p.items)))
-    (expect-eq !>(3) !>((lent p.events)))
-    (expect-eq !>([%b &]) !>((field i.p.items 'events_truncated')))
-    (expect-eq !>([%s next]) !>((field first 'next_cursor')))
-    (expect-eq !>([%b &]) !>((field first 'has_more')))
-    (expect-eq !>(~) !>((field (read-feed 10) 'next_cursor')))
-    (expect-eq !>([%a ~]) !>((field (read-feed 0) 'items')))
+      (expect-eq !>(10) !>((lent p.items)))
+      (expect-eq !>(3) !>((lent p.events)))
+      (expect-eq !>([%b &]) !>((field i.p.items 'events_truncated')))
+      (expect-eq !>([%s next]) !>((field first 'next_cursor')))
+      (expect-eq !>([%b &]) !>((field first 'has_more')))
+      (expect-eq !>(~) !>((field (read-feed 10) 'next_cursor')))
+      (expect-eq !>([%a ~]) !>((field (read-feed 0) 'items')))
   ==
 --

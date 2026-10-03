@@ -9,8 +9,9 @@
     message=harness-tlon-message-tool
 /+  notes=harness-tlon-notes-tool, inbox=harness-tlon-inbox-tool, club=harness-tlon-club-tool
 /+  hooks=harness-tlon-hook-tool, publishing=harness-tlon-publish-tool
-/+  migration=harness-tlon-notes-migration
+/+  migration=harness-tlon-notes-migration, paths=harness-tlon-paths
 |_  bowl=bowl:gall
++*  read-path  ~(. paths [our now]:bowl)
 ::
 ++  groups
   ^-  groups:v9:g
@@ -44,10 +45,12 @@
     %-  pairs:enjs:format
     :~  ['readers' %a (turn ~(tap in readers.channel) |=(role=@tas [%s role]))]
         ['writers' ~]
-        ['note' %s 'Notes does not have channel writer roles. Native owner/editor membership plus current group read access gates editing; use list_notebook_members.']
+        :*  'note'  %s
+            'Notes does not have channel writer roles. Native owner/editor membership plus current group read access gates editing; use list_notebook_members.'
+        ==
     ==
-  =/  perm=perm:v9:d
-    .^(perm:v9:d %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/[kind.nest]/(scot %p ship.nest)/[name.nest]/perm/channel-perm)
+  =/  =perm:v9:d
+    .^(perm:v9:d %gx (channel-permissions:read-path nest))
   =/  roles
     |=  values=(set @tas)
     :-  %a
@@ -68,8 +71,10 @@
   =/  details=contact:ct
     ?:  =(who our.bowl)
       .^(contact:ct %gx /(scot %p our.bowl)/contacts/(scot %da now.bowl)/v1/self/contact-1)
-    =/  directory=directory:ct
-      .^(directory:ct %gx /(scot %p our.bowl)/contacts/(scot %da now.bowl)/v1/directory/contact-directory-0)
+    =/  =directory:ct
+      .^  directory:ct  %gx
+        /(scot %p our.bowl)/contacts/(scot %da now.bowl)/v1/directory/contact-directory-0
+      ==
     =/  leaf  (~(got by directory) who)
     (~(uni by mod.leaf) con.leaf)
   %-  pairs:enjs:format
@@ -191,7 +196,10 @@
     (run:~(. notes bowl) request wire)
   ?:  &(=('create_channel' action) =('notes' (string:spec args 'kind' '' 16)))
     ?:  |((has:spec args 'name') !=('' (string:spec args 'description' '' 1.024)))
-      ['error: native Notes assigns its own notebook/channel name; omit name and description, then use update_channel for description' ~]
+      :*
+        'error: native Notes assigns its own notebook/channel name; omit name and description, then use update_channel for description'
+        ~
+      ==
     ?>  (has:spec args 'group')
     ?>  ?=(%o -.args)
     (run:~(. notes bowl) [%o (~(put by p.args) 'action' [%s 'create_notebook'])] wire)
@@ -224,74 +232,92 @@
   ?:  |(=('get_group' action) =('list_channels' action) =('list_members' action))
     [(en:json:html (group-details args action)) ~]
   ::  Mutations build one native card; the adapter observes its receipt.
-  =/  card=card:agent:gall
-    ?:  |(=('edit_message' action) =('delete_message' action))
-      (change:~(. message bowl) args wire)
-    ?:  |(=('accept_dm' action) =('decline_dm' action))
-      =/  who  (ship:spec (required:spec args 'ship' 128))
-      =/  invited=(set @p)
-        .^((set @p) %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/dm/invited/ships)
-      ?>  (~(has in invited) who)
-      [%pass wire %agent [our.bowl %chat] %poke %chat-dm-rsvp !>([who =('accept_dm' action)])]
-    ?:  |(=('add_channel_writers' action) =('remove_channel_writers' action))
-      =/  flag  (flag:spec (required:spec args 'group' 256))
-      =/  group  (~(got by groups) flag)
-      ?>  (admin:policy our.bowl -.flag group)
-      =/  nest  (nest:spec (required:spec args 'channel' 256))
-      ?>  (~(has by channels.group) nest)
-      =/  role  (slug:spec (required:spec args 'role' 64))
-      ?>  (~(has by roles.group) role)
-      =/  act=a-channels:v10:d
-        ?:  =('add_channel_writers' action)  [%channel nest %add-writers (silt ~[role])]
-        [%channel nest %del-writers (silt ~[role])]
-      [%pass wire %agent [our.bowl %channels] %poke %channel-action-2 !>(act)]
-    ?:  =('update_profile' action)
-      (edit-profile:~(. io bowl) wire (decode:contact args))
-    ?:  |(=('add_contact' action) =('remove_contact' action))
-      =/  who  (ship:spec (required:spec args 'ship' 128))
-      =/  act=action:ct  ?:  =('add_contact' action)  [%page who ~]
-        [%wipe ~[who]]
-      [%pass wire %agent [our.bowl %contacts] %poke %contact-action-1 !>(act)]
-    ?:  |(=('react' action) =('unreact' action))
-      =/  to  (destination:spec args)
-      ?>  (available:~(. conversation bowl) to)
-      =/  emoji=(unit @t)  ?:  =('unreact' action)  ~
-        `(required:spec args 'emoji' 64)
-      (reaction:~(. io bowl) wire to (required:spec args 'message_id' 256) emoji)
-    ?:  |(=('send_dm' action) =('send_channel' action))
-      =/  to  (destination:spec args)
-      ?>  =(=('send_dm' action) ?=(%dm -.to))
-      (publish:~(. io bowl) wire to (required:spec args 'text' 16.384) sent ~)
-    =/  flag  (flag:spec (required:spec args 'group' 256))
-    ?:  |(=('update_group' action) =('update_channel' action))
-      =/  group  (~(got by groups) flag)
-      =/  act=a-group:v8:g
-        ?:  =('update_group' action)  [%meta (metadata args meta.group)]
-        =/  nest  (group-nest:spec (required:spec args 'channel' 256))
-        =/  channel  (~(got by channels.group) nest)
-        [%channel nest %edit channel(meta (metadata args meta.channel))]
-      [%pass wire %agent [our.bowl %groups] %poke %group-action-4 !>(`a-groups:v8:g`[%group flag act])]
-    ?:  =('invite_to_group' action)
-      =/  who  (ship:spec (required:spec args 'ship' 128))
-      [%pass wire %agent [our.bowl %groups] %poke %group-action-4 !>(`a-groups:v8:g`[%invite flag (silt ~[who]) ~ ~])]
-    ?:  =('join_group' action)
-      [%pass wire %agent [our.bowl %groups] %poke %group-join !>([flag &])]
-    ?:  =('leave_group' action)
-      [%pass wire %agent [our.bowl %groups] %poke %group-leave !>(flag)]
-    ?>  =('create_channel' action)
-    =/  kind  (string:spec args 'kind' 'chat' 16)
-    ?>  ?=(?(%chat %diary %heap) kind)
-    =/  create=create-channel:v10:d
-      :*  kind  (slug:spec (required:spec args 'name' 64))  flag
-          (required:spec args 'title' 128)  (string:spec args 'description' '' 1.024)
-          ~  ~  ~
-      ==
-    [%pass wire %agent [our.bowl %channels] %poke %channel-action-2 !>(`a-channels:v10:d`[%create create])]
+  =/  =card:agent:gall  (mutation args wire sent action)
   =/  body
-    %-  rap  :-  3
+    %-  rap
+    :-  3
     :~  'accepted: local Tlon acknowledged '
         action
         '; remote delivery or completion is not confirmed'
     ==
   [body `card]
+::
+++  mutation
+  |=  [args=json wire=wire sent=@da action=@t]
+  ^-  card:agent:gall
+  ?:  |(=('edit_message' action) =('delete_message' action))
+    (change:~(. message bowl) args wire)
+  ?:  |(=('accept_dm' action) =('decline_dm' action))
+    =/  who  (ship:spec (required:spec args 'ship' 128))
+    =/  invited=(set @p)
+      .^((set @p) %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/dm/invited/ships)
+    ?>  (~(has in invited) who)
+    [%pass wire %agent [our.bowl %chat] %poke %chat-dm-rsvp !>([who =('accept_dm' action)])]
+  ?:  |(=('add_channel_writers' action) =('remove_channel_writers' action))
+    =/  flag  (flag:spec (required:spec args 'group' 256))
+    =/  group  (~(got by groups) flag)
+    ?>  (admin:policy our.bowl -.flag group)
+    =/  nest  (nest:spec (required:spec args 'channel' 256))
+    ?>  (~(has by channels.group) nest)
+    =/  role  (slug:spec (required:spec args 'role' 64))
+    ?>  (~(has by roles.group) role)
+    =/  act=a-channels:v10:d
+      ?:  =('add_channel_writers' action)  [%channel nest %add-writers (silt ~[role])]
+      [%channel nest %del-writers (silt ~[role])]
+    [%pass wire %agent [our.bowl %channels] %poke %channel-action-2 !>(act)]
+  ?:  =('update_profile' action)
+    (edit-profile:~(. io bowl) wire (decode:contact args))
+  ?:  |(=('add_contact' action) =('remove_contact' action))
+    =/  who  (ship:spec (required:spec args 'ship' 128))
+    =/  act=action:ct
+      ?:  =('add_contact' action)  [%page who ~]
+      [%wipe ~[who]]
+    [%pass wire %agent [our.bowl %contacts] %poke %contact-action-1 !>(act)]
+  ?:  |(=('react' action) =('unreact' action))
+    =/  to  (destination:spec args)
+    ?>  (available:~(. conversation bowl) to)
+    =/  emoji=(unit @t)
+      ?:  =('unreact' action)  ~
+      `(required:spec args 'emoji' 64)
+    (reaction:~(. io bowl) wire to (required:spec args 'message_id' 256) emoji)
+  ?:  |(=('send_dm' action) =('send_channel' action))
+    =/  to  (destination:spec args)
+    ?>  =(=('send_dm' action) ?=(%dm -.to))
+    (publish:~(. io bowl) wire to (required:spec args 'text' 16.384) sent ~)
+  (group-mutation args wire action)
+::
+++  group-mutation
+  |=  [args=json wire=wire action=@t]
+  ^-  card:agent:gall
+  =/  flag  (flag:spec (required:spec args 'group' 256))
+  ?:  |(=('update_group' action) =('update_channel' action))
+    =/  group  (~(got by groups) flag)
+    =/  act=a-group:v8:g
+      ?:  =('update_group' action)  [%meta (metadata args meta.group)]
+      =/  nest  (group-nest:spec (required:spec args 'channel' 256))
+      =/  channel  (~(got by channels.group) nest)
+      [%channel nest %edit channel(meta (metadata args meta.channel))]
+    :*  %pass  wire  %agent  [our.bowl %groups]  %poke  %group-action-4
+        !>(`a-groups:v8:g`[%group flag act])
+    ==
+  ?:  =('invite_to_group' action)
+    =/  who  (ship:spec (required:spec args 'ship' 128))
+    :*  %pass  wire  %agent  [our.bowl %groups]  %poke  %group-action-4
+        !>(`a-groups:v8:g`[%invite flag (silt ~[who]) ~ ~])
+    ==
+  ?:  =('join_group' action)
+    [%pass wire %agent [our.bowl %groups] %poke %group-join !>([flag &])]
+  ?:  =('leave_group' action)
+    [%pass wire %agent [our.bowl %groups] %poke %group-leave !>(flag)]
+  ?>  =('create_channel' action)
+  =/  kind  (string:spec args 'kind' 'chat' 16)
+  ?>  ?=(?(%chat %diary %heap) kind)
+  =/  create=create-channel:v10:d
+    :*  kind  (slug:spec (required:spec args 'name' 64))  flag
+        (required:spec args 'title' 128)  (string:spec args 'description' '' 1.024)
+        ~  ~  ~
+    ==
+  :*  %pass  wire  %agent  [our.bowl %channels]  %poke  %channel-action-2
+      !>(`a-channels:v10:d`[%create create])
+  ==
 --

@@ -2,7 +2,8 @@
 ::  Only ingress calls this module. Tool output and model-generated text are
 ::  never interpreted as commands. No credentials, I/O or execution authority.
 /-  h=harness
-/+  hp=harness-provider, failure=harness-failure, context=harness-context, memory=harness-memory, policy=harness-defaults
+/+  hp=harness-provider, failure=harness-failure, context=harness-context, memory=harness-memory,
+    policy=harness-defaults
 |%
 +$  command  [name=@t arg=@t]
 ++  whitespace
@@ -12,14 +13,14 @@
   ^-  tape
   =/  left
     |-  ^-  tape
-    ?~  text  ~
-    ?.((whitespace i.text) text $(text t.text))
+        ?~  text  ~
+        ?.((whitespace i.text) text $(text t.text))
   %-  flop
   =/  right  (flop left)
   |-  ^-  tape
-  ?~  right  ~
-  ?.  (whitespace i.right)  right
-  $(right t.right)
+      ?~  right  ~
+      ?.  (whitespace i.right)  right
+      $(right t.right)
 ++  parse
   |=  text=@t
   ^-  (unit command)
@@ -29,12 +30,12 @@
   =/  tail  t.chars
   =|  reversed-name=tape
   |-  ^-  (unit command)
-  ?:  |(?=(~ tail) (whitespace i.tail))
-    ?~  reversed-name  ~
-    `[(rap 3 (flop reversed-name)) (rap 3 (trim tail))]
-  ::  Paths, URLs and // escapes are ordinary text, not unknown commands.
-  ?.  |(&(=('-' i.tail) !=(~ reversed-name)) &((gte i.tail 'a') (lte i.tail 'z')))  ~
-  $(tail t.tail, reversed-name [i.tail reversed-name])
+      ?:  |(?=(~ tail) (whitespace i.tail))
+        ?~  reversed-name  ~
+        `[(rap 3 (flop reversed-name)) (rap 3 (trim tail))]
+      ::  Paths, URLs and // escapes are ordinary text, not unknown commands.
+      ?.  |(&(=('-' i.tail) !=(~ reversed-name)) &((gte i.tail 'a') (lte i.tail 'z')))  ~
+      $(tail t.tail, reversed-name [i.tail reversed-name])
 ++  stopping
   |=  text=@t
   =(`[name='stop' arg=''] (parse text))
@@ -61,15 +62,24 @@
   |=  [view=view:h skills=(map @t skill:h)]
   ^-  @t
   %+  rap  3
-  :~  'Context estimate: '  (scot %ud (est-tokens:hp view skills))  ' tokens (encoded bytes / 4, approximate)'
+  :~  'Context estimate: '
+      (scot %ud (est-tokens:hp view skills))
+      ' tokens (encoded bytes / 4, approximate)'
       '\0aConfigured model window: '  (scot %ud max-context.config.view)  ' (catalog or fallback)'
       '\0aInput budget: '  (scot %ud (input-budget:context max-context.config.view))
-      '\0aRetained-tail target: '  (scot %ud (tail-budget:context max-context.config.view))  ' (complete exchanges; approximate)'
+      '\0aRetained-tail target: '
+      (scot %ud (tail-budget:context max-context.config.view))
+      ' (complete exchanges; approximate)'
       '\0aOutput reserve: '  (scot %ud (output-budget:context max-context.config.view))
       '\0aEstimation margin: '  (scot %ud (div max-context.config.view 10))
       '\0aActive items: '  (scot %ud (lent items.view))
       '\0aCheckpoint: '  ?~(summary.view 'none' 'present; source transcript retained')
-      '\0aPinned notes: '  (scot %ud (lent ~(tap by memory.view)))  '/16, '  (scot %ud (bytes:memory memory.view))  '/8192 bytes'
+      '\0aPinned notes: '  (scot %ud (lent ~(tap by memory.view)))  '/16, '
+      %+  scot
+        %ud
+      %-  bytes:memory
+      memory.view
+      '/8192 bytes'
       '\0aCompaction tokens: '  (scot %ud prompt.compact-usage.view)  ' input, '
       (scot %ud completion.compact-usage.view)  ' output'
   ==
@@ -79,40 +89,40 @@
   |=  [parsed=command view=view:h defaults=config:h skills=(map @t skill:h)]
   ^-  [events=(list event:h) body=@t]
   |^
-  ?:  =('context' name.parsed)
-    [~ ?:(=('' arg.parsed) (context-report view skills) 'Usage: /context')]
-  ?:  =('compact' name.parsed)  [~ 'Usage: /compact']
-  ?:  =('memory' name.parsed)
-    ?.  =('' arg.parsed)  [~ 'Usage: /memory']
-    :-  ~
-    ?~  memory.view
-      'No pinned notes. Use /remember <name> <text> to save one for this conversation.'
-    (cat 3 'Pinned notes (this conversation only):\0a' (render:memory memory.view))
-  ?:  |(=('remember' name.parsed) =('forget' name.parsed))  edit-note
-  =/  result  (run parsed view defaults)
-  [?~(config.result ~ ~[[%config-replaced u.config.result]]) body.result]
-::
-++  edit-note
-  =/  chars  (trip arg.parsed)
-  =/  split=[key=tape rest=tape]
-    =|  reversed-key=tape
-    |-  ^-  [key=tape rest=tape]
-    ?:  |(?=(~ chars) (whitespace i.chars))
-      [(flop reversed-key) (trim chars)]
-    $(chars t.chars, reversed-key [i.chars reversed-key])
-  ?:  ?|  =(~ key.split)
-          &(=('remember' name.parsed) =(~ rest.split))
-          &(=('forget' name.parsed) !=(~ rest.split))
-      ==
-    [~ ?:(=('remember' name.parsed) 'Usage: /remember <name> <text>' 'Usage: /forget <name>')]
-  =/  result
-    (edit:memory memory.view (crip key.split) ?:(=('forget' name.parsed) ~ `(crip rest.split)))
-  ?:  ?=(%| -.result)  [~ p.result]
-  :-  ~[p.result]
-  ?:  =('forget' name.parsed)
-    'Note unpinned. Earlier messages and checkpoints are not erased.'
-  'Note saved for this conversation. It stays pinned across compaction.'
---
+    ?:  =('context' name.parsed)
+      [~ ?:(=('' arg.parsed) (context-report view skills) 'Usage: /context')]
+    ?:  =('compact' name.parsed)  [~ 'Usage: /compact']
+    ?:  =('memory' name.parsed)
+      ?.  =('' arg.parsed)  [~ 'Usage: /memory']
+      :-  ~
+      ?~  memory.view
+        'No pinned notes. Use /remember <name> <text> to save one for this conversation.'
+      (cat 3 'Pinned notes (this conversation only):\0a' (render:memory memory.view))
+    ?:  |(=('remember' name.parsed) =('forget' name.parsed))  edit-note
+    =/  result  (run parsed view defaults)
+    [?~(config.result ~ ~[[%config-replaced u.config.result]]) body.result]
+  ::
+  ++  edit-note
+    =/  chars  (trip arg.parsed)
+    =/  split=[key=tape rest=tape]
+      =|  reversed-key=tape
+      |-  ^-  [key=tape rest=tape]
+          ?:  |(?=(~ chars) (whitespace i.chars))
+            [(flop reversed-key) (trim chars)]
+          $(chars t.chars, reversed-key [i.chars reversed-key])
+    ?:  ?|  =(~ key.split)
+            &(=('remember' name.parsed) =(~ rest.split))
+            &(=('forget' name.parsed) !=(~ rest.split))
+        ==
+      [~ ?:(=('remember' name.parsed) 'Usage: /remember <name> <text>' 'Usage: /forget <name>')]
+    =/  result
+      (edit:memory memory.view (crip key.split) ?:(=('forget' name.parsed) ~ `(crip rest.split)))
+    ?:  ?=(%| -.result)  [~ p.result]
+    :-  ~[p.result]
+    ?:  =('forget' name.parsed)
+      'Note unpinned. Earlier messages and checkpoints are not erased.'
+    'Note saved for this conversation. It stays pinned across compaction.'
+  --
 ++  model-label
   |=  config=config:h
   (rap 3 (provider-for-url:hp url.config) ' / ' model.config ~)
@@ -121,7 +131,12 @@
   ^-  [config=(unit config:h) body=@t]
   ?+  name.parsed  [~ 'Unknown command. Send /help for the available commands.']
     %help  [~ ?:(=('' arg.parsed) help 'Usage: /help')]
-    %stop  [~ ?:(=('' arg.parsed) 'Stopped. External actions already started may still have taken effect.' 'Usage: /stop')]
+      %stop
+    :*  ~
+        ?:  =('' arg.parsed)
+          'Stopped. External actions already started may still have taken effect.'
+        'Usage: /stop'
+    ==
   ::
       %status
     ?.  =('' arg.parsed)  [~ 'Usage: /status']
@@ -136,7 +151,7 @@
   ::
       %model
     ?:  =('' arg.parsed)  [~ (cat 3 'Model: ' (model-label config.view))]
-    =/  config=config:h  config.view
+    =/  =config:h  config.view
     ?:  =('default' arg.parsed)
       =.  config
         %=  config
@@ -174,7 +189,9 @@
             ['memory' 'List this conversation\'s pinned notes' '']
             ['remember' 'Save or replace a conversation note' 'name text']
             ['forget' 'Unpin a note without erasing history' 'name']
-            ['work' 'Read work or prepare a human-confirmed change' 'action JSON | confirm id | reject id | result id']
+            :*  'work'  'Read work or prepare a human-confirmed change'
+                'action JSON | confirm id | reject id | result id'
+            ==
             ['stop' 'Cancel current and queued work' '']
         ==
       |=  [name=@t description=@t hint=@t]

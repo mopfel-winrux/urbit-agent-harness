@@ -40,8 +40,10 @@ test('permission synchronization is change-driven and trust reads stay small', a
   const agent = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
   assert.match(agent, /before-access\s+access-inputs:hc/)
   assert.match(agent, /\?:\s+=\(before-access access-inputs:hc\)\s+`state\s+sync-peer-access:hc/)
-  assert.match(agent, /%peer-refresh\s+=\.\s+state\s+discover-local-mcp\s+sync-peer-access/)
-  const flush = agent.split('    finish-event\n')[1].split('\n++  on-init')[0]
+  const refresh = agent.split('++  action-peer-refresh\n')[1].split('\n++  ')[0]
+  assert.match(agent, /%peer-refresh\s+\(action-peer-refresh action\)/)
+  assert.match(refresh, /=\.\s+state\s+discover-local-mcp\s+sync-peer-access/)
+  const flush = agent.split(/\n[ \t]+finish-event\n/)[1].split(/\n[ \t]*\+\+  on-init\b/)[0]
   assert.doesNotMatch(flush, /mcp-server|discover-local-mcp/)
   assert.match(agent, /\?:\s+!=\(0 local-mcp-seen\)\s+state/)
   assert.doesNotMatch(code('harness-peer-trust'), /status\/json|mole|dejs|cron|ledger/)
@@ -130,7 +132,7 @@ test('inbox is a bounded owner projection, not a transcript reader or mutation p
   assert.match(projection, /\(lte limit 32\)/)
   assert.match(projection, /\(row-json row db hands jobs native\)/)
   const agent = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
-  const handler = agent.split("%'harness/inbox'")[1].split("%'harness/hand'")[0]
+  const handler = agent.split('++  acp-inbox\n')[1].split('\n++  ')[0]
   assert.match(handler, /decode:admin connection/)
   assert.match(handler, /read:inbox/)
   assert.doesNotMatch(handler, /handle-action|workspace-apply|hand-call/)
@@ -195,7 +197,7 @@ test('scheduler maintenance is change-driven without caching effect authority', 
   const head = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
   const arm = (name) => head.split(`++  ${name}\n`)[1]?.split('\n++  ')[0]
   assert.match(head, /before-scheduler\s+schedule-inputs:hc/)
-  assert.match(head, /maintenance-needed:schedule-lib schedules schedule-wake now\.bowl !=\(before-scheduler schedule-inputs:hc\)/)
+  assert.match(head, /maintenance-needed:schedule-lib\s+schedules\s+schedule-wake\s+now\.bowl\s+!=\(before-scheduler schedule-inputs:hc\)/)
   const inputs = arm('schedule-inputs').split('\n').filter((line) => !line.trimStart().startsWith('::')).join('\n')
   for (const input of ['schedules', 'sessions', 'hands', 'rehearsals', 'peers', 'peer-limits', 'announced-access', 'tools.defaults']) {
     assert.ok(inputs.includes(input), `Missing scheduler invalidation input: ${input}`)
@@ -211,7 +213,12 @@ test('channel reconciliation uses self-role events and native live read authorit
   assert.match(activity, /target:membership our\.bowl enabled\.policy event/)
   assert.match(activity, /reconcile:~\(\. io:membership bowl\)/)
   const membership = code('harness-tlon-membership')
-  assert.match(membership, /channels\/can-read\/noun/)
+  assert.ok(dependencies('harness-tlon-membership').includes('harness-tlon-paths'))
+  assert.match(membership, /\+\*\s+read-path\s+~\(\. paths \[our now\]:bowl\)/)
+  assert.match(membership, /\.\^\s+\$-\(\[@p nest:g\] \?\)\s+%gx\s+\(group-can-read:read-path flag\)/)
+  const readPath = code('harness-tlon-paths').split('++  group-can-read\n')[1].split('\n--')[0]
+  assert.match(readPath, /\/groups\/\(scot %da now\)\/v2\/groups\/\(scot %p -\.flag\)\/\[\+\.flag\]/)
+  assert.match(readPath, /\/channels\/can-read\/noun/)
   assert.match(membership, /load\.net\.u\.channel/)
   assert.doesNotMatch(membership, /%behn|%iris|harness-provider|harness-store|%group-join/)
 })
@@ -228,11 +235,13 @@ test('native hook mutation subscribes before dispatch and waits beyond transport
   const hookTool = code('harness-tlon-hook-tool')
   assert.match(hookTool, /\(command args\)[\s\S]*%watch \/v0\/hooks/)
   assert.doesNotMatch(hookTool, /%poke/)
-  const watch = adapter.split('      [%tlon-hooks @ ~]\n')[1].split('      [%tlon-hook-poke @ ~]\n')[0]
-  assert.ok(watch.indexOf('tool-authority request.u.receipt') < watch.indexOf('%poke %hook-action-0'))
-  assert.ok(watch.indexOf("u.receipt(body 'pending: awaiting native hook result')") < watch.indexOf('%poke %hook-action-0'))
+  const watch = adapter.split('++  agent-tlon-hooks\n')[1].split('\n++  ')[0]
+  const dispatch = watch.search(/%poke\s+%hook-action-0/)
+  assert.ok(dispatch >= 0, 'Hook mutation dispatch exists')
+  assert.ok(watch.indexOf('tool-authority request.u.receipt') < dispatch)
+  assert.ok(watch.indexOf("u.receipt(body 'pending: awaiting native hook result')") < dispatch)
   assert.match(watch, /%hook-response-0/)
-  const ack = adapter.split('      [%tlon-hook-poke @ ~]\n')[1].split('      [%tlon-notes @ ~]\n')[0]
+  const ack = adapter.split('++  agent-tlon-hook-poke\n')[1].split('\n++  ')[0]
   assert.match(ack, /\?~  p.sign  cor/)
 })
 
@@ -240,8 +249,8 @@ test('Notes migration verifies native affiliation and fresh authority before dis
   const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
   const migration = await readFile(new URL('../desk/lib/harness-tlon-notes-migration.hoon', import.meta.url), 'utf8')
   assert.match(migration, /group\.notebook-state\.snapshot/)
-  assert.match(migration, /%watch \/v0\/notes/)
-  assert.match(adapter, /\[%tlon-notes-migration @ ~\][\s\S]*tool-authority request\.u\.receipt[\s\S]*command:~\(\. notes-migration bowl\)[\s\S]*%poke %notes-action-1/)
+  assert.match(migration, /%watch\s+\/v0\/notes/)
+  assert.match(adapter, /\[%tlon-notes-migration @ ~\][\s\S]*tool-authority request\.u\.receipt[\s\S]*command:~\(\. notes-migration bowl\)[\s\S]*%poke\s+%notes-action-1/)
   assert.match(adapter, /another native Notes change is pending/)
   assert.doesNotMatch(migration, /%delete|%rename/)
 })
@@ -254,9 +263,14 @@ test('history pagination is bounded, read-only and follows current lane authorit
   assert.doesNotMatch(code('harness-tlon-history-page'), /\.\^\(|%pass|bowl:gall/)
   const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
   const tool = adapter.split('++  tool\n')[1].split('\n++  ')[0]
-  assert.ok(tool.indexOf('(tool-authority request)') < tool.indexOf("=('tlon_history_page'"))
-  assert.match(tool, /sham \[sid.request epoch.u.lane actor.u.lane to.u.lane name.call.request needle\]/)
-  assert.match(tool, /load:~\(\. history-read bowl\) to.u.lane before/)
+  const conversation = adapter.split('++  tool-conversation\n')[1].split('\n++  ')[0]
+  assert.match(tool, /\(tool-authority request\)/)
+  assert.match(tool, /\(tool-conversation request id\)/)
+  assert.ok(tool.indexOf('(tool-authority request)') < tool.indexOf('(tool-conversation request id)'))
+  assert.match(conversation, /\(lane-grants u.lane ~\)/)
+  assert.ok(conversation.indexOf('(lane-grants u.lane ~)') < conversation.indexOf("=('tlon_history_page'"))
+  assert.match(conversation, /sham \[sid.request epoch.u.lane actor.u.lane to.u.lane name.call.request needle\]/)
+  assert.match(conversation, /load:~\(\. history-read bowl\) to.u.lane before/)
 })
 
 test('Tlon addressing cannot become a second memory or command authority', () => {
@@ -270,8 +284,9 @@ test('Tlon messages are driven by head facts and receipts, never maintenance wak
   const arm = (name) => adapter.split(`++  ${name}\n`)[1]?.split('\n++  ')[0]
   assert.match(arm('on-arvo'), /maintain:cor/)
   assert.doesNotMatch(arm('maintain'), /reconcile|%claim|publish/)
-  assert.match(arm('agent'), /\[%head ~\][\s\S]*%fact[\s\S]*reconcile/)
-  assert.match(arm('agent'), /%receipt phase\)[\s\S]*attempt\.u\.delivery[\s\S]*reconcile\(deliveries/)
+  assert.match(arm('agent'), /\[%head ~\]\s+\(agent-head wire sign\)/)
+  assert.match(arm('agent-head'), /%fact[\s\S]*reconcile/)
+  assert.match(arm('agent-hand'), /%receipt phase\)[\s\S]*attempt\.u\.delivery[\s\S]*reconcile\(deliveries/)
   assert.doesNotMatch(code('harness-tlon-clock'), /deliveries|observations|outbox|jobs/)
   assert.match(arm('watch-head'), /%watch \/hand-events/)
   assert.match(arm('claimed'), /%claim stage\.u\.delivery/)

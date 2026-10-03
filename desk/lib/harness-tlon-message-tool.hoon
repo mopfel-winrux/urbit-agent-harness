@@ -2,14 +2,17 @@
 /-  t=harness-tlon, cv=tlon-chat-ver, dv=tlon-channels-ver
 /+  spec=harness-tlon-tool, hp=harness-tlon-history-page,
     hist=harness-tlon-history, story=harness-tlon-story,
-    conversation=harness-tlon-conversation-tool
+    conversation=harness-tlon-conversation-tool, paths=harness-tlon-paths
 |_  bowl=bowl:gall
++*  read-path  ~(. paths [our now]:bowl)
 ::
 ++  dm-post
   |=  [who=@p id=[@p @da]]
   ^-  writ:v7:cv
   =/  value=(may:v7:cv writ:v7:cv)
-    .^((may:v7:cv writ:v7:cv) %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/v4/dm/(scot %p who)/writs/writ/id/(scot %p -.id)/(scot %ud +.id)/chat-writ-4)
+    .^  (may:v7:cv writ:v7:cv)  %gx
+      (dm-post:read-path who id)
+    ==
   ?>  ?=(%& -.value)
   +.value
 ::
@@ -28,7 +31,10 @@
   |=  [nest=[kind=@tas ship=@p name=@tas] id=@da]
   ^-  post:v10:dv
   =/  page=paged-posts:v10:dv
-    .^(paged-posts:v10:dv %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v5/[kind.nest]/(scot %p ship.nest)/[name.nest]/posts/older/(scot %ud +(id))/1/outline/channel-posts-5)
+    .^  paged-posts:v10:dv  %gx
+      %+  weld  (channel-posts:read-path %v5 nest)
+      /older/(scot %ud +(id))/1/outline/channel-posts-5
+    ==
   =/  value  (get:on-posts:v10:dv posts.page id)
   ?>  ?=([~ %& *] value)
   +.u.value
@@ -36,8 +42,11 @@
 ++  channel-reply
   |=  [nest=[kind=@tas ship=@p name=@tas] parent=@da id=@da]
   ^-  reply:v10:dv
-  =/  replies=replies:v10:dv
-    .^(replies:v10:dv %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v5/[kind.nest]/(scot %p ship.nest)/[name.nest]/posts/post/id/(scot %ud parent)/replies/older/(scot %ud +(id))/1/channel-replies-5)
+  =/  =replies:v10:dv
+    .^  replies:v10:dv  %gx
+      %+  weld  (channel-replies:read-path %v5 nest parent)
+      /older/(scot %ud +(id))/1/channel-replies-5
+    ==
   =/  value  (get:on-replies:v10:dv replies id)
   ?>  ?=([~ %& *] value)
   +.u.value
@@ -112,7 +121,10 @@
         ?:  ?=(%| -.value)  ~
         `(dm-reply:hp +.value)
       =/  page=paged-writs:v7:cv
-        .^(paged-writs:v7:cv %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/v4/dm/(scot %p who.to)/writs/around/(scot %ud time.post)/5/light/chat-paged-writs-4)
+        .^  paged-writs:v7:cv  %gx
+          %+  weld  (dm-writs:read-path who.to)
+          /around/(scot %ud time.post)/5/light/chat-paged-writs-4
+        ==
       %+  murn  (tap:on:writs:v7:cv writs.page)
       |=  [at=@da value=(may:v7:cv writ:v7:cv)]
       ?:  ?=(%| -.value)  ~
@@ -120,16 +132,22 @@
         %channel
       =/  id  (timestamp:spec id.focus)
       ?^  parent.to
-        =/  prefix=path  /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/[kind.nest.to]/(scot %p ship.nest.to)/[name.nest.to]/posts/post/id/(scot %ud u.parent.to)/replies
-        =/  older=replies:v9:dv  .^(replies:v9:dv %gx (weld prefix /older/(scot %ud +(id))/6/channel-replies-4))
-        =/  newer=replies:v9:dv  .^(replies:v9:dv %gx (weld prefix /newer/(scot %ud id)/5/channel-replies-4))
+        =/  prefix=path
+          (channel-replies:read-path %v4 nest.to u.parent.to)
+        =/  older=replies:v9:dv
+          .^(replies:v9:dv %gx (weld prefix /older/(scot %ud +(id))/6/channel-replies-4))
+        =/  newer=replies:v9:dv
+          .^(replies:v9:dv %gx (weld prefix /newer/(scot %ud id)/5/channel-replies-4))
         =/  rows  (weld (tap:on-replies:v9:dv older) (tap:on-replies:v9:dv newer))
         %+  murn  rows
         |=  [at=@da value=(may:v9:dv reply:v9:dv)]
         ?:  ?=(%| -.value)  ~
         `(channel-reply:hp +.value)
       =/  page=paged-posts:v9:dv
-        .^(paged-posts:v9:dv %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/[kind.nest.to]/(scot %p ship.nest.to)/[name.nest.to]/posts/around/(scot %ud id)/5/outline/channel-posts-4)
+        .^  paged-posts:v9:dv  %gx
+          %+  weld  (channel-posts:read-path %v4 nest.to)
+          /around/(scot %ud id)/5/outline/channel-posts-4
+        ==
       %+  murn  (tap:on-posts:v9:dv posts.page)
       |=  [at=@da value=(may:v9:dv post:v9:dv)]
       ?:  ?=(%| -.value)  ~
@@ -140,7 +158,7 @@
     %+  turn  rows
     |=  message=message:hp
     %*  .  message
-      text     (clip-text:hp text.message 200)
+      text  (clip-text:hp text.message 200)
       clipped  |(clipped.message (gth (met 3 text.message) 200))
     ==
   %-  pairs:enjs:format

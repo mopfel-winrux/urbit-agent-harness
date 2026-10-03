@@ -33,16 +33,16 @@
   |=  reply=client-response:iris
   ^-  [url=@t public-url=@t]
   |^
-  ?>  ?=(%finished -.reply)
-  ?>  &(=(200 status-code.response-header.reply) ?=(^ full-file.reply))
-  ?>  (lte p.data.u.full-file.reply 16.384)
-  =/  value  (need (de:json:html q.data.u.full-file.reply))
-  =/  target=[url=@t public-url=@t]
-    ((ot:dejs:format ~[['url' so:dejs:format] ['filePath' so:dejs:format]]) value)
-  =/  signed  (checked-url url.target)
-  =/  public  (checked-url public-url.target)
-  ?>  &(!=(~ r.signed) =(~ r.public) =(q.signed q.public))
-  [url.target public-url.target]
+    ?>  ?=(%finished -.reply)
+    ?>  &(=(200 status-code.response-header.reply) ?=(^ full-file.reply))
+    ?>  (lte p.data.u.full-file.reply 16.384)
+    =/  value  (need (de:json:html q.data.u.full-file.reply))
+    =/  target=[url=@t public-url=@t]
+      ((ot:dejs:format ~[['url' so:dejs:format] ['filePath' so:dejs:format]]) value)
+    =/  signed  (checked-url url.target)
+    =/  public  (checked-url public-url.target)
+    ?>  &(!=(~ r.signed) =(~ r.public) =(q.signed q.public))
+    [url.target public-url.target]
   ::
   ++  checked-url
     |=  raw=@t
@@ -68,17 +68,17 @@
   ::  Iris has no DNS-answer/IP-pinning API: this is a URL boundary, not a
   ::  guarantee about resolved addresses. TLS verification remains native.
   ?>  ?!  %+  lien  labels
-      |=  label=@t
-      ?|  =('localhost' label)
-          =('local' label)
-          =('internal' label)
-          =('intranet' label)
-          =('lan' label)
-          =('home' label)
-          =('arpa' label)
-          =('invalid' label)
-          =('test' label)
-      ==
+          |=  label=@t
+          ?|  =('localhost' label)
+              =('local' label)
+              =('internal' label)
+              =('intranet' label)
+              =('lan' label)
+              =('home' label)
+              =('arpa' label)
+              =('invalid' label)
+              =('test' label)
+          ==
   :*  %'GET'
       raw
       :~  ['Accept' 'image/png,image/jpeg,image/gif,image/webp']
@@ -112,9 +112,9 @@
   =/  chars  (cass (trip raw))
   =/  base=tape
     |-  ^-  tape
-    ?~  chars  ~
-    ?:  =(';' i.chars)  ~
-    [i.chars $(chars t.chars)]
+        ?~  chars  ~
+        ?:  =(';' i.chars)  ~
+        [i.chars $(chars t.chars)]
   (crip (skip base |=(c=@t |(=(c 32) =(c 9)))))
 ++  file-extension
   |=  mime=@t
@@ -157,8 +157,9 @@
 ++  result
   |=  [url=@t mime=@t]
   ^-  @t
-  =/  note  ?:  =('image/' (end [3 6] mime))
-    'Upload accepted. Use ![description](url) on its own line in your final reply to publish an image. Public access depends on the storage configuration.'
+  =/  note
+    ?:  =('image/' (end [3 6] mime))
+      'Upload accepted. Use ![description](url) on its own line in your final reply to publish an image. Public access depends on the storage configuration.'
     'Upload accepted. Share [filename](url) only with the intended recipients. Access depends on storage configuration and may be public.'
   %-  en:json:html
   %-  pairs:enjs:format

@@ -34,7 +34,8 @@
   ?:  =('note' kind)
     ?>  =(~ (keys row ~['type' 'title' 'text']))
     ?>  (has:spec row 'text')
-    =/  node=import-node:n  [%note (required:spec row 'title' 128) (string:spec row 'text' '' 16.384)]
+    =/  node=import-node:n
+      [%note (required:spec row 'title' 128) (string:spec row 'text' '' 16.384)]
     $(rows t.rows, count +(count), reversed [node reversed])
   ?>  =('folder' kind)
   ?>  =(~ (keys row ~['type' 'title' 'children']))

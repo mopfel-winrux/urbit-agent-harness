@@ -62,8 +62,8 @@
 ++  lower-text
   |=  text=@t
   ^-  @t
-  %^    run
-      3
+  %^  run
+    3
     text
   |=  byte=@
   ^-  @
@@ -79,7 +79,7 @@
   ^-  index
   =/  doc-terms=(set @t)  (tokenize texts)
   ?:  =(~ doc-terms)  (remove-document idx ref)
-  =/  thread=thread  [scope.ref at.ref]
+  =/  =thread  [scope.ref at.ref]
   =/  thread-live=(map (unit @ud) @ud)
     (fall (~(get by live.idx) thread) *(map (unit @ud) @ud))
   =/  replacing=?  (~(has by thread-live) part.ref)
@@ -94,22 +94,22 @@
   =^  active  idx
     =/  remaining=(list @t)  ~(tap in doc-terms)
     |-  ^-  [segment index]
-    ?~  remaining  [active idx]
-    =/  term=@t  i.remaining
-    =/  posting-tree=posting  (fall (~(get by postings.active) term) *posting)
-    =.  postings.active
-      (~(put by postings.active) term (put:on-posting posting-tree [sent id] 0))
-    =/  term-segments=(set @ud)
-      (fall (~(get by directory.idx) term) *(set @ud))
-    =/  new-term=?  =(~ term-segments)
-    =?  directory.idx  !(~(has in term-segments) segment-id)
-      (~(put by directory.idx) term (~(put in term-segments) segment-id))
-    =?  prefixes.idx  new-term
-      =/  prefix=@t  (term-prefix term)
-      =/  prefix-terms=(set @t)
-        (fall (~(get by prefixes.idx) prefix) *(set @t))
-      (~(put by prefixes.idx) prefix (~(put in prefix-terms) term))
-    $(remaining t.remaining)
+        ?~  remaining  [active idx]
+        =/  term=@t  i.remaining
+        =/  posting-tree=posting  (fall (~(get by postings.active) term) *posting)
+        =.  postings.active
+          (~(put by postings.active) term (put:on-posting posting-tree [sent id] 0))
+        =/  term-segments=(set @ud)
+          (fall (~(get by directory.idx) term) *(set @ud))
+        =/  new-term=?  =(~ term-segments)
+        =?  directory.idx  !(~(has in term-segments) segment-id)
+          (~(put by directory.idx) term (~(put in term-segments) segment-id))
+        =?  prefixes.idx  new-term
+          =/  prefix=@t  (term-prefix term)
+          =/  prefix-terms=(set @t)
+            (fall (~(get by prefixes.idx) prefix) *(set @t))
+          (~(put by prefixes.idx) prefix (~(put in prefix-terms) term))
+        $(remaining t.remaining)
   ::  Publish the new document ID as the live version of this source part.
   =.  segments.idx  (~(put by segments.idx) segment-id active)
   =.  thread-live  (~(put by thread-live) part.ref id)
@@ -124,7 +124,7 @@
 ++  remove-document
   |=  [idx=index =ref:gs]
   ^-  index
-  =/  thread=thread  [scope.ref at.ref]
+  =/  =thread  [scope.ref at.ref]
   =/  thread-live=(unit (map (unit @ud) @ud))
     (~(get by live.idx) thread)
   ?~  thread-live  idx
@@ -153,10 +153,10 @@
   ^-  index
   =/  threads=(list thread)  ~(tap in ~(key by live.idx))
   |-  ^-  index
-  ?~  threads  idx
-  =?  idx  =(scope scope.i.threads)
-    (remove-thread idx i.threads)
-  $(threads t.threads)
+      ?~  threads  idx
+      =?  idx  =(scope scope.i.threads)
+        (remove-thread idx i.threads)
+      $(threads t.threads)
 ::
 ::  Exact AND search over normalized terms.  The global directory first
 ::  intersects the candidate segment sets in native code.  Each candidate
@@ -229,12 +229,12 @@
   ?:  =(~ result)  ~
   =/  rest=(list (list @t))  t.groups
   |-  ^-  (unit (set @ud))
-  ?~  rest  `result
-  =/  next=(set @ud)  (segments-for-terms idx i.rest)
-  ?:  =(~ next)  ~
-  =.  result  (~(int in result) next)
-  ?:  =(~ result)  ~
-  $(rest t.rest)
+      ?~  rest  `result
+      =/  next=(set @ud)  (segments-for-terms idx i.rest)
+      ?:  =(~ next)  ~
+      =.  result  (~(int in result) next)
+      ?:  =(~ result)  ~
+      $(rest t.rest)
 ::
 ++  segments-for-terms
   |=  [idx=index terms=(list @t)]
@@ -307,21 +307,21 @@
   =/  start=@ud  0
   =/  reversed-word=tape  ~
   |-  ^-  (unit @ud)
-  ?:  ?~(remaining & !(term-char i.remaining))
-    ?:  &(?=(^ reversed-word) (~(has in terms) (crip (flop reversed-word))))  `start
-    ?~  remaining  ~
-    %=  $
-      remaining  t.remaining
-      offset  +(offset)
-      start  +(offset)
-      reversed-word  ~
-    ==
-  ?>  ?=(^ remaining)
-  %=  $
-    remaining  t.remaining
-    offset  +(offset)
-    reversed-word  [i.remaining reversed-word]
-  ==
+      ?:  ?~(remaining & !(term-char i.remaining))
+        ?:  &(?=(^ reversed-word) (~(has in terms) (crip (flop reversed-word))))  `start
+        ?~  remaining  ~
+        %=  $
+          remaining  t.remaining
+          offset  +(offset)
+          start  +(offset)
+          reversed-word  ~
+        ==
+      ?>  ?=(^ remaining)
+      %=  $
+        remaining  t.remaining
+        offset  +(offset)
+        reversed-word  [i.remaining reversed-word]
+      ==
 ::  Preview only selected results. Both ends stay on UTF-8 boundaries;
 ::  title, body and source-label matches use the same projection.
 ++  match-preview
@@ -334,9 +334,9 @@
   =/  start  (sub u.found (min u.found 128))
   =.  start
     |-  ^-  @ud
-    =/  byte  (cut 3 [start 1] text)
-    ?:  &((gte byte 128) (lte byte 191))  $(start +(start))
-    start
+        =/  byte  (cut 3 [start 1] text)
+        ?:  &((gte byte 128) (lte byte 191))  $(start +(start))
+        start
   =/  snippet  (make-snippet ~[(rsh [3 start] text)])
   =/  matched  ~(tap in (~(int in terms) (tokenize-text snippet)))
   [?:(=(0 start) snippet (cat 3 '...' snippet)) matched start]
@@ -348,11 +348,11 @@
   =/  scan=[left=@ud reversed-terms=(list @t)]  [limit ~]
   =.  scan
     |-  ^+  scan
-    ?:  |(?=(~ tree) =(0 left.scan))  scan
-    =.  scan  $(tree l.tree)
-    ?:  =(0 left.scan)  scan
-    =.  scan  [(dec left.scan) [n.tree reversed-terms.scan]]
-    $(tree r.tree)
+        ?:  |(?=(~ tree) =(0 left.scan))  scan
+        =.  scan  $(tree l.tree)
+        ?:  =(0 left.scan)  scan
+        =.  scan  [(dec left.scan) [n.tree reversed-terms.scan]]
+        $(tree r.tree)
   (flop reversed-terms.scan)
 ::
 ++  term-prefix
@@ -433,7 +433,7 @@
   ?~  branch  state
   =.  state  (walk r.branch posting-groups docs live allowed state)
   ?:  =(0 left.state)  state
-  =/  cursor=cursor:gs  key.n.branch
+  =/  =cursor:gs  key.n.branch
   =/  matches=?
     %+  levy  posting-groups
     |=  posting-tree=posting
@@ -464,10 +464,10 @@
   =/  best=posting  i.posting-groups
   =/  rest=(list posting)  t.posting-groups
   |-  ^+  best
-  ?~  rest  best
-  ?:  (lth (wyt:on-posting i.rest) (wyt:on-posting best))
-    $(best i.rest, rest t.rest)
-  $(rest t.rest)
+      ?~  rest  best
+      ?:  (lth (wyt:on-posting i.rest) (wyt:on-posting best))
+        $(best i.rest, rest t.rest)
+      $(rest t.rest)
 ::
 ++  make-snippet
   |=  texts=(list @t)
@@ -481,8 +481,8 @@
   ::  must either begin a new codepoint or be ASCII.
   =/  length=@ud  512
   |-  ^-  @t
-  =/  next=@  (cut 3 [length 1] text)
-  ?:  &((gte next 128) (lte next 191))
-    $(length (dec length))
-  (cat 3 (cut 3 [0 length] text) '...')
+      =/  next=@  (cut 3 [length 1] text)
+      ?:  &((gte next 128) (lte next 191))
+        $(length (dec length))
+      (cat 3 (cut 3 [0 length] text) '...')
 --

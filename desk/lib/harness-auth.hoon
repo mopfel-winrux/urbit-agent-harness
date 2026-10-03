@@ -38,7 +38,10 @@
   =/  stored  (fall (~(get by keys) provider) '')
   ::  Hosting owns its fallback slots; explicit local keys (including a blank
   ::  override) win. Subscription credentials never use platform API keys.
-  =?  stored  ?&(!(~(has by keys) provider) (~(has in (silt ~['openai' 'anthropic' 'xai' 'openrouter' 'brave'])) provider))
+  =?  stored
+    ?&  !(~(has by keys) provider)
+        (~(has in (silt ~['openai' 'anthropic' 'xai' 'openrouter' 'brave'])) provider)
+    ==
     (fall (~(get by keys) (cat 3 'hosted-' provider)) '')
   ?:  =('openai' provider)  ?:((jwt-shaped stored) '' stored)
   ?.  =('openai-device' provider)  stored
@@ -88,7 +91,8 @@
   =.  extra
     %+  skim  extra
     |=  [name=@t value=@t]
-    !(~(has in (silt ~['authorization' 'x-api-key' 'chatgpt-account-id'])) (crip (cass (trip name))))
+    ?!  %-  ~(has in (silt ~['authorization' 'x-api-key' 'chatgpt-account-id']))
+        (crip (cass (trip name)))
   =/  account  (key keys 'openai-account')
   ?.  &((device-route url) !=('' account))  extra
   [['chatgpt-account-id' account] extra]

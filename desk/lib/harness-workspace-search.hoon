@@ -47,18 +47,18 @@
     ?:  =(before-revisions after-revisions)  updated
     %+  roll  ~(tap in (~(uni in ~(key by before-revisions)) ~(key by after-revisions)))
     |=  [revision=@ud updated=_updated]
-    =/  address=address:s  [[%artifact id] revision]
+    =/  =address:s  [[%artifact id] revision]
     ?:  =((fingerprint before address) (fingerprint after address))  updated
     (queue updated address at)
   =.  index
     %+  roll  ~(tap in (~(uni in ~(key by projects.before)) ~(key by projects.after)))
     |=  [id=@t updated=_index]
-    =/  address=address:s  [[%project id] 0]
+    =/  =address:s  [[%project id] 0]
     ?:  =((fingerprint before address) (fingerprint after address))  updated
     (queue updated address at)
   %+  roll  ~(tap in (~(uni in ~(key by tasks.before)) ~(key by tasks.after)))
   |=  [id=@t updated=_index]
-  =/  address=address:s  [[%task id] 0]
+  =/  =address:s  [[%task id] 0]
   ?:  =((fingerprint before address) (fingerprint after address))  updated
   (queue updated address at)
 ++  remove
@@ -98,7 +98,7 @@
   =/  prefix  (term-prefix:words word)
   =/  bucket  (fall (~(get by prefixes.updated) prefix) *(set @t))
   %=  updated
-    terms     (~(put by terms.updated) word matches)
+    terms  (~(put by terms.updated) word matches)
     prefixes  (~(put by prefixes.updated) prefix (~(put in bucket) word))
   ==
 ++  work
@@ -112,9 +112,9 @@
   =/  saved=state:s  index
   =/  next
     %=  saved
-      front   t.front.index
+      front  t.front.index
       queued  (~(del by queued.index) address)
-      epoch   +(epoch.index)
+      epoch  +(epoch.index)
     ==
   =/  texts  (source workspace address)
   ?~  texts  $(index (remove next address), limit (dec limit))
@@ -124,8 +124,8 @@
   =?  at  =(%task kind.key.address)
     updated:(~(got by tasks.workspace) id.key.address)
   %=  $
-    index   (put next address u.texts at)
-    limit   (dec limit)
+    index  (put next address u.texts at)
+    limit  (dec limit)
     budget  (sub budget (min budget bytes))
   ==
 ++  alternatives
@@ -135,7 +135,8 @@
   ?:  (lth (met 3 needle) 2)  ~
   =/  bucket  (~(get by prefixes.index) (term-prefix:words needle))
   ?~  bucket  ~
-  %-  scag  :-  32
+  %-  scag
+  :-  32
   %+  skim  (take-terms:words u.bucket 4.096)
   |=(word=@t |((prefix-match:words needle word) (one-edit:words needle word)))
 ++  union
@@ -167,14 +168,14 @@
   =/  needles  ~(tap in (tokenize-text:words query))
   =/  result=(unit matches:s)  ~
   |-  ^-  matches:s
-  ?~  needles  (fall result ~)
-  =/  matches=matches:s
-    %+  roll  (alternatives index i.needles)
-    |=  [word=@t updated=matches:s]
-    (union updated (fall (~(get by terms.index) word) *matches:s))
-  =.  result  `?~(result matches (intersect u.result matches))
-  ?:  ?=([~ ~] result)  ~
-  $(needles t.needles)
+      ?~  needles  (fall result ~)
+      =/  =matches:s
+        %+  roll  (alternatives index i.needles)
+        |=  [word=@t updated=matches:s]
+        (union updated (fall (~(get by terms.index) word) *matches:s))
+      =.  result  `?~(result matches (intersect u.result matches))
+      ?:  ?=([~ ~] result)  ~
+      $(needles t.needles)
 ++  live
   |=  [index=state:s workspace=state:w address=address:s]
   ^-  ?

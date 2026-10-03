@@ -12,13 +12,13 @@
   =/  bad  (mole |.((vale:num [1 2])))
   =/  again  (vale:any [3 4])
   ;:  weld
-    (expect-eq !>([1 2]) !>(q.first))
-    (expect-eq !>(42) !>(q.second))
-    (expect-eq !>([3 4]) !>(q.again))
-    (expect-eq !>(~) !>(bad))
-    (expect !>(!=(type:any type:num)))
-    (expect-eq !>(p.first) !>(type:any))
-    (expect-eq !>(p.second) !>(type:num))
+      (expect-eq !>([1 2]) !>(q.first))
+      (expect-eq !>(42) !>(q.second))
+      (expect-eq !>([3 4]) !>(q.again))
+      (expect-eq !>(~) !>(bad))
+      (expect !>(!=(type:any type:num)))
+      (expect-eq !>(p.first) !>(type:any))
+      (expect-eq !>(p.second) !>(type:num))
   ==
 ++  test-broken-mark-extraction-stays-lazy
   =/  source
@@ -43,7 +43,7 @@
   =/  result  (vale:compiled [1 2])
   =/  bad-type  (mole |.(type:compiled))
   ;:  weld
-    (expect-eq !>([1 2]) !>(q.result))
-    (expect-eq !>(~) !>(bad-type))
+      (expect-eq !>([1 2]) !>(q.result))
+      (expect-eq !>(~) !>(bad-type))
   ==
 --

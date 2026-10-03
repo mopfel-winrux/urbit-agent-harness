@@ -1,8 +1,9 @@
 ::  Persistent native channel programs. Subscription precedes mutation so a
 ::  compiler error cannot be mistaken for a successful installation.
 /-  h=tlon-hooks
-/+  spec=harness-tlon-tool, hp=harness-tlon-history-page
+/+  spec=harness-tlon-tool, hp=harness-tlon-history-page, paths=harness-tlon-paths
 |_  bowl=bowl:gall
++*  read-path  ~(. paths [our now]:bowl)
 ++  handles
   |=  action=@t
   =/  actions=(list @t)
@@ -49,14 +50,17 @@
   (scot %uv (sham [name.hook src.hook meta.hook]))
 ++  nest-text
   |=  nest=nest:h
-  %-  rap  :-  3
+  %-  rap
+  :-  3
   :~  kind.nest  '/'  (scot %p ship.nest)  '/'  name.nest  ==
 ++  owned-channel
   |=  args=json
   ^-  nest:h
   =/  nest  (nest:spec (required:spec args 'channel' 256))
   ?>  =(our.bowl ship.nest)
-  ?>  .^(? %gu /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/[kind.nest]/(scot %p ship.nest)/[name.nest])
+  ?>  .^  ?  %gu
+        (channel:read-path %v4 nest)
+      ==
   nest
 ++  config
   |=  args=json
@@ -116,7 +120,7 @@
     ==
   ?:  =('delete_hook' action)  [%del id]
   ?:  =('configure_hook' action)  [%config id (owned-channel args) (config args)]
-  =/  origin=origin:h  ?:((has:spec args 'channel') (owned-channel args) ~)
+  =/  =origin:h  ?:((has:spec args 'channel') (owned-channel args) ~)
   ?:  =('stop_hook' action)
     ?>  (~(has by (~(got by crons.current) id)) origin)
     [%rest id origin]
@@ -147,7 +151,8 @@
   =/  lines=wall  (zing (turn error render))
   (clip-text:hp (of-wain:format (turn lines |=(line=tape (crip line)))) 1.000)
 ++  react-example
-  %-  rap  :-  3
+  %-  rap
+  :-  3
   :~  '|=  [=event:h =bowl:h]\0a^-  outcome:h\0a'
       '?.  ?=([%on-post %add *] event)  &+[[[%allowed event] ~] state.hook.bowl]\0a'
       '?~  channel.bowl  &+[[[%allowed event] ~] state.hook.bowl]\0a'
@@ -209,10 +214,16 @@
   ?:  =('hook_template' action)
     :-  %-  en:json:html
         %-  pairs:enjs:format
-        :~  ['source' %s '|=  [=event:h =bowl:h]\0a^-  outcome:h\0a&+[[[%allowed event] ~] state.hook.bowl]\0a']
+        :~  :*  'source'  %s
+                '|=  [=event:h =bowl:h]\0a^-  outcome:h\0a&+[[[%allowed event] ~] state.hook.bowl]\0a'
+            ==
             ['on_post_add_example' %s react-example]
-            ['events' %s 'event:h is on-post/add|edit|del|react, on-reply/add|edit|del|react, cron or wake. bowl:h includes optional channel/group, our/src/now, config and hook state.']
-            ['note' %s 'Native hooks can emit Tlon effects and persist after this conversation ends. There is no CPU sandbox. Install only explicitly requested automation; inspect compiled status and test before activating.']
+            :*  'events'  %s
+                'event:h is on-post/add|edit|del|react, on-reply/add|edit|del|react, cron or wake. bowl:h includes optional channel/group, our/src/now, config and hook state.'
+            ==
+            :*  'note'  %s
+                'Native hooks can emit Tlon effects and persist after this conversation ends. There is no CPU sandbox. Install only explicitly requested automation; inspect compiled status and test before activating.'
+            ==
         ==
     ~
   =/  current  snapshot
@@ -240,40 +251,46 @@
   ^-  ?
   =/  action  (required:spec args 'action' 32)
   ?-  -.result
-    %set
-      ?:  =('add_hook' action)
-        ?&  =(name.result (required:spec args 'title' 128))
-            =(src.result (required:spec args 'source' 16.384))
-        ==
-      ?&  =('edit_hook' action)
-          =(id.result (hook-id args))
-          ?:((has:spec args 'source') =(src.result (required:spec args 'source' 16.384)) &)
-          ?:(&(?=(~ error.result) (has:spec args 'title')) =(name.result (required:spec args 'title' 128)) &)
+      %set
+    ?:  =('add_hook' action)
+      ?&  =(name.result (required:spec args 'title' 128))
+          =(src.result (required:spec args 'source' 16.384))
       ==
+    ?&  =('edit_hook' action)
+        =(id.result (hook-id args))
+        ?:((has:spec args 'source') =(src.result (required:spec args 'source' 16.384)) &)
+        ?:  &(?=(~ error.result) (has:spec args 'title'))
+          =(name.result (required:spec args 'title' 128))
+        &
+    ==
     %gone  &(=('delete_hook' action) =(id.result (hook-id args)))
-    %order
-      ?&  =('set_hook_order' action)
-          =(nest.result (nest:spec (required:spec args 'channel' 256)))
-          =(seq.result (order args))
-      ==
-    %config
-      ?&  =('configure_hook' action)
-          =(id.result (hook-id args))
-          =(nest.result (nest:spec (required:spec args 'channel' 256)))
-          =(config.result (config args))
-      ==
-    %cron
-      ?&  =('schedule_hook' action)
-          =(id.result (hook-id args))
-          =(origin.result ?:((has:spec args 'channel') (nest:spec (required:spec args 'channel' 256)) ~))
-          =(config.result (config args))
-          ?^(schedule.result =(repeat.schedule.result (slav %dr (required:spec args 'schedule' 128))) |)
-      ==
-    %rest
-      ?&  =('stop_hook' action)
-          =(id.result (hook-id args))
-          =(origin.result ?:((has:spec args 'channel') (nest:spec (required:spec args 'channel' 256)) ~))
-      ==
+      %order
+    ?&  =('set_hook_order' action)
+        =(nest.result (nest:spec (required:spec args 'channel' 256)))
+        =(seq.result (order args))
+    ==
+      %config
+    ?&  =('configure_hook' action)
+        =(id.result (hook-id args))
+        =(nest.result (nest:spec (required:spec args 'channel' 256)))
+        =(config.result (config args))
+    ==
+      %cron
+    ?&  =('schedule_hook' action)
+        =(id.result (hook-id args))
+        .=  origin.result
+        ?:((has:spec args 'channel') (nest:spec (required:spec args 'channel' 256)) ~)
+        =(config.result (config args))
+        ?^  schedule.result
+          =(repeat.schedule.result (slav %dr (required:spec args 'schedule' 128)))
+        |
+    ==
+      %rest
+    ?&  =('stop_hook' action)
+        =(id.result (hook-id args))
+        .=  origin.result
+        ?:((has:spec args 'channel') (nest:spec (required:spec args 'channel' 256)) ~)
+    ==
   ==
 ++  response
   |=  [args=json result=response:h]
@@ -281,7 +298,15 @@
   ?.  (matches args result)  ~
   ?:  ?=(%set -.result)
     ?^  error.result
-      `(rap 3 'failed: native hook compilation; hook=' (scot %uv id.result) '. Inspect get_hook before retrying. Source may be stored while the previous compiled program remains active. ' (error-text u.error.result) ~)
+      :-  ~
+      %:  rap
+        3
+        'failed: native hook compilation; hook='
+        (scot %uv id.result)
+        '. Inspect get_hook before retrying. Source may be stored while the previous compiled program remains active. '
+        (error-text u.error.result)
+        ~
+      ==
     %-  some
     %-  en:json:html
     %-  pairs:enjs:format
@@ -289,5 +314,6 @@
         ['hook_id' %s (scot %uv id.result)]
         ['compiled' %b &]
     ==
-  `'confirmed: native Tlon applied the hook change; hook effects persist independently of Harness permissions'
+  :-  ~
+  'confirmed: native Tlon applied the hook change; hook effects persist independently of Harness permissions'
 --

@@ -18,7 +18,7 @@ const cookie = `${fields[5]}=${fields[6]}`
 const identity = await realFetch(`${config.base}/~/name`, { headers: { cookie }, signal: AbortSignal.timeout(5000), redirect: 'error' })
 assert.ok(identity.ok, 'Local ship authentication failed')
 assert.equal((await identity.text()).trim().replace(/^"|"$/g, '').replace(/^~/, ''), config.expectedShip.slice(1), 'Authenticated ship mismatch')
-globalThis.document = { hidden: false }
+globalThis.document = Object.assign(new EventTarget(), { hidden: false })
 globalThis.fetch = (path, init = {}) => {
   const url = new URL(path, config.base)
   assert.equal(url.origin, config.base)

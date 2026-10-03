@@ -7,11 +7,13 @@
 ++  fixture
   ^-  state-2:t
   =/  s=state-2:t  *state-2:t
-  s(owner-initialized 1, policy [& `~zod ~ %mentions ~ ~], activity-through ~2026.10.1, error 'Activity recovery failed')
+  %=  s  owner-initialized  1  policy  [& `~zod ~ %mentions ~ ~]  activity-through  ~2026.10.1
+    error  'Activity recovery failed'
+  ==
 ++  run
   |=  [saved=state-2:t sub=(unit [acked=? path=path]) event=?(%load %wake %kick %enable %disable)]
   ^-  [cards=(list card:agent:gall) replies=(list json) saved=state-2:t]
-  =/  bowl=bowl:gall  *bowl:gall
+  =/  =bowl:gall  *bowl:gall
   =.  bowl  bowl(our ~zod, src ~zod, now ~2026.10.1..00.00.10)
   =.  wex.bowl  (~(put by wex.bowl) [/head ~zod %harness] [& /hand-events])
   =?  wex.bowl  ?=(^ sub)
@@ -20,18 +22,21 @@
     |.
     ::  A retry wake receives Gall's acknowledged watch while the saved
     ::  adapter still has watching=false, as after an acknowledgement crash.
-    =/  before  ?:  =(%wake event)
-      bowl(wex (~(del by wex.bowl) [/activity ~zod %activity]))
-    bowl
+    =/  before
+      ?:  =(%wake event)
+        bowl(wex (~(del by wex.bowl) [/activity ~zod %activity]))
+      bowl
     =/  loaded  (~(on-load adapter before) !>(saved))
     =/  out
       ?-  event
         %load  loaded
         %wake  (~(on-arvo +.loaded bowl) /poll [%behn %wake ~])
         %kick  (~(on-agent +.loaded bowl) /activity [%kick ~])
-        ?(%enable %disable)
-          =/  params  (policy-json:policy policy.saved(enabled =(%enable event)))
-          (~(on-poke +.loaded bowl) %noun !>(`request:ad`['fixture' [%n '1'] 'harness/tlon/configure' `params]))
+          ?(%enable %disable)
+        =/  params  (policy-json:policy policy.saved(enabled =(%enable event)))
+        %+  ~(on-poke +.loaded bowl)
+          %noun
+        !>(`request:ad`['fixture' [%n '1'] 'harness/tlon/configure' `params])
       ==
     ::  Project before validating the result: other effects contain large
     ::  typed payloads unrelated to subscription recovery.
@@ -80,12 +85,12 @@
   =/  reloaded  (run fixture `[& /v4] %load)
   =/  retried  (run fixture `[& /v4] %wake)
   ;:  weld
-    (expect !>(watching.saved.reloaded))
-    (expect !>(watching.saved.retried))
-    (expect !>(=(~ (activity-cards cards.reloaded))))
-    (expect !>(=(~ (activity-cards cards.retried))))
-    (expect !>(=('' error.saved.reloaded)))
-    (expect !>(=(activity-through.s activity-through.saved.retried)))
+      (expect !>(watching.saved.reloaded))
+      (expect !>(watching.saved.retried))
+      (expect !>(=(~ (activity-cards cards.reloaded))))
+      (expect !>(=(~ (activity-cards cards.retried))))
+      (expect !>(=('' error.saved.reloaded)))
+      (expect !>(=(activity-through.s activity-through.saved.retried)))
   ==
 ++  test-pending-watch-is-not-duplicated-or-treated-as-connected
   =/  s  fixture
@@ -96,13 +101,19 @@
   =/  loaded  (run s(watching &) ~ %load)
   =/  kicked  (run fixture ~ %kick)
   =/  expected=(list card:agent:gall)  ~[[%pass /activity %agent [~zod %activity] %watch /v4]]
-  (expect !>(&(!watching.saved.loaded =(expected (activity-cards cards.loaded)) =(expected (activity-cards cards.kicked)))))
+  %-  expect
+  !>  ?&  !watching.saved.loaded  =(expected (activity-cards cards.loaded))
+          =(expected (activity-cards cards.kicked))
+      ==
 ++  test-enable-reuses-watch-and-disable-only-leaves
   =/  s  fixture
   =/  enabled  (run s(enabled.policy |) `[& /v4] %enable)
   =/  disabled  (run fixture `[& /v4] %disable)
   =/  expected=(list card:agent:gall)  ~[[%pass /activity %agent [~zod %activity] %leave ~]]
-  (expect !>(&(watching.saved.enabled =(~ (activity-cards cards.enabled)) !watching.saved.disabled =(expected (activity-cards cards.disabled)))))
+  %-  expect
+  !>  ?&  watching.saved.enabled  =(~ (activity-cards cards.enabled))  !watching.saved.disabled
+          =(expected (activity-cards cards.disabled))
+      ==
 ++  test-disabled-reload-never-subscribes
   =/  s  fixture
   =/  out  (run s(enabled.policy |, watching &) `[& /v4] %load)
@@ -113,7 +124,7 @@
   =/  enabled  (run saved(enabled.policy |) `[& /v4] %enable)
   =/  disabled  (run saved `[& /v4] %disable)
   ;:  weld
-    (expect-eq !>((policy-json:policy policy.saved.enabled)) !>((reply-policy replies.enabled)))
-    (expect-eq !>((policy-json:policy policy.saved.disabled)) !>((reply-policy replies.disabled)))
+      (expect-eq !>((policy-json:policy policy.saved.enabled)) !>((reply-policy replies.enabled)))
+      (expect-eq !>((policy-json:policy policy.saved.disabled)) !>((reply-policy replies.disabled)))
   ==
 --

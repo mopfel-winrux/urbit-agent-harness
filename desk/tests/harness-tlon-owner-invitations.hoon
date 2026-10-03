@@ -5,7 +5,7 @@
 ++  invitations
   |=  [our=@p explicit=(unit @p) siblings=? invited=(set @p) available=?]
   ^-  (list card:agent:gall)
-  =/  bowl=bowl:gall  *bowl:gall
+  =/  =bowl:gall  *bowl:gall
   =.  bowl  bowl(our our, src our, now ~2026.10.1)
   =/  attempt
     |.
@@ -33,13 +33,13 @@
   =/  our=@p  `@p`0x1.0000.0000
   =/  who=@p  `@p`0x2.0000.0000
   ;:  weld
-    (expect !>(=(1 (lent (invitations our ~ & (silt ~[who ~bud]) &)))))
-    (expect-eq !>(`(list card:agent:gall)`~) !>((invitations our ~ | (silt ~[who ~bud]) &)))
+      (expect !>(=(1 (lent (invitations our ~ & (silt ~[who ~bud]) &)))))
+      (expect-eq !>(`(list card:agent:gall)`~) !>((invitations our ~ | (silt ~[who ~bud]) &)))
   ==
 ++  test-absent-chat-empty-invitations-and-nonowners-emit-nothing
   ;:  weld
-    (expect-eq !>(`(list card:agent:gall)`~) !>((invitations ~lux `~nec | (silt ~[~nec]) |)))
-    (expect-eq !>(`(list card:agent:gall)`~) !>((invitations ~lux `~nec | ~ &)))
-    (expect-eq !>(`(list card:agent:gall)`~) !>((invitations ~lux ~ | (silt ~[~nec]) &)))
+      (expect-eq !>(`(list card:agent:gall)`~) !>((invitations ~lux `~nec | (silt ~[~nec]) |)))
+      (expect-eq !>(`(list card:agent:gall)`~) !>((invitations ~lux `~nec | ~ &)))
+      (expect-eq !>(`(list card:agent:gall)`~) !>((invitations ~lux ~ | (silt ~[~nec]) &)))
   ==
 --

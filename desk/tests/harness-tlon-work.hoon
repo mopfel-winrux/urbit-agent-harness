@@ -14,8 +14,11 @@
   |=  [n=@ud out=state:hh]
   =/  id=@uv  `@uv`n
   =/  obs=observation:hh  ['b' (scot %ud n) '~bud' 'hello' (add ~2026.9.6 n) %completed]
-  =/  pub=publication:hh  [id 'b' 'tlon' 'dm/~bud' 's' %reply 'answer' %uncertain 'worker' 'native' ~]
-  out(bindings bindings.db, observations (~(put by observations.out) id obs), outbox (~(put by outbox.out) id pub))
+  =/  pub=publication:hh
+    [id 'b' 'tlon' 'dm/~bud' 's' %reply 'answer' %uncertain 'worker' 'native' ~]
+  %=  out  bindings  bindings.db  observations  (~(put by observations.out) id obs)  outbox
+      (~(put by outbox.out) id pub)
+  ==
 ++  records
   |=  page=json
   ^-  (list json)
@@ -31,7 +34,7 @@
   =/  second  (page:w state ledger p.cursor)
   =/  a  (records first)
   =/  b  (records second)
-  (expect !>(?&(=(16 (lent a)) =(9 (lent b)) =(25 (lent ~(tap in (silt (weld a b))))))))
+  (expect !>(&(=(16 (lent a)) =(9 (lent b)) =(25 (lent ~(tap in (silt (weld a b))))))))
 ++  test-uncertain-is-never-automatically-retryable
   =/  rows  (records (page:w state ledger ''))
   ?>  ?=(^ rows)
@@ -55,7 +58,10 @@
   ?>  ?=(^ rows)
   =/  row  i.rows
   ?>  ?=(%o -.row)
-  (expect !>(&(=([%s 'admission'] (~(got by p.row) 'kind')) =([%s 'Head unavailable'] (~(got by p.row) 'error')))))
+  %-  expect
+  !>  ?&  =([%s 'admission'] (~(got by p.row) 'kind'))
+          =([%s 'Head unavailable'] (~(got by p.row) 'error'))
+      ==
 ++  test-invalid-cursor-is-rejected
   (expect !>(=(~ (mole |.((page:w state ledger 'not-a-cursor'))))))
 --

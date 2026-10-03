@@ -37,10 +37,11 @@
   (expect !>((tool-granted:ht 'calculate' ~)))
 ++  test-operand-count-and-input-size-are-bounded
   =/  args
-    (en:json:html (pairs:enjs:format ~[['operation' %s 'sum'] ['values' %a (reap 65 `json`[%n '1'])]]))
+    %-  en:json:html
+    (pairs:enjs:format ~[['operation' %s 'sum'] ['values' %a (reap 65 `json`[%n '1'])]])
   =/  oversized  (crip (reap 8.193 '0'))
   ;:  weld
-    (expect !>((find-sub:ht 'error: calculate' (evaluate:calculator args))))
-    (expect !>((find-sub:ht 'error: calculate' (evaluate:calculator oversized))))
+      (expect !>((find-sub:ht 'error: calculate' (evaluate:calculator args))))
+      (expect !>((find-sub:ht 'error: calculate' (evaluate:calculator oversized))))
   ==
 --

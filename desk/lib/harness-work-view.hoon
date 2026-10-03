@@ -20,109 +20,121 @@
   |=  [action=@t args=json value=json]
   ^-  (list [label=@t command=@t])
   |^
-  ?:  =('proposals' action)  proposal-list
-  ?:  |(=('proposal' action) =('artifact' action))  document-actions
-  ?:  |(=('projects' action) =('tasks' action))  record-list
-  ?:  =('project' action)  project-actions
-  ?>  =('task' action)
-  task-actions
-::
-++  proposal-list
-  =/  items  (need (get:wj value 'items'))
-  ?>  ?=(%a -.items)
-  =/  links=(list [label=@t command=@t])
-    %+  turn  p.items
-    |=  row=json
-    =/  status  (status:copy (string:wj row 'status'))
-    [(rap 3 ~[(label row) ' — ' status]) (inspect 'proposal' row)]
-  =/  next  (need (get:wj value 'nextOffset'))
-  ?>  ?=(%o -.args)
-  =?  links  !=(~ next)
-    (snoc links ['Next page' (command action [%o (~(put by p.args) 'offset' next)])])
-  (snoc links ['Tasks' '/work tasks'])
-::
-++  document-actions
-  =/  record  (need (get:wj value action))
-  =/  links=(list [label=@t command=@t])  ~
-  =/  content  (need (get:wj value 'content'))
-  =?  links  !=(~ content)
+    ?:  =('proposals' action)  proposal-list
+    ?:  |(=('proposal' action) =('artifact' action))  document-actions
+    ?:  |(=('projects' action) =('tasks' action))  record-list
+    ?:  =('project' action)  project-actions
+    ?>  =('task' action)
+    task-actions
+  ::
+  ++  proposal-list
+    =/  items  (need (get:wj value 'items'))
+    ?>  ?=(%a -.items)
+    =/  links=(list [label=@t command=@t])
+      %+  turn  p.items
+      |=  row=json
+      =/  status  (status:copy (string:wj row 'status'))
+      [(rap 3 ~[(label row) ' — ' status]) (inspect 'proposal' row)]
+    =/  next  (need (get:wj value 'nextOffset'))
     ?>  ?=(%o -.args)
-    ::  Reading another page of a saved document pins the same revision.
-    =/  fixed=json
-      ?:  =('artifact' action)
-        [%o (~(put by p.args) 'revision' (need (get:wj content 'revision')))]
-      args
-    ?>  ?=(%o -.fixed)
-    =/  next  (need (get:wj content 'nextOffset'))
     =?  links  !=(~ next)
-      (snoc links ['Continue reading' (command action [%o (~(put by p.fixed) 'offset' next)])])
-    =/  sources  (need (get:wj content 'nextSourceOffset'))
-    ?:  =(~ sources)  links
-    (snoc links ['More sources' (command action [%o (~(put by p.fixed) 'sourceOffset' sources)])])
-  ?:  =('artifact' action)  (snoc links ['Tasks' '/work tasks'])
-  =?  links  =('pending' (string:wj record 'status'))
-    =/  id  (string:wj record 'id')
-    %+  weld  links
-    :~  ['Save draft' (command 'review' (pairs:enjs:format ~[['id' %s id] ['accept' %b &]]))]
-        ['Reject draft' (command 'review' (pairs:enjs:format ~[['id' %s id] ['accept' %b |]]))]
-    ==
-  (snoc links ['Read saved document' (command 'artifact' (pairs:enjs:format ~[['id' %s (string:wj record 'artifact')]]))])
-::
-++  record-list
-  =/  projects  =('projects' action)
-  =/  items  (need (get:wj value 'items'))
-  ?>  ?=(%a -.items)
-  =/  links=(list [label=@t command=@t])
-    %+  turn  p.items
-    |=  row=json
-    =/  suffix
-      ?:  projects  ?:((boolean:wj row 'archived' |) ' — archived' '')
-      (cat 3 ' — ' (status:copy (string:wj row 'status')))
-    [(cat 3 (label row) suffix) (inspect ?:(projects 'project' 'task') row)]
-  =/  next  (need (get:wj value 'nextOffset'))
-  ?>  ?=(%o -.args)
-  =?  links  !=(~ next)
-    (snoc links ['Next page' (command action [%o (~(put by p.args) 'offset' next)])])
-  =/  all  (boolean:wj args 'includeArchived' |)
-  =/  toggle  [%o (~(put by (~(del by p.args) 'offset')) 'includeArchived' [%b !all])]
-  =.  links  (snoc links [?:(all 'Active projects only' 'Include archived projects') (command action toggle)])
-  ?:  projects
-    (weld links ~[['Create project' '/work project-new'] ['View tasks' '/work tasks']])
-  (weld links ~[['Add task' '/work task-new'] ['View projects' '/work projects']])
-::
-++  project-actions
-  =/  id  (string:wj value 'id')
-  =/  archived  (boolean:wj value 'archived' |)
-  =/  links=(list [label=@t command=@t])
-    ~[['View tasks' (command 'tasks' (pairs:enjs:format ~[['project' %s id] ['includeArchived' %b archived]]))]]
-  (snoc links ['All active projects' '/work projects'])
-::
-++  task-actions
-  =/  links=(list [label=@t command=@t])
-    ~[['Refresh task' (inspect 'task' value)]]
-  =/  project  (optional:wj value 'project')
-  =?  links  ?=(^ project)
-    (snoc links ['Open project' (command 'project' (pairs:enjs:format ~[['id' %s u.project]]))])
-  =/  artifact  (optional:wj value 'artifact')
-  =?  links  ?=(^ artifact)
-    %+  weld  links
-    :~  ['Review drafts' (command 'proposals' (pairs:enjs:format ~[['artifact' %s u.artifact]]))]
-        ['Read saved document' (command 'artifact' (pairs:enjs:format ~[['id' %s u.artifact]]))]
-    ==
-  =?  links  &(!=('done' (string:wj value 'status')) ?=(^ artifact))
-    =/  update
-      %-  pairs:enjs:format
-      :~  ['id' %s (string:wj value 'id')]
-          ['version' (need (get:wj value 'version'))]
-          ['status' %s 'done']
-          ['artifact' %s u.artifact]
-          ['outcome' %s (string:wj value 'outcome')]
+      (snoc links ['Next page' (command action [%o (~(put by p.args) 'offset' next)])])
+    (snoc links ['Tasks' '/work tasks'])
+  ::
+  ++  document-actions
+    =/  record  (need (get:wj value action))
+    =/  links=(list [label=@t command=@t])  ~
+    =/  content  (need (get:wj value 'content'))
+    =?  links  !=(~ content)
+      ?>  ?=(%o -.args)
+      ::  Reading another page of a saved document pins the same revision.
+      =/  fixed=json
+        ?:  =('artifact' action)
+          [%o (~(put by p.args) 'revision' (need (get:wj content 'revision')))]
+        args
+      ?>  ?=(%o -.fixed)
+      =/  next  (need (get:wj content 'nextOffset'))
+      =?  links  !=(~ next)
+        (snoc links ['Continue reading' (command action [%o (~(put by p.fixed) 'offset' next)])])
+      =/  sources  (need (get:wj content 'nextSourceOffset'))
+      ?:  =(~ sources)  links
+      (snoc links ['More sources' (command action [%o (~(put by p.fixed) 'sourceOffset' sources)])])
+    ?:  =('artifact' action)  (snoc links ['Tasks' '/work tasks'])
+    =?  links  =('pending' (string:wj record 'status'))
+      =/  id  (string:wj record 'id')
+      %+  weld  links
+      :~  ['Save draft' (command 'review' (pairs:enjs:format ~[['id' %s id] ['accept' %b &]]))]
+          ['Reject draft' (command 'review' (pairs:enjs:format ~[['id' %s id] ['accept' %b |]]))]
       ==
-    (snoc links ['Mark complete' (command 'task-update' update)])
-  =?  links  &(=('done' (string:wj value 'status')) ?=(^ artifact))
-    (snoc links ['Send here' (inspect 'task-send' value)])
-  links
---
+    %+  snoc
+      links
+    :*  'Read saved document'
+        (command 'artifact' (pairs:enjs:format ~[['id' %s (string:wj record 'artifact')]]))
+    ==
+  ::
+  ++  record-list
+    =/  projects  =('projects' action)
+    =/  items  (need (get:wj value 'items'))
+    ?>  ?=(%a -.items)
+    =/  links=(list [label=@t command=@t])
+      %+  turn  p.items
+      |=  row=json
+      =/  suffix
+        ?:  projects  ?:((boolean:wj row 'archived' |) ' — archived' '')
+        (cat 3 ' — ' (status:copy (string:wj row 'status')))
+      [(cat 3 (label row) suffix) (inspect ?:(projects 'project' 'task') row)]
+    =/  next  (need (get:wj value 'nextOffset'))
+    ?>  ?=(%o -.args)
+    =?  links  !=(~ next)
+      (snoc links ['Next page' (command action [%o (~(put by p.args) 'offset' next)])])
+    =/  all  (boolean:wj args 'includeArchived' |)
+    =/  toggle  [%o (~(put by (~(del by p.args) 'offset')) 'includeArchived' [%b !all])]
+    =.  links
+      %+  snoc
+        links
+      [?:(all 'Active projects only' 'Include archived projects') (command action toggle)]
+    ?:  projects
+      (weld links ~[['Create project' '/work project-new'] ['View tasks' '/work tasks']])
+    (weld links ~[['Add task' '/work task-new'] ['View projects' '/work projects']])
+  ::
+  ++  project-actions
+    =/  id  (string:wj value 'id')
+    =/  archived  (boolean:wj value 'archived' |)
+    =/  links=(list [label=@t command=@t])
+      :~  :*  'View tasks'
+              %+  command
+                'tasks'
+              (pairs:enjs:format ~[['project' %s id] ['includeArchived' %b archived]])
+          ==
+      ==
+    (snoc links ['All active projects' '/work projects'])
+  ::
+  ++  task-actions
+    =/  links=(list [label=@t command=@t])
+      ~[['Refresh task' (inspect 'task' value)]]
+    =/  project  (optional:wj value 'project')
+    =?  links  ?=(^ project)
+      (snoc links ['Open project' (command 'project' (pairs:enjs:format ~[['id' %s u.project]]))])
+    =/  artifact  (optional:wj value 'artifact')
+    =?  links  ?=(^ artifact)
+      %+  weld  links
+      :~  ['Review drafts' (command 'proposals' (pairs:enjs:format ~[['artifact' %s u.artifact]]))]
+          ['Read saved document' (command 'artifact' (pairs:enjs:format ~[['id' %s u.artifact]]))]
+      ==
+    =?  links  &(!=('done' (string:wj value 'status')) ?=(^ artifact))
+      =/  update
+        %-  pairs:enjs:format
+        :~  ['id' %s (string:wj value 'id')]
+            ['version' (need (get:wj value 'version'))]
+            ['status' %s 'done']
+            ['artifact' %s u.artifact]
+            ['outcome' %s (string:wj value 'outcome')]
+        ==
+      (snoc links ['Mark complete' (command 'task-update' update)])
+    =?  links  &(=('done' (string:wj value 'status')) ?=(^ artifact))
+      (snoc links ['Send here' (inspect 'task-send' value)])
+    links
+  --
 ++  actions
   |=  [action=@t args=json value=json]
   ^-  (list [label=@t command=@t])
@@ -135,7 +147,10 @@
     ~[['Refresh task' (inspect 'task' value)] more]
   ?:  =('artifact' action)
     =/  record  (need (get:wj value 'artifact'))
-    =/  draft  ['Review drafts' (command 'proposals' (pairs:enjs:format ~[['artifact' %s (string:wj record 'id')]]))]
+    =/  draft
+      :*  'Review drafts'
+          (command 'proposals' (pairs:enjs:format ~[['artifact' %s (string:wj record 'id')]]))
+      ==
     (weld (skim all |=([label=@t command=@t] !=('Tasks' label))) ~[draft ['Tasks' '/work tasks']])
   ?:  =('project' action)  (scag 2 all)
   ?:  |(=('projects' action) =('tasks' action))
@@ -149,7 +164,9 @@
   all
 ++  handles
   |=  action=@t
-  (lien `(list @t)`~['projects' 'project' 'tasks' 'task' 'proposals' 'proposal' 'artifact'] |=(a=@t =(a action)))
+  %+  lien
+    `(list @t)`~['projects' 'project' 'tasks' 'task' 'proposals' 'proposal' 'artifact']
+  |=(a=@t =(a action))
 ++  arguments
   |=  [action=@t text=@t]
   ^-  (unit json)
@@ -180,14 +197,24 @@
     [%o (~(put by p.args) 'id' [%s (resolve:copy kind u.id ids)])]
   =/  project  (optional:wj args 'project')
   =?  args  ?=(^ project)
-    [%o (~(put by p.args) 'project' [%s (resolve:copy 'p' u.project ~(tap in ~(key by projects.db)))])]
+    :*  %o
+        %+  ~(put by p.args)
+          'project'
+        [%s (resolve:copy 'p' u.project ~(tap in ~(key by projects.db)))]
+    ==
   =/  artifact  (optional:wj args 'artifact')
   =?  args  ?=(^ artifact)
-    [%o (~(put by p.args) 'artifact' [%s (resolve:copy 'd' u.artifact ~(tap in ~(key by artifacts.db)))])]
+    :*  %o
+        %+  ~(put by p.args)
+          'artifact'
+        [%s (resolve:copy 'd' u.artifact ~(tap in ~(key by artifacts.db)))]
+    ==
   args
 ++  command
   |=  [action=@t args=json]
-  ?:  (lien `(list @t)`~['project' 'task' 'task-send' 'more' 'finish' 'artifact' 'proposal'] |=(a=@t =(a action)))
+  ?:  %+  lien
+        `(list @t)`~['project' 'task' 'task-send' 'more' 'finish' 'artifact' 'proposal']
+      |=(a=@t =(a action))
     =/  kind
       ?:  =('project' action)  'p'
       ?:  =('artifact' action)  'd'
@@ -199,7 +226,11 @@
       (rap 3 ~['/work ' action ' ' (en:json:html [%o (~(put by p.args) 'id' [%s id])])])
     (rap 3 ~['/work ' action ' ' id])
   ?:  =('review' action)
-    (rap 3 ~['/work ' ?:((boolean:wj args 'accept' |) 'accept' 'decline') ' ' (ref:copy 'v' (string:wj args 'id'))])
+    %+  rap
+      3
+    :~  '/work '  ?:((boolean:wj args 'accept' |) 'accept' 'decline')  ' '
+        (ref:copy 'v' (string:wj args 'id'))
+    ==
   ?>  ?=(%o -.args)
   =/  project  (optional:wj args 'project')
   =?  args  ?=(^ project)  [%o (~(put by p.args) 'project' [%s (ref:copy 'p' u.project)])]
@@ -241,7 +272,8 @@
     =/  body
       ?:  =(~ content)  'There is no saved result yet. Review the draft first.'
       (rap 3 ~[(string:wj content 'body') (sources:copy content)])
-    %-  rap  :-  3
+    %-  rap
+    :-  3
     :~  (label record)
         ?:(=('proposal' action) (cat 3 ' — ' (string:wj record 'status')) '')
         '\0a\0a'
@@ -265,9 +297,14 @@
       ''
     (rap 3 ~[heading body])
   ?:  =('project' action)
-    (rap 3 ~[(label value) ?:((boolean:wj value 'archived' |) ' — archived' '') (field value 'description' '')])
+    %+  rap
+      3
+    :~  (label value)  ?:((boolean:wj value 'archived' |) ' — archived' '')
+        (field value 'description' '')
+    ==
   ?>  =('task' action)
-  %-  rap  :-  3
+  %-  rap
+  :-  3
   :~  (label value)
       '\0a'
       (status:copy (string:wj value 'status'))

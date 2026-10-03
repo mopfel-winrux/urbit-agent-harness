@@ -15,9 +15,9 @@
   =/  result  (parse-chat-sse:provider body)
   ?>  ?=(%& -.result)
   ;:  weld
-    (expect-eq !>(`usage:h`[12 3]) !>(u.p.result))
-    (expect-eq !>(`item:h`[%assistant 'Hello' ~]) !>(it.p.result))
-    (expect-eq !>(`stop-reason:h`%stop) !>(stop.p.result))
+      (expect-eq !>(`usage:h`[12 3]) !>(u.p.result))
+      (expect-eq !>(`item:h`[%assistant 'Hello' ~]) !>(it.p.result))
+      (expect-eq !>(`stop-reason:h`%stop) !>(stop.p.result))
   ==
 ::
 ++  test-interleaved-call-fragments-keep-their-identities
@@ -41,10 +41,10 @@
     |=  call=tool-call:h
     [id.call [name.call args.call]]
   ;:  weld
-    (expect-eq !>(2) !>((lent calls.it.p.result)))
-    (expect-eq !>(['current_time' '{}']) !>((~(got by by-id) 'clock')))
-    (expect-eq !>(['calculate' '{}']) !>((~(got by by-id) 'sum')))
-    (expect-eq !>(`stop-reason:h`%tool-calls) !>(stop.p.result))
+      (expect-eq !>(2) !>((lent calls.it.p.result)))
+      (expect-eq !>(['current_time' '{}']) !>((~(got by by-id) 'clock')))
+      (expect-eq !>(['calculate' '{}']) !>((~(got by by-id) 'sum')))
+      (expect-eq !>(`stop-reason:h`%tool-calls) !>(stop.p.result))
   ==
 ::  A finished output item is not a finished Responses request.
 ::

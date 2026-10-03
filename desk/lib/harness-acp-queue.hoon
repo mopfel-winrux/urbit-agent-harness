@@ -18,7 +18,7 @@
   =/  connection  (~(got by connections) id)
   =/  local  (usage ?:(=(target %client) to-client.connection to-agent.connection))
   =/  size  (met 3 payload)
-  ?.  ?&((lth count.local 1.024) (lte (add size bytes.local) 4.194.304))  |
+  ?.  &((lth count.local 1.024) (lte (add size bytes.local) 4.194.304))  |
   =/  total
     %+  roll  ~(val by connections)
     |=  [connection=connection:v1:ac total=[count=@ud bytes=@ud]]
@@ -26,5 +26,5 @@
     =/  agent  (usage to-agent.connection)
     :-  :(add count.total count.client count.agent)
     :(add bytes.total bytes.client bytes.agent)
-  ?&((lth count.total 8.192) (lte (add size bytes.total) 16.777.216))
+  &((lth count.total 8.192) (lte (add size bytes.total) 16.777.216))
 --

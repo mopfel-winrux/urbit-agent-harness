@@ -21,9 +21,9 @@
   ?+  i.query  ~
     %cu  ``(~(has by files) file-path)
     %cr  ``!>((~(got by files) file-path))
-    %cc
-      ?>  ?=([@ %mime ~] file-path)
-      ``|=(file=vase file)
+      %cc
+    ?>  ?=([@ %mime ~] file-path)
+    ``|=(file=vase file)
   ==
 ++  check
   |=  $:  authenticated=?
@@ -62,8 +62,8 @@
     =/  state
       !<([%0 foot=path woot=path cash=(set @t)] saved)
     ;:  weld
-      (expect-eq !>(expected) !>(cards))
-      (expect-eq !>(?:(cached (silt ~[url]) *(set @t))) !>(cash.state))
+        (expect-eq !>(expected) !>(cards))
+        (expect-eq !>(?:(cached (silt ~[url]) *(set @t))) !>(cash.state))
     ==
   =/  result
     %+  mink  [attempt %9 2 %0 1]
@@ -73,25 +73,25 @@
   ;;(tang product.result)
 ++  test-authentication-precedes-method-and-route-validation
   ;:  weld
-    (check | %'GET' '/apps/harness' ~ 403 ~ 'unauthenticated' |)
-    (check | %'POST' '/apps/harness' ~ 403 ~ 'unauthenticated' |)
-    (check & %'POST' '/apps/harness' ~ 405 ~ 'read-only resource' |)
-    (check & %'GET' '/elsewhere' ~ 500 ~ 'bad route' |)
-    (check | %'GET' '/apps/harness/app.js?v=1' ~ 403 ~ 'unauthenticated' |)
-    (check | %'GET' '/apps/harness/publicity/repo' ~ 403 ~ 'unauthenticated' |)
+      (check | %'GET' '/apps/harness' ~ 403 ~ 'unauthenticated' |)
+      (check | %'POST' '/apps/harness' ~ 403 ~ 'unauthenticated' |)
+      (check & %'POST' '/apps/harness' ~ 405 ~ 'read-only resource' |)
+      (check & %'GET' '/elsewhere' ~ 500 ~ 'bad route' |)
+      (check | %'GET' '/apps/harness/app.js?v=1' ~ 403 ~ 'unauthenticated' |)
+      (check | %'GET' '/apps/harness/publicity/repo' ~ 403 ~ 'unauthenticated' |)
   ==
 ++  test-public-shells-with-periods-use-the-index-without-caching
-  =/  files=files  (my ~[[/web/index/html [/text/plain (as-octs:mimes:html 'Shell')]]])
+  =/  =files  (my ~[[/web/index/html [/text/plain (as-octs:mimes:html 'Shell')]]])
   =/  headers=header-list:http  ~[['content-type' 'text/html'] ['cache-control' 'no-cache']]
   ;:  weld
-    (check | %'GET' '/apps/harness/public/repo.name' files 200 headers 'Shell' |)
-    (check | %'GET' '/harness' files 200 headers 'Shell' |)
-    (check | %'GET' '/harness/' files 200 headers 'Shell' |)
-    (check & %'GET' '/apps/harness/session/one' files 200 headers 'Shell' |)
-    (check | %'POST' '/harness' files 405 ~ 'read-only resource' |)
+      (check | %'GET' '/apps/harness/public/repo.name' files 200 headers 'Shell' |)
+      (check | %'GET' '/harness' files 200 headers 'Shell' |)
+      (check | %'GET' '/harness/' files 200 headers 'Shell' |)
+      (check & %'GET' '/apps/harness/session/one' files 200 headers 'Shell' |)
+      (check | %'POST' '/harness' files 405 ~ 'read-only resource' |)
   ==
 ++  test-asset-mime-cache-policy-and-request-url-are-preserved
-  =/  files=files
+  =/  =files
     %-  my
     :~  [/web/app/js [/application/javascript (as-octs:mimes:html 'Script')]]
         [/web/sw/js [/application/javascript (as-octs:mimes:html 'Worker')]]
@@ -100,17 +100,35 @@
   =/  script-headers=header-list:http
     ~[['content-type' 'application/javascript'] ['cache-control' 'max-age=3600']]
   ;:  weld
-    (check | %'GET' '/apps/harness/app.js' files 200 script-headers 'Script' &)
-    (check & %'GET' '/apps/harness/app.js?v=1' files 200 script-headers 'Script' &)
-    (check & %'GET' '/harness/app.js' files 200 script-headers 'Script' &)
-    (check & %'GET' '/apps/harness/sw.js' files 200 ~[['content-type' 'application/javascript'] ['cache-control' 'no-cache']] 'Worker' &)
-    (check | %'GET' '/apps/harness/harness.png' files 200 ~[['content-type' 'image/png'] ['cache-control' 'max-age=86400']] 'Image' &)
+      (check | %'GET' '/apps/harness/app.js' files 200 script-headers 'Script' &)
+      (check & %'GET' '/apps/harness/app.js?v=1' files 200 script-headers 'Script' &)
+      (check & %'GET' '/harness/app.js' files 200 script-headers 'Script' &)
+      %:  check
+        &
+        %'GET'
+        '/apps/harness/sw.js'
+        files
+        200
+        ~[['content-type' 'application/javascript'] ['cache-control' 'no-cache']]
+        'Worker'
+        &
+      ==
+      %:  check
+        |
+        %'GET'
+        '/apps/harness/harness.png'
+        files
+        200
+        ~[['content-type' 'image/png'] ['cache-control' 'max-age=86400']]
+        'Image'
+        &
+      ==
   ==
 ++  test-missing-assets-are-cached-and-missing-shells-are-not
   ;:  weld
-    (check | %'GET' '/apps/harness/manifest.json' ~ 404 ~ 'not found' &)
-    (check | %'GET' '/apps/harness/harness.svg' ~ 404 ~ 'not found' &)
-    (check | %'GET' '/apps/harness/app.css' ~ 404 ~ 'not found' &)
-    (check & %'GET' '/apps/harness/session/one' ~ 404 ~ 'not found' |)
+      (check | %'GET' '/apps/harness/manifest.json' ~ 404 ~ 'not found' &)
+      (check | %'GET' '/apps/harness/harness.svg' ~ 404 ~ 'not found' &)
+      (check | %'GET' '/apps/harness/app.css' ~ 404 ~ 'not found' &)
+      (check & %'GET' '/apps/harness/session/one' ~ 404 ~ 'not found' |)
   ==
 --

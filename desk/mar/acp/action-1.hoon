@@ -19,7 +19,8 @@
       (frond 'open' (frond 'connection' s+connection.act))
     ::
         %send
-      %-  frond  :-  'send'
+      %-  frond
+      :-  'send'
       %-  pairs
       :~  connection+(as-string connection.act)
           target+(as-string target.act)
@@ -27,7 +28,8 @@
       ==
     ::
         %ack
-      %-  frond  :-  'ack'
+      %-  frond
+      :-  'ack'
       %-  pairs
       :~  connection+(as-string connection.act)
           target+(as-string target.act)
@@ -35,7 +37,8 @@
       ==
     ::
         %close
-      %-  frond  :-  'close'
+      %-  frond
+      :-  'close'
       %-  pairs
       :~  connection+(as-string connection.act)
           reason+(as-string reason.act)

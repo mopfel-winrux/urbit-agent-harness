@@ -39,10 +39,10 @@
     $(config remaining)
   =/  candidate
     %=  remaining
-      url          url
-      model        model.choice
-      headers      ~
-      key          ''
+      url  url
+      model  model.choice
+      headers  ~
+      key  ''
       max-context  fallback-context:policy
     ==
   ?:  =('' (key:auth keys provider.choice))  $(config remaining)

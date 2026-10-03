@@ -34,20 +34,20 @@
   =/  reversed-items=(list json)  ~
   =/  bytes=@ud  0
   |-  ^-  json
-  =/  count  (lent reversed-items)
-  =/  full  |(=(100 count) ?=(~ remaining))
-  =?  full  ?=(^ remaining)
-    |(full (gth (add bytes (met 3 (en:json:html [%s i.remaining]))) 6.000))
-  ?:  full
-    ?>  |(?=(^ reversed-items) ?=(~ remaining))
-    %-  pairs:enjs:format
-    :~  ['items' %a (flop reversed-items)]
-        ['nextOffset' ?~(remaining ~ [%s (crip (a-co:co (add offset count)))])]
-    ==
-  ?>  ?=(^ remaining)
-  %=  $
-    remaining       t.remaining
-    reversed-items  [[%s i.remaining] reversed-items]
-    bytes           (add bytes (met 3 (en:json:html [%s i.remaining])))
-  ==
+      =/  count  (lent reversed-items)
+      =/  full  |(=(100 count) ?=(~ remaining))
+      =?  full  ?=(^ remaining)
+        |(full (gth (add bytes (met 3 (en:json:html [%s i.remaining]))) 6.000))
+      ?:  full
+        ?>  |(?=(^ reversed-items) ?=(~ remaining))
+        %-  pairs:enjs:format
+        :~  ['items' %a (flop reversed-items)]
+            ['nextOffset' ?~(remaining ~ [%s (crip (a-co:co (add offset count)))])]
+        ==
+      ?>  ?=(^ remaining)
+      %=  $
+        remaining  t.remaining
+        reversed-items  [[%s i.remaining] reversed-items]
+        bytes  (add bytes (met 3 (en:json:html [%s i.remaining])))
+      ==
 --

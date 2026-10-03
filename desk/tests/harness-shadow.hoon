@@ -1,5 +1,6 @@
 /-  h=harness, sh=harness-shadow
-/+  *test, hs=harness-session, shadow=harness-shadow, nexus, session-nexus=harness-session-nexus, root, tarball
+/+  *test, hs=harness-session, shadow=harness-shadow, nexus, session-nexus=harness-session-nexus,
+    root, tarball
 |%
 ++  sample
   ^-  session:h
@@ -33,13 +34,15 @@
   ?.  &(?=(%cont -.next.out) =(~ darts.out) (gth budget 0))  out
   $(proc self.next.out, raw state.out, budget (dec budget))
 ++  test-root-starts-the-verifier
-  =/  input=input:sh  [%0 sample ~ (digest:shadow sample ~)]
+  =/  =input:sh  [%0 sample ~ (digest:shadow sample ~)]
   =/  proc  ((on-file:root [/agents/main/shadow-inputs %test] [/ %noun]) ~)
   =/  out  (step proc input 32)
   (expect !>(?=(^ darts.out)))
 ++  test-crash-checkpoints-without-any-effect
-  =/  input=input:sh  [%0 sample ~ (digest:shadow sample ~)]
-  =/  proc  ((on-file:session-nexus [/agents/main/shadow-inputs %test] [/ %noun]) `~[leaf+"test failure"])
+  =/  =input:sh  [%0 sample ~ (digest:shadow sample ~)]
+  =/  proc
+    %-  (on-file:session-nexus [/agents/main/shadow-inputs %test] [/ %noun])
+    `~[leaf+"test failure"]
   =/  out  (step proc input 32)
   (expect !>(&(=(~ darts.out) ?=(%wait -.next.out) ?=([%failed * *] state.out))))
 ++  test-checkpoint-waits-after-process-restart
@@ -49,7 +52,10 @@
   (expect !>(&(=(~ darts.out) ?=(%wait -.next.out) =(failed state.out))))
 ++  test-root-reload-preserves-checkpoint
   =/  failed=failure:sh  [%failed 42 ~[leaf+"test failure"]]
-  =/  old  (~(put ba:tarball *ball:tarball) [/agents/main/shadow-inputs %test] [[/ %noun] %& !>(failed)])
+  =/  old
+    %+  ~(put ba:tarball *ball:tarball)
+      [/agents/main/shadow-inputs %test]
+    [[/ %noun] %& !>(failed)]
   =/  loaded  (on-load:root old)
   =/  retained  (~(get bo:tarball loaded) [/agents/main/shadow-inputs %test])
   ?>  ?=(^ retained)

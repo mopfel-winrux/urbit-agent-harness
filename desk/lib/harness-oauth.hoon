@@ -15,9 +15,11 @@
       (key:auth keys (cat 3 provider '-account'))
   ==
 ++  client-id
-  |=(provider=@t ?:(=('xai' provider) 'b1a00492-073a-47ea-816f-4c329264a828' 'app_EMoamEEZ73f0CkXaXp7hrann'))
+  |=  provider=@t
+  ?:(=('xai' provider) 'b1a00492-073a-47ea-816f-4c329264a828' 'app_EMoamEEZ73f0CkXaXp7hrann')
 ++  token-url
-  |=(provider=@t ?:(=('xai' provider) 'https://auth.x.ai/oauth2/token' 'https://auth.openai.com/oauth/token'))
+  |=  provider=@t
+  ?:(=('xai' provider) 'https://auth.x.ai/oauth2/token' 'https://auth.openai.com/oauth/token')
 ++  saved-expiry
   |=  [keys=(map @t @t) provider=@t]
   =/  stored  (slaw %da (key:auth keys (cat 3 provider '-expires')))
@@ -60,7 +62,9 @@
   =.  header-list.request.outgoing
     (headers:auth keys url.request.outgoing (clear-headers header-list.request.outgoing))
   =.  header-list.request.outgoing
-    [['authorization' (cat 3 'Bearer ' (key:auth keys (cat 3 provider '-device')))] header-list.request.outgoing]
+    :*  ['authorization' (cat 3 'Bearer ' (key:auth keys (cat 3 provider '-device')))]
+        header-list.request.outgoing
+    ==
   outgoing
 ++  fail-waiting
   |=  [out=result message=@t]
@@ -81,7 +85,10 @@
   =/  out=result  [~ oauth keys ~]
   =/  id  (identity keys provider)
   =?  out  !=(id identity.oauth)
-    =.  out  (fail-waiting out 'authentication_error: Provider login changed while waiting. Send the message again.')
+    =.  out
+      %+  fail-waiting
+        out
+      'authentication_error: Provider login changed while waiting. Send the message again.'
     %=  out
       oauth
         %=  oauth
@@ -96,64 +103,80 @@
     ==
   ::  Also check the deadline on ordinary events, so a missed wake cannot wedge
   ::  requests across reload. A timeout fences a late token response.
-  =?  out  ?&(?=(^ active.oauth.out) (gte now deadline.u.active.oauth.out))
+  =?  out  &(?=(^ active.oauth.out) (gte now deadline.u.active.oauth.out))
     (failed-refresh out now 'Login renewal timed out. Sign in again.' &)
   =/  expired=?
     ?~(expires.oauth.out & (gte (add now ~m5) u.expires.oauth.out))
   =/  renewable=?  !=('' (key:auth keys (cat 3 provider '-refresh')))
   |-  ^-  result
-  ?~  incoming
-    ?.  &(expired renewable !=(~ waiting.oauth.out) ?=(~ active.oauth.out))  out
-    =/  nonce  +(serial.oauth.out)
-    =/  deadline=@da  (add now ~s30)
-    =/  started=state
-      %=  oauth.out
-        serial  nonce
-        active  `[nonce deadline]
-      ==
-    =/  fresh  (refresh-cards keys provider nonce deadline)
-    :*  (weld cards.out fresh)
-        started
-        keys.out
-        failed.out
-    ==
-  =/  incoming-card  i.incoming
-  ?:  ?=([%pass * %arvo %i %cancel-request *] incoming-card)
-    %=  $
-      incoming  t.incoming
-      out
-        %=  out
-          waiting.oauth  (~(del by waiting.oauth.out) p.incoming-card)
-          cards  (snoc cards.out incoming-card)
+      ?~  incoming
+        ?.  &(expired renewable !=(~ waiting.oauth.out) ?=(~ active.oauth.out))  out
+        =/  nonce  +(serial.oauth.out)
+        =/  deadline=@da  (add now ~s30)
+        =/  started=state
+          %=  oauth.out
+            serial  nonce
+            active  `[nonce deadline]
+          ==
+        =/  fresh  (refresh-cards keys provider nonce deadline)
+        :*  (weld cards.out fresh)
+            started
+            keys.out
+            failed.out
         ==
+      %=  $
+        incoming  t.incoming
+        out  (filter-card out i.incoming keys provider now expired renewable)
+      ==
+::
+++  filter-card
+  |=  $:  out=result
+          incoming-card=card
+          keys=(map @t @t)
+          provider=@t
+          now=@da
+          expired=?
+          renewable=?
+      ==
+  ^-  result
+  ?:  ?=([%pass * %arvo %i %cancel-request *] incoming-card)
+    %=  out
+      waiting.oauth  (~(del by waiting.oauth.out) p.incoming-card)
+      cards  (snoc cards.out incoming-card)
     ==
   ?.  ?=([%pass * %arvo %i %request *] incoming-card)
-    $(incoming t.incoming, out out(cards (snoc cards.out incoming-card)))
+    out(cards (snoc cards.out incoming-card))
   =/  http=http-card  incoming-card
   =/  device-route
     ?:  =('xai' provider)
       (xai-route:auth url.request.http)
     (device-route:auth url.request.http)
   ?.  &(device-route |(?=([%llm *] wire.http) ?=([%models *] wire.http)))
-    $(incoming t.incoming, out out(cards (snoc cards.out incoming-card)))
+    out(cards (snoc cards.out incoming-card))
   ?:  =('' (key:auth keys (cat 3 provider '-device')))
-    =/  failure  [wire.http 'authentication_error: No device login is saved. Sign in in provider settings.']
-    $(incoming t.incoming, out out(failed (snoc failed.out failure)))
+    =/  failure
+      :*  wire.http
+          'authentication_error: No device login is saved. Sign in in provider settings.'
+      ==
+    out(failed (snoc failed.out failure))
   ?:  |(terminal.oauth.out (lth now retry-at.oauth.out))
-    $(incoming t.incoming, out out(failed (snoc failed.out [wire.http error.oauth.out])))
+    out(failed (snoc failed.out [wire.http error.oauth.out]))
   ?.  expired
-    $(incoming t.incoming, out out(cards (snoc cards.out (authorize http keys provider))))
+    out(cards (snoc cards.out (authorize http keys provider)))
   ?.  renewable
     ::  An opaque imported token without a refresh token may still be usable.
     ?:  ?~(expires.oauth.out & (lth now u.expires.oauth.out))
-      $(incoming t.incoming, out out(cards (snoc cards.out (authorize http keys provider))))
-    =/  failure  [wire.http 'authentication_error: Device login expired. Sign in again to enable automatic renewal.']
-    $(incoming t.incoming, out out(failed (snoc failed.out failure)))
+      out(cards (snoc cards.out (authorize http keys provider)))
+    =/  failure
+      :*  wire.http
+          'authentication_error: Device login expired. Sign in again to enable automatic renewal.'
+      ==
+    out(failed (snoc failed.out failure))
   ?:  (gte (lent ~(tap by waiting.oauth.out)) 64)
     =/  failure  [wire.http 'Login renewal is busy. Try again shortly.']
-    $(incoming t.incoming, out out(failed (snoc failed.out failure)))
+    out(failed (snoc failed.out failure))
   =.  header-list.request.http  (clear-headers header-list.request.http)
-  $(incoming t.incoming, out out(waiting.oauth (~(put by waiting.oauth.out) wire.http http)))
+  out(waiting.oauth (~(put by waiting.oauth.out) wire.http http))
 ::  Dispatch once: Iris must neither retry nor redirect a rotating token.
 ++  refresh-cards
   |=  [keys=(map @t @t) provider=@t nonce=@ud deadline=@da]
@@ -166,7 +189,7 @@
         '&refresh_token='
         (crip (en-urlt:html (trip token)))
     ==
-  =/  request=request:http
+  =/  =request:http
     :*  %'POST'
         (token-url provider)
         ~[['content-type' 'application/x-www-form-urlencoded'] ['accept' 'application/json']]
@@ -242,7 +265,8 @@
 ++  parse-response
   |=  [response=client-response:iris now=@da]
   ^-  (unit [token=@t refresh=@t expires=(unit @da)])
-  %-  mole  |.
+  %-  mole
+  |.
   ?>  ?=(%finished -.response)
   ?>  ?=(^ full-file.response)
   ?>  (lte p.data.u.full-file.response 262.144)
@@ -252,7 +276,7 @@
   ?>  ?=([%s *] token)
   ?>  &(!=('' p.token) (lte (met 3 p.token) 16.384))
   =/  refresh  (~(get by p.object) 'refresh_token')
-  ?>  ?~(refresh & ?&(?=(%s -.u.refresh) !=('' p.u.refresh) (lte (met 3 p.u.refresh) 16.384)))
+  ?>  ?~(refresh & &(?=(%s -.u.refresh) !=('' p.u.refresh) (lte (met 3 p.u.refresh) 16.384)))
   =/  expires  (token-expiry object p.token now)
   ?>  ?=(^ expires)
   ?>  (gth u.expires (add now ~m5))

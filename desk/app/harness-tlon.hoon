@@ -38,108 +38,110 @@
 =*  state  -
 ^-  agent:gall
 =<
-|_  =bowl:gall
-+*  this  .
-    def   ~(. (default-agent this %.n) bowl)
-    cor   ~(. +> [bowl ~])
-++  on-init
-  ::  Listen from installation; owner/trust policy still gates every sender.
-  ::  Saved enable/disable choices are preserved by on-load.
-  =.  state  state(policy [& ~ ~ %mentions ~ ~], watching |, activity-through now.bowl)
-  =.  state  initialize-owner:cor
-  =^  cards  state  abet:boot:refresh-peers:cor
-  [cards this]
-++  on-save  !>(state)
-++  on-load
-  |=  old=vase
-  =.  state  (load:migration old)
-  =.  state  initialize-owner:cor
-  =?  watching  !enabled.policy  |
-  =^  cards  state
-    ::  A saved timestamp is not evidence of a surviving Behn subscription.
-    ::  Maintenance gets fresh actual deadlines.
-    abet:boot:refresh-peers:retire-uploads:reset-wake:cor
-  [cards this]
-++  on-poke
-  |=  [=mark =vase]
-  ?>  =(our.bowl src.bowl)
-  ?:  =(%harness-hosted mark)
-    =/  request  !<(request:hosted vase)
-    =/  result  (permission-request:cor action.request args.request)
-    =/  response  -.result
-    =/  engine  +.result
+  |_  =bowl:gall
+  +*  this  .
+      def  ~(. (default-agent this %.n) bowl)
+      cor  ~(. +> [bowl ~])
+  ++  on-init
+    ::  Listen from installation; owner/trust policy still gates every sender.
+    ::  Saved enable/disable choices are preserved by on-load.
+    =.  state  state(policy [& ~ ~ %mentions ~ ~], watching |, activity-through now.bowl)
+    =.  state  initialize-owner:cor
+    =^  cards  state  abet:boot:refresh-peers:cor
+    [cards this]
+  ++  on-save  !>(state)
+  ++  on-load
+    |=  old=vase
+    =.  state  (load:migration old)
+    =.  state  initialize-owner:cor
+    =?  watching  !enabled.policy  |
     =^  cards  state
-      abet:(emit:engine [%give %fact ~[/hosted/[id.request]] %json !>(response)])
+      ::  A saved timestamp is not evidence of a surviving Behn subscription.
+      ::  Maintenance gets fresh actual deadlines.
+      abet:boot:refresh-peers:retire-uploads:reset-wake:cor
     [cards this]
-  ?:  =(%harness-tool mark)
-    =^  cards  state  abet:(tool:cor !<(tool-request:ad vase))
+  ++  on-poke
+    |=  [=mark =vase]
+    ?>  =(our.bowl src.bowl)
+    ?:  =(%harness-hosted mark)
+      =/  request  !<(request:hosted vase)
+      =/  result  (permission-request:cor action.request args.request)
+      =/  response  -.result
+      =/  engine  +.result
+      =^  cards  state
+        abet:(emit:engine [%give %fact ~[/hosted/[id.request]] %json !>(response)])
+      [cards this]
+    ?:  =(%harness-tool mark)
+      =^  cards  state  abet:(tool:cor !<(tool-request:ad vase))
+      [cards this]
+    ?>  =(%noun mark)
+    =^  cards  state  abet:(request:cor !<(request:ad vase))
     [cards this]
-  ?>  =(%noun mark)
-  =^  cards  state  abet:(request:cor !<(request:ad vase))
-  [cards this]
-::
-++  on-watch
-  |=  =path
-  ?>  =(our.bowl src.bowl)
-  ?:  ?=([%hosted @ ~] path)  `this
-  ?.  ?=([%tools @ ~] path)  (on-watch:def path)
-  =/  receipt  (~(get by tool-receipts) (slav %uv i.t.path))
-  ?~  receipt  `this
-  ?:  =(%sending stage.u.receipt)  `this
-  [~[[%give %fact ~[path] %noun !>(body.u.receipt)]] this]
-::
-++  on-leave  |=(path `this)
-::
-++  on-peek
-  |=  =path
-  ?>  =(our.bowl src.bowl)
-  ?+  path  (on-peek:def path)
-    [%x %state ~]  ``noun+!>(state)
-    [%x %status ~]  ``json+!>(status:cor)
-    ::  Trust consumers must not render cron jobs or read head ledgers.
-    [%x %peer-trust ~]  ``noun+!>([policy sibling-moon-owners])
-    [%x %authority @ ~]
+  ::
+  ++  on-watch
+    |=  =path
+    ?>  =(our.bowl src.bowl)
+    ?:  ?=([%hosted @ ~] path)  `this
+    ?.  ?=([%tools @ ~] path)  (on-watch:def path)
+    =/  receipt  (~(get by tool-receipts) (slav %uv i.t.path))
+    ?~  receipt  `this
+    ?:  =(%sending stage.u.receipt)  `this
+    [~[[%give %fact ~[path] %noun !>(body.u.receipt)]] this]
+  ::
+  ++  on-leave  |=(path `this)
+  ::
+  ++  on-peek
+    |=  =path
+    ?>  =(our.bowl src.bowl)
+    ?+  path  (on-peek:def path)
+      [%x %state ~]  ``noun+!>(state)
+      [%x %status ~]  ``json+!>(status:cor)
+      ::  Trust consumers must not render cron jobs or read head ledgers.
+      [%x %peer-trust ~]  ``noun+!>([policy sibling-moon-owners])
+        [%x %authority @ ~]
       ``noun+!>((lane-authority:cor i.t.t.path))
-    [%x %admin @ ~]
+        [%x %admin @ ~]
       ``noun+!>((owner-lane:cor i.t.t.path))
-    [%x %context @ @ ~]
+        [%x %context @ @ ~]
       ``noun+!>((thread-context:cor i.t.t.path i.t.t.t.path))
-  ==
-::
-++  on-agent
-  |=  [=wire =sign:agent:gall]
-  ?:  =(/telemetry wire)  `this
-  ::  A failed profile edit retries on the next adapter event, not its nack.
-  ?:  =(/liveness wire)
-    ?^  error=?:(?=(%poke-ack -.sign) p.sign ~)
-      %-  (slog 'harness-tlon: liveness profile update failed' u.error)
+    ==
+  ::
+  ++  on-agent
+    |=  [=wire =sign:agent:gall]
+    ?:  =(/telemetry wire)  `this
+    ::  A failed profile edit retries on the next adapter event, not its nack.
+    ?:  =(/liveness wire)
+      ?^  error=?:(?=(%poke-ack -.sign) p.sign ~)
+        %-  (slog 'harness-tlon: liveness profile update failed' u.error)
+        `this
       `this
-    `this
-  =^  cards  state  abet:(agent:cor wire sign)
-  [cards this]
-::
-++  on-arvo
-  |=  [=wire sign=sign-arvo]
-  ?:  &(?=([%media @ @ ~] wire) ?=([%iris %http-response *] sign))
-    =^  cards  state
-      abet:(receive-upload:cor (slav %uv i.t.wire) i.t.t.wire client-response.sign)
+    =^  cards  state  abet:(agent:cor wire sign)
     [cards this]
-  ?.  &(?=([%poll ~] wire) ?=([%behn %wake *] sign))  `this
-  =.  wake  ~
-  =^  cards  state  abet:maintain:cor
-  [cards this]
-::
-++  on-fail
-  |=  [=term =tang]
-  %-  (slog 'harness-tlon: effect failed' tang)
-  [~[(crash:observe bowl term tang)] this(error 'An adapter effect failed; inspect the ship log.')]
---
+  ::
+  ++  on-arvo
+    |=  [=wire sign=sign-arvo]
+    ?:  &(?=([%media @ @ ~] wire) ?=([%iris %http-response *] sign))
+      =^  cards  state
+        abet:(receive-upload:cor (slav %uv i.t.wire) i.t.t.wire client-response.sign)
+      [cards this]
+    ?.  &(?=([%poll ~] wire) ?=([%behn %wake *] sign))  `this
+    =.  wake  ~
+    =^  cards  state  abet:maintain:cor
+    [cards this]
+  ::
+  ++  on-fail
+    |=  [=term =tang]
+    %-  (slog 'harness-tlon: effect failed' tang)
+    :*  ~[(crash:observe bowl term tang)]
+        this(error 'An adapter effect failed; inspect the ship log.')
+    ==
+  --
 ::  Effect-building core: each arm carries state and cards in reverse order.
 ::  +abet schedules maintenance and returns the cards in dispatch order.
 ::
 |_  [=bowl:gall cards=(list card)]
 +*  messenger  ~(. io bowl)
-    codec      ~(. wire-codec our.bowl)
+    codec  ~(. wire-codec our.bowl)
 ::
 ++  cor  .
 ::
@@ -256,7 +258,8 @@
   =?  cor  (~(has by wex.bowl) wire our.bowl %harness)
     (emit [%pass wire %agent [our.bowl %harness] %leave ~])
   =.  cor  (emit [%pass wire %agent [our.bowl %harness] %watch path])
-  (emit [%pass /command %agent [our.bowl %harness] %poke %harness-hand !>(`request:hh`[request-id act])])
+  %-  emit
+  [%pass /command %agent [our.bowl %harness] %poke %harness-hand !>(`request:hh`[request-id act])]
 ::
 ++  owner-status
   ^-  json
@@ -264,7 +267,9 @@
   :~  ['policy' (policy-json:p policy)]
       ['ship' %s (scot %p our.bowl)]
       ['isMoon' %b moon:~(. ownership bowl)]
-      ['sponsor' ?:(moon:~(. ownership bowl) [%s (scot %p (sein:title our.bowl now.bowl our.bowl))] ~)]
+      :*  'sponsor'
+          ?:(moon:~(. ownership bowl) [%s (scot %p (sein:title our.bowl now.bowl our.bowl))] ~)
+      ==
       ['siblingMoonOwners' %b sibling-moon-owners]
   ==
 ::
@@ -276,7 +281,9 @@
       ['revision' %s (revision:permissions policy epoch)]
       ['ship' %s (scot %p our.bowl)]
       ['isMoon' %b moon:~(. ownership bowl)]
-      ['sponsor' ?:(moon:~(. ownership bowl) [%s (scot %p (sein:title our.bowl now.bowl our.bowl))] ~)]
+      :*  'sponsor'
+          ?:(moon:~(. ownership bowl) [%s (scot %p (sein:title our.bowl now.bowl our.bowl))] ~)
+      ==
       ['siblingMoonOwners' %b sibling-moon-owners]
       ['connected' %b watching]
       ['headConnected' %b &(head-live ?~(head-watch | acked.u.head-watch))]
@@ -313,7 +320,7 @@
 ++  note
   |=  [kind=@t actor=@p address=@t event=@t]
   ^+  cor
-  =/  notice=notice:t  [next-notice now.bowl kind actor address event]
+  =/  =notice:t  [next-notice now.bowl kind actor address event]
   =.  next-notice  +(next-notice)
   =.  notices  (scag 128 `(list notice:t)`[notice notices])
   =/  frame
@@ -340,7 +347,10 @@
   =/  authorized
     ?~  ticket  &
     ?.  head-live  |
-    .^(? %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/admin-call/[sid.u.ticket]/(scot %ud generation.u.ticket)/[call-id.u.ticket]/noun)
+    .^  ?  %gx
+      %+  weld  /(scot %p our.bowl)/harness/(scot %da now.bowl)/admin-call
+      /[sid.u.ticket]/(scot %ud generation.u.ticket)/[call-id.u.ticket]/noun
+    ==
   ?.  authorized
     (emit (fail '-32600' 'Administrative authority is no longer current'))
   ?+  method.inbound
@@ -355,7 +365,8 @@
     (emit (reply owner-status))
       %'harness/tlon/lens/configure'
     =/  parsed
-      %-  mole  |.
+      %-  mole
+      |.
       =,  dejs:format
       ((ot ~[['enabled' bo] ['expectedOwner' (mu (se %p))]]) (need params.inbound))
     ?~  parsed  (emit (fail '-32602' 'Expected enabled and expectedOwner'))
@@ -379,7 +390,8 @@
     (emit (reply status))
       %'harness/tlon/owner/set'
     =/  parsed
-      %-  mole  |.
+      %-  mole
+      |.
       =,  dejs:format
       ^-  [owner=(unit @p) expected-owner=(unit @p) siblings=? expected-siblings=?]
       =/  fields
@@ -390,7 +402,10 @@
         ==
       ((ot fields) (need params.inbound))
     ?~  parsed
-      (emit (fail '-32602' 'Expected owner, expectedOwner, siblingMoonOwners and expectedSiblingMoonOwners'))
+      %-  emit
+      %+  fail
+        '-32602'
+      'Expected owner, expectedOwner, siblingMoonOwners and expectedSiblingMoonOwners'
     ::  Ownership changes compare both settings before applying either.
     ?.  ?&  =(owner.policy expected-owner.u.parsed)
             =(sibling-moon-owners expected-siblings.u.parsed)
@@ -407,7 +422,8 @@
       %'harness/tlon/work'
     =/  connected  head-live
     =/  found
-      %-  mole  |.
+      %-  mole
+      |.
       =/  before  (argument:history-page (fall params.inbound [%o ~]) 'before')
       =/  hands=state:hh
         ?.  connected  *state:hh
@@ -418,11 +434,14 @@
     (emit (reply [%o (~(put by p.u.found) 'headConnected' [%b connected])]))
       %'harness/tlon/admission/retry'
     =/  parsed
-      %-  mole  |.
+      %-  mole
+      |.
       (slav %uv ((ot:dejs:format ~[id+so:dejs:format]) (need params.inbound)))
     ?~  parsed  (emit (fail '-32602' 'Invalid admission ID'))
     =/  job  (~(get by jobs) u.parsed)
-    ?~  job  (emit (fail '-32602' 'Admission has already settled or been revoked; refresh its state'))
+    ?~  job
+      %-  emit
+      (fail '-32602' 'Admission has already settled or been revoked; refresh its state')
     =/  lane  (~(get by lanes) sid.u.job)
     ?.  ?&  ?=(^ lane)
             ?=(^ (lane-grants u.lane ~))
@@ -442,14 +461,22 @@
       %'harness/tlon/profile/set'
     =/  parsed  (mule |.((decode:profile (need params.inbound))))
     ?:  ?=(%| -.parsed)
-      (emit (fail '-32602' 'Use a nickname up to 64 bytes and an HTTP(S) avatar URL up to 2048 bytes, or leave either empty'))
+      %-  emit
+      %+  fail
+        '-32602'
+      'Use a nickname up to 64 bytes and an HTTP(S) avatar URL up to 2048 bytes, or leave either empty'
     ::  Correlate with the Contacts acknowledgement, not mere dispatch. No
     ::  duplicate profile cache or pending-request state is needed here.
-    (emit (edit-profile:messenger /profile/[connection.inbound]/(scot %uv (jam id.inbound)) p.parsed))
+    %-  emit
+    (edit-profile:messenger /profile/[connection.inbound]/(scot %uv (jam id.inbound)) p.parsed)
       %'harness/tlon/watch'
     ?>  |((~(has in listeners) connection.inbound) (lth ~(wyt in listeners) 32))
     =.  listeners  (~(put in listeners) connection.inbound)
-    =.  cor  (emit [%pass /client/[connection.inbound] %agent [our.bowl %acp] %watch /v1/[connection.inbound]/client])
+    =.  cor
+      %-  emit
+      :*  %pass  /client/[connection.inbound]  %agent  [our.bowl %acp]  %watch
+          /v1/[connection.inbound]/client
+      ==
     (emit (reply status))
       %'harness/tlon/configure'
     =/  expected-revision  (acp-param-json:wire-codec params.inbound 'expectedRevision')
@@ -462,8 +489,11 @@
       (emit (fail '-32602' 'Invalid owner, trusted ships or tools'))
     =/  expected  (acp-param-json:wire-codec params.inbound 'expectedOwner')
     =/  owner-json=json  ?~(owner.policy ~ [%s (scot %p u.owner.policy)])
-    ?:  ?&(?=(^ expected) !=(u.expected owner-json))
-      (emit (fail '-32602' 'Owner changed; reload Tlon settings. Use the ownership endpoint to change administrators.'))
+    ?:  &(?=(^ expected) !=(u.expected owner-json))
+      %-  emit
+      %+  fail
+        '-32602'
+      'Owner changed; reload Tlon settings. Use the ownership endpoint to change administrators.'
     =.  cor  (configure p.parsed sibling-moon-owners)
     (emit (reply status))
   ==
@@ -477,7 +507,13 @@
   =/  body  (~(got by fields) 'body')
   ?.  =([%n '200'] (~(got by fields) 'status'))
     ?>  ?=(%o -.body)
-    (emit (acp-error-card:codec connection.inbound id.inbound '-32602' (so:dejs:format (~(got by p.body) 'error'))))
+    %-  emit
+    %:  acp-error-card:codec
+      connection.inbound
+      id.inbound
+      '-32602'
+      (so:dejs:format (~(got by p.body) 'error'))
+    ==
   (emit (acp-result-card:codec connection.inbound id.inbound body))
 ::
 ++  permission-request
@@ -503,8 +539,12 @@
   |=  request=tool-request:ad
   ^-  (unit tool-authority:ad)
   =/  found
-    %-  mole  |.
-    .^((unit tool-authority:ad) %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/tool-call/[sid.request]/(scot %ud generation.request)/[id.call.request]/noun)
+    %-  mole
+    |.
+    .^  (unit tool-authority:ad)  %gx
+      %+  weld  /(scot %p our.bowl)/harness/(scot %da now.bowl)/tool-call
+      /[sid.request]/(scot %ud generation.request)/[id.call.request]/noun
+    ==
   (fall found ~)
 ::
 ++  finish-tool
@@ -565,7 +605,8 @@
     (emit [%give %fact ~[/tools/(scot %uv id)] %noun !>(body.u.prior)])
   =.  cor  poll-tools
   ?:  (gte ~(wyt by tool-receipts) 256)
-    (emit [%give %fact ~[/tools/(scot %uv id)] %noun !>('error: hand tool receipt capacity reached')])
+    %-  emit
+    [%give %fact ~[/tools/(scot %uv id)] %noun !>('error: hand tool receipt capacity reached')]
   ::  Reserve the receipt before checking authority or dispatching effects.
   =.  tool-receipts
     (~(put by tool-receipts) id [request %sending '' now.bowl])
@@ -575,42 +616,60 @@
       ==
     (finish-tool id 'rejected: no authorized outstanding tool call')
   ?:  =('tlon' name.call.request)
-    =/  parsed  (de:json:html args.call.request)
-    ?.  ?=([~ %o *] parsed)  (finish-tool id 'error: expected Tlon arguments object')
-    =/  action  (~(get by p.u.parsed) 'action')
-    ?:  ?&  ?=([~ %s *] action)
-            ?|  (mutates:~(. notes-tool bowl) p.u.action)
-                =('migrate_notes' p.u.action)
-                =('create_channel' p.u.action)
-                =('delete_channel' p.u.action)
-            ==
-            %+  lien  ~(val by tool-receipts)
-            |=  receipt=tool-receipt:t
-            &(=(%sending stage.receipt) (notes-pending body.receipt))
-        ==
-      (finish-tool id 'error: another native Notes change is pending; inspect it before starting another Notes change')
-    ?:  ?&  ?=([~ %s *] action)
-            (mutates:~(. hook-tool bowl) p.u.action)
-            %+  lien  ~(val by tool-receipts)
-            |=  receipt=tool-receipt:t
-            &(=(%sending stage.receipt) (hook-pending body.receipt))
-        ==
-      (finish-tool id 'error: another native hook change is pending; inspect it before changing hooks again')
-    ?:  |(=(`[%s 'upload_image'] action) =(`[%s 'upload_file'] action))
-      ?:  (has:tlon-spec u.parsed 'path')  (start-file-upload id u.parsed)
-      (start-upload id u.parsed)
-    =.  last-sent  (next-message-stamp:p now.bowl last-sent)
-    =/  built
-      %-  mole  |.
-      %^  run:~(. operations bowl)
-        (need (de:json:html args.call.request))
-        /tlon-tool/(scot %uv id)
-      last-sent
-    ?~  built  (finish-tool id 'error: invalid Tlon action, arguments or unavailable native state; use action help for supported arguments and list_groups/list_channels for exact IDs')
-    ?~  effect.u.built  (finish-tool id (clip:ht body.u.built 24.000))
-    =/  receipt  (~(got by tool-receipts) id)
-    =.  tool-receipts  (~(put by tool-receipts) id receipt(body body.u.built))
-    (emit u.effect.u.built)
+    (tool-native request id)
+  (tool-conversation request id)
+::
+++  tool-native
+  |=  [request=tool-request:ad id=@uv]
+  ^+  cor
+  =/  parsed  (de:json:html args.call.request)
+  ?.  ?=([~ %o *] parsed)  (finish-tool id 'error: expected Tlon arguments object')
+  =/  action  (~(get by p.u.parsed) 'action')
+  ?:  ?&  ?=([~ %s *] action)
+          ?|  (mutates:~(. notes-tool bowl) p.u.action)
+              =('migrate_notes' p.u.action)
+              =('create_channel' p.u.action)
+              =('delete_channel' p.u.action)
+          ==
+          %+  lien  ~(val by tool-receipts)
+          |=  receipt=tool-receipt:t
+          &(=(%sending stage.receipt) (notes-pending body.receipt))
+      ==
+    %+  finish-tool
+      id
+    'error: another native Notes change is pending; inspect it before starting another Notes change'
+  ?:  ?&  ?=([~ %s *] action)
+          (mutates:~(. hook-tool bowl) p.u.action)
+          %+  lien  ~(val by tool-receipts)
+          |=  receipt=tool-receipt:t
+          &(=(%sending stage.receipt) (hook-pending body.receipt))
+      ==
+    %+  finish-tool
+      id
+    'error: another native hook change is pending; inspect it before changing hooks again'
+  ?:  |(=(`[%s 'upload_image'] action) =(`[%s 'upload_file'] action))
+    ?:  (has:tlon-spec u.parsed 'path')  (start-file-upload id u.parsed)
+    (start-upload id u.parsed)
+  =.  last-sent  (next-message-stamp:p now.bowl last-sent)
+  =/  built
+    %-  mole
+    |.
+    %^  run:~(. operations bowl)
+      (need (de:json:html args.call.request))
+      /tlon-tool/(scot %uv id)
+    last-sent
+  ?~  built
+    %+  finish-tool
+      id
+    'error: invalid Tlon action, arguments or unavailable native state; use action help for supported arguments and list_groups/list_channels for exact IDs'
+  ?~  effect.u.built  (finish-tool id (clip:ht body.u.built 24.000))
+  =/  receipt  (~(got by tool-receipts) id)
+  =.  tool-receipts  (~(put by tool-receipts) id receipt(body body.u.built))
+  (emit u.effect.u.built)
+::
+++  tool-conversation
+  |=  [request=tool-request:ad id=@uv]
+  ^+  cor
   =/  lane  (delivery-lane sid.request)
   ?.  ?&  ?=(^ lane)
           (route-ready sid.request)
@@ -622,18 +681,29 @@
   =/  args  u.parsed
   ?:  |(=('tlon_history_page' name.call.request) =('tlon_search_history' name.call.request))
     =/  options
-      %-  mole  |.
-      =/  needle=@t  ?:  =('tlon_search_history' name.call.request)  (query:history-page args)
+      %-  mole
+      |.
+      =/  needle=@t
+        ?:  =('tlon_search_history' name.call.request)  (query:history-page args)
         ''
       =/  scope
         (sham [sid.request epoch.u.lane actor.u.lane to.u.lane name.call.request needle])
       [needle scope (position:history-page scope (argument:history-page args 'cursor'))]
-    ?~  options  (finish-tool id 'error: invalid query or cursor; use a cursor from this conversation, permission epoch and query')
+    ?~  options
+      %+  finish-tool
+        id
+      'error: invalid query or cursor; use a cursor from this conversation, permission epoch and query'
     =/  [needle=@t scope=@uv before=(unit @da)]  u.options
     =/  found
-      %-  mole  |.
+      %-  mole
+      |.
       =/  snapshot  (load:~(. history-read bowl) to.u.lane before ?:(=('' needle) 21 65))
-      (encode:history-page scope (scan:history-page rows.snapshot needle) parent.snapshot needle)
+      %:  encode:history-page
+        scope
+        (scan:history-page rows.snapshot needle)
+        parent.snapshot
+        needle
+      ==
     (finish-tool id ?~(found 'error: conversation history page unavailable' (en:json:html u.found)))
   ?:  =('tlon_upload_image' name.call.request)
     (start-upload id args)
@@ -642,7 +712,8 @@
     (finish-tool id ?~(found 'error: conversation history unavailable' (en:json:html u.found)))
   ?:  |(=('tlon_react' name.call.request) =('tlon_unreact' name.call.request))
     =/  built
-      %-  mole  |.
+      %-  mole
+      |.
       =/  message  (~(got by p.args) 'message_id')
       ?>  ?=(%s -.message)
       =/  emoji=(unit @t)
@@ -652,21 +723,29 @@
         ?>  &((gth (met 3 p.value) 0) (lte (met 3 p.value) 32))
         `p.value
       (reaction:messenger /reaction/(scot %uv id) to.u.lane p.message emoji)
-    ?~  built  (finish-tool id 'error: use a recent message ID from this conversation and an emoji up to 32 bytes')
+    ?~  built
+      %+  finish-tool
+        id
+      'error: use a recent message ID from this conversation and an emoji up to 32 bytes'
     (emit u.built)
   (finish-tool id 'error: unsupported hand tool')
 ::
 ++  storage-credentials
   ^-  (unit storage-source)
   ?.  .^(? %gu /(scot %p our.bowl)/storage/(scot %da now.bowl)/$)  ~
-  %-  mole  |.
-  =/  config  .^(json %gx /(scot %p our.bowl)/storage/(scot %da now.bowl)/configuration/json)
+  %-  mole
+  |.
+  =/  config
+    .^(json %gx /(scot %p our.bowl)/storage/(scot %da now.bowl)/configuration/json)
   ?:  (hosted:media-lib config)
     ?>  .^(? %gu /(scot %p our.bowl)/genuine/(scot %da now.bowl)/$)
-    =/  token  (so:dejs:format .^(json %gx /(scot %p our.bowl)/genuine/(scot %da now.bowl)/secret/json))
+    =/  token
+      %-  so:dejs:format
+      .^(json %gx /(scot %p our.bowl)/genuine/(scot %da now.bowl)/secret/json)
     ?>  &((gth (met 3 token) 0) (lte (met 3 token) 1.024))
     [%hosted token config]
-  =/  storage  .^(json %gx /(scot %p our.bowl)/storage/(scot %da now.bowl)/credentials/json)
+  =/  storage
+    .^(json %gx /(scot %p our.bowl)/storage/(scot %da now.bowl)/credentials/json)
   [%credentials (decode:s3 storage config)]
 ::
 ++  upload-authorized
@@ -720,7 +799,8 @@
   ::  Fetching has no upload effect. A grant or PUT can already be accepted.
   =/  body
     ?:  =(%fetch stage.u.pending)  'failed: image download retired before any upload was dispatched'
-    ?:  =(%grant stage.u.pending)  'uncertain: hosted upload-URL request was retired; no image PUT was sent, but allocation may have occurred; do not automatically repeat this action'
+    ?:  =(%grant stage.u.pending)
+      'uncertain: hosted upload-URL request was retired; no image PUT was sent, but allocation may have occurred; do not automatically repeat this action'
     'uncertain: upload was dispatched but its acceptance is not known; do not automatically repeat this action'
   =.  cor  (close-upload id body)
   ?:  =(%fetch stage.u.pending)  cor
@@ -755,11 +835,17 @@
     (finish-tool id 'error: four image uploads are already in progress')
   =/  storage  storage-credentials
   ?~  storage
-    (finish-tool id 'error: configure custom S3 storage in Tlon, or select presigned-URL hosting with a working genuine identity')
+    %+  finish-tool
+      id
+    'error: configure custom S3 storage in Tlon, or select presigned-URL hosting with a working genuine identity'
   =/  request
-    %-  mole  |.
+    %-  mole
+    |.
     (download-request:media-lib (so:dejs:format (~(got by p.args) 'url')))
-  ?~  request  (finish-tool id 'error: provide a public HTTPS image URL with a DNS hostname, no credentials or custom port, up to 2048 bytes; redirects are not followed')
+  ?~  request
+    %+  finish-tool
+      id
+    'error: provide a public HTTPS image URL with a DNS hostname, no credentials or custom port, up to 2048 bytes; redirects are not followed'
   =?  u.request  =(`[%s 'upload_file'] (~(get by p.args) 'action'))
     u.request(header-list ~[['Accept' '*/*'] ['Accept-Encoding' 'identity']])
   =.  uploads  (~(put by uploads) id `upload:t`[%fetch (sham u.storage) '' '' '' [0 0]])
@@ -772,20 +858,24 @@
   =/  storage  storage-credentials
   ?~  storage  (finish-tool id 'error: configure Tlon storage before uploading')
   =/  loaded
-    %-  mole  |.
+    %-  mole
+    |.
     ?>  !(has:tlon-spec args 'url')
     ?>  (upload-authorized id)
     =/  file-path  (need (rush (required:tlon-spec args 'path' 1.024) stap))
     ?>  ?=([@ @ *] file-path)
-    =/  target=path  (weld /(scot %p our.bowl)/[i.file-path]/(scot %da now.bowl) t.file-path)
+    =/  target=path
+      %+  weld
+        /(scot %p our.bowl)/[i.file-path]/(scot %da now.bowl)
+      t.file-path
     ?>  .^(? %cu target)
     ::  Read the stored noun; selecting a file does not execute its mark.
     =/  raw  .^(noun %cq target)
     =/  mime=[p=@t q=octs]
       ?+  (rear file-path)  !!
-        %mime
-          =/  file  ;;(mime raw)
-          [(en-mite:mimes:html p.file) q.file]
+          %mime
+        =/  file  ;;(mime raw)
+        [(en-mite:mimes:html p.file) q.file]
         %txt  ['text/plain' (as-octs:mimes:html (of-wain:format ;;(wain raw)))]
         %hoon  ['text/plain' (as-octs:mimes:html ;;(@t raw))]
         %json  ['application/json' (as-octs:mimes:html (en:json:html ;;(json raw)))]
@@ -800,9 +890,13 @@
       ?>  ?=(^ (image-type:media-lib q.mime))
       mime
     mime
-  ?~  loaded  (finish-tool id 'error: invalid, unsupported or oversized Clay file, or missing Clay read grant; use /desk/path/ext, not an operating-system path')
+  ?~  loaded
+    %+  finish-tool
+      id
+    'error: invalid, unsupported or oversized Clay file, or missing Clay read grant; use /desk/path/ext, not an operating-system path'
   =/  key
-    %-  rap  :-  3
+    %-  rap
+    :-  3
     :~  (scot %p our.bowl)
         '/harness-'
         (scot %uv id)
@@ -816,17 +910,30 @@
 ++  put-upload
   |=  [id=@uv pending=upload:t]
   ^+  cor
-  ?.  (upload-authorized id)  (close-upload id 'failed: authority was revoked before upload dispatch; no new PUT was sent')
+  ?.  (upload-authorized id)
+    %+  close-upload
+      id
+    'failed: authority was revoked before upload dispatch; no new PUT was sent'
   =/  storage  storage-credentials
   ?.  &(?=(^ storage) =(storage.pending (sham u.storage)))
-    (close-upload id 'failed: storage configuration changed before upload dispatch; no new PUT was sent')
+    %+  close-upload
+      id
+    'failed: storage configuration changed before upload dispatch; no new PUT was sent'
   ?:  ?=(%hosted -.u.storage)
     =.  pending  pending(stage %grant)
     =.  uploads  (~(put by uploads) id pending)
-    =/  request  (hosted-request:media-lib our.bowl token.u.storage key.pending mime.pending p.bytes.pending)
+    =/  request
+      %:  hosted-request:media-lib
+        our.bowl
+        token.u.storage
+        key.pending
+        mime.pending
+        p.bytes.pending
+      ==
     (emit [%pass /media/(scot %uv id)/grant %arvo %i %request request [0 0]])
   =/  signed
-    %-  mole  |.
+    %-  mole
+    |.
     %:  presign:s3
       creds.u.storage
       now.bowl
@@ -834,10 +941,13 @@
       mime.pending
       =(%put stage.pending)
     ==
-  ?~  signed  (close-upload id 'failed: storage endpoint or signing configuration is invalid; no PUT was sent')
+  ?~  signed
+    %+  close-upload
+      id
+    'failed: storage endpoint or signing configuration is invalid; no PUT was sent'
   =.  pending  pending(public-url public-url.u.signed)
   =.  uploads  (~(put by uploads) id pending)
-  =/  request=request:http
+  =/  =request:http
     [%'PUT' url.u.signed headers.u.signed `bytes.pending]
   (emit [%pass /media/(scot %uv id)/[stage.pending] %arvo %i %request request [0 0]])
 ::
@@ -861,36 +971,47 @@
     ?.  ?&  =(200 status-code.response-header.response)
             ?=(^ full-file.response)
         ==
-      (close-upload id 'failed: image source did not return HTTP 200 with a body (redirects are not followed); no upload was sent')
+      %+  close-upload
+        id
+      'failed: image source did not return HTTP 200 with a body (redirects are not followed); no upload was sent'
     =/  receipt  (~(got by tool-receipts) id)
     =/  args  (need (de:json:html args.call.request.receipt))
     =/  general  &(?=(%o -.args) =(`[%s 'upload_file'] (~(get by p.args) 'action')))
     =/  supplied  (file-type:media-lib type.u.full-file.response)
-    =/  mime=(unit @t)  ?:  general  `supplied
+    =/  mime=(unit @t)
+      ?:  general  `supplied
       (image-type:media-lib data.u.full-file.response)
     ?~  mime  (close-upload id 'failed: unsupported image data; no upload was sent')
     ?.  &(=(u.mime supplied) (file-valid:media-lib u.mime data.u.full-file.response))
-      (close-upload id 'failed: source returned invalid, unsupported or oversized file data; no upload was sent')
+      %+  close-upload
+        id
+      'failed: source returned invalid, unsupported or oversized file data; no upload was sent'
     =/  extension  (file-extension:media-lib u.mime)
     =/  key  (rap 3 (scot %p our.bowl) '/harness-' (scot %uv id) '.' extension ~)
     (put-upload id u.pending(stage %put, key key, mime u.mime, bytes data.u.full-file.response))
   ?:  =(%grant phase)
     ?:  (gte status-code.response-header.response 500)  (end-upload id)
     ?.  (upload-authorized id)
-      (close-upload id 'failed: authority was revoked after requesting an upload URL; no image PUT was sent')
+      %+  close-upload
+        id
+      'failed: authority was revoked after requesting an upload URL; no image PUT was sent'
     =/  storage  storage-credentials
     ?.  &(?=(^ storage) =(storage.u.pending (sham u.storage)))
-      (close-upload id 'failed: storage configuration or hosting identity changed; no image PUT was sent')
+      %+  close-upload
+        id
+      'failed: storage configuration or hosting identity changed; no image PUT was sent'
     =/  target  (mole |.((hosted-response:media-lib response)))
     ?~  target
       ?:  =(200 status-code.response-header.response)  (end-upload id)
-      (close-upload id 'failed: hosting did not return a usable upload URL; no image PUT was sent; check hosting identity, quota and availability')
+      %+  close-upload
+        id
+      'failed: hosting did not return a usable upload URL; no image PUT was sent; check hosting identity, quota and availability'
     ::  Persist the PUT stage before dispatching the signed request.
     =/  updated  u.pending(stage %hosted-put, public-url public-url.u.target)
     =.  uploads  (~(put by uploads) id updated)
     =/  headers
       ~[['Content-Type' mime.updated] ['Cache-Control' 'public, max-age=3600']]
-    =/  request=request:http
+    =/  =request:http
       [%'PUT' url.u.target headers `bytes.updated]
     (emit [%pass /media/(scot %uv id)/hosted-put %arvo %i %request request [0 0]])
   ?:  ?|  =(200 status-code.response-header.response)
@@ -902,7 +1023,9 @@
   ?:  &(=(%put phase) (acl-rejected:media-lib response))
     (put-upload id u.pending(stage %put-no-acl))
   ?:  (gte status-code.response-header.response 500)  (end-upload id)
-  (close-upload id 'failed: storage rejected the upload; inspect the owner storage configuration, bucket access and ACL policy')
+  %+  close-upload
+    id
+  'failed: storage rejected the upload; inspect the owner storage configuration, bucket access and ACL policy'
 ::
 ++  scheduled
   |=  sid=@t
@@ -945,7 +1068,8 @@
   ::  Non-owner channel grants also require current native membership.
   ?:  &(!owner ?=(%channel -.to.lane))
     =/  readable
-      %-  mole  |.
+      %-  mole
+      |.
       (can-read:~(. directory:permissions bowl) actor.lane nest.to.lane)
     ?.  =(`& readable)  ~
     (destination-grants:p policy actor.lane to.lane owner-tools owner)
@@ -969,7 +1093,7 @@
   ::  Reuse only within this calculation; the next check reads fresh authority.
   =/  job  (scheduled sid)
   =/  lane  (~(get by lanes) ?~(job sid sid.u.job))
-  ?.  ?&(?=(^ lane) (route-ready-for sid job))
+  ?.  &(?=(^ lane) (route-ready-for sid job))
     [| ~]
   =/  owner  (actor-owner actor.u.lane)
   ?.  &(?=(^ (lane-grants u.lane ~)) (cron-lane-live-for sid job))
@@ -992,7 +1116,7 @@
           live:(lane-authority sid)
       ==
     ~
-  ?.  ?&(?=(%channel -.to.u.lane) ?=(^ parent.to.u.lane))  ~
+  ?.  &(?=(%channel -.to.u.lane) ?=(^ parent.to.u.lane))  ~
   ?.  .^(? %gu /(scot %p our.bowl)/channels/(scot %da now.bowl)/$)  ~
   ::  A removed channel or parent is an ordinary miss, not a failed scry that
   ::  can prevent the original human input from being admitted by the head.
@@ -1003,7 +1127,8 @@
   =/  parent  (get:on-v-posts:v9:dv posts.u.channel u.parent.to.u.lane)
   ?.  ?=([~ %& *] parent)  ~
   =/  found
-    %-  mole  |.
+    %-  mole
+    |.
     =/  snapshot  (load:~(. history-read bowl) to.u.lane ~ 8)
     (render:public-context to.u.lane parent.snapshot rows.snapshot)
   ?~(found ~ u.found)
@@ -1023,7 +1148,7 @@
         =(binding.u.job binding.u.route)
     ==
   =/  route  (~(get by routes) sid)
-  ?&(?=(^ route) =(%ready phase.u.route))
+  &(?=(^ route) =(%ready phase.u.route))
 ::
 ++  publication-current
   |=  publication=publication:hh
@@ -1080,7 +1205,7 @@
     %+  roll  ~(tap in affected)
     |=  [sid=@t engine=_cor]
     =/  route  (~(get by routes.engine) sid)
-    =?  engine  ?&(?=(^ route) (~(has by bindings.hands) binding.u.route))
+    =?  engine  &(?=(^ route) (~(has by bindings.hands) binding.u.route))
       (hand:engine %disable (sham [sid epoch.engine]) [%enable binding.u.route |])
     =.  engine  (head:engine /cancel [%fence sid])
     engine(lanes (~(del by lanes.engine) sid), routes (~(del by routes.engine) sid))
@@ -1093,7 +1218,7 @@
     %+  roll  ~(tap by uploads)
     |=  [[id=@uv pending=upload:t] engine=_cor]
     =/  receipt  (~(get by tool-receipts.engine) id)
-    ?.  ?&(?=(^ receipt) (~(has in affected) sid.request.u.receipt))  engine
+    ?.  &(?=(^ receipt) (~(has in affected) sid.request.u.receipt))  engine
     (stop-upload:engine id)
   =.  policy  updated-policy
   =.  sibling-moon-owners  siblings
@@ -1113,319 +1238,464 @@
   |=  [wire=wire sign=sign:agent:gall]
   ^+  cor
   ?+  wire  cor
-      [%lens %configure ~]
-    ?.  ?=(%poke-ack -.sign)  cor
-    ?~  p.sign  cor
-    cor(lens lens(error 'Steward is unavailable on this ship. Install or update Tlon, then retry sync.'))
-      [%lens %events ~]
-    ?:  ?=(%kick -.sign)
-      cor(lens lens(error 'Steward disconnected. Retry sync to reconnect.'))
-    ?.  ?=(%fact -.sign)  cor
-    ?.  =(%steward-lens-update-1 p.cage.sign)  cor
-    =/  update  !<(update:v1:steward-lens q.cage.sign)
-    ?.  ?=(%retry-requested -.update)  cor
-    (retry-lens id.update requester.update)
-      [%lens %send @ @ @ ~]
-    ?.  ?=(%poke-ack -.sign)  cor
-    ?.  &(enabled.lens =(owner.lens `(slav %p i.t.t.wire)))  cor
-    =/  id  (slav %uv i.t.t.t.wire)
-    =/  record  (~(get by records.lens) id)
-    ?~  record  cor
-    ?.  =((scot %uv signature.u.record) i.t.t.t.t.wire)  cor
+    [%lens %configure ~]  (agent-lens-configure wire sign)
+    [%lens %events ~]  (agent-lens-events wire sign)
+    [%lens %send @ @ @ ~]  (agent-lens-send wire sign)
+    [%channel-join @ @ @ ~]  (agent-channel-join wire sign)
+    [%publications ~]  (agent-publications wire sign)
+    [%head ~]  (agent-head wire sign)
+    [%reaction @ ~]  (agent-reaction wire sign)
+    [%tlon-tool @ ~]  (agent-tlon-tool wire sign)
+    [%tlon-hooks @ ~]  (agent-tlon-hooks wire sign)
+    [%tlon-hook-poke @ ~]  (agent-tlon-hook-poke wire sign)
+    [%tlon-notes-migration @ ~]  (agent-tlon-notes-migration wire sign)
+    [%tlon-notes @ ~]  (agent-tlon-notes wire sign)
+    [%profile @ @ ~]  (agent-profile wire sign)
+    [%invite %dm @ ~]  (agent-invite-dm wire sign)
+    [%client @ ~]  (agent-client wire sign)
+    [%activity ~]  (agent-activity wire sign)
+    [%route @ @ @ ~]  (agent-route wire sign)
+    [%create @ ~]  (agent-create wire sign)
+    [%hand @ @ ~]  (agent-hand wire sign)
+    [%publish @ @ ~]  (agent-publish wire sign)
+  ==
+::
+++  agent-lens-configure
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%lens %configure ~] wire)
+  ?.  ?=(%poke-ack -.sign)  cor
+  ?~  p.sign  cor
+  %=  cor  lens
+      lens(error 'Steward is unavailable on this ship. Install or update Tlon, then retry sync.')
+  ==
+::
+++  agent-lens-events
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%lens %events ~] wire)
+  ?:  ?=(%kick -.sign)
+    cor(lens lens(error 'Steward disconnected. Retry sync to reconnect.'))
+  ?.  ?=(%fact -.sign)  cor
+  ?.  =(%steward-lens-update-1 p.cage.sign)  cor
+  =/  update  !<(update:v1:steward-lens q.cage.sign)
+  ?.  ?=(%retry-requested -.update)  cor
+  (retry-lens id.update requester.update)
+::
+++  agent-lens-send
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%lens %send @ @ @ ~] wire)
+  ?.  ?=(%poke-ack -.sign)  cor
+  ?.  &(enabled.lens =(owner.lens `(slav %p i.t.t.wire)))  cor
+  =/  id  (slav %uv i.t.t.t.wire)
+  =/  record  (~(get by records.lens) id)
+  ?~  record  cor
+  ?.  =((scot %uv signature.u.record) i.t.t.t.t.wire)  cor
+  ?~  p.sign
+    cor(lens lens(records (~(put by records.lens) id u.record(stage %sent, next ~))))
+  =.  error.lens
+    'Owner sync was rejected. Trust this bot in the owner ship’s Steward, then retry sync.'
+  =.  records.lens
+    %+  ~(put by records.lens)
+      id
+    u.record(stage %failed, next ?:(=(3 attempts.u.record) ~ `(add now.bowl ~s5)))
+  cor
+::
+++  agent-channel-join
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%channel-join @ @ @ ~] wire)
+  ?.  ?=(%poke-ack -.sign)  cor
+  ?~  p.sign  cor
+  cor(error 'Could not subscribe to an accessible group channel; inspect native Groups state.')
+::
+++  agent-publications
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%publications ~] wire)
+  ?+  -.sign  cor
+      %watch-ack
+    ?~  p.sign  recover
+    cor(error 'Channel publication subscription failed; reload the Tlon adapter to reconnect.')
+    %kick  watch-publications
+      %fact
+    ?.  =(%channel-response-4 p.cage.sign)  cor
+    =/  proofs
+      (channel:publication our.bowl !<(r-channels:v9:dv q.cage.sign))
+    %+  roll  proofs
+    |=  [proof=publication-proof:t engine=_cor]
+    (confirmed:engine proof)
+  ==
+::
+++  agent-head
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%head ~] wire)
+  ?+  -.sign  cor
+      %watch-ack
+    ?~  p.sign  recover
+    cor(error 'Head subscription failed; reload the Tlon adapter to reconnect.')
+    %kick  watch-head
+      %fact
+    ?.  =(%noun p.cage.sign)  cor
+    reconcile
+  ==
+::
+++  agent-reaction
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%reaction @ ~] wire)
+  ?.  ?=(%poke-ack -.sign)  cor
+  =/  id=@uv  (slav %uv i.t.wire)
+  =/  receipt  (~(get by tool-receipts) id)
+  ?~  receipt  cor
+  ?.  =(%sending stage.u.receipt)  cor
+  =/  body
     ?~  p.sign
-      cor(lens lens(records (~(put by records.lens) id u.record(stage %sent, next ~))))
-    =.  error.lens  'Owner sync was rejected. Trust this bot in the owner ship’s Steward, then retry sync.'
-    =.  records.lens
-      (~(put by records.lens) id u.record(stage %failed, next ?:(=(3 attempts.u.record) ~ `(add now.bowl ~s5))))
-    cor
-      [%channel-join @ @ @ ~]
-    ?.  ?=(%poke-ack -.sign)  cor
-    ?~  p.sign  cor
-    cor(error 'Could not subscribe to an accessible group channel; inspect native Groups state.')
-      [%publications ~]
-    ?+  -.sign  cor
-      %watch-ack
-        ?~  p.sign  recover
-        cor(error 'Channel publication subscription failed; reload the Tlon adapter to reconnect.')
-      %kick  watch-publications
-      %fact
-        ?.  =(%channel-response-4 p.cage.sign)  cor
-        =/  proofs
-          (channel:publication our.bowl !<(r-channels:v9:dv q.cage.sign))
-        %+  roll  proofs
-        |=  [proof=publication-proof:t engine=_cor]
-        (confirmed:engine proof)
-    ==
-      [%head ~]
-    ?+  -.sign  cor
-      %watch-ack
-        ?~  p.sign  recover
-        cor(error 'Head subscription failed; reload the Tlon adapter to reconnect.')
-      %kick  watch-head
-      %fact
-        ?.  =(%noun p.cage.sign)  cor
-        reconcile
-    ==
-      [%reaction @ ~]
-    ?.  ?=(%poke-ack -.sign)  cor
-    =/  id=@uv  (slav %uv i.t.wire)
-    =/  receipt  (~(get by tool-receipts) id)
-    ?~  receipt  cor
-    ?.  =(%sending stage.u.receipt)  cor
-    =/  body
-      ?~  p.sign
-        'accepted: local Messenger acknowledged the reaction; remote delivery is not confirmed'
-      'failed: local Messenger rejected the reaction'
-    (finish-tool id body)
-      [%tlon-tool @ ~]
-    ?.  ?=(%poke-ack -.sign)  cor
-    =/  id=@uv  (slav %uv i.t.wire)
-    =/  receipt  (~(get by tool-receipts) id)
-    ?~  receipt  cor
-    ?.  =(%sending stage.u.receipt)  cor
-    ?:  &(=(~ p.sign) =('pending: awaiting native Notes result' body.u.receipt))
-      (emit [%pass /tlon-notes/(scot %uv id) %agent [our.bowl %notes] %watch /v1/request/(scot %uv id)])
-    =/  body
-      ?~  p.sign  body.u.receipt
-      (cat 3 'failed: native Tlon rejected the action; ' (error-text:~(. hook-tool bowl) u.p.sign))
-    (finish-tool id body)
-      [%tlon-hooks @ ~]
-    =/  id=@uv  (slav %uv i.t.wire)
-    =/  receipt  (~(get by tool-receipts) id)
-    ?~  receipt  cor
-    ?.  =(%sending stage.u.receipt)  cor
-    ?:  ?=(%kick -.sign)
-      (finish-tool id 'uncertain: native hook subscription closed; inspect hooks before retrying')
-    =/  args  (need (de:json:html args.call.request.u.receipt))
-    ?:  ?=(%watch-ack -.sign)
-      ?.  =('pending: subscribing for native hook result' body.u.receipt)  cor
-      ?^  p.sign  (finish-tool id 'failed: native hooks could not be watched; no mutation was sent')
-      ::  Subscription succeeds before mutation; recheck the outstanding call.
-      =/  authority  (tool-authority request.u.receipt)
-      ?.  ?&  ?=(^ authority)
-              =(call.request.u.receipt call.u.authority)
-          ==
-        =.  cor  (emit [%pass wire %agent [our.bowl %channels-server] %leave ~])
-        (finish-tool id 'rejected: hook authority was revoked before dispatch; no mutation was sent')
-      =/  command  (mole |.((command:~(. hook-tool bowl) args)))
-      ?~  command
-        =.  cor  (emit [%pass wire %agent [our.bowl %channels-server] %leave ~])
-        (finish-tool id 'failed: native hook state or arguments changed before dispatch; no mutation was sent')
-      =.  tool-receipts
-        (~(put by tool-receipts) id u.receipt(body 'pending: awaiting native hook result'))
-      (emit [%pass /tlon-hook-poke/(scot %uv id) %agent [our.bowl %channels-server] %poke %hook-action-0 !>(u.command)])
-    ?.  ?=(%fact -.sign)  cor
-    ?.  ?&  =('pending: awaiting native hook result' body.u.receipt)
-            =(%hook-response-0 p.cage.sign)
-        ==
-      cor
-    =/  result
-      %-  mole  |.
-      (response:~(. hook-tool bowl) args !<(response:hooks q.cage.sign))
-    ?~  result  cor
-    ?~  u.result  cor
-    =.  cor  (emit [%pass wire %agent [our.bowl %channels-server] %leave ~])
-    (finish-tool id u.u.result)
-      [%tlon-hook-poke @ ~]
-    ?.  ?=(%poke-ack -.sign)  cor
-    ?~  p.sign  cor
-    =/  id=@uv  (slav %uv i.t.wire)
-    =/  receipt  (~(get by tool-receipts) id)
-    ?~  receipt  cor
-    ?.  =(%sending stage.u.receipt)  cor
-    =.  cor  (emit [%pass /tlon-hooks/(scot %uv id) %agent [our.bowl %channels-server] %leave ~])
-    (finish-tool id 'failed: native Tlon rejected the hook change; inspect get_hook before retrying')
-      [%tlon-notes-migration @ ~]
-    =/  id=@uv  (slav %uv i.t.wire)
-    =/  receipt  (~(get by tool-receipts) id)
-    ?~  receipt  cor
-    ?.  ?&  =(%sending stage.u.receipt)
-            =('pending: verifying native Notes affiliation' body.u.receipt)
-        ==
-      cor
-    ?:  ?=(%kick -.sign)
-      (finish-tool id 'failed: native Notes affiliation could not be verified; no migration was sent')
-    ?:  ?=(%watch-ack -.sign)
-      ?~  p.sign  cor
-      (finish-tool id 'failed: native Notes affiliation could not be watched; no migration was sent')
-    ?.  ?=(%fact -.sign)  cor
-    =.  cor  (emit [%pass wire %agent [our.bowl %notes] %leave ~])
+      'accepted: local Messenger acknowledged the reaction; remote delivery is not confirmed'
+    'failed: local Messenger rejected the reaction'
+  (finish-tool id body)
+::
+++  agent-tlon-tool
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%tlon-tool @ ~] wire)
+  ?.  ?=(%poke-ack -.sign)  cor
+  =/  id=@uv  (slav %uv i.t.wire)
+  =/  receipt  (~(get by tool-receipts) id)
+  ?~  receipt  cor
+  ?.  =(%sending stage.u.receipt)  cor
+  ?:  &(=(~ p.sign) =('pending: awaiting native Notes result' body.u.receipt))
+    %-  emit
+    [%pass /tlon-notes/(scot %uv id) %agent [our.bowl %notes] %watch /v1/request/(scot %uv id)]
+  =/  body
+    ?~  p.sign  body.u.receipt
+    (cat 3 'failed: native Tlon rejected the action; ' (error-text:~(. hook-tool bowl) u.p.sign))
+  (finish-tool id body)
+::
+++  agent-tlon-hooks
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%tlon-hooks @ ~] wire)
+  =/  id=@uv  (slav %uv i.t.wire)
+  =/  receipt  (~(get by tool-receipts) id)
+  ?~  receipt  cor
+  ?.  =(%sending stage.u.receipt)  cor
+  ?:  ?=(%kick -.sign)
+    (finish-tool id 'uncertain: native hook subscription closed; inspect hooks before retrying')
+  =/  args  (need (de:json:html args.call.request.u.receipt))
+  ?:  ?=(%watch-ack -.sign)
+    ?.  =('pending: subscribing for native hook result' body.u.receipt)  cor
+    ?^  p.sign  (finish-tool id 'failed: native hooks could not be watched; no mutation was sent')
+    ::  Subscription succeeds before mutation; recheck the outstanding call.
     =/  authority  (tool-authority request.u.receipt)
     ?.  ?&  ?=(^ authority)
             =(call.request.u.receipt call.u.authority)
         ==
-      (finish-tool id 'rejected: migration authority was revoked before dispatch; no mutation was sent')
-    =/  args  (need (de:json:html args.call.request.u.receipt))
-    =/  command
-      %-  mole  |.
-      ?>  =(%notes-response p.cage.sign)
-      (command:~(. notes-migration bowl) args !<(response:notes q.cage.sign))
+      =.  cor  (emit [%pass wire %agent [our.bowl %channels-server] %leave ~])
+      %+  finish-tool
+        id
+      'rejected: hook authority was revoked before dispatch; no mutation was sent'
+    =/  command  (mole |.((command:~(. hook-tool bowl) args)))
     ?~  command
-      (finish-tool id 'failed: native Notes affiliation, source, permissions or destination no longer match the migration plan; no mutation was sent')
+      =.  cor  (emit [%pass wire %agent [our.bowl %channels-server] %leave ~])
+      %+  finish-tool
+        id
+      'failed: native hook state or arguments changed before dispatch; no mutation was sent'
     =.  tool-receipts
-      (~(put by tool-receipts) id u.receipt(body 'pending: awaiting native Notes result'))
-    (emit [%pass /tlon-tool/(scot %uv id) %agent [our.bowl %notes] %poke %notes-action-1 !>(`action:v1:notes`[id u.command])])
-      [%tlon-notes @ ~]
-    =/  id=@uv  (slav %uv i.t.wire)
-    =/  receipt  (~(get by tool-receipts) id)
-    ?~  receipt  cor
-    ?.  =(%sending stage.u.receipt)  cor
-    ?:  ?=(%kick -.sign)
-      (finish-tool id 'uncertain: native Notes result subscription closed; inspect the notebook before retrying')
-    ?:  ?=(%watch-ack -.sign)
-      ?~  p.sign  cor
-      (finish-tool id 'uncertain: could not observe native Notes result; inspect the notebook before retrying')
-    ?.  ?=(%fact -.sign)  cor
-    =.  cor  (emit [%pass wire %agent [our.bowl %notes] %leave ~])
-    ?>  =(%notes-response-1 p.cage.sign)
-    =/  response  !<(response:v1:notes q.cage.sign)
-    ?>  =(id id.response)
-    =/  result=cord
-      ?+  -.body.response  'saved: native Notes confirmed the action; read the notebook for resulting IDs and revision'
-        %error  (cat 3 'failed: native Notes reported ' type.body.response)
+      (~(put by tool-receipts) id u.receipt(body 'pending: awaiting native hook result'))
+    %-  emit
+    :*  %pass  /tlon-hook-poke/(scot %uv id)  %agent  [our.bowl %channels-server]  %poke
+        %hook-action-0  !>(u.command)
+    ==
+  ?.  ?=(%fact -.sign)  cor
+  ?.  ?&  =('pending: awaiting native hook result' body.u.receipt)
+          =(%hook-response-0 p.cage.sign)
+      ==
+    cor
+  =/  result
+    %-  mole
+    |.
+    (response:~(. hook-tool bowl) args !<(response:hooks q.cage.sign))
+  ?~  result  cor
+  ?~  u.result  cor
+  =.  cor  (emit [%pass wire %agent [our.bowl %channels-server] %leave ~])
+  (finish-tool id u.u.result)
+::
+++  agent-tlon-hook-poke
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%tlon-hook-poke @ ~] wire)
+  ?.  ?=(%poke-ack -.sign)  cor
+  ?~  p.sign  cor
+  =/  id=@uv  (slav %uv i.t.wire)
+  =/  receipt  (~(get by tool-receipts) id)
+  ?~  receipt  cor
+  ?.  =(%sending stage.u.receipt)  cor
+  =.  cor  (emit [%pass /tlon-hooks/(scot %uv id) %agent [our.bowl %channels-server] %leave ~])
+  %+  finish-tool
+    id
+  'failed: native Tlon rejected the hook change; inspect get_hook before retrying'
+::
+++  agent-tlon-notes-migration
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%tlon-notes-migration @ ~] wire)
+  =/  id=@uv  (slav %uv i.t.wire)
+  =/  receipt  (~(get by tool-receipts) id)
+  ?~  receipt  cor
+  ?.  ?&  =(%sending stage.u.receipt)
+          =('pending: verifying native Notes affiliation' body.u.receipt)
+      ==
+    cor
+  ?:  ?=(%kick -.sign)
+    %+  finish-tool
+      id
+    'failed: native Notes affiliation could not be verified; no migration was sent'
+  ?:  ?=(%watch-ack -.sign)
+    ?~  p.sign  cor
+    %+  finish-tool
+      id
+    'failed: native Notes affiliation could not be watched; no migration was sent'
+  ?.  ?=(%fact -.sign)  cor
+  =.  cor  (emit [%pass wire %agent [our.bowl %notes] %leave ~])
+  =/  authority  (tool-authority request.u.receipt)
+  ?.  ?&  ?=(^ authority)
+          =(call.request.u.receipt call.u.authority)
+      ==
+    %+  finish-tool
+      id
+    'rejected: migration authority was revoked before dispatch; no mutation was sent'
+  =/  args  (need (de:json:html args.call.request.u.receipt))
+  =/  command
+    %-  mole
+    |.
+    ?>  =(%notes-response p.cage.sign)
+    (command:~(. notes-migration bowl) args !<(response:notes q.cage.sign))
+  ?~  command
+    %+  finish-tool
+      id
+    'failed: native Notes affiliation, source, permissions or destination no longer match the migration plan; no mutation was sent'
+  =.  tool-receipts
+    (~(put by tool-receipts) id u.receipt(body 'pending: awaiting native Notes result'))
+  %-  emit
+  :*  %pass  /tlon-tool/(scot %uv id)  %agent  [our.bowl %notes]  %poke  %notes-action-1
+      !>(`action:v1:notes`[id u.command])
+  ==
+::
+++  agent-tlon-notes
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%tlon-notes @ ~] wire)
+  =/  id=@uv  (slav %uv i.t.wire)
+  =/  receipt  (~(get by tool-receipts) id)
+  ?~  receipt  cor
+  ?.  =(%sending stage.u.receipt)  cor
+  ?:  ?=(%kick -.sign)
+    %+  finish-tool
+      id
+    'uncertain: native Notes result subscription closed; inspect the notebook before retrying'
+  ?:  ?=(%watch-ack -.sign)
+    ?~  p.sign  cor
+    %+  finish-tool
+      id
+    'uncertain: could not observe native Notes result; inspect the notebook before retrying'
+  ?.  ?=(%fact -.sign)  cor
+  =.  cor  (emit [%pass wire %agent [our.bowl %notes] %leave ~])
+  ?>  =(%notes-response-1 p.cage.sign)
+  =/  response  !<(response:v1:notes q.cage.sign)
+  ?>  =(id id.response)
+  =/  result=cord
+    ?+  -.body.response
+      'saved: native Notes confirmed the action; read the notebook for resulting IDs and revision'
+      %error  (cat 3 'failed: native Notes reported ' type.body.response)
         %pending
-          =/  args  (need (de:json:html args.call.request.u.receipt))
-          =/  confirmed  (mole |.((deletion-confirmed:~(. notes-tool bowl) args)))
-          ?:  =(`& confirmed)  'confirmed: notebook is absent from the native Notes directory after deletion'
-          'uncertain: native Notes request is still pending; inspect the notebook before retrying'
+      =/  args  (need (de:json:html args.call.request.u.receipt))
+      =/  confirmed  (mole |.((deletion-confirmed:~(. notes-tool bowl) args)))
+      ?:  =(`& confirmed)
+        'confirmed: notebook is absent from the native Notes directory after deletion'
+      'uncertain: native Notes request is still pending; inspect the notebook before retrying'
         %no-change
-          =/  args  (need (de:json:html args.call.request.u.receipt))
-          =/  action  (required:tlon-spec args 'action' 32)
-          ?.  |(=('publish_note' action) =('unpublish_note' action))
-            'confirmed: native Notes reported no change'
-          =/  confirmed  (mole |.((publication-confirmed:~(. notes-tool bowl) args)))
-          ?:  =(`& confirmed)
-            'confirmed: native Notes public snapshot state verified; inspect get_note_publication for its path'
-          'uncertain: native Notes publication state could not be verified; inspect get_note_publication before retrying'
+      =/  args  (need (de:json:html args.call.request.u.receipt))
+      =/  action  (required:tlon-spec args 'action' 32)
+      ?.  |(=('publish_note' action) =('unpublish_note' action))
+        'confirmed: native Notes reported no change'
+      =/  confirmed  (mole |.((publication-confirmed:~(. notes-tool bowl) args)))
+      ?:  =(`& confirmed)
+        'confirmed: native Notes public snapshot state verified; inspect get_note_publication for its path'
+      'uncertain: native Notes publication state could not be verified; inspect get_note_publication before retrying'
         %notebook
-          =/  summary  summary.body.response
-          =/  args  (need (de:json:html args.call.request.u.receipt))
-          =/  checked  (mole |.((created:~(. notes-tool bowl) args summary)))
-          ?^  checked  (en:json:html u.checked)
-          %-  en:json:html
-          %-  pairs:enjs:format
-          :~  ['status' %s 'uncertain']
-              ['notebook' %s (rap 3 (scot %p ship.flag.summary) '/' name.flag.summary ~)]
-              ['root_folder_id' %s (scot %ud +(id.notebook.summary))]
-              ['note' %s 'Notebook created, but group listing verification failed; inspect get_notebook before use. Do not repeat creation.']
+      =/  summary  summary.body.response
+      =/  args  (need (de:json:html args.call.request.u.receipt))
+      =/  checked  (mole |.((created:~(. notes-tool bowl) args summary)))
+      ?^  checked  (en:json:html u.checked)
+      %-  en:json:html
+      %-  pairs:enjs:format
+      :~  ['status' %s 'uncertain']
+          ['notebook' %s (rap 3 (scot %p ship.flag.summary) '/' name.flag.summary ~)]
+          ['root_folder_id' %s (scot %ud +(id.notebook.summary))]
+          :*  'note'  %s
+              'Notebook created, but group listing verification failed; inspect get_notebook before use. Do not repeat creation.'
           ==
       ==
-    (finish-tool id result)
-      [%profile @ @ ~]
-    ?.  ?=(%poke-ack -.sign)  cor
-    =/  id=json  ;;(json (cue (slav %uv i.t.t.wire)))
-    ?^  p.sign
-      (emit (acp-error-card:codec i.t.wire id '-32603' 'Contacts could not save the profile'))
-    (read-profile i.t.wire id)
-      [%invite %dm @ ~]
-    ?.  ?=(%poke-ack -.sign)  cor
-    ?^  p.sign  cor(error 'Could not accept a DM invitation.')
-    =/  who=@p  (slav %p i.t.t.wire)
-    ?~  (actor-grants who ~)  cor
-    %+  roll  (invitation-posts:messenger who (max after (fall (~(get by cuts) who) `@da`0)))
-    |=  [event=incoming-event:v8:a engine=_cor]
-    (activity:engine event)
-      [%client @ ~]
-    ?:  ?=(%kick -.sign)  cor(listeners (~(del in listeners) i.t.wire))
-    ?.  ?=(%fact -.sign)  cor
-    =/  update  !<(update:v1:ac q.cage.sign)
-    ?.  ?=(%connection -.update)  cor
-    ?:  open.update  cor
-    =.  listeners  (~(del in listeners) i.t.wire)
-    (emit [%pass wire %agent [our.bowl %acp] %leave ~])
-      [%activity ~]
-    ?+  -.sign  cor
-      %watch-ack
-        ?~  p.sign  catch-up(watching &, error '')
-        schedule(watching |, error 'Activity subscription failed; retrying.')
-      %kick  boot
-      %fact
-        ?.  enabled.policy  cor
-        ?.  =(%activity-update-4 p.cage.sign)  cor
-        =/  update  !<(update:v8:a q.cage.sign)
-        ?.  ?=(%add -.update)  cor
-        catch-up
     ==
-      [%route @ @ @ ~]
-    ?.  ?=(%poke-ack -.sign)  cor
-    =/  sid  i.t.wire
-    =/  lane  (~(get by lanes) sid)
-    =/  route  (~(get by routes) sid)
-    ?.  ?&  ?=(^ lane)
-            ?=(^ route)
-            =(epoch.u.lane (slav %ud i.t.t.wire))
-            =(phase.u.route i.t.t.t.wire)
-        ==
-      cor
-    ?^  p.sign
-      ?:  &(=(%create phase.u.route) ?=(^ (saved-config sid)))
-        (start-route sid)
-      (route-error sid 'Conversation authorization setup failed; inspect the ship log.')
-    ?:  =(%fence phase.u.route)  (configure-route sid)
-    (route-complete sid)
-      [%create @ ~]
-    ?.  ?=(%poke-ack -.sign)  cor
-    =/  id=@uv  (slav %uv i.t.wire)
+  (finish-tool id result)
+::
+++  agent-profile
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%profile @ @ ~] wire)
+  ?.  ?=(%poke-ack -.sign)  cor
+  =/  id=json  ;;(json (cue (slav %uv i.t.t.wire)))
+  ?^  p.sign
+    (emit (acp-error-card:codec i.t.wire id '-32603' 'Contacts could not save the profile'))
+  (read-profile i.t.wire id)
+::
+++  agent-invite-dm
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%invite %dm @ ~] wire)
+  ?.  ?=(%poke-ack -.sign)  cor
+  ?^  p.sign  cor(error 'Could not accept a DM invitation.')
+  =/  who=@p  (slav %p i.t.t.wire)
+  ?~  (actor-grants who ~)  cor
+  %+  roll  (invitation-posts:messenger who (max after (fall (~(get by cuts) who) `@da`0)))
+  |=  [event=incoming-event:v8:a engine=_cor]
+  (activity:engine event)
+::
+++  agent-client
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%client @ ~] wire)
+  ?:  ?=(%kick -.sign)  cor(listeners (~(del in listeners) i.t.wire))
+  ?.  ?=(%fact -.sign)  cor
+  =/  update  !<(update:v1:ac q.cage.sign)
+  ?.  ?=(%connection -.update)  cor
+  ?:  open.update  cor
+  =.  listeners  (~(del in listeners) i.t.wire)
+  (emit [%pass wire %agent [our.bowl %acp] %leave ~])
+::
+++  agent-activity
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%activity ~] wire)
+  ?+  -.sign  cor
+      %watch-ack
+    ?~  p.sign  catch-up(watching &, error '')
+    schedule(watching |, error 'Activity subscription failed; retrying.')
+    %kick  boot
+      %fact
+    ?.  enabled.policy  cor
+    ?.  =(%activity-update-4 p.cage.sign)  cor
+    =/  update  !<(update:v8:a q.cage.sign)
+    ?.  ?=(%add -.update)  cor
+    catch-up
+  ==
+::
+++  agent-route
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%route @ @ @ ~] wire)
+  ?.  ?=(%poke-ack -.sign)  cor
+  =/  sid  i.t.wire
+  =/  lane  (~(get by lanes) sid)
+  =/  route  (~(get by routes) sid)
+  ?.  ?&  ?=(^ lane)
+          ?=(^ route)
+          =(epoch.u.lane (slav %ud i.t.t.wire))
+          =(phase.u.route i.t.t.t.wire)
+      ==
+    cor
+  ?^  p.sign
+    ?:  &(=(%create phase.u.route) ?=(^ (saved-config sid)))
+      (start-route sid)
+    (route-error sid 'Conversation authorization setup failed; inspect the ship log.')
+  ?:  =(%fence phase.u.route)  (configure-route sid)
+  (route-complete sid)
+::
+++  agent-create
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%create @ ~] wire)
+  ?.  ?=(%poke-ack -.sign)  cor
+  =/  id=@uv  (slav %uv i.t.wire)
+  =/  job  (~(get by jobs) id)
+  ?~  job  cor
+  ?^  p.sign
+    %=  cor  error  'Could not create a Tlon session.'  jobs
+        (~(put by jobs) id u.job(stage %error, error 'Session creation failed'))
+    ==
+  =/  route  (~(get by routes) sid.u.job)
+  ?.  ?&  ?=(^ route)
+          =(%create phase.u.route)
+          =(sid.u.job binding.u.route)
+      ==
+    cor
+  (route-complete sid.u.job)
+::
+++  agent-hand
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%hand @ @ ~] wire)
+  ?.  ?=(%fact -.sign)  cor
+  =.  cor  (emit [%pass wire %agent [our.bowl %harness] %leave ~])
+  =/  phase=term  i.t.wire
+  =/  id=@uv  (slav %uv i.t.t.wire)
+  =/  result  !<((each json @t) q.cage.sign)
+  ?:  ?=(%| -.result)  cor(error p.result)
+  ?:  =(%disable phase)  cor
+  ?:  =(%bind phase)
     =/  job  (~(get by jobs) id)
     ?~  job  cor
-    ?^  p.sign  cor(error 'Could not create a Tlon session.', jobs (~(put by jobs) id u.job(stage %error, error 'Session creation failed')))
-    =/  route  (~(get by routes) sid.u.job)
-    ?.  ?&  ?=(^ route)
-            =(%create phase.u.route)
-            =(sid.u.job binding.u.route)
-        ==
-      cor
-    (route-complete sid.u.job)
-      [%hand @ @ ~]
-    ?.  ?=(%fact -.sign)  cor
-    =.  cor  (emit [%pass wire %agent [our.bowl %harness] %leave ~])
-    =/  phase=term  i.t.wire
-    =/  id=@uv  (slav %uv i.t.t.wire)
-    =/  result  !<((each json @t) q.cage.sign)
-    ?:  ?=(%| -.result)  cor(error p.result)
-    ?:  =(%disable phase)  cor
-    ?:  =(%bind phase)
-      =/  job  (~(get by jobs) id)
-      ?~  job  cor
-      ?.  (route-ready sid.u.job)  cor
-      =/  route  (~(got by routes) sid.u.job)
-      =.  jobs  (~(put by jobs) id u.job(stage %observe))
-      (hand %observe id [%observe binding.route event.input.u.job (scot %p actor.input.u.job) text.input.u.job])
-    ?:  =(%observe phase)  cor(jobs (~(del by jobs) id))
-    ?:  =(%receipt phase)
-      =/  delivery  (~(get by deliveries) id)
-      ?~  delivery  reconcile
-      ?>  ?=(%o -.p.result)
-      =/  attempt  (ni:dejs:format (~(got by p.p.result) 'attempt'))
-      ?.  =(attempt attempt.u.delivery)  cor
-      reconcile(deliveries (~(del by deliveries) id))
-    ?.  =(%claim phase)  cor
-    (claimed id p.result)
-      [%publish @ @ ~]
-    ?.  ?=(%poke-ack -.sign)  cor
-    =/  id=@uv  (slav %uv i.t.wire)
+    ?.  (route-ready sid.u.job)  cor
+    =/  route  (~(got by routes) sid.u.job)
+    =.  jobs  (~(put by jobs) id u.job(stage %observe))
+    %^  hand
+      %observe
+      id
+    [%observe binding.route event.input.u.job (scot %p actor.input.u.job) text.input.u.job]
+  ?:  =(%observe phase)  cor(jobs (~(del by jobs) id))
+  ?:  =(%receipt phase)
     =/  delivery  (~(get by deliveries) id)
-    ?~  delivery  cor
-    ::  An operator may resolve/retry while a Messenger acknowledgement is
-    ::  in flight. It must never settle a different delivery attempt.
-    ?.  =((slav %ud i.t.t.wire) attempt.u.delivery)  cor
-    ?.  =(%send stage.u.delivery)  cor
-    =/  publication  (~(got by outbox:ledger) id)
-    ::  A channel client's positive poke ack only means it queued a command.
-    ::  Advance on the host-confirmed response, not this optimistic local ack.
-    ?:  &(?=(~ p.sign) !=('dm/' (cut 3 [0 3] address.publication)))  cor
-    =.  cor
-      ?~  p.sign  cor
-      %-  (slog 'harness-tlon: publication rejected' u.p.sign)
-      cor(error 'Messenger rejected a publication; inspect its hand receipt and the ship log.')
-    =/  updated
-      %*  .  u.delivery
-        stage   %receipt
-        status  ?~(p.sign %delivered %failed)
-      ==
-    =.  deliveries  (~(put by deliveries) id updated)
-    (hand %receipt id [%receipt-at 'tlon' id 'harness-tlon' attempt.updated status.updated external.updated])
-  ==
+    ?~  delivery  reconcile
+    ?>  ?=(%o -.p.result)
+    =/  attempt  (ni:dejs:format (~(got by p.p.result) 'attempt'))
+    ?.  =(attempt attempt.u.delivery)  cor
+    reconcile(deliveries (~(del by deliveries) id))
+  ?.  =(%claim phase)  cor
+  (claimed id p.result)
+::
+++  agent-publish
+  |=  [=wire =sign:agent:gall]
+  ^+  cor
+  ?>  ?=([%publish @ @ ~] wire)
+  ?.  ?=(%poke-ack -.sign)  cor
+  =/  id=@uv  (slav %uv i.t.wire)
+  =/  delivery  (~(get by deliveries) id)
+  ?~  delivery  cor
+  ::  An operator may resolve/retry while a Messenger acknowledgement is
+  ::  in flight. It must never settle a different delivery attempt.
+  ?.  =((slav %ud i.t.t.wire) attempt.u.delivery)  cor
+  ?.  =(%send stage.u.delivery)  cor
+  =/  publication  (~(got by outbox:ledger) id)
+  ::  A channel client's positive poke ack only means it queued a command.
+  ::  Advance on the host-confirmed response, not this optimistic local ack.
+  ?:  &(?=(~ p.sign) !=('dm/' (cut 3 [0 3] address.publication)))  cor
+  =.  cor
+    ?~  p.sign  cor
+    %-  (slog 'harness-tlon: publication rejected' u.p.sign)
+    cor(error 'Messenger rejected a publication; inspect its hand receipt and the ship log.')
+  =/  updated
+    %*  .  u.delivery
+      stage  %receipt
+      status  ?~(p.sign %delivered %failed)
+    ==
+  =.  deliveries  (~(put by deliveries) id updated)
+  %^  hand
+    %receipt
+    id
+  [%receipt-at 'tlon' id 'harness-tlon' attempt.updated status.updated external.updated]
 ++  catch-up
   ^+  cor
   ?.  enabled.policy  cor(catching-up |)
@@ -1433,7 +1703,7 @@
   ?.  .^(? %gu /(scot %p our.bowl)/activity/(scot %da now.bowl)/$)  cor(catching-up &)
   =.  activity-through  (max after activity-through)
   ::  Read the native Activity tree directly so recovery work stays bounded.
-  =/  stream=stream:v10:a
+  =/  =stream:v10:a
     .^(stream:v10:a %gx /(scot %p our.bowl)/activity/(scot %da now.bowl)/v6/all/noun)
   =/  rows  (newer:activity-read stream activity-through 17)
   =.  catching-up  (gth (lent rows) 16)
@@ -1454,7 +1724,7 @@
           (lte at.row sibling-owner-after.engine)
       ==
     $(rows t.rows, engine engine(activity-through at.row))
-  ?:  ?&(?=(^ actor) (lte at.row (fall (~(get by cuts.engine) u.actor) `@da`0)))
+  ?:  &(?=(^ actor) (lte at.row (fall (~(get by cuts.engine) u.actor) `@da`0)))
     $(rows t.rows, engine engine(activity-through at.row))
   ?.  (activity-room:engine u.event)  engine(catching-up &)
   =.  engine  (activity:engine(activity-through at.row) u.event)
@@ -1465,7 +1735,10 @@
   ^-  ?
   =/  input  (normalize-owned:p our.bowl policy event actor-owner)
   ?~  input  &
-  =/  sid  (fall (~(get by identities) [actor.u.input to.u.input]) (identity:continuity actor.u.input to.u.input))
+  =/  sid
+    %+  fall
+      (~(get by identities) [actor.u.input to.u.input])
+    (identity:continuity actor.u.input to.u.input)
   =/  pending
     %-  lent
     %+  skim  ~(val by jobs)
@@ -1475,7 +1748,7 @@
   =/  route  (~(get by routes) sid)
   ::  Finish the first route before collecting more input for a new head;
   ::  otherwise creation recovery would enumerate jobs by hash, not arrival.
-  ?:  ?&((gth pending 0) !(route-ready sid))  |
+  ?:  &((gth pending 0) !(route-ready sid))  |
   =/  counts  (queued-counts:hd hands ?~(route '' binding.u.route) sid)
   ::  Cards emitted in this turn have not reached the head yet. Count local
   ::  admission jobs as reservations as well as the head's waiting work.
@@ -1498,11 +1771,16 @@
       %group-join  `[ship.event p.group.event q.group.event]
       %group-kick  `[ship.event p.group.event q.group.event]
       %group-role  `[ship.event p.group.event q.group.event]
-      %group-ask   `[ship.event p.group.event q.group.event]
+      %group-ask  `[ship.event p.group.event q.group.event]
     ==
   ?^  group-notice
     ?~  (actor-grants actor.u.group-notice ~)  cor
-    (note -.event actor.u.group-notice (rap 3 (scot %p host.u.group-notice) '/' name.u.group-notice ~) '')
+    %:  note
+      -.event
+      actor.u.group-notice
+      (rap 3 (scot %p host.u.group-notice) '/' name.u.group-notice ~)
+      ''
+    ==
   ?:  ?=(%contact -.event)
     ?~  (actor-grants who.event ~)  cor
     (note 'contact' who.event (scot %p who.event) '')
@@ -1514,7 +1792,15 @@
     ?.  ?=(%ship -.whom.event)  cor
     ?~  (actor-grants p.whom.event ~)  cor
     =.  cor  (note 'dm-invite' p.whom.event (scot %p p.whom.event) '')
-    (emit [%pass /invite/dm/(scot %p p.whom.event) %agent [our.bowl %chat] %poke %chat-dm-rsvp !>([p.whom.event &])])
+    %-  emit
+    :*  %pass  /invite/dm/(scot %p p.whom.event)  %agent  [our.bowl %chat]  %poke  %chat-dm-rsvp
+        !>([p.whom.event &])
+    ==
+  (admit-message event)
+::
+++  admit-message
+  |=  event=incoming-event:v8:a
+  ^+  cor
   =/  introduction=(unit @t)
     ?.  ?=(?(%dm-post %post) -.event)  ~
     ?.  (actor-owner p.id.key.event)  ~
@@ -1533,7 +1819,10 @@
   =/  cutoff  (max after (fall (~(get by cuts) actor.u.input) `@da`0))
   =?  cutoff  (sibling:~(. ownership bowl) actor.u.input)  (max cutoff sibling-owner-after)
   =?  cutoff  ?=(%channel -.to.u.input)  (max cutoff channel-after)
-  =?  cutoff  ?=(%channel -.to.u.input)  (max cutoff (fall (~(get by channel-cuts) nest.to.u.input) `@da`0))
+  =?  cutoff  ?=(%channel -.to.u.input)
+    %+  max
+      cutoff
+    (fall (~(get by channel-cuts) nest.to.u.input) `@da`0)
   ?:  (lte (posted-at:continuity event) cutoff)  cor
   =/  known  (~(get by identities) [actor.u.input to.u.input])
   =/  sid  (fall known (identity:continuity actor.u.input to.u.input))
@@ -1544,7 +1833,7 @@
   =/  id=@uv  (sham [generation u.input])
   ?:  (~(has by jobs) id)  cor
   ?:  (gte ~(wyt by jobs) 64)  cor(error 'Admission queue full; inspect Tlon pending work.')
-  =/  job=job:t  [u.input sid %create '']
+  =/  =job:t  [u.input sid %create '']
   =.  jobs  (~(put by jobs) id job)
   =.  cor  (note 'message' actor.u.input (address:p to.u.input) event.u.input)
   =.  identities  (~(put by identities) [actor.u.input to.u.input] sid)
@@ -1587,7 +1876,9 @@
   ?>  ?=(%a -.listed)
   ?.  (lien p.listed |=(entry=json =(entry [%s sid])))  ~
   =/  found
-    .^([revision=@ud view=view:h next=(unit step:h)] %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/head/[sid]/noun)
+    .^  [revision=@ud view=view:h next=(unit step:h)]  %gx
+      /(scot %p our.bowl)/harness/(scot %da now.bowl)/head/[sid]/noun
+    ==
   `config.view.found
 ::
 ++  start-route
@@ -1704,8 +1995,11 @@
     ?~  lane  destinations
     ?.  &(enabled.policy (route-ready sid))  destinations
     =/  found
-      %-  mule  |.
-      .^([revision=@ud view=view:h next=(unit step:h)] %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/head/[sid]/noun)
+      %-  mule
+      |.
+      .^  [revision=@ud view=view:h next=(unit step:h)]  %gx
+        /(scot %p our.bowl)/harness/(scot %da now.bowl)/head/[sid]/noun
+      ==
     ?:  ?=(%| -.found)  destinations
     (merge:presence destinations to.u.lane (names:presence view.p.found))
   (show-presence active)
@@ -1765,7 +2059,10 @@
     =/  updated  delivery(stage %receipt)
     =?  status.updated  =(%send stage.delivery)  %uncertain
     =.  deliveries.engine  (~(put by deliveries.engine) id updated)
-    (hand:engine %receipt id [%receipt-at 'tlon' id 'harness-tlon' attempt status.updated external.updated])
+    %^  hand:engine
+      %receipt
+      id
+    [%receipt-at 'tlon' id 'harness-tlon' attempt status.updated external.updated]
   reconcile
 ::
 ++  confirmed
@@ -1861,7 +2158,10 @@
   ?:  =(~ owner.lens)  cor
   =/  owner  (need owner.lens)
   =.  cor
-    (emit [%pass /lens/configure %agent [our.bowl %steward] %poke %steward-action-1 !>(`action:v1:steward`[%configure owner])])
+    %-  emit
+    :*  %pass  /lens/configure  %agent  [our.bowl %steward]  %poke  %steward-action-1
+        !>(`action:v1:steward`[%configure owner])
+    ==
   ?:  (~(has by wex.bowl) /lens/events our.bowl %steward)  cor
   (emit [%pass /lens/events %agent [our.bowl %steward] %watch /v1/lens])
 ::
@@ -1880,7 +2180,9 @@
           =('tlon' hand.u.binding)
           (gth at.observation after.lens)
       ==
-    |=  [left=[id=input-id:h observation=observation:hh] right=[id=input-id:h observation=observation:hh]]
+    |=  $:  left=[id=input-id:h observation=observation:hh]
+            right=[id=input-id:h observation=observation:hh]
+        ==
     (gth at.observation.left at.observation.right)
   =.  candidates  (scag 64 candidates)
   =.  records.lens
@@ -1896,7 +2198,7 @@
     =/  binding  (~(got by bindings.hands) binding.observation)
     =/  sid  sid.binding
     =/  lane  (delivery-lane:engine sid)
-    ?.  ?&(?=(^ lane) live:(lane-authority:engine sid))  engine
+    ?.  &(?=(^ lane) live:(lane-authority:engine sid))  engine
     =/  publication  (~(get by outbox.hands) id)
     =/  publication-hash  (sham publication)
     =/  cached  (~(get by records.lens.engine) id)
@@ -1906,14 +2208,21 @@
         ==
       engine
     =/  snapshot
-      %-  mole  |.
-      .^([revision=@ud view=view:h next=(unit step:h)] %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/head/[sid]/noun)
+      %-  mole
+      |.
+      .^  [revision=@ud view=view:h next=(unit step:h)]  %gx
+        /(scot %p our.bowl)/harness/(scot %da now.bowl)/head/[sid]/noun
+      ==
     ?~  snapshot  engine
     =/  signature  (sham [revision.u.snapshot publication-hash])
-    ?:  ?&(?=(^ cached) =(signature signature.u.cached))  engine
+    ?:  &(?=(^ cached) =(signature signature.u.cached))  engine
     =/  base
-      %-  mole  |.
-      (need .^((unit json) %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/run/[sid]/(scot %uv id)/noun))
+      %-  mole
+      |.
+      %-  need
+      .^  (unit json)  %gx
+        /(scot %p our.bowl)/harness/(scot %da now.bowl)/run/[sid]/(scot %uv id)/noun
+      ==
     ?~  base  engine
     =/  payload  (payload:lens-codec u.base to.u.lane observation now.bowl)
     =/  final=?
@@ -1941,9 +2250,15 @@
   ?.  live:(lane-authority:engine sid.record)
     engine(lens lens.engine(records (~(del by records.lens.engine) id)))
   ?:  (gte attempts.record 3)
-    engine(lens lens.engine(records (~(put by records.lens.engine) id record(stage %failed, next ~)), error 'Owner sync is awaiting confirmation. Check Steward trust, then retry sync.'))
+    %=  engine  lens
+        %=  lens.engine  records  (~(put by records.lens.engine) id record(stage %failed, next ~))
+          error  'Owner sync is awaiting confirmation. Check Steward trust, then retry sync.'
+        ==
+    ==
   =.  records.lens.engine
-    (~(put by records.lens.engine) id record(stage %sending, attempts +(attempts.record), next `(add now.bowl ~s30)))
+    %+  ~(put by records.lens.engine)
+      id
+    record(stage %sending, attempts +(attempts.record), next `(add now.bowl ~s30))
   %:  emit:engine
     %pass
     /lens/send/(scot %p owner)/(scot %uv id)/(scot %uv signature.record)
@@ -1966,19 +2281,22 @@
   ?~  parsed  cor
   =/  hands  ledger
   =/  observation  (~(get by observations.hands) u.parsed)
-  ?.  ?&(?=(^ observation) ?=(?(%failed %cancelled) phase.u.observation))  cor
+  ?.  &(?=(^ observation) ?=(?(%failed %cancelled) phase.u.observation))  cor
   =/  binding  (~(get by bindings.hands) binding.u.observation)
-  ?.  ?&(?=(^ binding) =('tlon' hand.u.binding) live:(lane-authority sid.u.binding))  cor
+  ?.  &(?=(^ binding) =('tlon' hand.u.binding) live:(lane-authority sid.u.binding))  cor
   ?:  (~(has by active.hands) sid.u.binding)  cor
   ::  A deterministic fresh event deduplicates repeated retry clicks. The
   ::  normal admission gate obtains current authority and context again.
-  (hand %lens-retry u.parsed [%observe binding.u.observation (cat 3 'lens-retry/' id) actor.u.observation text.u.observation])
+  %^  hand
+    %lens-retry
+    u.parsed
+  [%observe binding.u.observation (cat 3 'lens-retry/' id) actor.u.observation text.u.observation]
 ::
 ++  claimed
   |=  [id=@uv result=json]
   ^+  cor
   =/  delivery  (~(get by deliveries) id)
-  ?.  ?&(?=(^ delivery) =(%claim stage.u.delivery))  cor
+  ?.  &(?=(^ delivery) =(%claim stage.u.delivery))  cor
   ?>  ?=(%o -.result)
   =/  acquired  (~(get by p.result) 'acquired')
   ?.  =(`[%b &] acquired)  cor(error 'Publication already claimed; reconcile it before retrying.')
@@ -1991,7 +2309,7 @@
       ==
     cor
   =/  lane  (delivery-lane sid.publication)
-  ?:  ?&(?=(^ lane) ?=(%channel -.to.u.lane) !publications-connected)  cor
+  ?:  &(?=(^ lane) ?=(%channel -.to.u.lane) !publications-connected)  cor
   ::  Trust may change between claiming and sending. Do not publish then.
   ?.  ?&  ?=(^ lane)
           (publication-current publication)
@@ -2007,12 +2325,22 @@
   =/  blob=(unit @t)
     ?.  ?=(%dm -.to.u.lane)  ~
     ::  Optional presentation cannot prevent delivery of the ordinary reply.
-    %-  mole  |.
-    (need .^((unit @t) %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/work-card/(scot %uv id)/noun))
-  =?  blob  ?&  enabled.lens
-                 =(owner.lens owner.policy)
-                 (~(has by records.lens) input.publication)
-             ==
+    %-  mole
+    |.
+    %-  need
+    .^((unit @t) %gx /(scot %p our.bowl)/harness/(scot %da now.bowl)/work-card/(scot %uv id)/noun)
+  =?  blob
+    ?&  enabled.lens
+        =(owner.lens owner.policy)
+        (~(has by records.lens) input.publication)
+    ==
     `(pointer:lens-codec our.bowl input.publication blob)
-  (emit (publish:messenger /publish/(scot %uv id)/(scot %ud attempt) to.u.lane body.publication last-sent blob))
+  %-  emit
+  %:  publish:messenger
+    /publish/(scot %uv id)/(scot %ud attempt)
+    to.u.lane
+    body.publication
+    last-sent
+    blob
+  ==
 --

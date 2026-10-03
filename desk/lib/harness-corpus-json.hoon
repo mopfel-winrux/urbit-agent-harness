@@ -34,7 +34,8 @@
   |=  [raw=@t fence=@t]
   ^-  (unit cursor:c)
   ?.  (lte (met 3 raw) 2.048)  ~
-  %-  mole  |.
+  %-  mole
+  |.
   =/  value  (need (de:json:html raw))
   =,  dejs:format
   =/  saved=[fence=@t sent=@t id=@ud]

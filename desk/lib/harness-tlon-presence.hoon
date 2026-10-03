@@ -10,38 +10,38 @@
   ?:  =(~ wait.view)  ~
   =/  items  (flop items.view)
   |-  ^-  (set @t)
-  ?~  items  (silt ~['tools'])
-  ?.  ?=(%assistant -.i.items)  $(items t.items)
-  ::  Only the latest tool batch can own the current wait IDs. Never export
-  ::  arbitrary model-supplied names, arguments, server IDs or result bodies.
-  %+  roll  calls.i.items
-  |=  [call=tool-call:h tools=(set @t)]
-  ^-  (set @t)
-  ?.  (~(has in wait.view) id.call)  tools
-  (~(put in tools) ?~((tool-family:ht name.call) 'tools' name.call))
+      ?~  items  (silt ~['tools'])
+      ?.  ?=(%assistant -.i.items)  $(items t.items)
+      ::  Only the latest tool batch can own the current wait IDs. Never export
+      ::  arbitrary model-supplied names, arguments, server IDs or result bodies.
+      %+  roll  calls.i.items
+      |=  [call=tool-call:h tools=(set @t)]
+      ^-  (set @t)
+      ?.  (~(has in wait.view) id.call)  tools
+      (~(put in tools) ?~((tool-family:ht name.call) 'tools' name.call))
 ++  label
   |=  name=@t
   ^-  @t
   ?+  name  (cat 3 'Using ' name)
-    %tools               'Using tools...'
-    %'http_fetch'         'Fetching a page'
-    %'curl'               'Making an HTTP request'
-    %'web_search'         'Searching the web'
-    %'read_desk_file'     'Reading a file'
-    %'list_desk_files'    'Listing files'
-    %'list_desk_scopes'   'Checking file access'
-    %'current_time'       'Checking the time'
+    %tools  'Using tools...'
+    %'http_fetch'  'Fetching a page'
+    %'curl'  'Making an HTTP request'
+    %'web_search'  'Searching the web'
+    %'read_desk_file'  'Reading a file'
+    %'list_desk_files'  'Listing files'
+    %'list_desk_scopes'  'Checking file access'
+    %'current_time'  'Checking the time'
     %'tlon_read_history'  'Reading chat history'
     %'tlon_history_page'  'Reading older messages'
     %'tlon_search_history'  'Searching chat history'
-    %'tlon_react'         'Adding a reaction'
-    %'tlon_unreact'       'Removing a reaction'
+    %'tlon_react'  'Adding a reaction'
+    %'tlon_unreact'  'Removing a reaction'
     %'tlon_upload_image'  'Uploading an image'
-    %'cron_add'           'Scheduling a task'
-    %'reminder_add'       'Setting a reminder'
-    %'cron_list'          'Checking schedules'
-    %'cron_remove'        'Cancelling a schedule'
-    %'call_mcp_tool'      'Using a connected service'
+    %'cron_add'  'Scheduling a task'
+    %'reminder_add'  'Setting a reminder'
+    %'cron_list'  'Checking schedules'
+    %'cron_remove'  'Cancelling a schedule'
+    %'call_mcp_tool'  'Using a connected service'
   ==
 ++  display
   |=  tools=(set @t)
@@ -69,7 +69,7 @@
   |=  to=destination:t
   ^-  path
   ?-  -.to
-    %dm       /dm/(scot %p who.to)
+    %dm  /dm/(scot %p who.to)
     %channel  /channel/[kind.nest.to]/(scot %p ship.nest.to)/[name.nest.to]
   ==
 ++  merge

@@ -27,12 +27,12 @@
   =/  first  (pairs:enjs:format ~[['limit' %n '1']])
   =/  second  (pairs:enjs:format ~[['limit' %n '1'] ['offset' %n '1']])
   ;:  weld
-    (expect-eq !>(~['newer']) !>((ids fixture 'projects' first)))
-    (expect-eq !>(~['older']) !>((ids fixture 'projects' second)))
-    (expect-eq !>(~['new-doc']) !>((ids fixture 'artifacts' first)))
-    (expect-eq !>(~['old-doc']) !>((ids fixture 'artifacts' second)))
-    (expect-eq !>(~['new-task']) !>((ids fixture 'tasks' first)))
-    (expect-eq !>(~['old-task']) !>((ids fixture 'tasks' second)))
+      (expect-eq !>(~['newer']) !>((ids fixture 'projects' first)))
+      (expect-eq !>(~['older']) !>((ids fixture 'projects' second)))
+      (expect-eq !>(~['new-doc']) !>((ids fixture 'artifacts' first)))
+      (expect-eq !>(~['old-doc']) !>((ids fixture 'artifacts' second)))
+      (expect-eq !>(~['new-task']) !>((ids fixture 'tasks' first)))
+      (expect-eq !>(~['old-task']) !>((ids fixture 'tasks' second)))
   ==
 ++  test-edits-move-records-first-without-depending-on-audit-retention
   =/  db  (step fixture [%project-edit 'older' 1 'Edited' '' |] ~2026.9.12)
@@ -41,28 +41,30 @@
   =/  db  (step db [%task-update 'old-task' version %done 'Finished' ~ ~] ~2026.9.12)
   =.  history.db  ~
   ;:  weld
-    (expect-eq !>(~['older' 'newer']) !>((ids db 'projects' [%o ~])))
-    (expect-eq !>(~['old-doc' 'new-doc']) !>((ids db 'artifacts' [%o ~])))
-    (expect-eq !>(~['old-task' 'new-task']) !>((ids db 'tasks' [%o ~])))
+      (expect-eq !>(~['older' 'newer']) !>((ids db 'projects' [%o ~])))
+      (expect-eq !>(~['old-doc' 'new-doc']) !>((ids db 'artifacts' [%o ~])))
+      (expect-eq !>(~['old-task' 'new-task']) !>((ids db 'tasks' [%o ~])))
   ==
 ++  test-ties-are-stable-and-filtering-precedes-pagination
   =/  db  (step fixture [%project-create 'alpha' 'Alpha' ''] ~2026.9.11)
   =/  db  (step db [%task-create 'foreign-task' 'newer' 'Foreign' ''] ~2026.9.12)
   =/  args  (pairs:enjs:format ~[['project' %s 'older'] ['limit' %n '1']])
   ;:  weld
-    (expect-eq !>(~['alpha' 'newer' 'older']) !>((ids db 'projects' [%o ~])))
-    (expect-eq !>(~['new-task']) !>((ids db 'tasks' args)))
-    (expect-eq !>(~['new-doc' 'old-doc']) !>((ids (view:client db 'older') 'artifacts' [%o ~])))
-    (expect-eq !>(`(unit @da)`~) !>((~(get by recency:(view:client db 'older')) [%project 'newer'])))
+      (expect-eq !>(~['alpha' 'newer' 'older']) !>((ids db 'projects' [%o ~])))
+      (expect-eq !>(~['new-task']) !>((ids db 'tasks' args)))
+      (expect-eq !>(~['new-doc' 'old-doc']) !>((ids (view:client db 'older') 'artifacts' [%o ~])))
+      %+  expect-eq
+        !>(`(unit @da)`~)
+      !>((~(get by recency:(view:client db 'older')) [%project 'newer']))
   ==
 ++  test-proposal-decisions-count-as-recent-activity
   =/  db  (step fixture [%propose 'first' 'old-doc' 1 ['Proposed' 'Body' ~] 'Review'] ~2026.9.12)
   =/  db  (step db [%propose 'second' 'new-doc' 1 ['Proposed' 'Body' ~] 'Review'] ~2026.9.13)
   =/  decided  (step db [%review 'first' | 'Keep the current document'] ~2026.9.14)
   ;:  weld
-    (expect-eq !>(~['second' 'first']) !>((ids db 'proposals' [%o ~])))
-    (expect-eq !>(~['first' 'second']) !>((ids decided 'proposals' [%o ~])))
-    (expect-eq !>(~['old-doc' 'new-doc']) !>((ids decided 'artifacts' [%o ~])))
+      (expect-eq !>(~['second' 'first']) !>((ids db 'proposals' [%o ~])))
+      (expect-eq !>(~['first' 'second']) !>((ids decided 'proposals' [%o ~])))
+      (expect-eq !>(~['old-doc' 'new-doc']) !>((ids decided 'artifacts' [%o ~])))
   ==
 ++  test-revisions-use-numeric-newest-first-order
   =/  db  fixture

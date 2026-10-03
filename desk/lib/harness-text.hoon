@@ -29,7 +29,7 @@
     ==
   ?:  valid
     %=  $
-      bytes          (slag width `(list @)`bytes)
+      bytes  (slag width `(list @)`bytes)
       reversed-bytes  (weld (flop part) reversed-bytes)
     ==
   ::  U+FFFD marks invalid bytes; valid surrounding text is retained.

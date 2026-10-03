@@ -29,7 +29,9 @@
   (~(gas by trusted) ~(tap by explicit))
 ::
 ++  revision
-  |=  [explicit=(map @p peer-grant:h) trusted=(map @p peer-grant:h) config=(unit config:h) limits=(map @p @ud)]
+  |=  $:  explicit=(map @p peer-grant:h)  trusted=(map @p peer-grant:h)  config=(unit config:h)
+          limits=(map @p @ud)
+      ==
   ^-  @t
   (scot %uv (sham [explicit trusted config limits]))
 ::
@@ -45,7 +47,12 @@
   ==
 ::
 ++  settings-json
-  |=  [our=@p explicit=(map @p peer-grant:h) trusted=(map @p peer-grant:h) config=(unit config:h) limits=(map @p @ud)]
+  |=  $:  our=@p
+          explicit=(map @p peer-grant:h)
+          trusted=(map @p peer-grant:h)
+          config=(unit config:h)
+          limits=(map @p @ud)
+      ==
   ^-  json
   %-  pairs:enjs:format
   :~  ['ship' %s (scot %p our)]

@@ -4,7 +4,7 @@
 |%
 ++  fixture-bowl
   ^-  bowl:gall
-  =/  bowl=bowl:gall  *bowl:gall
+  =/  =bowl:gall  *bowl:gall
   bowl(our ~lux, src ~lux, now ~2026.10.1)
 ++  crew
   ^-  crew:club:v7:c
@@ -14,7 +14,7 @@
   =.  id.post  [~lux ~2026.9.6]
   =.  +.post
     +.post(author ~lux, sent ~2026.9.6, content ~[[%inline ~['Parent']]])
-  =/  reply=reply:v7:c  *reply:v7:c
+  =/  =reply:v7:c  *reply:v7:c
   =.  id.reply  [~bud ~2026.9.7]
   =.  +.reply
     +.reply(author ~bud, sent ~2026.9.7, content ~[[%inline ~['Reply']]])
@@ -61,8 +61,8 @@
   =/  expected=action:club:v7:c
     [0v1 (sham [/fixture now:fixture-bowl]) %team ~lux &]
   ;:  weld
-    (expect-eq !>(`expected) !>(command.result))
-    (expect-eq !>(~) !>((mole |.((request args crew post)))))
+      (expect-eq !>(`expected) !>(command.result))
+      (expect-eq !>(~) !>((mole |.((request args crew post)))))
   ==
 ::
 ++  test-thread-send-retains-parent-and-requires-current-membership
@@ -84,9 +84,9 @@
         `now:fixture-bowl
     ==
   ;:  weld
-    (expect-eq !>(`expected) !>(command.result))
-    (expect-eq !>(~) !>((mole |.((request args crew(team ~) post)))))
-    (expect-eq !>(~) !>((mole |.((request args crew(net %invited) post)))))
+      (expect-eq !>(`expected) !>(command.result))
+      (expect-eq !>(~) !>((mole |.((request args crew(team ~) post)))))
+      (expect-eq !>(~) !>((mole |.((request args crew(net %invited) post)))))
   ==
 ::
 ++  test-deletion-requires-confirmation-authorship-and-membership
@@ -100,10 +100,10 @@
   =/  other  post
   =.  author.other  ~bud
   ;:  weld
-    (expect-eq !>(`expected) !>(command.result))
-    (expect-eq !>(~) !>((mole |.((request (with-field args 'confirm' 'wrong') crew post)))))
-    (expect-eq !>(~) !>((mole |.((request args crew other)))))
-    (expect-eq !>(~) !>((mole |.((request args crew(team ~) post)))))
+      (expect-eq !>(`expected) !>(command.result))
+      (expect-eq !>(~) !>((mole |.((request (with-field args 'confirm' 'wrong') crew post)))))
+      (expect-eq !>(~) !>((mole |.((request args crew other)))))
+      (expect-eq !>(~) !>((mole |.((request args crew(team ~) post)))))
   ==
 ::
 ++  test-thread-history-retains-parent-and-skips-tombstones
@@ -113,11 +113,15 @@
   =/  messages  (field body 'messages')
   ?>  ?=([%a [* ~]] messages)
   ;:  weld
-    (expect-eq !>(~) !>(command.result))
-    (expect-eq !>([%s (cat 3 '~lux/' (scot %da ~2026.9.6))]) !>((field (field body 'parent') 'message_id')))
-    (expect-eq !>([%s (cat 3 '~bud/' (scot %da ~2026.9.7))]) !>((field i.p.messages 'message_id')))
-    (expect-eq !>([%s 'Reply']) !>((field i.p.messages 'text')))
-    (expect-eq !>([%n '2']) !>((field body 'scanned')))
-    (expect-eq !>([%b |]) !>((field body 'has_more')))
+      (expect-eq !>(~) !>(command.result))
+      %+  expect-eq
+        !>([%s (cat 3 '~lux/' (scot %da ~2026.9.6))])
+      !>((field (field body 'parent') 'message_id'))
+      %+  expect-eq
+        !>([%s (cat 3 '~bud/' (scot %da ~2026.9.7))])
+      !>((field i.p.messages 'message_id'))
+      (expect-eq !>([%s 'Reply']) !>((field i.p.messages 'text')))
+      (expect-eq !>([%n '2']) !>((field body 'scanned')))
+      (expect-eq !>([%b |]) !>((field body 'has_more')))
   ==
 --

@@ -4,8 +4,10 @@
     ct=tlon-contacts, a=tlon-activity-ver
 /+  story=harness-tlon-story, profile=harness-tlon-profile,
     ht=harness-tools, publication=harness-tlon-publication,
-    hist=harness-tlon-history, onboarding=harness-tlon-onboarding
+    hist=harness-tlon-history, onboarding=harness-tlon-onboarding,
+    paths=harness-tlon-paths
 |_  bowl=bowl:gall
++*  read-path  ~(. paths [our now]:bowl)
 +$  card  card:agent:gall
 ::
 ++  owner-invitations
@@ -23,10 +25,10 @@
 ++  publish
   |=  [wire=wire to=destination:t text=@t sent=@da blob=(unit @t)]
   ^-  card
-  =/  memo=memo:v9:dv  [(text-to-story:story text) our.bowl sent]
+  =/  =memo:v9:dv  [(text-to-story:story text) our.bowl sent]
   ?-  -.to
       %dm
-    =/  diff=diff:dm:v7:cv
+    =/  =diff:dm:v7:cv
       ?~  parent.to  [[our.bowl sent] %add [memo chat+/ ~ blob] `sent]
       ::  Parent is the author's durable writ id, not activity's local time.
       [u.parent.to %reply [our.bowl sent] ~ %add [memo blob] `sent]
@@ -78,7 +80,9 @@
   ::  accepting, project a bounded page through the usual admission gate.
   ::  Original writ ids make overlap with live activity idempotent.
   =/  page=paged-writs:v7:cv
-    .^(paged-writs:v7:cv %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/v4/dm/(scot %p who)/writs/newest/64/light/chat-paged-writs-4)
+    .^  paged-writs:v7:cv  %gx
+      (weld (dm-writs:read-path who) /newest/64/light/chat-paged-writs-4)
+    ==
   %+  murn  (tap:on:writs:v7:cv writs.page)
   |=  [time=@da item=(may:v7:cv writ:v7:cv)]
   ^-  (unit incoming-event:v8:a)
@@ -100,12 +104,17 @@
       %dm-post
     ?.  ?=(%ship -.whom.event)  ~
     =/  post=(may:v7:cv writ:v7:cv)
-      .^((may:v7:cv writ:v7:cv) %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/v4/dm/(scot %p p.whom.event)/writs/writ/id/(scot %p p.id.key.event)/(scot %ud q.id.key.event)/chat-writ-4)
+      .^  (may:v7:cv writ:v7:cv)  %gx
+        (dm-post:read-path p.whom.event id.key.event)
+      ==
     ?:  ?=(%| -.post)  ~
     (request:onboarding p.id.key.event blob:+.+.post)
       %post
     =/  post=(may:v9:dv post:v9:dv)
-      .^((may:v9:dv post:v9:dv) %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/[kind.channel.event]/(scot %p ship.channel.event)/[name.channel.event]/posts/post/id/(scot %ud time.key.event)/channel-post-4)
+      .^  (may:v9:dv post:v9:dv)  %gx
+        %+  weld  (channel-posts:read-path %v4 channel.event)
+        /post/id/(scot %ud time.key.event)/channel-post-4
+      ==
     ?:  ?=(%| -.post)  ~
     (request:onboarding p.id.key.event blob:+.+.+.post)
   ==
@@ -117,11 +126,15 @@
       %dm
     ?^  parent.to
       =/  post=(may:v7:cv writ:v7:cv)
-        .^((may:v7:cv writ:v7:cv) %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/v4/dm/(scot %p who.to)/writs/writ/id/(scot %p p.u.parent.to)/(scot %ud q.u.parent.to)/chat-writ-4)
+        .^  (may:v7:cv writ:v7:cv)  %gx
+          (dm-post:read-path who.to u.parent.to)
+        ==
       ?:  ?=(%| -.post)  ~
       (dm-thread:hist +.post)
     =/  page=paged-writs:v7:cv
-      .^(paged-writs:v7:cv %gx /(scot %p our.bowl)/chat/(scot %da now.bowl)/v4/dm/(scot %p who.to)/writs/newest/20/light/chat-paged-writs-4)
+      .^  paged-writs:v7:cv  %gx
+        (weld (dm-writs:read-path who.to) /newest/20/light/chat-paged-writs-4)
+      ==
     %+  murn  (tap:on:writs:v7:cv writs.page)
     |=  [time=@da item=(may:v7:cv writ:v7:cv)]
     ^-  (unit [id=@t author=@p sent=@da text=@t])
@@ -138,14 +151,22 @@
     ?^  parent.to
       ::  Fetch one outline around the exact parent, never all thread replies.
       =/  page=paged-posts:v9:dv
-        .^(paged-posts:v9:dv %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/[kind.nest.to]/(scot %p ship.nest.to)/[name.nest.to]/posts/older/(scot %ud +(u.parent.to))/1/outline/channel-posts-4)
+        .^  paged-posts:v9:dv  %gx
+          %+  weld  (channel-posts:read-path %v4 nest.to)
+          /older/(scot %ud +(u.parent.to))/1/outline/channel-posts-4
+        ==
       =/  post  (get:on-posts:v9:dv posts.page u.parent.to)
       ?>  ?=([~ %& *] post)
-      =/  replies=replies:v9:dv
-        .^(replies:v9:dv %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/[kind.nest.to]/(scot %p ship.nest.to)/[name.nest.to]/posts/post/id/(scot %ud u.parent.to)/replies/newest/19/channel-replies-4)
+      =/  =replies:v9:dv
+        .^  replies:v9:dv  %gx
+          %+  weld  (channel-replies:read-path %v4 nest.to u.parent.to)
+          /newest/19/channel-replies-4
+        ==
       (channel-thread:hist +.u.post replies)
     =/  page=paged-posts:v9:dv
-      .^(paged-posts:v9:dv %gx /(scot %p our.bowl)/channels/(scot %da now.bowl)/v4/[kind.nest.to]/(scot %p ship.nest.to)/[name.nest.to]/posts/newest/20/outline/channel-posts-4)
+      .^  paged-posts:v9:dv  %gx
+        (weld (channel-posts:read-path %v4 nest.to) /newest/20/outline/channel-posts-4)
+      ==
     %+  murn  (tap:on-posts:v9:dv posts.page)
     |=  [time=@da item=(may:v9:dv post:v9:dv)]
     ^-  (unit [id=@t author=@p sent=@da text=@t])
@@ -185,20 +206,25 @@
       %dm
     =/  parts  (need (rush (cat 3 '/' message) stap))
     ?>  ?=([@ @ ~] parts)
-    =/  id=id:v7:cv  [(slav %p i.parts) (slav %da i.t.parts)]
-    =/  delta=delta:writs:v7:cv
+    =/  =id:v7:cv  [(slav %p i.parts) (slav %da i.t.parts)]
+    =/  =delta:writs:v7:cv
       ?:  |(?=(~ parent.to) =(id u.parent.to))
         ?~(emoji [%del-react our.bowl] [%add-react our.bowl u.emoji])
       [%reply id ~ ?~(emoji [%del-react our.bowl] [%add-react our.bowl u.emoji])]
-    =/  root  ?:  |(?=(~ parent.to) =(id u.parent.to))  id
+    =/  root
+      ?:  |(?=(~ parent.to) =(id u.parent.to))  id
       u.parent.to
-    [%pass wire %agent [our.bowl %chat] %poke %chat-dm-action-2 !>(`action:dm:v7:cv`[who.to root delta])]
+    :*  %pass  wire  %agent  [our.bowl %chat]  %poke  %chat-dm-action-2
+        !>(`action:dm:v7:cv`[who.to root delta])
+    ==
       %channel
     =/  id=@da  (slav %da message)
     =/  action=a-channels:v9:dv
       ?:  |(?=(~ parent.to) =(id u.parent.to))
         [%channel nest.to %post ?~(emoji [%del-react id our.bowl] [%add-react id our.bowl u.emoji])]
-      [%channel nest.to %post %reply u.parent.to ?~(emoji [%del-react id our.bowl] [%add-react id our.bowl u.emoji])]
+      :*  %channel  nest.to  %post  %reply  u.parent.to
+          ?~(emoji [%del-react id our.bowl] [%add-react id our.bowl u.emoji])
+      ==
     [%pass wire %agent [our.bowl %channels] %poke %channel-action-1 !>(action)]
   ==
 ::
@@ -224,8 +250,10 @@
 ::
 ++  contacts
   ^-  json
-  =/  directory=directory:ct
-    .^(directory:ct %gx /(scot %p our.bowl)/contacts/(scot %da now.bowl)/v1/directory/contact-directory-0)
+  =/  =directory:ct
+    .^  directory:ct  %gx
+      /(scot %p our.bowl)/contacts/(scot %da now.bowl)/v1/directory/contact-directory-0
+    ==
   :-  %a
   %+  turn  ~(tap by directory)
   |=  [who=@p leaf=leaf:ct]
