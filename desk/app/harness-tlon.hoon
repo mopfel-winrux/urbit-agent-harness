@@ -1911,7 +1911,7 @@
   =.  system.config
     %+  rap  3
     :~  system.config
-        '\\0a\\0aThis session is a Tlon conversation with '
+        '\0a\0aThis session is a Tlon conversation with '
         (scot %p actor.u.lane)
         ' at '
         (address:p to.u.lane)

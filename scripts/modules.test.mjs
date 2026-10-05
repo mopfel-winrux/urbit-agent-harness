@@ -292,3 +292,14 @@ test('Tlon messages are driven by head facts and receipts, never maintenance wak
   assert.match(arm('claimed'), /%claim stage\.u\.delivery/)
   assert.match(arm('claimed'), /attempt:\(get-control:hd hands id\)/)
 })
+
+test('prompt cords escape newlines, not literal backslashes', async () => {
+  const root = new URL('../desk/', import.meta.url)
+  for (const path of (await readdir(root, { recursive: true })).filter(path => path.endsWith('.hoon'))) {
+    const source = await readFile(new URL(path, root), 'utf8')
+    assert.doesNotMatch(source, /\\\\0a/, `${path}: '\\\\0a' is a literal backslash, not a newline`)
+  }
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const start = adapter.split('++  start-route\n')[1].split('\n++  ')[0]
+  assert.match(start, /system\.config\n\s+'\\0a\\0aThis session is a Tlon conversation with '/)
+})
