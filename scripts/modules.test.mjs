@@ -304,3 +304,14 @@ test('every inference turn names the operating ship from the bowl at dispatch', 
   assert.match(identify, /\(scot %p our\)/)
   assert.doesNotMatch(identify, /~[a-z]{3}(?:[a-z]{3})?(?:-[a-z]{6})*\b/, 'no hard-coded ship')
 })
+
+test('prompt cords escape newlines, not literal backslashes', async () => {
+  const root = new URL('../desk/', import.meta.url)
+  for (const path of (await readdir(root, { recursive: true })).filter(path => path.endsWith('.hoon'))) {
+    const source = await readFile(new URL(path, root), 'utf8')
+    assert.doesNotMatch(source, /\\\\0a/, `${path}: '\\\\0a' is a literal backslash, not a newline`)
+  }
+  const adapter = await readFile(new URL('../desk/app/harness-tlon.hoon', import.meta.url), 'utf8')
+  const start = adapter.split('++  start-route\n')[1].split('\n++  ')[0]
+  assert.match(start, /system\.config\n\s+'\\0a\\0aThis session is a Tlon conversation with '/)
+})
