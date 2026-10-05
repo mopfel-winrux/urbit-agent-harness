@@ -1527,7 +1527,7 @@
   (notes-write-result pending leave response)
 ::
 ++  notes-watch-ack
-  |=  [request-id=@uv sign=$>(%watch-ack sign:agent:gall) pending=pending:hn]
+  |=  [request-id=@uv sign=[%watch-ack p=(unit tang)] pending=pending:hn]
   ^-  (quip card _state)
   ?^  p.sign
     %+  notes-failed
