@@ -5016,6 +5016,11 @@
 ++  llm-card
   |=  [sid=session-id:h req=@ud kind=request-kind:h =view:h checkpoint=@uvH]
   ^-  card
+  =.  view
+    %:  identify:hp
+      view  kind  our.bowl
+      ?.(moon:~(. ownership bowl) ~ `(sein:title our.bowl now.bowl our.bowl))
+    ==
   =/  payload=json
     (payload:hp view kind (skills-visible sid skills))
   =/  body=@t  (en:json:html payload)

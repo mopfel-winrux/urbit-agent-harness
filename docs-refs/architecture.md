@@ -254,6 +254,10 @@ are separate; device tokens renew on use on the ship. See
 [authentication](acp.md#provider-authentication).
 
 New conversations snapshot the durable agent defaults and may then diverge.
+Each turn's system instructions begin with the operating ship's full @p (and
+parent planet, for a moon), read from the bowl at dispatch rather than stored in
+session configuration. Editing instructions or conversation content cannot
+replace it. Summary requests keep their fixed instruction.
 Model catalogs are fetched by Iris and returned through the requesting ACP
 connection. When a provider publishes context-window metadata, selecting that
 model updates the session budget automatically. Catalog failure or absent

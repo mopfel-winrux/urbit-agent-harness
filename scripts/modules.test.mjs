@@ -292,3 +292,15 @@ test('Tlon messages are driven by head facts and receipts, never maintenance wak
   assert.match(arm('claimed'), /%claim stage\.u\.delivery/)
   assert.match(arm('claimed'), /attempt:\(get-control:hd hands id\)/)
 })
+
+test('every inference turn names the operating ship from the bowl at dispatch', async () => {
+  const agent = await readFile(new URL('../desk/app/harness.hoon', import.meta.url), 'utf8')
+  const dispatch = agent.split('++  llm-card\n')[1].split('\n++  ')[0]
+  assert.match(dispatch, /identify:hp\s+view\s+kind\s+our\.bowl/)
+  assert.ok(dispatch.indexOf('identify:hp') < dispatch.indexOf('payload:hp'), 'identity precedes encoding')
+  assert.equal((agent.match(/payload:hp /g) || []).length, 1, 'llm-card is the only encoding boundary')
+  const identify = code('harness-provider').split('++  identify\n')[1].split('\n++  ')[0]
+  assert.match(identify, /\?\.  =\(%turn kind\)  view/)
+  assert.match(identify, /\(scot %p our\)/)
+  assert.doesNotMatch(identify, /~[a-z]{3}(?:[a-z]{3})?(?:-[a-z]{6})*\b/, 'no hard-coded ship')
+})
