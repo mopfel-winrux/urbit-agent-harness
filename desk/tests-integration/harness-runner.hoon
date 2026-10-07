@@ -100,79 +100,86 @@
     %+  ~(on-poke +.claimed bowl)
       %handle-http-request
     !>([`@ta`%fixture claim])
-  =/  delta  (put:j (event 2 'delta') 'text' [%s 'Hello 🙂'])
-  =/  streamed
-    %+  ~(on-poke +.again bowl)
-      %handle-http-request
-    !>([`@ta`%fixture (request (en:json:html delta))])
-  =/  streaming  !<(state-0 ~(on-save +.streamed bowl))
-  =/  complete
-    %^  put:j
-      (event 3 'complete')
-      'response'
-    %-  need
-    %-  de:json:html
-    '{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"Hello back"}}]}'
-  =/  done
-    %+  ~(on-poke +.streamed bowl)
-      %handle-http-request
-    !>([`@ta`%fixture (request (en:json:html complete))])
-  =/  repeated
-    %+  ~(on-poke +.done bowl)
-      %handle-http-request
-    !>([`@ta`%fixture (request (en:json:html complete))])
-  =/  final  !<(state-0 ~(on-save +.repeated bowl))
-  =/  tool-complete
-    %^  put:j
-      (event 2 'complete')
-      'response'
-    %-  need
-    %-  de:json:html
-    '{"choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","content":"","tool_calls":[{"id":"fetch","type":"function","function":{"name":"http_fetch","arguments":"{\\"url\\":\\"https://example.test\\"}"}}]}}]}'
-  =/  parked
-    %+  ~(on-poke +.claimed bowl)
-      %handle-http-request
-    !>([`@ta`%fixture (request (en:json:html tool-complete))])
-  =/  parked-state  !<(state-0 ~(on-save +.parked bowl))
-  =/  parked-stop
-    %+  ~(on-poke +.parked bowl)
-      %harness-action
-    !>(`action:h`[%cancel 'channel'])
-  =/  parked-stopped  !<(state-0 ~(on-save +.parked-stop bowl))
-  =/  stopped
-    %+  ~(on-poke +.queued bowl)
-      %harness-action
-    !>(`action:h`[%cancel 'channel'])
-  =/  stopped-state  !<(state-0 ~(on-save +.stopped bowl))
-  =/  revoked  (owner:runner runners.queue-state 'revoke' args:seed ~2026.10.1)
-  ?>  ?=(%& -.revoked)
-  =/  disconnected  (~(on-load head bowl) !>(queue-state(runners db.p.revoked)))
-  =/  revoke-state  !<(state-0 ~(on-save +.disconnected bowl))
-  ;:  weld
-      (expect-eq !>('prompt') !>((str:j envelope 'type')))
-      (expect-eq !>(200) !>((code -.claimed)))
-      (expect-eq !>(200) !>((code -.again)))
-      %+  expect-eq
-        !>(`stream-progress`['Hello 🙂' 10])
-      !>((~(got by streams.streaming) ['channel' req.job]))
-      (expect-eq !>(0) !>(~(wyt by streams.final)))
-      (expect-eq !>(200) !>((code -.done)))
-      (expect-eq !>(200) !>((code -.repeated)))
-      %+  expect-eq
-        !>(`item:h`[%assistant 'Hello back' ~])
-      !>((rear items:(play:hl log:(~(got by sessions.final) 'channel'))))
-      (expect-eq !>(0) !>(~(wyt by jobs.runners.final)))
-      (expect !>(parked:(~(got by jobs.runners.parked-state) attempt.job)))
-      (expect-eq !>(0) !>(~(wyt by jobs.runners.parked-stopped)))
-      %+  expect-eq
-        !>('cancel')
-      !>((str:j (~(got by events:(~(got by registry.runners.parked-stopped) 'laptop')) 2) 'type'))
-      (expect-eq !>(0) !>(~(wyt by jobs.runners.stopped-state)))
-      %+  expect-eq
-        !>('cancel')
-      !>((str:j (~(got by events:(~(got by registry.runners.stopped-state) 'laptop')) 2) 'type'))
-      (expect-eq !>(0) !>(~(wyt by jobs.runners.revoke-state)))
-  ==
+  |^
+    (weld reply-replay cancel-and-revoke)
+  ++  reply-replay
+    =/  delta  (put:j (event 2 'delta') 'text' [%s 'Hello 🙂'])
+    =/  streamed
+      %+  ~(on-poke +.again bowl)
+        %handle-http-request
+      !>([`@ta`%fixture (request (en:json:html delta))])
+    =/  streaming  !<(state-0 ~(on-save +.streamed bowl))
+    =/  complete
+      %^  put:j
+        (event 3 'complete')
+        'response'
+      %-  need
+      %-  de:json:html
+      '{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"Hello back"}}]}'
+    =/  done
+      %+  ~(on-poke +.streamed bowl)
+        %handle-http-request
+      !>([`@ta`%fixture (request (en:json:html complete))])
+    =/  repeated
+      %+  ~(on-poke +.done bowl)
+        %handle-http-request
+      !>([`@ta`%fixture (request (en:json:html complete))])
+    =/  final  !<(state-0 ~(on-save +.repeated bowl))
+    ;:  weld
+        (expect-eq !>('prompt') !>((str:j envelope 'type')))
+        (expect-eq !>(200) !>((code -.claimed)))
+        (expect-eq !>(200) !>((code -.again)))
+        %+  expect-eq
+          !>(`stream-progress`['Hello 🙂' 10])
+        !>((~(got by streams.streaming) ['channel' req.job]))
+        (expect-eq !>(0) !>(~(wyt by streams.final)))
+        (expect-eq !>(200) !>((code -.done)))
+        (expect-eq !>(200) !>((code -.repeated)))
+        %+  expect-eq
+          !>(`item:h`[%assistant 'Hello back' ~])
+        !>((rear items:(play:hl log:(~(got by sessions.final) 'channel'))))
+        (expect-eq !>(0) !>(~(wyt by jobs.runners.final)))
+    ==
+  ++  cancel-and-revoke
+    =/  tool-complete
+      %^  put:j
+        (event 2 'complete')
+        'response'
+      %-  need
+      %-  de:json:html
+      '{"choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","content":"","tool_calls":[{"id":"fetch","type":"function","function":{"name":"http_fetch","arguments":"{\\"url\\":\\"https://example.test\\"}"}}]}}]}'
+    =/  parked
+      %+  ~(on-poke +.claimed bowl)
+        %handle-http-request
+      !>([`@ta`%fixture (request (en:json:html tool-complete))])
+    =/  parked-state  !<(state-0 ~(on-save +.parked bowl))
+    =/  parked-stop
+      %+  ~(on-poke +.parked bowl)
+        %harness-action
+      !>(`action:h`[%cancel 'channel'])
+    =/  parked-stopped  !<(state-0 ~(on-save +.parked-stop bowl))
+    =/  stopped
+      %+  ~(on-poke +.queued bowl)
+        %harness-action
+      !>(`action:h`[%cancel 'channel'])
+    =/  stopped-state  !<(state-0 ~(on-save +.stopped bowl))
+    =/  revoked  (owner:runner runners.queue-state 'revoke' args:seed ~2026.10.1)
+    ?>  ?=(%& -.revoked)
+    =/  disconnected  (~(on-load head bowl) !>(queue-state(runners db.p.revoked)))
+    =/  revoke-state  !<(state-0 ~(on-save +.disconnected bowl))
+    ;:  weld
+        (expect !>(parked:(~(got by jobs.runners.parked-state) attempt.job)))
+        (expect-eq !>(0) !>(~(wyt by jobs.runners.parked-stopped)))
+        %+  expect-eq
+          !>('cancel')
+        !>((str:j (~(got by events:(~(got by registry.runners.parked-stopped) 'laptop')) 2) 'type'))
+        (expect-eq !>(0) !>(~(wyt by jobs.runners.stopped-state)))
+        %+  expect-eq
+          !>('cancel')
+        !>((str:j (~(got by events:(~(got by registry.runners.stopped-state) 'laptop')) 2) 'type'))
+        (expect-eq !>(0) !>(~(wyt by jobs.runners.revoke-state)))
+    ==
+  --
 ::
 ++  test-expired-job-notifies-hands-once
   %-  isolated

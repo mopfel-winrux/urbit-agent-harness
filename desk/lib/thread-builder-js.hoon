@@ -179,8 +179,39 @@
       ::
       =/  m-js  (script:lia-sur:wasm @ acc-mold)
       =/  m-rand  (strand (list lv))
-      :~
-      ::::  console.log
+      |^
+        :~  console-log
+            console-error
+            console-warn
+            console-info
+            load-txt-file
+            store-txt-file
+            fetch-sync
+            tlon-get-channels
+            tlon-get-channel-messages
+            tlon-get-dm-messages
+            tlon-get-dm-replies
+            tlon-get-channel-replies
+            tlon-get-channel-members
+            tlon-get-roles
+            tlon-invite-user-channel
+            tlon-invite-user-groupchat
+            tlon-kick-user-channel
+            tlon-give-role
+            tlon-remove-role
+            tlon-post-channel
+            tlon-send-dm
+            tlon-reply-channel
+            tlon-get-groupchat-members
+            sleep
+            restart
+            pals-get-leeches
+            pals-get-targets
+            tlon-get-groups
+            get-bowl
+        ==
+      ++  console-log
+        ^-  table-entry
         ::
         :_  ~
         :-  ~
@@ -197,8 +228,8 @@
             =.  argc-w  (dec argc-w)
             ;<  str=cord  try:m  (get-js-string (add (mul 8 argc-w) argv-u))
             $(strs [str strs])
-      ::
-      ::::  console.error
+      ++  console-error
+        ^-  table-entry
         ::
         :_  ~
         :-  ~
@@ -215,8 +246,8 @@
             =.  argc-w  (dec argc-w)
             ;<  str=cord  try:m  (get-js-string (add (mul 8 argc-w) argv-u))
             $(strs [str strs])
-      ::
-      ::::  console.warn
+      ++  console-warn
+        ^-  table-entry
         ::
         :_  ~
         :-  ~
@@ -233,8 +264,8 @@
             =.  argc-w  (dec argc-w)
             ;<  str=cord  try:m  (get-js-string (add (mul 8 argc-w) argv-u))
             $(strs [str strs])
-      ::
-      ::::  console.info
+      ++  console-info
+        ^-  table-entry
         ::
         :_  ~
         :-  ~
@@ -251,8 +282,8 @@
             =.  argc-w  (dec argc-w)
             ;<  str=cord  try:m  (get-js-string (add (mul 8 argc-w) argv-u))
             $(strs [str strs])
-      :: 
-      ::::  urbit_thread.load_txt_file
+      ++  load-txt-file
+        ^-  table-entry
         ::
         =/  id=term  %get-txt-file
         =/  get-txt-file-ext
@@ -303,8 +334,8 @@
         ?>  ?=([[%vase p=*] ~] l)
         =+  !<(pax=path p.l)
         (get-txt-file-ted pax)
-      ::
-      ::::  urbit_thread.store_txt_file
+      ++  store-txt-file
+        ^-  table-entry
         ::
         =/  id=term  %set-txt-file
         =/  set-txt-file-ext
@@ -350,8 +381,8 @@
         ?>  ?=([[%vase p=*] ~] l)
         =+  !<(sam=[path cord] p.l)
         (set-txt-file-ted sam)
-      ::
-      ::::  fetch_sync
+      ++  fetch-sync
+        ^-  table-entry
         ::
         =/  id=term  %fetch-url
         =/  fetch-url-ext
@@ -421,8 +452,8 @@
         ;<  res=(unit httr:eyre)  bind:m  (fetch-url-ted sam)
         ?~  res  (pure:m ~)
         (pure:m vase+!>(u.res) ~)
-      ::
-      ::::  urbit_thread.tlon.get_channels
+      ++  tlon-get-channels
+        ^-  table-entry
         ::
         =/  id=term  %get-channels
         =/  get-channels-ext
@@ -455,8 +486,8 @@
         ^-  form:m
         ;<  res=(list nest)  bind:m  get-channels-ted
         (pure:m vase+!>(res) ~)
-      ::
-      ::::  urbit_thread.tlon.get_channel_messages
+      ++  tlon-get-channel-messages
+        ^-  table-entry
         ::
         =/  id=term  %get-chan-messages
         =/  get-channel-messages-ext
@@ -522,8 +553,8 @@
         =+  !<(sam=[nest @] p.l)
         ;<  res=(list (pair time memo))  bind:m  (get-channel-messages-ted sam)
         (pure:m vase+!>(res) ~)
-      ::
-      ::::  urbit_thread.tlon.get_dm_messages
+      ++  tlon-get-dm-messages
+        ^-  table-entry
         ::
         =/  id=term  %get-dm-messages
         =/  get-dm-messages-ext
@@ -596,8 +627,8 @@
         =+  !<(sam=[(each @p id-club) @] p.l)
         ;<  res=(list (pair time memo))  bind:m  (get-dm-messages-ted sam)
         (pure:m vase+!>(res) ~)
-      ::
-      ::::  urbit_thread.tlon.get_dm_replies
+      ++  tlon-get-dm-replies
+        ^-  table-entry
         ::
         =/  id=term  %get-dm-replies
         =/  get-dm-replies-ext
@@ -662,8 +693,8 @@
         =+  !<(sam=[(each @p id-club) time] p.l)
         ;<  res=(list memo)  bind:m  (get-dm-replies-ted sam)
         (pure:m vase+!>(res) ~)
-      ::
-      ::::  urbit_thread.tlon.get_channel_replies
+      ++  tlon-get-channel-replies
+        ^-  table-entry
         ::
         =/  id  %get-chan-replies
         =/  get-channel-replies-ext
@@ -720,8 +751,8 @@
         =+  !<(sam=[nest time] p.l)
         ;<  res=(list memo)  bind:m  (get-channel-replies-ted sam)
         (pure:m vase+!>(res) ~)
-      ::
-      ::::  urbit_thread.tlon.get_channel_members
+      ++  tlon-get-channel-members
+        ^-  table-entry
         ::
         =/  id  %get-chan-members
         =/  get-channel-members-ext
@@ -768,8 +799,8 @@
         =+  !<(sam=nest p.l)
         ;<  res=(set ship)  bind:m  (get-channel-members-ted sam)
         (pure:m vase+!>(res) ~)
-      ::
-      ::::  urbit_thread.tlon.get_roles
+      ++  tlon-get-roles
+        ^-  table-entry
         ::
         =/  id  %get-roles
         =/  get-roles-ted
@@ -825,8 +856,8 @@
         =+  !<(sam=[nest @p] p.l)
         ;<  res=(set role-groups)  bind:m  (get-roles-ted sam)
         (pure:m vase+!>(res) ~)
-      ::
-      ::::  urbit_thread.tlon.invite_user_channel
+      ++  tlon-invite-user-channel
+        ^-  table-entry
         ::
         =/  id  %invite-user-channel
         =/  invite-user-channel-ted
@@ -883,8 +914,8 @@
         =+  !<(sam=[nest @p] p.l)
         ;<  *  bind:m  (invite-user-channel-ted sam)
         (pure:m ~)
-      ::
-      ::::  urbit_thread.tlon.invite_user_groupchat
+      ++  tlon-invite-user-groupchat
+        ^-  table-entry
         ::
         =/  id  %invite-user-groupchat
         =/  invite-user-groupchat-ted
@@ -942,8 +973,8 @@
         =+  !<(sam=[id-club @p] p.l)
         ;<  *  bind:m  (invite-user-groupchat-ted sam)
         (pure:m ~)
-      ::
-      ::::  urbit_thread.tlon.kick_user_channel
+      ++  tlon-kick-user-channel
+        ^-  table-entry
         ::
         =/  id  %kick-user-chan
         =/  kick-user-channel-ted
@@ -1000,8 +1031,8 @@
         =+  !<(sam=[nest @p] p.l)
         ;<  *  bind:m  (kick-user-channel-ted sam)
         (pure:m ~)
-      ::
-      ::::  urbit_thread.tlon.give_role
+      ++  tlon-give-role
+        ^-  table-entry
         ::
         =/  id  %give-role
         =/  give-role-ted
@@ -1062,8 +1093,8 @@
         =+  !<(sam=[nest @p @tas] p.l)
         ;<  *  bind:m  (give-role-ted sam)
         (pure:m ~)
-      ::
-      ::::  urbit_thread.tlon.remove_role
+      ++  tlon-remove-role
+        ^-  table-entry
         ::
         =/  id=@tas  %remove-role
         =/  remove-role-ted
@@ -1124,8 +1155,8 @@
         =+  !<(sam=[nest @p @tas] p.l)
         ;<  *  bind:m  (remove-role-ted sam)
         (pure:m ~)
-      ::
-      ::::  urbit_thread.tlon.post_channel
+      ++  tlon-post-channel
+        ^-  table-entry
         ::
         =/  id=@tas  %post-channel
         =/  post-channel-ted
@@ -1173,8 +1204,8 @@
         =+  !<(sam=[nest story] p.l)
         ;<  *  bind:m  (post-channel-ted sam)
         (pure:m ~)
-      ::
-      ::::  urbit_thread.tlon.send_dm
+      ++  tlon-send-dm
+        ^-  table-entry
         ::
         =/  id  %send-dm
         =/  send-dm-ted
@@ -1245,8 +1276,8 @@
         =+  !<(sam=[(each @p id-club) story] p.l)
         ;<  *  bind:m  (send-dm-ted sam)
         (pure:m ~)
-      ::
-      ::::  urbit_thread.tlon.reply_channel
+      ++  tlon-reply-channel
+        ^-  table-entry
         ::
         =/  id=@tas  %reply-channel
         =/  reply-channel-ted
@@ -1299,8 +1330,8 @@
         =+  !<(sam=[nest time story] p.l)
         ;<  *  bind:m  (reply-channel-ted sam)
         (pure:m ~)
-      ::
-      ::::  urbit_thread.tlon.get_groupchat_members
+      ++  tlon-get-groupchat-members
+        ^-  table-entry
         ::
         =/  id  %get-groupchat-members
         =/  get-groupchat-members-ted
@@ -1343,8 +1374,8 @@
         =+  !<(sam=id-club p.l)
         ;<  res=(set ship)  bind:m  (get-groupchat-members-ted sam)
         (pure:m vase+!>(res) ~)
-      ::
-      ::::  urbit_thread.sleep
+      ++  sleep
+        ^-  table-entry
         ::
         =/  id=@tas  %sleep
         =/  sleep-ted  sleep:sio
@@ -1375,8 +1406,8 @@
         =+  !<(sam=@dr p.l)
         ;<  *  bind:m  (sleep-ted sam)
         (pure:m ~)
-      ::
-      ::::  urbit_thread.restart
+      ++  restart
+        ^-  table-entry
         ::
         :-  :-  ~
             :-  'urbit_thread'^'restart'^~
@@ -1391,8 +1422,8 @@
             ~&  >  'Freeing Wasm VM by crashing it'
             fail:m
         ~
-      ::
-      ::::  urbit_thread.pals.get_leeches
+      ++  pals-get-leeches
+        ^-  table-entry
         ::
         =/  id  %get-leeches
         =/  get-leeches-ted
@@ -1426,8 +1457,8 @@
         ^-  form:m
         ;<  res=(set ship)  bind:m  get-leeches-ted
         (pure:m vase+!>(res) ~)
-      ::
-      ::::  urbit_thread.pals.get_targets
+      ++  pals-get-targets
+        ^-  table-entry
         ::
         =/  id  %get-targets
         =/  get-targets-ted
@@ -1479,8 +1510,8 @@
         =+  !<(sam=(unit knot) p.l)
         ;<  res=(set ship)  bind:m  (get-targets-ted sam)
         (pure:m vase+!>(res) ~)
-      ::
-      ::::  urbit_thread.tlon.get_groups
+      ++  tlon-get-groups
+        ^-  table-entry
         ::
         =/  id  %get-groups
         =/  get-groups-ted
@@ -1513,8 +1544,8 @@
         ^-  form:m
         ;<  res=(list flag)  bind:m  get-groups-ted
         (pure:m vase+!>(res) ~)
-      ::
-      ::::
+      ++  get-bowl
+        ^-  table-entry
         ::    Lia-only imports
         ::  %get-bowl
         ::
@@ -1526,7 +1557,7 @@
         ^-  form:m
         ;<  bol=bowl:rand  bind:m  get-bowl:sio
         (pure:m vase+!>(bol) ~)
-      ==
+      --
     ::
     ::  +malloc-write: allocate and immediately write `p` bytes of `q` atom
     ::
@@ -1813,99 +1844,103 @@
       ;<  acc=acc-mold  try:m  get-acc
       =+  (get-js-ctx acc)
       ::
-      ;<  type-u=@  try:m  (call-1 'QTS_Typeof' ctx-u ptr-u ~)
-      ;<  type=cord  try:m  (get-c-string type-u)
-      ?+  type  ~&(json-unsupported-type+type (return:m ~))
-          ?(%'number' %'bigint')
-        ;<  float=@rd  try:m  (call-1 'QTS_GetFloat64' ctx-u ptr-u ~)
-        (return:m n+(rsh 3^2 (scot %rd float)))
-      ::
-          %'string'
-        ;<  str=cord  try:m  (get-js-string ptr-u)
-        (return:m s+str)
-      ::
-          %'boolean'
-        ;<  float=@rd  try:m  (call-1 'QTS_GetFloat64' ctx-u ptr-u ~)
-        (return:m b+!=(float 0))
-      ::
-          %'object'
-        ::  %a, %o or ~
-        ::  test for ~
+      |^
+        ;<  type-u=@  try:m  (call-1 'QTS_Typeof' ctx-u ptr-u ~)
+        ;<  type=cord  try:m  (get-c-string type-u)
+        ?+  type  ~&(json-unsupported-type+type (return:m ~))
+            ?(%'number' %'bigint')
+          ;<  float=@rd  try:m  (call-1 'QTS_GetFloat64' ctx-u ptr-u ~)
+          (return:m n+(rsh 3^2 (scot %rd float)))
         ::
-        ;<  null-u=@  try:m  (call-1 'QTS_GetNull' ~)
-        ;<  is-eq=@  try:m  (call-1 'QTS_IsEqual' ctx-u ptr-u null-u 0 ~)
-        ?:  !=(0 is-eq)
-          (return:m ~)
-        ::  test for %a
+            %'string'
+          ;<  str=cord  try:m  (get-js-string ptr-u)
+          (return:m s+str)
         ::
-        =/  name  'length'
-        ;<  len-u=@  try:m
-          %:  ding  'QTS_GetProp'
-            ctx-u
-            ptr-u
-            (ding 'QTS_NewString' ctx-u (malloc-write +((met 3 name)) name) ~)
-            ~
-          ==
+            %'boolean'
+          ;<  float=@rd  try:m  (call-1 'QTS_GetFloat64' ctx-u ptr-u ~)
+          (return:m b+!=(float 0))
         ::
-        ;<  err=(unit cord)  try:m  (mayb-error len-u)
-        ;<  undef-u=@  try:m  (call-1 'QTS_GetUndefined' ~)
-        ::
-        ;<  is-undef=@  try:m  (call-1 'QTS_IsEqual' ctx-u len-u undef-u 0 ~)
-        ?:  |(?=(^ err) !=(is-undef 0))  ::  obj.length either failed or undefined
-          ::  object
+            %'object'
+          ::  %a, %o or ~
+          ::  test for ~
           ::
-          ;<  out-ptrs-u=@  try:m  (call-1 'malloc' 4 ~)
-          ;<  out-len-u=@  try:m  (call-1 'malloc' 4 ~)
-          ::  1 selects JS_GPN_STRING_MASK.
-          ;<  err-u=@  try:m
-            (call-1 'QTS_GetOwnPropertyNames' ctx-u out-ptrs-u out-len-u ptr-u 1 ~)
+          ;<  null-u=@  try:m  (call-1 'QTS_GetNull' ~)
+          ;<  is-eq=@  try:m  (call-1 'QTS_IsEqual' ctx-u ptr-u null-u 0 ~)
+          ?:  !=(0 is-eq)
+            (return:m ~)
+          ::  test for %a
           ::
-          ?:  !=(err-u 0)
-            ;<  str=cord  try:m  (get-js-string err-u)
-            ~&('GetOwnPropertyNames error'^str (return:m ~))
+          =/  name  'length'
+          ;<  len-u=@  try:m
+            %:  ding  'QTS_GetProp'
+              ctx-u
+              ptr-u
+              (ding 'QTS_NewString' ctx-u (malloc-write +((met 3 name)) name) ~)
+              ~
+            ==
           ::
-          ;<  len-octs=octs  try:m  (memread out-len-u 4)
-          =/  len-w=@  q.len-octs
-          ;<  arr-octs=octs  try:m  (memread out-ptrs-u 4)
-          =/  arr-u=@  q.arr-octs
-          =|  pairs=(list (pair @t json))
-          ;<  *  try:m  (call 'free' out-len-u ~)
-          ;<  *  try:m  (call 'free' out-ptrs-u ~)
+          ;<  err=(unit cord)  try:m  (mayb-error len-u)
+          ;<  undef-u=@  try:m  (call-1 'QTS_GetUndefined' ~)
+          ::
+          ;<  is-undef=@  try:m  (call-1 'QTS_IsEqual' ctx-u len-u undef-u 0 ~)
+          ?:  |(?=(^ err) !=(is-undef 0))  ::  obj.length either failed or undefined
+            load-fields
+          ::  array
+          ::
+          ;<  len-d=@rd  try:m  (call-1 'QTS_GetFloat64' ctx-u len-u ~)
+          =/  len=@  (abs:si (need (toi:rd len-d)))
+          =|  vals=(list json)
           |-  ^-  form:m
-              ?:  =(len-w 0)  (return:m o+(molt pairs))
-              =/  idx=@  (dec len-w)
-              ;<  nam-val-octs=octs  try:m  (memread (add arr-u (mul 4 idx)) 4)
-              =/  nam-val-u=@  q.nam-val-octs
-              ;<  name=cord  try:m  (get-js-string nam-val-u)
+              ?:  =(len 0)  (return:m a+vals)
+              =/  idx=@  (dec len)
               ;<  val-u=@  try:m
-                %:  call-1  'QTS_GetProp'
+                %:  ding  'QTS_GetProp'
                   ctx-u
                   ptr-u
-                  nam-val-u
+                  (call-1 'QTS_NewFloat64' ctx-u (sun:rd idx) ~)
                   ~
                 ==
               ::
               ;<  jon-child=json  try:m  (load-json val-u)
-              $(len-w (dec len-w), pairs [[name jon-child] pairs])
-        ::  array
+              $(len (dec len), vals [jon-child vals])
+        ==
+      ++  load-fields
+        ::  object
         ::
-        ;<  len-d=@rd  try:m  (call-1 'QTS_GetFloat64' ctx-u len-u ~)
-        =/  len=@  (abs:si (need (toi:rd len-d)))
-        =|  vals=(list json)
+        ;<  out-ptrs-u=@  try:m  (call-1 'malloc' 4 ~)
+        ;<  out-len-u=@  try:m  (call-1 'malloc' 4 ~)
+        ::  1 selects JS_GPN_STRING_MASK.
+        ;<  err-u=@  try:m
+          (call-1 'QTS_GetOwnPropertyNames' ctx-u out-ptrs-u out-len-u ptr-u 1 ~)
+        ::
+        ?:  !=(err-u 0)
+          ;<  str=cord  try:m  (get-js-string err-u)
+          ~&('GetOwnPropertyNames error'^str (return:m ~))
+        ::
+        ;<  len-octs=octs  try:m  (memread out-len-u 4)
+        =/  len-w=@  q.len-octs
+        ;<  arr-octs=octs  try:m  (memread out-ptrs-u 4)
+        =/  arr-u=@  q.arr-octs
+        =|  pairs=(list (pair @t json))
+        ;<  *  try:m  (call 'free' out-len-u ~)
+        ;<  *  try:m  (call 'free' out-ptrs-u ~)
         |-  ^-  form:m
-            ?:  =(len 0)  (return:m a+vals)
-            =/  idx=@  (dec len)
+            ?:  =(len-w 0)  (return:m o+(molt pairs))
+            =/  idx=@  (dec len-w)
+            ;<  nam-val-octs=octs  try:m  (memread (add arr-u (mul 4 idx)) 4)
+            =/  nam-val-u=@  q.nam-val-octs
+            ;<  name=cord  try:m  (get-js-string nam-val-u)
             ;<  val-u=@  try:m
-              %:  ding  'QTS_GetProp'
+              %:  call-1  'QTS_GetProp'
                 ctx-u
                 ptr-u
-                (call-1 'QTS_NewFloat64' ctx-u (sun:rd idx) ~)
+                nam-val-u
                 ~
               ==
             ::
             ;<  jon-child=json  try:m  (load-json val-u)
-            $(len (dec len), vals [jon-child vals])
-      ==
+            $(len-w (dec len-w), pairs [[name jon-child] pairs])
+      --
     ::  +store-json-name: create a global object from JSON noun
     ::
     ++  store-json-name
@@ -2192,89 +2227,97 @@
       ::
       ;<  undef-u=@  try:m  (call-1 'QTS_GetUndefined' ~)
       ;<  urb-u=@  try:m  (call-1 'QTS_NewObject' ctx-u ~)
-      ;<  *  try:m
-        =/  m  (script:lia-sur:wasm * acc-mold)
-        |-  ^-  form:m
-            ?~  list-js-imports  (return:m ~)
-            =/  i  i.list-js-imports
-            ?.  ?=([%'urbit_thread' @ ~] name.i)
+      |^
+        ;<  *  try:m
+          =/  m  (script:lia-sur:wasm * acc-mold)
+          |-  ^-  form:m
+              ?~  list-js-imports  (return:m ~)
+              =/  i  i.list-js-imports
+              ?.  ?=([%'urbit_thread' @ ~] name.i)
+                $(list-js-imports t.list-js-imports)
+              ;<  *  try:m  (register-function i.t.name.i mag-w.i urb-u)
               $(list-js-imports t.list-js-imports)
-            ;<  *  try:m  (register-function i.t.name.i mag-w.i urb-u)
-            $(list-js-imports t.list-js-imports)
-      ::
-      ::  add urbit.tlon object for Tlon API
-      ::
-      ;<  tlon-str-u=@  try:m
-        %:  ding  'QTS_NewString'
-          ctx-u
-          (malloc-cord 'tlon')
-          ~
-        ==
-      ::
-      ;<  *  try:m
-        %:  ring  'QTS_DefineProp'
-          ctx-u
-          urb-u
-          tlon-str-u
-          (call-1 'QTS_NewObject' ctx-u ~)                ::  init value
-          undef-u                                         ::  getter
-          undef-u                                         ::  setter
-          1                                               ::  configurable
-          1                                               ::  enumerable
-          1                                               ::  has value
-          ~
-        ==
-      ::
-      ;<  tlon-u=@  try:m
-        (call-1 'QTS_GetProp' ctx-u urb-u tlon-str-u ~)
-      ::
-      ;<  *  try:m
-        =/  m  (script:lia-sur:wasm * acc-mold)
-        |-  ^-  form:m
-            ?~  list-js-imports  (return:m ~)
-            =/  i  i.list-js-imports
-            ?.  ?=([%'urbit_thread' %'tlon' @ ~] name.i)
+        ::
+        ;<  *  try:m  tlon-object
+        ;<  *  try:m  pals-object
+        (return:m urb-u)
+      ++  tlon-object
+        ::  add urbit.tlon object for Tlon API
+        ::
+        ;<  tlon-str-u=@  try:m
+          %:  ding  'QTS_NewString'
+            ctx-u
+            (malloc-cord 'tlon')
+            ~
+          ==
+        ::
+        ;<  *  try:m
+          %:  ring  'QTS_DefineProp'
+            ctx-u
+            urb-u
+            tlon-str-u
+            (call-1 'QTS_NewObject' ctx-u ~)                ::  init value
+            undef-u                                         ::  getter
+            undef-u                                         ::  setter
+            1                                               ::  configurable
+            1                                               ::  enumerable
+            1                                               ::  has value
+            ~
+          ==
+        ::
+        ;<  tlon-u=@  try:m
+          (call-1 'QTS_GetProp' ctx-u urb-u tlon-str-u ~)
+        ::
+        ;<  *  try:m
+          =/  m  (script:lia-sur:wasm * acc-mold)
+          |-  ^-  form:m
+              ?~  list-js-imports  (return:m ~)
+              =/  i  i.list-js-imports
+              ?.  ?=([%'urbit_thread' %'tlon' @ ~] name.i)
+                $(list-js-imports t.list-js-imports)
+              ;<  *  try:m  (register-function i.t.t.name.i mag-w.i tlon-u)
               $(list-js-imports t.list-js-imports)
-            ;<  *  try:m  (register-function i.t.t.name.i mag-w.i tlon-u)
-            $(list-js-imports t.list-js-imports)
-      ::
-      ::  add urbit.pals object for Pals API
-      ::
-      ;<  pals-str-u=@  try:m
-        %:  ding  'QTS_NewString'
-          ctx-u
-          (malloc-cord 'pals')
-          ~
-        ==
-      ::
-      ;<  *  try:m
-        %:  ring  'QTS_DefineProp'
-          ctx-u
-          urb-u
-          pals-str-u
-          (call-1 'QTS_NewObject' ctx-u ~)                ::  init value
-          undef-u                                         ::  getter
-          undef-u                                         ::  setter
-          1                                               ::  configurable
-          1                                               ::  enumerable
-          1                                               ::  has value
-          ~
-        ==
-      ::
-      ;<  pals-u=@  try:m
-        (call-1 'QTS_GetProp' ctx-u urb-u pals-str-u ~)
-      ::
-      ;<  *  try:m
-        =/  m  (script:lia-sur:wasm * acc-mold)
-        |-  ^-  form:m
-            ?~  list-js-imports  (return:m ~)
-            =/  i  i.list-js-imports
-            ?.  ?=([%'urbit_thread' %'pals' @ ~] name.i)
+        ::
+        (return:m 0)
+      ++  pals-object
+        ::  add urbit.pals object for Pals API
+        ::
+        ;<  pals-str-u=@  try:m
+          %:  ding  'QTS_NewString'
+            ctx-u
+            (malloc-cord 'pals')
+            ~
+          ==
+        ::
+        ;<  *  try:m
+          %:  ring  'QTS_DefineProp'
+            ctx-u
+            urb-u
+            pals-str-u
+            (call-1 'QTS_NewObject' ctx-u ~)                ::  init value
+            undef-u                                         ::  getter
+            undef-u                                         ::  setter
+            1                                               ::  configurable
+            1                                               ::  enumerable
+            1                                               ::  has value
+            ~
+          ==
+        ::
+        ;<  pals-u=@  try:m
+          (call-1 'QTS_GetProp' ctx-u urb-u pals-str-u ~)
+        ::
+        ;<  *  try:m
+          =/  m  (script:lia-sur:wasm * acc-mold)
+          |-  ^-  form:m
+              ?~  list-js-imports  (return:m ~)
+              =/  i  i.list-js-imports
+              ?.  ?=([%'urbit_thread' %'pals' @ ~] name.i)
+                $(list-js-imports t.list-js-imports)
+              ;<  *  try:m  (register-function i.t.t.name.i mag-w.i pals-u)
               $(list-js-imports t.list-js-imports)
-            ;<  *  try:m  (register-function i.t.t.name.i mag-w.i pals-u)
-            $(list-js-imports t.list-js-imports)
-      ::
-      (return:m urb-u)
+        ::
+        (return:m 0)
+      --
     ::
     ++  require
       |=  [ctx-u=@ this-u=@ argc-w=@ argv-u=@]
@@ -2311,22 +2354,50 @@
       ;<  ~  try:m  (set-acc !>(tor))
       ;<  global-this-u=@  try:m  (call-1 'QTS_GetGlobalObject' ctx-u ~)
       ;<  undef-u=@  try:m  (call-1 'QTS_GetUndefined' ~)
-      ::  `require` registration is special-cased
-      ::
-      ;<  *  try:m  (register-function 'require' 0 global-this-u)
-      ;<  *  try:m
-        =/  m  (script:lia-sur:wasm * acc-mold)
-        |-  ^-  form:m
-            ?~  list-js-imports  (return:m ~)
-            =/  i  i.list-js-imports
-            ?.  ?=([@ ~] name.i)
+      |^
+        ::  `require` registration is special-cased
+        ::
+        ;<  *  try:m  (register-function 'require' 0 global-this-u)
+        ;<  *  try:m
+          =/  m  (script:lia-sur:wasm * acc-mold)
+          |-  ^-  form:m
+              ?~  list-js-imports  (return:m ~)
+              =/  i  i.list-js-imports
+              ?.  ?=([@ ~] name.i)
+                $(list-js-imports t.list-js-imports)
+              ;<  *  try:m  (register-function i.name.i mag-w.i global-this-u)
               $(list-js-imports t.list-js-imports)
-            ;<  *  try:m  (register-function i.name.i mag-w.i global-this-u)
-            $(list-js-imports t.list-js-imports)
+        ::
+        ;<  *  try:m  install-module
+        ;<  *  try:m  install-console
+        ;<  *  try:m  install-fetch
+        :: imports the interface library via require, exports a function to module.exports
+        ::
+        ;<  res-u=@  try:m  (js-eval code)
+        ;<  err=(unit cord)  try:m  (mayb-error res-u)
+        ?^  err  (ret |+[u.err 'failed to export the script function'])
+        ;<  res-u=@  try:m
+          %-  js-eval
+          '''
+          globalThis.__result = undefined;
+          Promise.resolve(module.exports()).then(result => {
+            globalThis.__result = result;
+          });
+          '''
+        ::
+        ;<  dump-u=@  try:m  (call-1 'malloc' 4 ~)  ::  XX use scratch arena for things like that
+        ;<  *  try:m
+          (call 'QTS_ExecutePendingJob' run-u ^~((sub (bex 32) 1)) dump-u ~)
+        ::
+        ;<  err=(unit cord)  try:m  (mayb-error res-u)
+        ?^  err  (ret |+[u.err 'failed to call the exported function'])
+        ;<  pro-u=@  try:m  (js-eval 'globalThis.__result')
+        ;<  str=cord  try:m  (get-js-string pro-u)
+        (ret &+str)
       ::
-      ::  define `module` object
-      ::
-      ;<  *  try:m
+      ++  install-module
+        ::  define `module` object
+        ::
         %:  ring  'QTS_DefineProp'
           ctx-u
           global-this-u
@@ -2345,34 +2416,34 @@
           1                                               ::  has value
           ~
         ==
-      ::  define `console` object
-      ::
-      ;<  console-str-u=@  try:m
-        %:  ding  'QTS_NewString'
-          ctx-u
-          (malloc-cord 'console')
-          ~
-        ==
-      ::
-      ;<  *  try:m
-        %:  ring  'QTS_DefineProp'
-          ctx-u
-          global-this-u
-          console-str-u
-          (call-1 'QTS_NewObject' ctx-u ~)                ::  init value
-          undef-u                                         ::  getter
-          undef-u                                         ::  setter
-          1                                               ::  configurable
-          1                                               ::  enumerable
-          1                                               ::  has value
-          ~
-        ==
-      ::
-      ;<  console-u=@  try:m
-        (call-1 'QTS_GetProp' ctx-u global-this-u console-str-u ~)
-      ::
-      ;<  *  try:m
+      ++  install-console
         =/  m  (script:lia-sur:wasm * acc-mold)
+        ::  define `console` object
+        ::
+        ;<  console-str-u=@  try:m
+          %:  ding  'QTS_NewString'
+            ctx-u
+            (malloc-cord 'console')
+            ~
+          ==
+        ::
+        ;<  *  try:m
+          %:  ring  'QTS_DefineProp'
+            ctx-u
+            global-this-u
+            console-str-u
+            (call-1 'QTS_NewObject' ctx-u ~)                ::  init value
+            undef-u                                         ::  getter
+            undef-u                                         ::  setter
+            1                                               ::  configurable
+            1                                               ::  enumerable
+            1                                               ::  has value
+            ~
+          ==
+        ::
+        ;<  console-u=@  try:m
+          (call-1 'QTS_GetProp' ctx-u global-this-u console-str-u ~)
+        ::
         |-  ^-  form:m
             ?~  list-js-imports  (return:m ~)
             =/  i  i.list-js-imports
@@ -2381,19 +2452,20 @@
             ;<  *  try:m  (register-function i.t.name.i mag-w.i console-u)
             $(list-js-imports t.list-js-imports)
       ::
-      ;<  fun-u=@  try:m
-        %-  js-eval
-        '''
-        var _fetch = function(url, options = { method: "GET" }) {
-          return new Promise((resolve, reject) => {
-            const res = globalThis.fetch_sync(url, options);
-            resolve(res);
-          });
-        };
-        _fetch
-        '''
-      ::
-      ;<  *  try:m
+      ++  install-fetch
+        =/  m  (script:lia-sur:wasm * acc-mold)
+        ;<  fun-u=@  try:m
+          %-  js-eval
+          '''
+          var _fetch = function(url, options = { method: "GET" }) {
+            return new Promise((resolve, reject) => {
+              const res = globalThis.fetch_sync(url, options);
+              resolve(res);
+            });
+          };
+          _fetch
+          '''
+        ::
         %:  ring  'QTS_DefineProp'
           ctx-u
           global-this-u
@@ -2408,30 +2480,7 @@
         ==
       ::
       ::
-      :: imports the interface library via require, exports a function to module.exports
-      ::
-      ;<  res-u=@  try:m  (js-eval code)
-      ;<  err=(unit cord)  try:m  (mayb-error res-u)
-      ?^  err  (ret |+[u.err 'failed to export the script function'])
-      ;<  res-u=@  try:m
-        %-  js-eval
-        '''
-        globalThis.__result = undefined;
-        Promise.resolve(module.exports()).then(result => {
-          globalThis.__result = result;
-        });
-        '''
-      ::
-      ;<  dump-u=@  try:m  (call-1 'malloc' 4 ~)  ::  XX use scratch arena for things like that
-      ;<  *  try:m
-        (call 'QTS_ExecutePendingJob' run-u ^~((sub (bex 32) 1)) dump-u ~)
-      ::
-      ;<  err=(unit cord)  try:m  (mayb-error res-u)
-      ?^  err  (ret |+[u.err 'failed to call the exported function'])
-      ;<  pro-u=@  try:m  (js-eval 'globalThis.__result')
-      ;<  str=cord  try:m  (get-js-string pro-u)
-      (ret &+str)
-    ::
+      --
     ::  +qts-host-call-function: Wasm import to resolve JS imports
     ::
     ++  qts-host-call-function

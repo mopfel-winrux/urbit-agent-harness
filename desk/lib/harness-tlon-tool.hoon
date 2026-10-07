@@ -9,6 +9,10 @@
   ?:  =('' topic)
     'Use action help with topic: messages (read, search, send, react), contacts (profiles), groups (channels, membership, roles), inbox (activity and group DMs), notes (notebooks and documents), hooks (channel programs), publishing (public snapshots), files (uploads). Read the relevant help before acting.'
   %^  cat  3  (rap 3 sending-guidance '\0a' common-help ~)
+  (topic-help topic)
+++  topic-help
+  |=  topic=@t
+  ^-  @t
   ?+  topic  'Unknown help topic; call help without topic for the index.'
       %'messages'
     %+  rap  3
