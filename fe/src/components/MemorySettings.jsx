@@ -8,6 +8,7 @@ import { PROVIDERS, providerOf } from '../providers'
 import { authMethod, withAuth, chooseProvider, catalogEndpoint } from '../providerConfig'
 import ProviderRoute from './ProviderRoute'
 import HeaderEditor from './HeaderEditor'
+import MemoryLibrary from './MemoryLibrary'
 
 function ModelOverride({ name, title, description, value, defaults, onChange, disabled }) {
   const config = value || defaults
@@ -52,12 +53,18 @@ export default function MemorySettings() {
       models.setValue(applied); setForm(applied); dirty.current = false; setSaved(true)
     } catch (cause) { setError(cause.message) } finally { setBusy(false) }
   }
-  return <form className="settings-grid" onSubmit={save}>
+  return <div className="settings-grid memory-settings">
+    <MemoryLibrary captureModel={!unavailable ? (models.value.lcm || defaults.value).model : ''} />
+    <details className="memory-model-settings">
+      <summary>Model settings<span>Capture, compaction and summary hierarchy</span></summary>
+      <form className="settings-grid" onSubmit={save}>
     <p className="field-note">Original content stays searchable after summarization. These models summarize history and capture durable shared facts. Changes apply to new requests; in-flight requests keep their selected model.</p>
     {(error || models.error || defaults.error) && <div className="inline-error" role="alert">{error || models.error || defaults.error}</div>}
     {(models.error || defaults.error) && <button type="button" className="button ghost" onClick={() => { models.refresh(); defaults.refresh() }}>Retry loading settings</button>}
-    <ModelOverride title="Compaction model" description="Summarizes older complete exchanges and captures durable facts for shared recall." value={form.compaction} defaults={defaults.value} onChange={(value) => change('compaction', value)} disabled={busy || unavailable} />
-    <ModelOverride title="LCM model" description="Condenses groups of summaries into a hierarchy, keeping links to their original evidence." value={form.lcm} defaults={defaults.value} onChange={(value) => change('lcm', value)} disabled={busy || unavailable} />
+    <ModelOverride title="Compaction model" description="Summarizes older complete exchanges to keep conversations within their context window." value={form.compaction} defaults={defaults.value} onChange={(value) => change('compaction', value)} disabled={busy || unavailable} />
+    <ModelOverride title="LCM model" description="Captures durable facts for shared memory and condenses summaries into a hierarchy, keeping links to their original evidence. Capture respects each conversation’s provider privacy requirements." value={form.lcm} defaults={defaults.value} onChange={(value) => change('lcm', value)} disabled={busy || unavailable} />
     <div className="save-bar"><span role="status">{saved ? 'Saved.' : dirty.current ? 'Unsaved changes.' : 'Unset overrides follow the global default.'}</span><button className="button primary" disabled={busy || unavailable}>{busy ? 'Saving…' : 'Save memory settings'}</button></div>
-  </form>
+      </form>
+    </details>
+  </div>
 }

@@ -55,6 +55,39 @@ let remoteShips = []
 const tlonSnapshot = () => ({ policy: tlonPolicy, sessions: [], ship: '~zod', isMoon: params.has('moon'), sponsor: params.has('moon') ? '~bud' : null, siblingMoonOwners })
 const peerSnapshot = () => ({ ...peerSettings, owners: [...(tlonPolicy.owner ? [newPeerGrant(tlonPolicy.owner, config.tools)] : []), ...(params.has('trusted-owner') ? [newPeerGrant('~nec', config.tools)] : [])], trusted: [...(tlonPolicy.owner ? [newPeerGrant(tlonPolicy.owner)] : []), ...tlonPolicy.trusted.map((entry) => newPeerGrant(entry.ship, entry.tools))] })
 window.settingsFixture = { requests: [], reads: [], calls: [], saves: [], credentials: [], resolve: (id, value) => pending.get(id)(value) }
+let memoryRevision = 4n
+let memories = params.has('empty-memories') ? [] : [
+  { name: 'writing-style', text: 'Use plain language and concise paragraphs. Keep technical details close to the decisions they explain.', general: true, explicit: true },
+  { name: 'project-review', text: 'Review changes with concrete examples and a short account of what was tested.', general: false, explicit: false },
+  { name: 'working-hours', text: 'Schedule project reviews in the morning, Central time.', general: false, explicit: false },
+  { name: 'release-notes', text: 'Release notes describe the current behavior and lead with the change a person can notice.', general: false, explicit: true },
+].map((row, index) => ({ ...row, revision: String(4 - index), updatedAt: Date.UTC(2026, 9, 7 - index), source: { sessionId: 'daily-notes', actor: '~zod', event: index + 1 }, history: [] }))
+if (params.has('many-memories')) memories = Array.from({ length: 30 }, (_, index) => ({ ...memories[1], name: `fact-${index}`, revision: String(30 - index), text: `Project milestone ${index}: review the plan with the team.` }))
+window.settingsFixture.memoryCalls = []
+window.settingsFixture.setMemories = (rows) => { memories = rows }
+window.settingsFixture.getMemories = () => memories
+api.memory = async (operation, args = {}) => {
+  window.settingsFixture.memoryCalls.push({ operation, ...args })
+  if (window.settingsFixture.failMemoryOperation === operation) throw new Error('Memory service unavailable. Try again.')
+  if (operation === 'list') {
+    const words = (args.query || '').toLowerCase().split(/\s+/).filter(Boolean)
+    const rows = memories.filter((row) => row.text !== null && words.every((word) => `${row.name} ${row.text}`.toLowerCase().includes(word)) && (!args.cursor || BigInt(row.revision) < BigInt(args.cursor))).sort((a, b) => Number(BigInt(b.revision) - BigInt(a.revision)))
+    const result = { items: rows.slice(0, 25), total: memories.filter((row) => row.text !== null).length, nextCursor: rows.length > 25 ? rows[24].revision : null }
+    if (args.query === window.settingsFixture.holdMemoryQuery) await new Promise(resolve => { window.settingsFixture.releaseMemoryQuery = resolve })
+    return structuredClone(result)
+  }
+  const existing = memories.find((row) => row.name === args.name)
+  if (operation === 'read') {
+    if (!existing) throw new Error('No memory has that name.')
+    return structuredClone(existing)
+  }
+  if (args.revision !== (existing?.revision || '0')) throw new Error('Memory changed; read its current revision before saving.')
+  if (operation === 'forget' && !existing) throw new Error('No memory has that name.')
+  const saved = { name: args.name, text: operation === 'forget' ? null : args.text, general: args.general || false, explicit: true, revision: String(++memoryRevision), updatedAt: Date.UTC(2026, 9, 7), source: { sessionId: '', actor: '~zod', event: 0 }, history: existing ? [existing, ...existing.history].slice(0, 6) : [] }
+  memories = [saved, ...memories.filter(row => row.name !== args.name)]
+  return structuredClone(saved)
+}
+
 let runners = []
 api.runners = async (action, args) => {
   window.settingsFixture.calls.push({ action, ...args })

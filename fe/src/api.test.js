@@ -132,3 +132,22 @@ test('owner updates fence both administrator settings and remote access stays se
     assert.deepEqual(seen.at(-1), ['harness/tlon/owner'])
   } finally { acp.start = start; acp.call = call }
 })
+
+test('memory management uses owner ACP methods and preserves string revisions', async () => {
+  const start = acp.start, call = acp.call, seen = []
+  acp.start = async () => {}
+  acp.call = async (...args) => { seen.push(args); return { acknowledged: true } }
+  try {
+    await api.memory('list', { query: 'project', cursor: '9007199254740993' })
+    await api.memory('read', { name: 'project' })
+    await api.memory('save', { name: 'project', text: 'Review with examples.', revision: '9007199254740993', general: false })
+    await api.memory('forget', { name: 'project', revision: '9007199254740994' })
+    await assert.rejects(api.memory('wipe'), /Unsupported/)
+    assert.deepEqual(seen, [
+      ['harness/memory/list', { query: 'project', cursor: '9007199254740993' }],
+      ['harness/memory/read', { name: 'project' }],
+      ['harness/memory/save', { name: 'project', text: 'Review with examples.', revision: '9007199254740993', general: false }],
+      ['harness/memory/forget', { name: 'project', revision: '9007199254740994' }],
+    ])
+  } finally { acp.start = start; acp.call = call }
+})

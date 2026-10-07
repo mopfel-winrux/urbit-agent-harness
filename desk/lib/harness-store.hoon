@@ -119,8 +119,18 @@
   |=  saved=vase
   ^-  state-0
   =/  current  (mole |.(!<(state-0 saved)))
-  ?^  current  u.current
+  ?^  current  (migrate-memory-prefixes u.current)
   (migrate-memory (envelope-before-memory saved))
+++  migrate-memory-prefixes
+  |=  state=state-0
+  ^-  state-0
+  ?:  (~(has by index.knowledge.state) ':prefix-index')  state
+  =.  index.knowledge.state
+    %+  roll  ~(tap by records.knowledge.state)
+    |=  [[name=@t record=record:memory] postings=(map @t bucket:memory)]
+    (replace:index postings name ~ record)
+  =.  index.knowledge.state  (~(put by index.knowledge.state) ':prefix-index' *bucket:memory)
+  state
 ::  Preserve every pinned value and its source. Names from different
 ::  conversations receive distinct identities; forgotten notes stay absent.
 ++  migrate-memory

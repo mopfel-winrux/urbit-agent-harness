@@ -29,11 +29,23 @@
   |=  [name=@t value=value:m]
   ^-  (set @t)
   (~(put in (~(uni in aliases.value) (words (rap 3 name ' ' (fall body.value '') ~)))) '')
+++  prefix-key
+  |=  word=@t
+  (cat 3 ':' (term-prefix:corpus word))
+++  posting-terms
+  |=  terms=(set @t)
+  ^-  (set @t)
+  %-  ~(uni in terms)
+  %+  roll  (take-terms:corpus terms 80)
+  |=  [word=@t keys=(set @t)]
+  ?:  =('' word)  keys
+  (~(put in keys) (prefix-key word))
 ++  replace
   |=  [index=(map @t bucket:m) name=@t before=(unit record:m) after=record:m]
   ^+  index
+  =.  index  (~(put by index) ':prefix-index' *bucket:m)
   =?  index  ?=(^ before)
-    %+  roll  (take-terms:corpus terms.u.before 80)
+    %+  roll  (take-terms:corpus (posting-terms terms.u.before) 160)
     |=  [word=@t index=_index]
     =/  bucket  (~(get by index) word)
     ?~  bucket  index
@@ -43,7 +55,7 @@
     ?~  rows  (~(del by index) word)
     (~(put by index) word [(dec count.u.bucket) rows])
   ?~  body.value.after  index
-  %+  roll  (take-terms:corpus terms.after 80)
+  %+  roll  (take-terms:corpus (posting-terms terms.after) 160)
   |=  [word=@t index=_index]
   =/  bucket  (fall (~(get by index) word) *bucket:m)
   (~(put by index) word [+(count.bucket) (put:on-posting rows.bucket revision.after name)])

@@ -7,6 +7,7 @@ const save = (page) => page.getByRole('button', { name: 'Save memory settings' }
 
 test('both summary routes start unset and follow the current global default', async ({ page }) => {
   await page.goto(path)
+  await page.getByText('Model settings', { exact: false }).first().click()
   for (const title of ['Compaction model', 'LCM model']) {
     await expect(section(page, title).getByRole('checkbox', { name: /Use global default/ })).toBeChecked()
     await expect(section(page, title).getByText(`Follows the current default: ${defaultConfig().model}.`)).toBeVisible()
@@ -16,6 +17,7 @@ test('both summary routes start unset and follow the current global default', as
   await expect.poll(() => page.evaluate(() => window.settingsFixture.saves.at(-1))).toEqual({ summaryModels: { compaction: null, lcm: null } })
   await page.evaluate(() => sessionStorage.setItem('settings-fixture-config', JSON.stringify({ ...JSON.parse(sessionStorage.getItem('settings-fixture-config') || '{}'), model: 'current-answer-model' })))
   await page.reload()
+  await page.locator('.memory-model-settings > summary').click()
   await expect(page.getByText('Follows the current default: current-answer-model.')).toHaveCount(2)
   await expect(page.getByRole('checkbox', { name: /Use global default/ }).nth(0)).toBeChecked()
   await expect(page.getByRole('checkbox', { name: /Use global default/ }).nth(1)).toBeChecked()
@@ -23,13 +25,15 @@ test('both summary routes start unset and follow the current global default', as
 
 test('leaf and parent routes save independently without changing answer defaults or granting tools', async ({ page }) => {
   await page.goto(path)
+  await page.getByText('Model settings', { exact: false }).first().click()
   const leaf = section(page, 'Compaction model'), parent = section(page, 'LCM model')
   await leaf.getByRole('checkbox', { name: /Use global default/ }).uncheck()
   await leaf.getByRole('combobox', { name: 'Model', exact: true }).fill('leaf-model')
   await parent.getByRole('checkbox', { name: /Use global default/ }).uncheck()
   await parent.getByRole('combobox', { name: 'Model', exact: true }).fill('parent-model')
   await save(page).click()
-  await expect(page.getByRole('status')).toHaveText('Saved.')
+  await expect(page.locator('.save-bar').getByRole('status')).toHaveText('Saved.')
+  await expect(page.getByText('Automatic capture uses the LCM model: parent-model.')).toBeVisible()
   const models = await page.evaluate(() => window.settingsFixture.saves.at(-1).summaryModels)
   expect(models.compaction.model).toBe('leaf-model')
   expect(models.lcm.model).toBe('parent-model')
@@ -40,6 +44,7 @@ test('leaf and parent routes save independently without changing answer defaults
   }
   expect(await page.evaluate(() => sessionStorage.getItem('settings-fixture-config'))).toBeNull()
   await page.reload()
+  await page.locator('.memory-model-settings > summary').click()
   await expect(leaf.getByRole('combobox', { name: 'Model', exact: true })).toHaveValue('leaf-model')
   await expect(parent.getByRole('combobox', { name: 'Model', exact: true })).toHaveValue('parent-model')
   await leaf.getByRole('checkbox', { name: /Use global default/ }).check()
@@ -49,6 +54,7 @@ test('leaf and parent routes save independently without changing answer defaults
 
 test('unavailable saved settings cannot be overwritten with an empty form', async ({ page }) => {
   await page.goto(`${path}&hold-memory`)
+  await page.getByText('Model settings', { exact: false }).first().click()
   await expect(save(page)).toBeDisabled()
   await expect(page.getByRole('checkbox', { name: /Use global default/ }).first()).toBeDisabled()
   await page.evaluate(() => { window.settingsFixture.failMemoryRead = true; window.settingsFixture.releaseMemory() })
@@ -59,6 +65,7 @@ test('unavailable saved settings cannot be overwritten with an empty form', asyn
 
 test('failed saves retain the edited routes and do not claim success', async ({ page }) => {
   await page.goto(path)
+  await page.getByText('Model settings', { exact: false }).first().click()
   const leaf = section(page, 'Compaction model')
   await leaf.getByRole('checkbox', { name: /Use global default/ }).uncheck()
   await leaf.getByRole('combobox', { name: 'Model', exact: true }).fill('retain-this-model')
@@ -66,9 +73,9 @@ test('failed saves retain the edited routes and do not claim success', async ({ 
   await save(page).click()
   await expect(page.getByRole('alert')).toContainText('Configuration save failed')
   await expect(leaf.getByRole('combobox', { name: 'Model', exact: true })).toHaveValue('retain-this-model')
-  await expect(page.getByRole('status')).toHaveText('Unsaved changes.')
+  await expect(page.locator('.save-bar').getByRole('status')).toHaveText('Unsaved changes.')
   expect(await page.evaluate(() => window.settingsFixture.saves)).toEqual([])
   await page.evaluate(() => { window.settingsFixture.failSave = false })
   await save(page).click()
-  await expect(page.getByRole('status')).toHaveText('Saved.')
+  await expect(page.locator('.save-bar').getByRole('status')).toHaveText('Saved.')
 })

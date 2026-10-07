@@ -15,8 +15,8 @@ replace exactly the selected contiguous roots. Descendant lists are never
 copied into every ancestor.
 
 Settings → Memory has independent optional **Compaction model** (leaves) and
-**LCM model** (parents) routes. Unset overrides follow the current global
-default, not the conversation's snapshotted answer configuration. Provider
+**LCM model** (parents and shared-memory capture) routes. Unset overrides follow
+the current global default, not the conversation's snapshotted answer configuration. Provider
 credentials resolve through the shared credential boundary. Each request freezes its selected endpoint,
 model, source coverage and budget before dispatch; editing settings does not
 change an outstanding request's decoder. Neither setting changes the answer
@@ -150,6 +150,14 @@ status; the full transcript and LCM remain the source history.
 - The `memory` tool supports search, read, save and forget. Changes require the
   current revision, so delayed updates cannot overwrite a correction.
 
+Settings → Memory shows 25 compact rows per page, word-prefix search, source
+attribution and recent revisions. Previous and Next replace the visible page.
+Collapsing an edited memory preserves its draft; expand to save or discard it
+before moving elsewhere. Owner edits use the current revision and preserve
+search aliases. Lists use bounded pages of the live lexical index. Automatic capture
+uses the LCM model override, or the global default when that override is unset;
+provider privacy requirements still apply. Compaction has its own model route.
+
 Each fact has a stable name, current revision, attributed source and revision
 history. Names use 1–64 lowercase letters, digits, hyphens or underscores;
 bodies fit in 1,024 UTF-8 bytes. Explicit edits are protected from automatic
@@ -158,16 +166,23 @@ erase source messages, checkpoints or backups.
 
 Recall selects at most six facts once per admitted input. The pack fits within
 4,096 UTF-8 bytes and a smaller model's context allowance. At most two general
-communication preferences follow the identified actor. Other facts require
-query relevance. Corrections and forgetting apply when a selected identity is
+communication preferences follow the identified actor without a topic match.
+The editor labels this priority “Use across topics”; it does not change access
+and stays off for ordinary facts. Models with the memory tool can set it, and
+automatic capture requires a supporting user event. Other facts require query
+relevance. Corrections and forgetting apply when a selected identity is
 rendered on a subsequent tool round. Memory is user-level reference material,
 counts toward request estimates, and is excluded from compaction requests.
 
 The lexical index uses native maps and ordered maps, removes superseded
 postings, and caps query terms, visited posting nodes and candidate scoring.
 Each fact stores its normalized search terms, so scoring reads a bounded term
-set instead of tokenizing the body. Recall never scans the full fact store. Capture copies bounded
-source excerpts on separate timer events, uses the configured compaction
+set instead of tokenizing the body. The owner browser uses the corpus search's
+prefix helpers, with one shared prefix bucket per term. It checks every full
+query prefix against cached terms, visits at most 128 candidate records per
+page, and resumes through a cursor. Automatic recall keeps exact-term scoring.
+Recall never scans the full fact store. Capture copies bounded
+source excerpts on separate timer events, uses the configured LCM
 summary model and privacy policy, and has independent request IDs, retries,
 timeouts and usage. It requires a stateless summary provider. Proposals must
 cite an exact quote from a supplied user or tool event; assistant assertions
@@ -186,7 +201,11 @@ revision and provenance, including tombstones. Source authorization still govern
 `harness-memory.hoon`, and `harness-memory-migration.hoon` cover bounded recall,
 corrections, opt-out, source validation and persistence. The native integration
 suite `harness-memory-worker.hoon` drives capture alongside an active reply and
-checks reloads, timeouts and late responses. `scripts/memory-benchmark.mjs`
+checks LCM routing, reloads, timeouts and late responses.
+`tests/harness-memory-browser.hoon` covers complete bounded pagination, sparse
+search, precise revisions and retained sources. The native integration suite
+`harness-memory-browser.hoon` verifies owner-only management, attribution and
+read-only access through ACP. `scripts/memory-benchmark.mjs`
 measures recall and rendering on a disposable Vere ship at 1,024, 8,192 and
 32,768 records; seeding occurs outside the measured events.
 

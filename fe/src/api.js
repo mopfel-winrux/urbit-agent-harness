@@ -80,6 +80,12 @@ const inbox = async (params = {}) => {
   return acp.call('harness/inbox', params)
 }
 
+const memory = async (operation, params = {}) => {
+  if (!['list', 'read', 'save', 'forget'].includes(operation)) throw new Error('Unsupported memory operation')
+  await acp.start()
+  return acp.call(`harness/memory/${operation}`, params)
+}
+
 const login = async (action, params = {}) => {
   await acp.start()
   const response = await acp.call('harness/provider/login', { ...params, action })
@@ -97,7 +103,7 @@ const runs = async (sessionId, params = {}) => {
   return acp.call('harness/session/runs', { ...params, sessionId })
 }
 
-export const api = { read, action, models, corpus, search, inbox, login, runners, runs }
+export const api = { read, action, models, corpus, search, inbox, memory, login, runners, runs }
 
 export function resourcesFor(chat) {
   return {

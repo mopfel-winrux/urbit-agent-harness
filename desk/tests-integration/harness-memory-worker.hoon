@@ -26,6 +26,7 @@
     cfg(url 'https://openrouter.ai/api/v1/chat/completions', model 'fixture', zdr &, tools ~)
   %=  s
     defaults  cfg
+    summary-models  [`cfg(model 'compaction-fixture') `cfg(model 'lcm-fixture')]
     local-mcp-seen  1
     provider-keys  (my ~[['openrouter' 'fixture-key']])
     sessions  %-  my
@@ -57,6 +58,7 @@
   =.  tick  tick(now at)
   =/  working  (~(on-arvo +.completed tick) /memory-work/(scot %da at) [%behn %wake ~])
   =/  extraction  (snag 0 (requests -.working))
+  =/  work-state  !<(state-0 ~(on-save +.working tick))
   =/  concurrent
     %+  ~(on-poke +.working tick)
       %harness-action
@@ -82,6 +84,7 @@
       (expect-eq !>(1) !>((lent (requests -.sent))))
       (expect-eq !>(~) !>((requests -.completed)))
       (expect-eq !>(1) !>(next.knowledge.saved))
+      (expect-eq !>('lcm-fixture') !>(model.config:(need pending.knowledge.work-state)))
       (expect-eq !>(%memory) !>((snag 3 wire.extraction)))
       (expect-eq !>(~) !>((requests -.captured)))
       (expect-eq !>(sessions.before) !>(sessions.after))

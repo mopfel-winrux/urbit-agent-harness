@@ -51,6 +51,7 @@
 /+  observe=harness-observe
 /+  run-report=harness-run-report
 /+  memory=harness-memory, memory-capture=harness-memory-capture, memory-json=harness-memory-json
+/+  memory-browser=harness-memory-browser
 |%
 +$  card  card:agent:gall
 +$  acp-request
@@ -2672,7 +2673,7 @@
   =.  knowledge  db.ready
   ?~  ready.ready  `state
   =/  [id=@ud job=job:memory-types]  u.ready.ready
-  =/  config  (fall compaction.summary-models defaults)
+  =/  config  (fall lcm.summary-models defaults)
   =?  config  &(zdr.config.job !=('openrouter' (provider-for-url:hp url.config)))  config.job
   =.  config  config(zdr |(zdr.config zdr.config.job))
   =?  config  !=(0 attempts.job)
@@ -3195,6 +3196,10 @@
     %'harness/peers/configure'  (acp-peers-configure rpc)
     %'harness/summary-models'  (acp-respond rpc ~ (models-json:corpus-json summary-models))
     %'harness/summary-models/configure'  (acp-summary-models-configure rpc)
+      $?  %'harness/memory/list'  %'harness/memory/read'
+          %'harness/memory/save'  %'harness/memory/forget'
+      ==
+    (acp-memory rpc)
     %'harness/corpus/rebuild'  (acp-corpus-rebuild rpc)
     %'harness/search/status'  (acp-search-status rpc)
       ?(%'harness/search/query' %'harness/search/versions' %'harness/search/read')
@@ -3542,6 +3547,18 @@
     (acp-fail rpc '-32602' 'Invalid summary model settings')
   =.  summary-models  p.decoded
   (acp-respond rpc refresh-model-contexts (models-json:corpus-json summary-models))
+::
+++  acp-memory
+  |=  rpc=acp-request
+  ^-  (quip card _state)
+  ?^  (decode:admin connection.rpc)
+    (acp-fail rpc '-32602' 'Memory management is owner-only.')
+  =/  =source:memory-types  ['' 0v0 0 now.bowl (scot %p our.bowl)]
+  =/  operation  (crip (slag 15 (trip method.rpc)))
+  =/  result  (operate:memory-browser knowledge source operation (fall params.rpc [%o ~]))
+  ?:  ?=(%| -.result)  (acp-fail rpc '-32602' p.result)
+  =.  knowledge  db.p.result
+  (acp-respond rpc ~ result.p.result)
 ::
 ++  acp-corpus-rebuild
   |=  rpc=acp-request

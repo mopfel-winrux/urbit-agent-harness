@@ -1,5 +1,6 @@
 /-  *harness-store, h=harness, m=harness-memory
-/+  *test, storage=harness-store, policy=harness-defaults, memory=harness-memory
+/+  *test, storage=harness-store, policy=harness-defaults, memory=harness-memory,
+    browser=harness-memory-browser, j=harness-provider-wire
 |%
 ++  fixture
   ^-  state-m0
@@ -61,5 +62,21 @@
       (expect-eq !>(2) !>(event.source.value.record))
       (expect-eq !>(~2026.10.7) !>(at.source.value.record))
       (expect-eq !>(`'Amber.') !>(body.value.record))
+  ==
+++  test-prefix-migration-retains-records-history-and-runtime-state
+  =/  state  (envelope:storage !>(fixture))
+  =/  db  knowledge.state
+  =.  index.db
+    %-  my
+    (skip ~(tap by index.db) |=([term=@t *] =(':' (end [3 1] term))))
+  =.  knowledge.state  db
+  =/  migrated  (envelope:storage !>(state))
+  =/  result  (page:browser knowledge.migrated 'provis' +(revision.knowledge.migrated))
+  =/  rows  (need (get:j result 'items'))
+  ?>  ?=(%a -.rows)
+  ;:  weld
+      (expect-eq !>(1) !>((lent p.rows)))
+      (expect-eq !>(state) !>(migrated(knowledge knowledge.migrated(index index.db))))
+      (expect-eq !>(migrated) !>((envelope:storage !>(migrated))))
   ==
 --
