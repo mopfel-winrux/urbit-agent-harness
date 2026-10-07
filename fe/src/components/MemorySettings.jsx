@@ -53,10 +53,10 @@ export default function MemorySettings() {
     } catch (cause) { setError(cause.message) } finally { setBusy(false) }
   }
   return <form className="settings-grid" onSubmit={save}>
-    <p className="field-note">Original content stays searchable after summarization. These settings apply to the next summary request in any conversation; in-flight requests keep their selected model.</p>
+    <p className="field-note">Original content stays searchable after summarization. These models summarize history and capture durable shared facts. Changes apply to new requests; in-flight requests keep their selected model.</p>
     {(error || models.error || defaults.error) && <div className="inline-error" role="alert">{error || models.error || defaults.error}</div>}
     {(models.error || defaults.error) && <button type="button" className="button ghost" onClick={() => { models.refresh(); defaults.refresh() }}>Retry loading settings</button>}
-    <ModelOverride title="Compaction model" description="Summarizes older complete exchanges into source-linked leaves." value={form.compaction} defaults={defaults.value} onChange={(value) => change('compaction', value)} disabled={busy || unavailable} />
+    <ModelOverride title="Compaction model" description="Summarizes older complete exchanges and captures durable facts for shared recall." value={form.compaction} defaults={defaults.value} onChange={(value) => change('compaction', value)} disabled={busy || unavailable} />
     <ModelOverride title="LCM model" description="Condenses groups of summaries into a hierarchy, keeping links to their original evidence." value={form.lcm} defaults={defaults.value} onChange={(value) => change('lcm', value)} disabled={busy || unavailable} />
     <div className="save-bar"><span role="status">{saved ? 'Saved.' : dirty.current ? 'Unsaved changes.' : 'Unset overrides follow the global default.'}</span><button className="button primary" disabled={busy || unavailable}>{busy ? 'Saving…' : 'Save memory settings'}</button></div>
   </form>

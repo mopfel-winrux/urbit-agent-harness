@@ -13,6 +13,7 @@
 /-  wc=harness-work-control
 /-  hosted-types=harness-hosted
 /-  hn=harness-notes, native-notes=tlon-notes
+/-  memory-types=harness-memory
 /+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub,
     shadow=harness-shadow, hp=harness-provider, auth=harness-auth,
     oauth=harness-oauth, search=harness-search, ht=harness-tools,
@@ -49,6 +50,7 @@
 /+  tool-catalog=harness-tool-catalog, wire-json=harness-provider-wire
 /+  observe=harness-observe
 /+  run-report=harness-run-report
+/+  memory=harness-memory, memory-capture=harness-memory-capture, memory-json=harness-memory-json
 |%
 +$  card  card:agent:gall
 +$  acp-request
@@ -66,6 +68,7 @@
       skills=(map @t skill:h)
       staged=(map @t skill:h)
       search-requests=search-requests:h
+      knowledge=state:memory-types
   ==
 --
 %-  agent:dbug
@@ -131,6 +134,8 @@
           (sync:workspace-index workspace-search before-workspace workspace now.bowl)
         =^  indexing  state  wake-corpus:hc
         =.  cards  (weld cards indexing)
+        =^  remembering  state  wake-memory:hc
+        =.  cards  (weld cards remembering)
         ::  Publish authority changes before notifying hands to read again.
         ::
         =^  announcements  state
@@ -170,6 +175,7 @@
     |=  old-vase=vase
     =/  new=state-0  (load:storage old-vase)
     =.  state  new(corpus-wake ~, schedule-wake ~)
+    =.  wake.knowledge  ~
     =.  runners
       runners(wake ~, registry (~(run by registry.runners) |=(r=runner:runner-types r(stream ~))))
     %-  finish-event
@@ -189,6 +195,9 @@
       %+  snoc
         base
       [%pass /schedules/(scot %da u.schedule-wake.new) %arvo %b %rest u.schedule-wake.new]
+    =?  base  ?=(^ wake.knowledge.new)
+      %+  snoc  base
+      [%pass /memory-work/(scot %da u.wake.knowledge.new) %arvo %b %rest u.wake.knowledge.new]
     =.  base
       (weld base (close-streams:runner-lib runners.new))
     =.  base  (weld base refresh-model-contexts:hc)
@@ -389,11 +398,18 @@
           %+  turn  ~(tap in ~(key by sessions))
           |=(sid=session-id:h `json`[%s sid])
     ::
+        [%x %memory @ ~]
+      =/  name  i.t.t.path
+      =/  record  (~(get by records.knowledge) name)
+      ?~  record  [~ ~]
+      ``json+!>((row:memory-json name u.record))
+    ::
         [%x %session @ ~]
       =/  sid=session-id:h  i.t.t.path
       =/  ses  (~(get by sessions) sid)
       ?~  ses  [~ ~]
-      ``json+!>((view-json:hj (play:hl log.u.ses) (fall (~(get by js-timeouts) sid) js-timeout)))
+      =/  view  (memory-view:hc sid (play:hl log.u.ses))
+      ``json+!>((view-json:hj view (fall (~(get by js-timeouts) sid) js-timeout)))
     ::
         [%x %events @ ~]
       =/  sid=session-id:h  i.t.t.path
@@ -404,9 +420,10 @@
           [%a (turn (flop log.u.ses) event-json:hj)]
     ::
         [%x %snapshot @ ~]
-      =/  ses  (~(get by sessions) `session-id:h`i.t.t.path)
+      =/  sid=session-id:h  i.t.t.path
+      =/  ses  (~(get by sessions) sid)
       ?~  ses  [~ ~]
-      ``json+!>((snapshot:hs u.ses ~ (play:hl log.u.ses)))
+      ``json+!>((snapshot:hs u.ses ~ (memory-view:hc sid (play:hl log.u.ses))))
     ::
         [%x %head @ ~]
       =/  sid=session-id:h  i.t.t.path
@@ -738,6 +755,12 @@
       =.  corpus  (work:corpus-lib corpus 32 65.536)
       =.  workspace-search  (work:workspace-index workspace-search workspace 8 65.536)
       `this
+        [%memory-work @ ~]
+      ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+      ?.  =(wake.knowledge `(slav %da i.t.wire))  `this
+      =.  wake.knowledge  ~
+      =^  cards  state  memory-work:hc
+      [cards this]
         [?(%openai-renew %xai-renew) @ ~]
       ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
       =/  provider  ?:(=(%xai-renew i.wire) 'xai' 'openai')
@@ -2581,6 +2604,84 @@
   =.  corpus-wake  `deadline
   :_  state
   ~[[%pass /corpus-index/(scot %da deadline) %arvo %b %wait deadline]]
+::  Memory has its own paced worker. A normal event only schedules a wake;
+::  it does not collect source text, prepare a prompt or wait for inference.
+++  wake-memory
+  ^-  (quip card _state)
+  ?:  !=(~ wake.knowledge)  `state
+  ?.  |(?=(^ pending.knowledge) (lth head.knowledge next.knowledge))  `state
+  =/  deadline
+    ?~  pending.knowledge  (add now.bowl (div ~s1 4))
+    (max (add now.bowl ~s1) deadline.u.pending.knowledge)
+  =.  wake.knowledge  `deadline
+  [~[[%pass /memory-work/(scot %da deadline) %arvo %b %wait deadline]] state]
+++  memory-view
+  |=  [sid=session-id:h view=view:h]
+  ^-  view:h
+  =/  budget  (div (mul 4 (input-budget:context max-context.config.view)) 20)
+  view(memory (selected:memory knowledge sid budget))
+++  memory-work
+  ^-  (quip card _state)
+  ?:  !=(~ pending.knowledge)
+    ?:  (lth now.bowl deadline:(need pending.knowledge))  `state
+    (memory-finished & 'Memory capture timed out.' [0 0])
+  =/  ready  (ready:memory-capture knowledge)
+  =.  knowledge  db.ready
+  ?~  ready.ready  `state
+  =/  [id=@ud job=job:memory-types]  u.ready.ready
+  =/  config  (fall compaction.summary-models defaults)
+  =?  config  &(zdr.config.job !=('openrouter' (provider-for-url:hp url.config)))  config.job
+  =.  config  config(zdr |(zdr.config zdr.config.job))
+  =?  config  !=(0 attempts.job)
+    (fall (next:routing config provider-keys model-contexts) config)
+  =.  config  (resolve:model-context config provider-keys model-contexts)
+  =/  plan  (plan:memory-capture knowledge id job config now.bowl)
+  =.  pending.knowledge  `plan
+  ?^  (route:runner-lib url.config)
+    (memory-finished | 'Memory capture requires a summary model with a stateless provider.' [0 0])
+  =/  missing  (missing:auth provider-keys config)
+  ?^  missing  (memory-finished & 'Memory capture provider is unavailable.' [0 0])
+  =/  request  (request:memory-capture knowledge plan)
+  ?:  (gth (estimate:hp request %memory ~) (input-budget:context max-context.config))
+    (memory-finished | 'Memory evidence exceeds the summary model input budget.' [0 0])
+  [~[(llm-card sid.job id %memory request (sham plan))] state]
+++  memory-finished
+  |=  [retry=? status=@t usage=usage:h]
+  ^-  (quip card _state)
+  ?:  =(~ pending.knowledge)  `state
+  =/  pending  (need pending.knowledge)
+  =/  wake  wake.knowledge
+  =.  knowledge  (finish:memory-capture knowledge retry status usage)
+  :_  state
+  :-  :*  %pass  `wire`[%llm sid.job.pending (scot %ud id.pending) %memory ~]
+          %arvo  %i  %cancel-request  ~
+      ==
+  ?~  wake  ~
+  ~[[%pass /memory-work/(scot %da u.wake) %arvo %b %rest u.wake]]
+++  memory-response
+  |=  [sid=session-id:h req=@ud response=client-response:iris]
+  ^-  (quip card _state)
+  ?:  =(~ pending.knowledge)  `state
+  =/  pending  (need pending.knowledge)
+  ?.  &(=(sid sid.job.pending) =(req id.pending))  `state
+  ?:  ?=(%progress -.response)  `state
+  ?:  ?=(%cancel -.response)  (memory-finished & 'Memory capture was cancelled.' [0 0])
+  =/  status  status-code.response-header.response
+  ?.  &((gte status 200) (lth status 300))
+    (memory-finished & 'Memory capture provider request failed.' [0 0])
+  ?~  full-file.response  (memory-finished & 'Memory capture returned an empty response.' [0 0])
+  =/  body  q.data.u.full-file.response
+  ?:  (gth (met 3 body) 131.072)
+    (memory-finished | 'Memory capture response exceeds its byte limit.' [0 0])
+  =/  parsed  (mole |.((digest:hp url.config.pending body)))
+  ?.  ?=([~ %& *] parsed)  (memory-finished & 'Memory capture response could not be decoded.' [0 0])
+  =/  result  p.u.parsed
+  ?.  &(=(%stop stop.result) ?=([%assistant * ~] it.result))
+    (memory-finished & 'Memory capture requires a complete text response.' u.result)
+  =/  accepted  (accept:memory-capture knowledge pending body.it.result)
+  ?:  ?=(%| -.accepted)  (memory-finished & p.accepted u.result)
+  =.  knowledge  p.accepted
+  (memory-finished | 'Memory capture is current.' u.result)
 ++  unified-request
   |=  [connection=@t id=json method=@t params=(unit json)]
   ^-  (quip card _state)
@@ -2843,6 +2944,15 @@
   ?.  ?=([%llm @ @ @ ~] wire)  $(failed t.failed)
   =/  sid=session-id:h  i.t.wire
   =/  request-id  (slav %ud i.t.t.wire)
+  ?:  =(%memory i.t.t.t.wire)
+    =/  pending  pending.knowledge
+    ?.  ?&  ?=(^ pending)
+            =(request-id id.u.pending)
+            =(sid sid.job.u.pending)
+        ==
+      $(failed t.failed)
+    =^  more  state  (memory-finished & 'Memory capture authentication failed.' [0 0])
+    $(failed t.failed, cards (weld cards more))
   =/  current  (~(get by sessions) sid)
   ?~  current  $(failed t.failed)
   =/  =session:h  u.current
@@ -3479,7 +3589,7 @@
     (acp-fail rpc '-32602' 'Unknown session')
   =/  result=json
     %+  view-json:hj
-      (play:hl log.u.current)
+      (memory-view u.sid (play:hl log.u.current))
     (fall (~(get by js-timeouts) u.sid) js-timeout)
   (acp-respond rpc ~ result)
 ::
@@ -3532,7 +3642,7 @@
   ?~  current
     (acp-fail rpc '-32602' 'Unknown session')
   =/  since  (acp-param-number:wire-codec params 'since')
-  =/  view  (play:hl log.u.current)
+  =/  view  (memory-view u.sid (play:hl log.u.current))
   =/  streaming=@t
     ?~  pending.view  ''
     ?.  =(%turn kind.u.pending.view)  ''
@@ -3871,6 +3981,30 @@
   ?>  ?=(%input-received -.event)
   ?>  ?=(%user -.item.input.event)
   =/  parsed-command  (parse:command body.item.input.event)
+  ?:  ?&  ?=(^ parsed-command)
+          ?=(?(%memory %remember %forget) name.u.parsed-command)
+      ==
+    =/  view  (play:hl log.session)
+    =/  =source:memory-types
+      [sid id.input.event +(revision.view) at.input.event (actor:memory input.event)]
+    =/  result
+      (command:memory-json knowledge source name.u.parsed-command arg.u.parsed-command)
+    =.  knowledge  db.result
+    =/  edits=(list event:h)
+      ?~  edit.result  ~
+      ~[[%memory-set name.u.edit.result body.u.edit.result]]
+    =/  events
+      %+  weld
+        ~[event]
+      (snoc edits [%command-completed id.input.event name.u.parsed-command body.result])
+    =^  recorded  session  (record-all sid session events)
+    =?  cursors.knowledge
+      ?&  =('memory' name.u.parsed-command)
+          |(=('on' arg.u.parsed-command) =('off' arg.u.parsed-command))
+      ==
+      (~(put by cursors.knowledge) sid log.session)
+    =^  driven  state  (drive-put sid session)
+    [(weld recorded driven) state]
   ?:  &(?=(^ parsed-command) =('work' name.u.parsed-command))
     =^  recorded  session  (record-all sid session ~[event])
     =.  sessions  (~(put by sessions) sid session)
@@ -3901,7 +4035,7 @@
     ?:  (gth (met 3 u.reference) 8.192)  events
     [[%context-received id.input.event u.reference] events]
   =?  events  ?=(^ parsed-command)
-    =/  view  (play:hl log.session)
+    =/  view  (memory-view sid (play:hl log.session))
     =/  result  (evaluate:command u.parsed-command view defaults (skills-visible sid skills))
     %+  snoc
       (weld events events.result)
@@ -4022,6 +4156,8 @@
   ^-  (quip card _state)
   ?>  ?=(%fork -.action)
   ?>  !(~(has by sessions) to.action)
+  =?  disabled.knowledge  !(enabled:memory knowledge from.action)
+    (~(put in disabled.knowledge) to.action)
   =/  session  (need-session from.action)
   =/  view  (play:hl log.session)
   =/  request=(unit @ud)  ?~(pending.view ~ `req.u.pending.view)
@@ -4036,6 +4172,8 @@
   ^-  (quip card _state)
   ?>  ?=(%fork-at -.action)
   ?>  !(~(has by sessions) to.action)
+  =?  disabled.knowledge  !(enabled:memory knowledge from.action)
+    (~(put in disabled.knowledge) to.action)
   =/  fork  (branch:hs from.action (need-session from.action) at.action)
   ?>  ?=(%& -.fork)
   =/  session  p.fork
@@ -4062,6 +4200,7 @@
   |=  action=action:h
   ^-  (quip card _state)
   ?>  ?=(%fence -.action)
+  =.  barrier.knowledge  +(barrier.knowledge)
   ::  Revocation is wider than a user stop: retire descendant work and
   ::  scheduled continuations, retaining the source's transcript/config.
   =/  source  sid.action
@@ -4168,6 +4307,13 @@
     ?~  ship  peer-budget-resets
     (~(del by peer-budget-resets) u.ship)
   =.  corpus  (retire:corpus-lib corpus sid)
+  =.  knowledge
+    %=  knowledge
+      barrier  +(barrier.knowledge)
+      disabled  (~(del in disabled.knowledge) sid)
+      turns  (~(del by turns.knowledge) sid)
+      cursors  (~(del by cursors.knowledge) sid)
+    ==
   =.  search-requests  (forget-requests:search search-requests sid)
   =/  cards=(list card)  stopped
   =^  extra  state  (withdraw-auxiliary sid)
@@ -4625,38 +4771,44 @@
   ^-  drive-result
   |^
     =|  cards=(list card)
+    =.  knowledge  (prepare:memory knowledge sid log.session)
+    =?  cursors.knowledge  !(enabled:memory knowledge sid)
+      (~(put by cursors.knowledge) sid log.session)
     =/  projection  (play:hl log.session)
     |-
     ^-  drive-result
     ::  Authority follows this admitted input, not the previous turn's actor.
     =.  sessions  (~(put by sessions) sid session)
-    =/  view  projection
+    =/  view  (memory-view sid projection)
     =.  tools.config.view  (execution-tools sid tools.config.view)
     =/  decision
       ?:  (~(has by peer-active) sid)  (step:peer-rpc view)
       (next:hs view (skills-visible sid skills))
-    ?~  decision  [cards session skills staged search-requests]
+    ?~  decision
+      =.  knowledge  (enqueue:memory-capture knowledge sid session projection now.bowl)
+      [cards session skills staged search-requests knowledge]
     ?-  -.u.decision
         %tools
       =/  batch  (roll calls.u.decision (execute-tool view))
       =.  skills  skills.batch
       =.  staged  staged.batch
       =.  search-requests  search-requests.batch
+      =.  knowledge  knowledge.batch
       =^  recorded  session  (record-all sid session events.batch)
       $(projection (advance:hl events.batch projection), cards :(weld cards recorded cards.batch))
     ::
         %turn
       =^  requested  session  (issue-llm sid session %turn view)
-      [(weld cards requested) session skills staged search-requests]
+      [(weld cards requested) session skills staged search-requests knowledge]
     ::
         %compact
       =^  requested  session  (start-compaction sid session ~)
-      [(weld cards requested) session skills staged search-requests]
+      [(weld cards requested) session skills staged search-requests knowledge]
     ::
         %halt
       =^  recorded  session
         (record-all sid session ~[[%halted reason.u.decision]])
-      [(weld cards recorded) session skills staged search-requests]
+      [(weld cards recorded) session skills staged search-requests knowledge]
     ==
   ::  Synchronous calls complete here. Deferred calls record their request
   ::  identity and return cards; their results enter through another event.
@@ -4669,12 +4821,14 @@
                   skills=skills
                   staged=staged
                   search-requests=search-requests
+                  knowledge=knowledge
                 ]
         ]
     ^+  batch
     |^
       ?.  (call-granted:ht call tools.config.view)
         (complete 'rejected: tool is not granted for this session')
+      ?:  =('memory' name.call)  memory-tool
       ?:  |(=('lcm_search' name.call) =('lcm_read' name.call) =('lcm_expand' name.call))
         (complete (corpus-tool sid session call tools.config.view))
       ?:  =('list_peer_access' name.call)
@@ -4782,6 +4936,17 @@
       ?~  u.async  (complete 'error: bad tool arguments')
       (defer ~[u.u.async])
     ::
+    ++  memory-tool
+      ?:  (gth (met 3 args.call) 8.192)  (complete 'error: memory arguments exceed 8192 bytes')
+      =/  args  (de:json:html args.call)
+      ?~  args  (complete 'error: invalid memory JSON')
+      =/  turn  (~(get by turns.knowledge.batch) sid)
+      =/  =source:memory-types
+        [sid ?~(turn 0v0 input.u.turn) revision.view now.bowl ?~(turn 'agent' actor.u.turn)]
+      =/  result  (operate:memory-json knowledge.batch source u.args)
+      ?:  ?=(%| -.result)  (complete (cat 3 'error: ' p.result))
+      =.  knowledge.batch  db.p.result
+      (complete (en:json:html result.p.result))
     ++  complete
       |=  body=@t
       ^+  batch
@@ -4900,7 +5065,7 @@
 ++  try-fallback
   |=  [sid=session-id:h =session:h req=@ud kind=request-kind:h]
   ^-  (unit [cards=(list card) =session:h])
-  =/  view  (play:hl log.session)
+  =/  view  (memory-view sid (play:hl log.session))
   =/  config  (active:routing view req)
   =/  selected  (next-fallback sid view kind config)
   ?~  selected  ~
@@ -5057,6 +5222,7 @@
           response=client-response:iris
       ==
   ^-  (quip card _state)
+  ?:  =(%memory kind)  (memory-response sid req response)
   =/  found  (~(get by sessions) sid)
   ?~  found  `state
   =/  session  u.found
@@ -5301,6 +5467,7 @@
   ^-  (quip card _state)
   =/  found  (~(get by sessions) sid)
   ?~  found  `state
+  =.  cursors.knowledge  (~(put by cursors.knowledge) sid log.u.found)
   =/  view  (play:hl log.u.found)
   =^  cards  state
     ?.  ?|  ?=(^ pending.view)
@@ -5781,6 +5948,7 @@
   =.  skills  skills.result
   =.  staged  staged.result
   =.  search-requests  search-requests.result
+  =.  knowledge  knowledge.result
   =.  sessions  (~(put by sessions) sid session.result)
   =^  settled  state  (settle sid)
   [:(weld cards.result ~[(shadow-put-card sid session.result)] settled) state]

@@ -49,9 +49,9 @@
       '/model default — use the default provider and model\0a'
       '/context — inspect context budgets and checkpoint usage\0a'
       '/compact — summarize older exchanges, keeping the recent turn\0a'
-      '/memory — list this conversation\'s pinned notes\0a'
-      '/remember <name> <text> — save or replace a pinned note\0a'
-      '/forget <name> — unpin a note (does not erase history)\0a'
+      '/memory [query|on|off] — inspect or control shared memory\0a'
+      '/remember <name> <text> — save or replace a shared memory\0a'
+      '/forget <name> — forget a memory (source history is retained)\0a'
       '/work — manage projects, tasks and artifact review in this conversation\0a'
       '/stop — cancel current and queued work\0a\0a'
       'Only /compact calls a model (to summarize history). '
@@ -74,12 +74,12 @@
       '\0aEstimation margin: '  (scot %ud (div max-context.config.view 10))
       '\0aActive items: '  (scot %ud (lent items.view))
       '\0aCheckpoint: '  ?~(summary.view 'none' 'present; source transcript retained')
-      '\0aPinned notes: '  (scot %ud (lent ~(tap by memory.view)))  '/16, '
+      '\0aSelected memories: '  (scot %ud (lent ~(tap by memory.view)))  '/6, '
       %+  scot
         %ud
       %-  bytes:memory
       memory.view
-      '/8192 bytes'
+      ' bytes'
       '\0aCompaction tokens: '  (scot %ud prompt.compact-usage.view)  ' input, '
       (scot %ud completion.compact-usage.view)  ' output'
   ==
@@ -92,36 +92,8 @@
     ?:  =('context' name.parsed)
       [~ ?:(=('' arg.parsed) (context-report view skills) 'Usage: /context')]
     ?:  =('compact' name.parsed)  [~ 'Usage: /compact']
-    ?:  =('memory' name.parsed)
-      ?.  =('' arg.parsed)  [~ 'Usage: /memory']
-      :-  ~
-      ?~  memory.view
-        'No pinned notes. Use /remember <name> <text> to save one for this conversation.'
-      (cat 3 'Pinned notes (this conversation only):\0a' (render:memory memory.view))
-    ?:  |(=('remember' name.parsed) =('forget' name.parsed))  edit-note
     =/  result  (run parsed view defaults)
     [?~(config.result ~ ~[[%config-replaced u.config.result]]) body.result]
-  ::
-  ++  edit-note
-    =/  chars  (trip arg.parsed)
-    =/  split=[key=tape rest=tape]
-      =|  reversed-key=tape
-      |-  ^-  [key=tape rest=tape]
-          ?:  |(?=(~ chars) (whitespace i.chars))
-            [(flop reversed-key) (trim chars)]
-          $(chars t.chars, reversed-key [i.chars reversed-key])
-    ?:  ?|  =(~ key.split)
-            &(=('remember' name.parsed) =(~ rest.split))
-            &(=('forget' name.parsed) !=(~ rest.split))
-        ==
-      [~ ?:(=('remember' name.parsed) 'Usage: /remember <name> <text>' 'Usage: /forget <name>')]
-    =/  result
-      (edit:memory memory.view (crip key.split) ?:(=('forget' name.parsed) ~ `(crip rest.split)))
-    ?:  ?=(%| -.result)  [~ p.result]
-    :-  ~[p.result]
-    ?:  =('forget' name.parsed)
-      'Note unpinned. Earlier messages and checkpoints are not erased.'
-    'Note saved for this conversation. It stays pinned across compaction.'
   --
 ++  model-label
   |=  config=config:h
@@ -186,9 +158,9 @@
             ['model' 'Show or change this conversation\'s model' 'model-id | default']
             ['context' 'Inspect context budgets and checkpoint usage' '']
             ['compact' 'Summarize older exchanges using the current provider' '']
-            ['memory' 'List this conversation\'s pinned notes' '']
-            ['remember' 'Save or replace a conversation note' 'name text']
-            ['forget' 'Unpin a note without erasing history' 'name']
+            ['memory' 'Inspect or control shared memory' '[query|on|off]']
+            ['remember' 'Save or replace a shared memory' 'name text']
+            ['forget' 'Forget a memory without erasing source history' 'name']
             :*  'work'  'Read work or prepare a human-confirmed change'
                 'action JSON | confirm id | reject id | result id'
             ==

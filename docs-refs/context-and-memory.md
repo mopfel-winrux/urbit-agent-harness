@@ -134,41 +134,62 @@ invokes inference. It requires no tools and publishes success only after the
 checkpoint is accepted. Full source transcripts remain available. Full-log
 replay, history reads and request construction are not constant-cost.
 
-## Pinned conversation notes
+## Shared memory
 
-`lib/harness-memory.hoon` is a pure bounded-note policy. Notes are a map derived
-from the same session event log, not a second database. Human ingress provides:
+The head owns one durable fact store across conversations and local subagents.
+Memory is automatic: admission selects relevant facts, and a separate paced
+worker extracts durable knowledge from completed turns. No memory tool call is
+needed for ordinary recall. Workspace tasks remain the authority for live work
+status; the full transcript and LCM remain the source history.
 
-- `/remember project Keep the deployment read-only.` saves or replaces a note.
-- `/memory` lists the current notes without inference.
-- `/forget project` unpins a note without erasing earlier messages or summaries.
+- `/memory [query]` inspects a bounded sample or searches shared facts.
+- `/remember project Keep the deployment read-only.` saves or corrects a fact.
+- `/forget project` removes a fact from recall and fences older capture jobs.
+- `/memory off` disables recall and capture for this conversation and its
+  descendants; `/memory on` removes this conversation's opt-out.
+- The `memory` tool supports search, read, save and forget. Changes require the
+  current revision, so delayed updates cannot overwrite a correction.
 
-Names have 1–32 lowercase ASCII letters, digits, hyphens or underscores. Each
-body is at most 1,024 UTF-8 bytes; each session allows at most 16 notes and
-8,192 total name/body bytes. Replacements count against the resulting map.
-Overflow is rejected explicitly; there is no silent eviction. These limits
-bound current note content, not noun/map overhead, audit history, or backups.
+Each fact has a stable name, current revision, attributed source and revision
+history. Names use 1–64 lowercase letters, digits, hyphens or underscores;
+bodies fit in 1,024 UTF-8 bytes. Explicit edits are protected from automatic
+replacement. Forgetting leaves a tombstone and retained history; it does not
+erase source messages, checkpoints or backups.
 
-Notes enter ordinary model requests verbatim as user-level reference material
-and count toward request estimates. They are not passed as a separate block to
-the summarizer, which cannot edit them; earlier note commands may still appear
-in the history it summarizes. Removing a pin is therefore not an erasure or a
-guarantee that a model cannot recall its old text. Notes are never promoted to
-system instructions. Both Chat Completions and Responses use the same policy.
+Recall selects at most six facts once per admitted input. The pack fits within
+4,096 UTF-8 bytes and a smaller model's context allowance. At most two general
+communication preferences follow the identified actor. Other facts require
+query relevance. Corrections and forgetting apply when a selected identity is
+rendered on a subsequent tool round. Memory is user-level reference material,
+counts toward request estimates, and is excluded from compaction requests.
 
-Notes inherit the session's access scope. A new independent conversation starts
-empty; a fork carries notes at the selected history boundary and later changes
-are independent. An admitted participant can edit that session's notes, not
-another conversation's. Tlon actor isolation and hand authorization remain the
-boundary; pinned notes require no global memory grant. Clients inspect notes in session
-snapshots/views as `memory: [{name, body}]`. A `memory-set` event records each
-edit alongside the identified command input and acknowledgement.
+The lexical index uses native maps and ordered maps, removes superseded
+postings, and caps query terms, visited posting nodes and candidate scoring.
+Each fact stores its normalized search terms, so scoring reads a bounded term
+set instead of tokenizing the body. Recall never scans the full fact store. Capture copies bounded
+source excerpts on separate timer events, uses the configured compaction
+summary model and privacy policy, and has independent request IDs, retries,
+timeouts and usage. It requires a stateless summary provider. Proposals must
+cite an exact quote from a supplied user or tool event; assistant assertions
+alone cannot support a fact. Most turns should produce no new fact.
 
-Only human commands write pinned notes; printing a command does not execute it.
-Shared skills are an instruction library, not private memory. Note edits stay
-in the event history and search index even after unpinning.
+Memory is shared by default; a conversation is not a private memory partition.
+Sources retain their actor and conversation identity. Skills remain a separate
+instruction library. Snapshots expose the selected pack as
+`memory: [{name, body}]`; explicit command edits also record `memory-set` audit
+events. The read-only `/memory/<name>` JSON scry returns one fact with its
+revision and provenance, including tombstones. Source authorization still governs admission and live tool access.
 
 ## Verification
+
+`tests/harness-shared-memory.hoon`, `harness-memory-capture.hoon`,
+`harness-memory.hoon`, and `harness-memory-migration.hoon` cover bounded recall,
+corrections, opt-out, source validation and persistence. The native integration
+suite `harness-memory-worker.hoon` drives capture alongside an active reply and
+checks reloads, timeouts and late responses. `scripts/memory-benchmark.mjs`
+measures recall and rendering on a disposable Vere ship at 1,024, 8,192 and
+32,768 records; seeding occurs outside the measured events.
+
 
 Native tests exercise production hierarchy, index, corpus, JSON and persistence
 helpers. `scripts/lcm-conformance.mjs` uses a local model server through real

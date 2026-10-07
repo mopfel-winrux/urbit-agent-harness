@@ -336,11 +336,13 @@ other commands wait for the turn to finish.
 an owner DM; other actors use their Workspace and document permissions.
 See [work commands](work-control.md).
 
-### Explicit conversation notes
+### Shared memory
 
-Use `/remember preference Keep replies short.` to pin a note, `/memory` to list
-notes, and `/forget preference` to unpin one. Only human commands update notes;
-model replies containing these commands do not execute them.
+Relevant durable facts are recalled automatically across channels and local
+subagents. Use `/remember preference Keep replies short.` to save a fact,
+`/memory [query]` to inspect memories, and `/forget preference` to forget one.
+Use `/memory off` for a conversation that should neither recall nor capture
+shared facts. Model replies containing commands do not execute them.
 
 In mention-only channels, select the bot's native mention first, then type the
 plain slash command in the same paragraph—for example, **@Bot /memory**. The
@@ -349,17 +351,17 @@ not bypass sender or mention authorization. Plain-text ship spellings, other
 ships' mentions, formatted command text and multi-paragraph messages do not use
 this shortcut. DMs and replies to the bot's own channel posts do not need it.
 
-Notes belong to this sender/conversation, not other DMs or channels. They survive
-compaction, reloads, and permission changes, but do not preserve revoked access.
-Unpinning leaves historical copies. See [note limits](context-and-memory.md#pinned-conversation-notes).
+Memories retain their source actor and are shared across conversations. They
+survive compaction and reloads. Forgetting leaves historical copies. See
+[shared memory](context-and-memory.md#shared-memory).
 
 ### One companion, scoped conversations
 
 The ship is the companion's identity. Contacts supplies its name and avatar;
-each conversation keeps its own instructions, model, and notes.
+each conversation keeps its own instructions and model.
 
-Preferences are explicit pinned notes in one sender/destination conversation.
-Saving a preference in a DM does not authorize publishing it into a channel.
+Preferences retain their source actor. Shared recall uses that attribution
+when selecting personal communication preferences.
 Skills are an owner-managed shared instruction library, not personal memory.
 Social conversations and their descendants cannot write, stage or publish into
 that library, regardless of saved tool grants. An operator can deliberately install
@@ -492,7 +494,7 @@ Grant order alone is not a revocation. Disabling Tlon affects every route.
 
 Affected queued/running work is cancelled, old bindings are disabled, native
 timers and delegated work are fenced, and source schedules are paused until
-explicitly rescheduled. The head retains its transcript, pinned notes and chosen
+explicitly rescheduled. The head retains its transcript, shared knowledge and chosen
 configuration. New authorized input resumes that same head only after cancellation
 and a tools-only configuration update have been acknowledged, using a fresh
 binding. Old publications cannot move to the new binding. Actor-specific admission

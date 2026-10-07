@@ -14,6 +14,10 @@
   |=  [=view:h skills=(map @t skill:h)]
   ^-  @ud
   (estimate view %turn skills)
+++  completion-budget
+  |=  [kind=request-kind:h window=@ud]
+  =/  cap  (output-budget:context window)
+  ?:(=(%memory kind) (min 1.024 cap) cap)
 ::
 ++  estimate
   |=  [=view:h kind=request-kind:h skills=(map @t skill:h)]
@@ -22,6 +26,7 @@
 ++  payload
   |=  [=view:h kind=request-kind:h skills=(map @t skill:h)]
   ^-  json
+  =?  view  =(%memory kind)  view(tools.config ~, memory ~)
   =?  view  =(%compaction kind)
     %=  view
       tools.config  ~
@@ -96,7 +101,7 @@
     :~  ['model' %s model.config.view]
         ['messages' %a messages]
         ['stream' %b &]
-        [limit-field (numb:enjs:format (output-budget:context max-context.config.view))]
+        [limit-field (numb:enjs:format (completion-budget kind max-context.config.view))]
     ==
   =?  base  =(%turn kind)
     (snoc base ['tools' (tool-defs:ht tools.config.view)])
@@ -154,7 +159,7 @@
   =?  base  =('https://api.openai.com/v1/responses' url.config.view)
     %+  snoc
       base
-    ['max_output_tokens' (numb:enjs:format (output-budget:context max-context.config.view))]
+    ['max_output_tokens' (numb:enjs:format (completion-budget kind max-context.config.view))]
   =?  base  =(%turn kind)
     (snoc base ['tools' (responses-tool-defs tools.config.view)])
   (pairs:enjs:format base)
