@@ -17,6 +17,12 @@
   =.  cursors.knowledge.state
     (~(run by cursors.knowledge.state) |=(log=(list event:h) (turn log migrate-event)))
   =.  jobs.knowledge.state  (~(run by jobs.knowledge.state) migrate-memory-job)
+  =.  buffered.dreaming.maintenance.knowledge.state
+    (~(run by buffered.dreaming.maintenance.knowledge.state) migrate-memory-job)
+  =.  compactions.maintenance.knowledge.state
+    %-  ~(run by compactions.maintenance.knowledge.state)
+    |=  pending=pending:memory
+    pending(job (migrate-memory-job job.pending))
   =?  pending.knowledge.state  ?=(^ pending.knowledge.state)
     =/  pending  u.pending.knowledge.state
     `pending(job (migrate-memory-job job.pending))
@@ -120,7 +126,15 @@
   ^-  state-0
   =/  current  (mole |.(!<(state-0 saved)))
   ?^  current  (migrate-memory-prefixes u.current)
+  =/  saved-memory  (mole |.(!<(state-before-maintenance saved)))
+  ?^  saved-memory
+    %-  migrate-memory-prefixes
+    [%0 [maintenance:*state:memory knowledge.u.saved-memory] +>.u.saved-memory]
   (migrate-memory (envelope-before-memory saved))
+::  The capture scheduler adds bookkeeping without rewriting saved facts,
+::  jobs, requests, usage or conversation state.
++$  state-before-maintenance
+  $_  [%0 knowledge==>(*state:memory +) =>(*state-m0 +)]
 ++  migrate-memory-prefixes
   |=  state=state-0
   ^-  state-0

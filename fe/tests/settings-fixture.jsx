@@ -47,6 +47,7 @@ api.login = async (action, args = {}) => {
 let braveKey = sessionStorage.getItem('settings-fixture-brave') === 'true'
 let search = JSON.parse(sessionStorage.getItem('settings-fixture-search') || 'null') || { provider: 'brave', 'instance-url': '' }
 let summaryModels = JSON.parse(sessionStorage.getItem('settings-fixture-summary-models') || 'null') || { compaction: null, lcm: null }
+let dreaming = JSON.parse(sessionStorage.getItem('settings-fixture-dreaming') || 'null') || { enabled: false, lastRun: null, changes: 0, status: '', running: false, usage: { prompt: 0, completion: 0 } }
 let skills = JSON.parse(sessionStorage.getItem('settings-fixture-skills') || '[]')
 let peerSettings = JSON.parse(sessionStorage.getItem('settings-fixture-peers') || 'null') || { ...emptyPeers(), ship: '~zod', revision: '1', usage: [{ ship: '~nec', used: 1234, total: 1234 }] }
 let tlonPolicy = JSON.parse(sessionStorage.getItem('settings-fixture-tlon') || 'null') || { enabled: false, owner: '~bud', response: 'mentions', allowed: [], channels: [], trusted: [{ ship: '~nec', tools: ['web'] }] }
@@ -114,6 +115,11 @@ acp.call = async (method) => {
 api.read = async (path) => {
   window.settingsFixture.reads.push(path)
   if (path === 'runners') return runners
+  if (path === 'memory/dreaming') {
+    if (params.has('hold-dreaming') && !window.settingsFixture.dreamingReleased) await new Promise((resolve) => { window.settingsFixture.releaseDreaming = () => { window.settingsFixture.dreamingReleased = true; resolve() } })
+    if (window.settingsFixture.failDreamingRead) throw new Error('Dreaming settings unavailable in fixture')
+    return structuredClone(dreaming)
+  }
   if (path === 'summary-models') {
     if (params.has('hold-memory')) await new Promise((resolve) => { window.settingsFixture.releaseMemory = resolve })
     if (window.settingsFixture.failMemoryRead) throw new Error('Memory settings unavailable in fixture')
@@ -170,6 +176,13 @@ api.action = async (action) => {
     return { 'has-key': true }
   }
   if (window.settingsFixture.failSave) throw new Error('Configuration save failed in fixture')
+  if (action.dreaming) {
+    if (window.settingsFixture.holdDreamingSave) await new Promise(resolve => { window.settingsFixture.releaseDreamingSave = resolve })
+    dreaming = { ...dreaming, ...action.dreaming }
+    window.settingsFixture.saves.push(action)
+    sessionStorage.setItem('settings-fixture-dreaming', JSON.stringify(dreaming))
+    return structuredClone(dreaming)
+  }
   if (action.summaryModels) {
     summaryModels = action.summaryModels
     window.settingsFixture.saves.push(action)

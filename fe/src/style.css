@@ -692,6 +692,13 @@ input:focus, .settings-panel textarea:focus, .modal-card textarea:focus { border
 .memory-sharing summary { cursor: pointer; width: fit-content; }
 .memory-sharing p { max-width: 72ch; line-height: 1.6; margin: 10px 0; }
 .memory-capture-note strong { color: var(--text); font-weight: 500; }
+.memory-dreaming { padding: 12px 0 20px; margin-bottom: 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.memory-dreaming .tool-option { margin: 0 -10px 8px; }
+.memory-dreaming .field-note { margin: 6px 0; max-width: 75ch; }
+.memory-dreaming-result { color: var(--muted); font-size: var(--text-small); overflow-wrap: anywhere; }
+.memory-dreaming-result p { margin: 8px 0 0; }
+.memory-dreaming .inline-error { margin-top: 12px; }
+.memory-dreaming .inline-error button { display: block; margin-top: 8px; }
 .memory-notice:empty { display: none; }
 .memory-notice { margin: 0 0 16px; color: var(--success); font-size: var(--text-label); }
 .memory-search { display: flex; align-items: end; gap: 10px; }

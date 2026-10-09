@@ -17,7 +17,9 @@
   ==
 ++  queued
   =/  db  (prepare:memory *state:m 'first' log:session)
-  (enqueue:capture db 'first' session (play:hl log:session) ~2026.10.7)
+  =.  db  db(enabled.dreaming.maintenance &, due.dreaming.maintenance `~2026.10.7)
+  =.  db  (enqueue:capture db 'first' session (play:hl log:session) ~2026.10.7)
+  (dream:capture db ~2026.10.7)
 ++  pending
   ^-  pending:m
   =/  ready  (ready:capture queued)
@@ -128,5 +130,51 @@
       (expect-eq !>(log:session) !>((~(got by cursors.off) 'first')))
       (expect-eq !>(~) !>(jobs.off))
       (expect-eq !>(0) !>(next.off))
+  ==
+++  test-compaction-uses-only-selected-original-events
+  =/  db  queued
+  =/  captured
+    (compact:capture db 'first' 9 session ~[2] builtin-config:policy ~2026.10.7)
+  ?>  ?=(^ captured)
+  =/  evidence  evidence.job.u.captured
+  ?>  ?=(^ evidence)
+  =/  accepted  (accept:capture db u.captured answer)
+  ;:  weld
+      (expect-eq !>(1) !>((lent evidence)))
+      (expect-eq !>('user') !>(role.i.evidence))
+      (expect-eq !>(2) !>(event.source.i.evidence))
+      (expect !>(?=(%& -.accepted)))
+      %+  expect-eq  !>(~)
+      !>((compact:capture db 'first' 9 session ~[1 3 4] builtin-config:policy ~2026.10.7))
+  ==
+++  test-compaction-does-not-revisit-evidence-before-a-memory-control-boundary
+  =/  log=(list event:h)
+    :~  (input 0v3 'Public new evidence.')
+        [%command-completed 0v2 'memory' 'Shared memory is on. It applies to the next turn.']
+        (input 0v2 '/memory   on')
+        (input 0v1 'PRIVATE EVIDENCE')
+        :*  %command-completed  0v0  'memory'
+            'Shared memory is off for this conversation and its subagents.'
+        ==
+        [%config-replaced builtin-config:policy]
+    ==
+  =/  captured
+    (compact:capture *state:m 'first' 9 [log 10] ~[1 2 3 4 5 6] builtin-config:policy ~2026.10.7)
+  ?>  ?=(^ captured)
+  =/  evidence  evidence.job.u.captured
+  ?>  ?=(^ evidence)
+  ;:  weld
+      (expect-eq !>(1) !>((lent evidence)))
+      (expect-eq !>('Public new evidence.') !>(text.i.evidence))
+      (expect !>((boundary:capture [%memory-set 'name' ~])))
+  ==
+++  test-compaction-output-keeps-checkpoint-and-memory-validation-separate
+  =/  empty  (compact-output:capture '{"summary":"A concise checkpoint.","memories":[]}')
+  =/  bad  (compact-output:capture '{"summary":"A concise checkpoint.","memories":"wrong"}')
+  ;:  weld
+      (expect-eq !>('A concise checkpoint.') !>(summary.empty))
+      (expect-eq !>('A concise checkpoint.') !>(summary.bad))
+      (expect-eq !>(`'[]') !>(memories.empty))
+      (expect-eq !>(['' ~]) !>((compact-output:capture 'Not structured JSON')))
   ==
 --

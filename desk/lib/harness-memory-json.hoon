@@ -1,6 +1,7 @@
 ::  A small shared-memory interface for human commands and model corrections.
 /-  m=harness-memory
-/+  memory=harness-memory, idx=harness-memory-index, j=harness-provider-wire
+/+  memory=harness-memory, idx=harness-memory-index,
+    j=harness-provider-wire
 |%
 ++  row
   |=  [name=@t record=record:m]
@@ -94,6 +95,8 @@
   |=  [db=state:m source=source:m name=@t arg=@t]
   ^-  [db=state:m body=@t edit=(unit [name=@t body=(unit @t)])]
   ?:  &(=('memory' name) |(=('on' arg) =('off' arg)))
+    =.  buffered.dreaming.maintenance.db
+      (~(del by buffered.dreaming.maintenance.db) sid.source)
     =?  barrier.db  =('off' arg)  +(barrier.db)
     =.  disabled.db
       ?:  =('off' arg)  (~(put in disabled.db) sid.source)

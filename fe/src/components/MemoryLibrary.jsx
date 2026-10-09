@@ -83,7 +83,7 @@ function MemoryEditor({ item, onClose, onSaved, closeRequest }) {
   </form>
 }
 
-export default function MemoryLibrary({ captureModel }) {
+export default function MemoryLibrary({ children }) {
   const [draft, setDraft] = useState('')
   const [query, setQuery] = useState('')
   const [items, setItems] = useState([])
@@ -130,8 +130,9 @@ export default function MemoryLibrary({ captureModel }) {
   }
   return <section className="memory-library" aria-labelledby="memory-library-title">
     <div className="section-title"><div><h2 id="memory-library-title">Shared memory</h2><p>Facts shared across conversations. Open a memory to read its source or make a correction.</p></div><button ref={addButton} className="button primary" disabled={active !== null && !(active === '' && !expanded)} onClick={() => open('')}><PlusIcon />{active === '' && !expanded ? 'Resume draft' : 'Add memory'}</button></div>
-    <p className="memory-capture-note">Automatic capture uses the LCM model{captureModel ? <>: <strong>{captureModel}</strong></> : ''}.</p>
+    <p className="memory-capture-note">The agent can save durable facts as it works and during compaction.</p>
     <details className="memory-sharing"><summary>How sharing works</summary><p>Memories are shared across admitted conversations and local subagents, including conversations with the owner. They are not private to their source channel. Each reply receives a small selection of relevant memories.</p><p>Use <code>/memory off</code> in a conversation to disable recall and capture there and in its subagents. “Use across topics” gives a communication preference recall priority; it does not change who can access it.</p></details>
+    {children}
     <div role="status" className="memory-notice">{notice}</div>
     {active === '' && <div className="panel memory-new"><div hidden={!expanded}><MemoryEditor onClose={close} onSaved={saved} /></div>{!expanded && <div className="memory-draft"><span>New memory · Unsaved changes</span><button className="text-button" onClick={() => close(false)}>Discard changes</button></div>}</div>}
     <form className="memory-search" role="search" onSubmit={(event) => { event.preventDefault(); setNotice(''); void load(draft.trim()) }}>

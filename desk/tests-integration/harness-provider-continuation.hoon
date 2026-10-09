@@ -119,7 +119,7 @@
       (expect !>((levy ~(tap by p.fields) |=([key=@t value=json] =(`value (get:w assistant key))))))
       %+  expect-eq
         !>((get:w (body next) 'messages'))
-      !>((get:w (payload:hp view %turn ~) 'messages'))
+      !>((get:w (payload:hp (identify:hp view %turn ~zod ~) %turn ~) 'messages'))
       (expect-eq !>(3) !>((lent p.display)))
       (expect !>((lien items.view |=(it=item:h &(?=(%tool -.it) !=('' body.it))))))
       (expect-eq !>(`item:h`[%assistant 'Done.' ~]) !>((rear items.v)))

@@ -79,4 +79,46 @@
       (expect-eq !>(state) !>(migrated(knowledge knowledge.migrated(index index.db))))
       (expect-eq !>(migrated) !>((envelope:storage !>(migrated))))
   ==
+++  test-maintenance-migration-preserves-facts-jobs-and-accounting
+  =/  current  (envelope:storage !>(fixture))
+  =/  db  knowledge.current
+  =/  =job:m  *job:m
+  =.  job  job(sid 'first', log log:(~(got by sessions.current) 'first'))
+  =.  db
+    %=  db
+      jobs  (my ~[[7 job]])
+      queued  (my ~[['first' 7]])
+      head  7
+      next  8
+      pending  `[7 job builtin-config:policy barrier.db ~2026.10.9 ~]
+      usage  [123 45]
+      status  'Capture in flight'
+    ==
+  =/  old=state-before-maintenance:storage  [%0 +.db +>.current]
+  =/  restored  (envelope:storage !>(old))
+  ;:  weld
+      (expect-eq !>(db) !>(knowledge.restored))
+      (expect-eq !>(+>.current) !>(+>.restored))
+      (expect-eq !>(restored) !>((envelope:storage !>(restored))))
+  ==
+++  test-reload-preserves-partial-capture-batches-and-their-log-boundaries
+  =/  current  (envelope:storage !>(fixture))
+  =/  config  builtin-config:policy
+  =/  =job:m  *job:m
+  =.  job
+    %=  job
+      sid  'first'
+      log  log:(~(got by sessions.current) 'first')
+      stop  ~[[%config-replaced config(system memory-migration-system:storage)]]
+    ==
+  =.  buffered.dreaming.maintenance.knowledge.current  (my ~[['first' job]])
+  =/  restored  (load:storage !>(current))
+  =/  buffered  (~(got by buffered.dreaming.maintenance.knowledge.restored) 'first')
+  ;:  weld
+      (expect-eq !>(log:(~(got by sessions.restored) 'first')) !>(log.buffered))
+      %+  expect-eq
+        !>(~[[%config-replaced builtin-config:policy]])
+      !>(stop.buffered)
+      (expect-eq !>(restored) !>((load:storage !>(restored))))
+  ==
 --

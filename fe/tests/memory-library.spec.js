@@ -2,9 +2,9 @@ import { expect, test } from '@playwright/test'
 const path = '/apps/harness/tests/settings-fixture.html?page=memory'
 const inspect = (page, name) => page.getByRole('button', { name: `Inspect ${name}`, exact: true })
 
-test('memory capture identifies the LCM route and browsing opens attributed evidence', async ({ page }) => {
+test('dreaming identifies the LCM route and browsing opens attributed evidence', async ({ page }) => {
   await page.goto(path)
-  await expect(page.getByText(/Automatic capture uses the LCM model:/)).toBeVisible()
+  await expect(page.getByText(/Dreaming uses the LCM model:/)).toBeVisible()
   await expect(page.getByText('4 saved memories')).toBeVisible()
   await inspect(page, 'project-review').click()
   const editor = page.getByRole('form', { name: 'Edit project-review' })

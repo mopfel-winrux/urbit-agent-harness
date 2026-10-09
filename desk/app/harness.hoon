@@ -2652,13 +2652,24 @@
 ::  it does not collect source text, prepare a prompt or wait for inference.
 ++  wake-memory
   ^-  (quip card _state)
-  ?:  !=(~ wake.knowledge)  `state
-  ?.  |(?=(^ pending.knowledge) (lth head.knowledge next.knowledge))  `state
-  =/  deadline
-    ?~  pending.knowledge  (add now.bowl (div ~s1 4))
-    (max (add now.bowl ~s1) deadline.u.pending.knowledge)
-  =.  wake.knowledge  `deadline
-  [~[[%pass /memory-work/(scot %da deadline) %arvo %b %wait deadline]] state]
+  =/  deadline=(unit @da)
+    ?^  pending.knowledge  `(max (add now.bowl ~s1) deadline.u.pending.knowledge)
+    ?.  enabled.dreaming.maintenance.knowledge  ~
+    ?:  (lth head.knowledge next.knowledge)  `(add now.bowl (div ~s1 4))
+    `(max (add now.bowl (div ~s1 4)) (fall due.dreaming.maintenance.knowledge (add now.bowl ~d1)))
+  =?  due.dreaming.maintenance.knowledge
+    &(enabled.dreaming.maintenance.knowledge ?=(~ due.dreaming.maintenance.knowledge))
+    deadline
+  =?  deadline
+    &(?=(^ deadline) ?=(^ wake.knowledge))
+    `(min (need deadline) (need wake.knowledge))
+  ?:  =(deadline wake.knowledge)  `state
+  =/  cards=(list card)
+    ?~  wake.knowledge  ~
+    ~[[%pass /memory-work/(scot %da u.wake.knowledge) %arvo %b %rest u.wake.knowledge]]
+  =.  wake.knowledge  deadline
+  ?~  deadline  [cards state]
+  [(snoc cards [%pass /memory-work/(scot %da u.deadline) %arvo %b %wait u.deadline]) state]
 ++  memory-view
   |=  [sid=session-id:h view=view:h]
   ^-  view:h
@@ -2669,6 +2680,8 @@
   ?:  !=(~ pending.knowledge)
     ?:  (lth now.bowl deadline:(need pending.knowledge))  `state
     (memory-finished & 'Memory capture timed out.' [0 0])
+  ?.  enabled.dreaming.maintenance.knowledge  `state
+  =.  knowledge  (dream:memory-capture knowledge now.bowl)
   =/  ready  (ready:memory-capture knowledge)
   =.  knowledge  db.ready
   ?~  ready.ready  `state
@@ -2723,9 +2736,12 @@
   ?.  &(=(%stop stop.result) ?=([%assistant * ~] it.result))
     (memory-finished & 'Memory capture requires a complete text response.' u.result)
   =/  accepted  (accept:memory-capture knowledge pending body.it.result)
+  ?.  enabled.dreaming.maintenance.knowledge  (memory-finished | 'Dreaming is off.' u.result)
   ?:  ?=(%| -.accepted)  (memory-finished & p.accepted u.result)
+  =/  changes  (sub revision.p.accepted revision.knowledge)
   =.  knowledge  p.accepted
-  (memory-finished | 'Memory capture is current.' u.result)
+  =.  changes.dreaming.maintenance.knowledge  (add changes.dreaming.maintenance.knowledge changes)
+  (memory-finished | 'Dreaming complete.' u.result)
 ++  unified-request
   |=  [connection=@t id=json method=@t params=(unit json)]
   ^-  (quip card _state)
@@ -3196,6 +3212,7 @@
     %'harness/peers/configure'  (acp-peers-configure rpc)
     %'harness/summary-models'  (acp-respond rpc ~ (models-json:corpus-json summary-models))
     %'harness/summary-models/configure'  (acp-summary-models-configure rpc)
+    ?(%'harness/memory/dreaming' %'harness/memory/dreaming/configure')  (acp-dreaming rpc)
       $?  %'harness/memory/list'  %'harness/memory/read'
           %'harness/memory/save'  %'harness/memory/forget'
       ==
@@ -3547,6 +3564,49 @@
     (acp-fail rpc '-32602' 'Invalid summary model settings')
   =.  summary-models  p.decoded
   (acp-respond rpc refresh-model-contexts (models-json:corpus-json summary-models))
+::
+++  acp-dreaming
+  |=  rpc=acp-request
+  ^-  (quip card _state)
+  ?^  (decode:admin connection.rpc)
+    (acp-fail rpc '-32602' 'Dreaming settings are owner-only.')
+  =/  enabled  (get:wire-json (fall params.rpc [%o ~]) 'enabled')
+  ?:  &(!?=([~ %b *] enabled) =('harness/memory/dreaming/configure' method.rpc))
+    (acp-fail rpc '-32602' 'Expected enabled to be a boolean.')
+  =?  state  =('harness/memory/dreaming/configure' method.rpc)
+    ?>  ?=([~ %b *] enabled)
+    =/  changed  !=(p.u.enabled enabled.dreaming.maintenance.knowledge)
+    =.  enabled.dreaming.maintenance.knowledge  p.u.enabled
+    =?  due.dreaming.maintenance.knowledge  changed
+      ?:(p.u.enabled `(add now.bowl ~d1) ~)
+    =?  jobs.knowledge  !p.u.enabled  ~
+    =?  queued.knowledge  !p.u.enabled  ~
+    =?  head.knowledge  !p.u.enabled  next.knowledge
+    state
+  =^  cancelled  state
+    ?:  ?|  !=('harness/memory/dreaming/configure' method.rpc)
+            enabled.dreaming.maintenance.knowledge
+            ?=(~ pending.knowledge)
+        ==
+      `state
+    (memory-finished | 'Dreaming is off.' [0 0])
+  =/  result
+    %-  pairs:enjs:format
+    :~  ['enabled' %b enabled.dreaming.maintenance.knowledge]
+        :-  'lastRun'
+        ?~  last.dreaming.maintenance.knowledge  ~
+        %-  numb:enjs:format
+        (div (mul 1.000 (sub (max ~1970.1.1 u.last.dreaming.maintenance.knowledge) ~1970.1.1)) ~s1)
+        ['changes' (numb:enjs:format changes.dreaming.maintenance.knowledge)]
+        ['status' %s status.knowledge]
+        ['running' %b |(?=(^ pending.knowledge) (lth head.knowledge next.knowledge))]
+        :-  'usage'
+        %-  pairs:enjs:format
+        :~  ['prompt' (numb:enjs:format prompt.usage.knowledge)]
+            ['completion' (numb:enjs:format completion.usage.knowledge)]
+        ==
+    ==
+  (acp-respond rpc cancelled result)
 ::
 ++  acp-memory
   |=  rpc=acp-request
@@ -4080,7 +4140,10 @@
     [:(weld recorded cards.handled completed driven) state]
   ?:  =(`['compact' ''] parsed-command)
     =^  recorded  session  (record-all sid session ~[event])
-    =^  started  session  (start-compaction sid session `id.input.event)
+    =/  compacted  (start-compaction sid session `id.input.event)
+    =/  started  cards.compacted
+    =.  session  session.compacted
+    =.  knowledge  knowledge.compacted
     =^  driven  state  (drive-put sid session)
     [:(weld recorded started driven) state]
   =/  events=(list event:h)  ~[event]
@@ -4255,7 +4318,10 @@
   =/  session  (need-session sid.action)
   =/  view  (play:hl log.session)
   ?:  |(?=(^ pending.view) !=(~ wait.view))  `state
-  =^  cards  session  (start-compaction sid.action session ~)
+  =/  compacted  (start-compaction sid.action session ~)
+  =/  cards  cards.compacted
+  =.  session  session.compacted
+  =.  knowledge  knowledge.compacted
   =^  driven  state  (drive-put sid.action session)
   [(weld cards driven) state]
 ::
@@ -4376,6 +4442,8 @@
       disabled  (~(del in disabled.knowledge) sid)
       turns  (~(del by turns.knowledge) sid)
       cursors  (~(del by cursors.knowledge) sid)
+      buffered.dreaming.maintenance  (~(del by buffered.dreaming.maintenance.knowledge) sid)
+      compactions.maintenance  (~(del by compactions.maintenance.knowledge) sid)
     ==
   =.  search-requests  (forget-requests:search search-requests sid)
   =/  cards=(list card)  stopped
@@ -4838,6 +4906,10 @@
     =?  cursors.knowledge  !(enabled:memory knowledge sid)
       (~(put by cursors.knowledge) sid log.session)
     =/  projection  (play:hl log.session)
+    =/  capture  (~(get by compactions.maintenance.knowledge) sid)
+    =?  compactions.maintenance.knowledge
+      &(?=(^ capture) !=(pending.projection `[id.u.capture %compaction]))
+      (~(del by compactions.maintenance.knowledge) sid)
     |-
     ^-  drive-result
     ::  Authority follows this admitted input, not the previous turn's actor.
@@ -4865,7 +4937,10 @@
       [(weld cards requested) session skills staged search-requests knowledge]
     ::
         %compact
-      =^  requested  session  (start-compaction sid session ~)
+      =/  compacted  (start-compaction sid session ~)
+      =/  requested  cards.compacted
+      =.  session  session.compacted
+      =.  knowledge  knowledge.compacted
       [(weld cards requested) session skills staged search-requests knowledge]
     ::
         %halt
@@ -5035,7 +5110,7 @@
 ::  Iris finishes. A command is acknowledged only after completion (or refusal).
 ++  start-compaction
   |=  [sid=session-id:h =session:h input=(unit input-id:h)]
-  ^-  [(list card) session:h]
+  ^-  [cards=(list card) session=session:h knowledge=state:memory-types]
   =/  view  (play:hl log.session)
   =/  visible  (skills-visible sid skills)
   =/  leaf  (fall compaction.summary-models defaults)
@@ -5054,17 +5129,38 @@
     =/  =event:h
       ?~  input  [%halted (cat 3 'context budget: ' p.planned)]
       [%command-completed u.input 'compact' p.planned]
-    (record-all sid session ~[event])
+    =^  cards  session  (record-all sid session ~[event])
+    [cards session knowledge]
   =/  config  ?~(children.p.planned leaf branch)
   =/  missing  (missing:auth provider-keys config)
-  ?^  missing  (record-all sid session ~[[%halted u.missing]])
+  ?^  missing
+    =^  cards  session  (record-all sid session ~[[%halted u.missing]])
+    [cards session knowledge]
   =/  req  next-req.session
+  =/  capture
+    ?^  children.p.planned  ~
+    (compact:memory-capture knowledge sid req session sources.p.planned config now.bowl)
   =.  next-req.session  +(req)
   =^  recorded  session
     (record-all sid session ~[[%lcm-planned req p.planned] [%llm-routed req config]])
   =/  checkpoint  (sham log.session)
   =/  request  (request:lcm-context view p.planned config)
-  :_  session
+  =?  capture  ?=(^ capture)
+    =/  payload
+      %:  payload-with-capture:hp
+        request
+        %compaction
+        visible
+        `(request-data:memory-capture knowledge u.capture)
+      ==
+    ?:  %+  gth
+          (div (add 3 (met 3 (en:json:html payload))) 4)
+        (input-budget:context max-context.config)  ~
+    capture
+  =.  compactions.maintenance.knowledge
+    ?~  capture  (~(del by compactions.maintenance.knowledge) sid)
+    (~(put by compactions.maintenance.knowledge) sid u.capture)
+  :_  [session knowledge]
   :+  (llm-card sid req %compaction request checkpoint)
     :*  %pass  `wire`[%compact-timeout `@ta`sid (scot %ud req) (scot %uv checkpoint) ~]
         %arvo  %b  %wait  (add now.bowl ~m3)
@@ -5256,7 +5352,11 @@
       ?.(moon:~(. ownership bowl) ~ `(sein:title our.bowl now.bowl our.bowl))
     ==
   =/  payload=json
-    (payload:hp view kind (skills-visible sid skills))
+    =/  capture  (~(get by compactions.maintenance.knowledge) sid)
+    =/  evidence=(unit @t)
+      ?.  &(?=(^ capture) =(%compaction kind) =(req id.u.capture))  ~
+      `(request-data:memory-capture knowledge u.capture)
+    (payload-with-capture:hp view kind (skills-visible sid skills) evidence)
   =/  body=@t  (en:json:html payload)
   =/  runner  (route:runner-lib url.config.view)
   ?^  runner
@@ -5311,6 +5411,20 @@
       ?~  full-file.response  `''
       (mole |.((continuation:hp url.request-config q.data.u.full-file.response)))
     =/  event  (completion-event reasoning)
+    =/  capture  (~(get by compactions.maintenance.knowledge) sid)
+    =?  knowledge
+      &(?=(%checkpoint-completed -.event) ?=(^ capture) =(req id.u.capture))
+      ?>  ?=(%finished -.response)
+      =/  parsed  (digest:hp url.request-config q.data:(need full-file.response))
+      ?>  ?=(%& -.parsed)
+      ?>  ?=(%assistant -.it.p.parsed)
+      =/  output  (compact-output:memory-capture body.it.p.parsed)
+      ?~  memories.output  knowledge
+      =/  result  (accept:memory-capture knowledge u.capture u.memories.output)
+      ?:  ?=(%| -.result)  knowledge
+      p.result
+    =?  compactions.maintenance.knowledge  =(%compaction kind)
+      (~(del by compactions.maintenance.knowledge) sid)
     ::  No failover after user-visible output, explicit cancellation, or a
     ::  semantic completion. Each attempt gets a fresh fenced request ID.
     =/  fallback
@@ -5388,18 +5502,22 @@
             'Compaction has no source plan; the previous context was retained. Retry explicitly.'
             u.p.parsed
         ==
+      =/  capture  (~(get by compactions.maintenance.knowledge) sid)
+      =/  item  it.p.parsed
+      =?  item  &(?=(^ capture) =(req id.u.capture) ?=([%assistant * ~] item))
+        item(body summary:(compact-output:memory-capture body.item))
       =/  invalid
-        ?~  lcm-plan.view  (validate:context view u.compaction.view stop.p.parsed it.p.parsed)
-        (validate:lcm-context view u.lcm-plan.view stop.p.parsed it.p.parsed)
+        ?~  lcm-plan.view  (validate:context view u.compaction.view stop.p.parsed item)
+        (validate:lcm-context view u.lcm-plan.view stop.p.parsed item)
       ?^  invalid  [%compaction-failed req u.invalid u.p.parsed]
-      ?>  ?=([%assistant * ~] it.p.parsed)
+      ?>  ?=([%assistant * ~] item)
       =/  reply=(unit [input-id=input-id:h body=@t])
         ?~  command.u.compaction.view  ~
         :-  ~
         :*  u.command.u.compaction.view
             'Context compacted. The recent turn and full source transcript were retained.'
         ==
-      [%checkpoint-completed req body.it.p.parsed u.p.parsed reply]
+      [%checkpoint-completed req body.item u.p.parsed reply]
     [%llm-completed req stop.p.parsed u.p.parsed it.p.parsed]
   --
 ::

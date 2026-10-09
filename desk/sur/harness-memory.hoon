@@ -25,8 +25,11 @@
   ==
 +$  pending
   [id=@ud =job config=config:h barrier=@ud deadline=@da bases=(map @t @ud)]
++$  dreaming
+  [enabled=$~(| ?) due=(unit @da) buffered=(map @t job) last=(unit @da) changes=@ud]
 +$  state
-  $:  records=(map @t record)
+  $:  maintenance=[dreaming=dreaming compactions=(map @t pending)]
+      records=(map @t record)
       index=(map @t bucket)
       general=(map @t (list @t))
       revision=@ud
