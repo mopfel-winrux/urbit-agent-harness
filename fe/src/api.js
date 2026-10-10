@@ -17,6 +17,7 @@ async function action(value) {
   if (value.config) return acp.call('harness/session/configure', { sessionId: value.config.sid, config: value.config.config })
   if (value.defaults) return acp.call('harness/defaults/configure', { config: value.defaults })
   if (value.summaryModels) return acp.call('harness/summary-models/configure', { models: value.summaryModels })
+  if (value.dreaming) return acp.call('harness/memory/dreaming/configure', value.dreaming)
   if (value.peers) return acp.call('harness/peers/configure', value.peers)
   if (value.peerReset) return acp.call('harness/peers/reset', value.peerReset)
   if (value.peerCheck) return acp.call('harness/peers/check', { ship: value.peerCheck })
@@ -45,6 +46,7 @@ async function read(path) {
   if (path === 'tools') return acp.call('harness/tools')
   if (path === 'defaults') return acp.call('harness/defaults')
   if (path === 'summary-models') return acp.call('harness/summary-models')
+  if (path === 'memory/dreaming') return acp.call('harness/memory/dreaming')
   if (path === 'peers') return acp.call('harness/peers')
   if (path === 'peers/remote') return acp.call('harness/peers/remote')
   if (path === 'corpus/status') return acp.call('harness/corpus/status')
@@ -80,6 +82,12 @@ const inbox = async (params = {}) => {
   return acp.call('harness/inbox', params)
 }
 
+const memory = async (operation, params = {}) => {
+  if (!['list', 'read', 'save', 'forget'].includes(operation)) throw new Error('Unsupported memory operation')
+  await acp.start()
+  return acp.call(`harness/memory/${operation}`, params)
+}
+
 const login = async (action, params = {}) => {
   await acp.start()
   const response = await acp.call('harness/provider/login', { ...params, action })
@@ -97,7 +105,7 @@ const runs = async (sessionId, params = {}) => {
   return acp.call('harness/session/runs', { ...params, sessionId })
 }
 
-export const api = { read, action, models, corpus, search, inbox, login, runners, runs }
+export const api = { read, action, models, corpus, search, inbox, memory, login, runners, runs }
 
 export function resourcesFor(chat) {
   return {

@@ -15,8 +15,8 @@ replace exactly the selected contiguous roots. Descendant lists are never
 copied into every ancestor.
 
 Settings → Memory has independent optional **Compaction model** (leaves) and
-**LCM model** (parents) routes. Unset overrides follow the current global
-default, not the conversation's snapshotted answer configuration. Provider
+**LCM model** (parents and scheduled dreaming) routes. Unset overrides follow
+the current global default, not the conversation's snapshotted answer configuration. Provider
 credentials resolve through the shared credential boundary. Each request freezes its selected endpoint,
 model, source coverage and budget before dispatch; editing settings does not
 change an outstanding request's decoder. Neither setting changes the answer
@@ -134,41 +134,116 @@ invokes inference. It requires no tools and publishes success only after the
 checkpoint is accepted. Full source transcripts remain available. Full-log
 replay, history reads and request construction are not constant-cost.
 
-## Pinned conversation notes
+## Shared memory
 
-`lib/harness-memory.hoon` is a pure bounded-note policy. Notes are a map derived
-from the same session event log, not a second database. Human ingress provides:
+The head owns one durable fact store across conversations and local subagents.
+Admission automatically selects relevant facts; ordinary recall needs no memory
+tool call. The default prompt asks the agent to save important durable facts
+and corrections as it works, updating existing records instead of duplicating
+them. Workspace tasks remain the authority for live work status; the full
+transcript and LCM remain the source history.
 
-- `/remember project Keep the deployment read-only.` saves or replaces a note.
-- `/memory` lists the current notes without inference.
-- `/forget project` unpins a note without erasing earlier messages or summaries.
+Leaf compaction can capture durable facts in the same model request as its
+checkpoint. Its evidence comes only from original events covered by the plan,
+not from summaries. A valid checkpoint survives rejected memory proposals.
+Summary-node merges do not capture memories. When the extra evidence would
+exceed the model's input budget, the request contains only the checkpoint task.
 
-Names have 1–32 lowercase ASCII letters, digits, hyphens or underscores. Each
-body is at most 1,024 UTF-8 bytes; each session allows at most 16 notes and
-8,192 total name/body bytes. Replacements count against the resulting map.
-Overflow is rejected explicitly; there is no silent eviction. These limits
-bound current note content, not noun/map overhead, audit history, or backups.
+Scheduled dreaming is an optional daily review of fresh conversation evidence.
+It is off by default. Settings → Memory contains the global toggle, last-run
+time, result and number of memory changes. Enabling it schedules the first
+review in a day; reloads retain the schedule and coalesce missed days into one
+pass. Each pass selects at most eight conversations, oldest pending first.
+Completed replies buffer source boundaries without starting inference.
+Disabling dreaming cancels its outstanding request and queued work; recall,
+explicit saves and capture during compaction remain available. Conversation
+opt-outs apply to both capture paths.
 
-Notes enter ordinary model requests verbatim as user-level reference material
-and count toward request estimates. They are not passed as a separate block to
-the summarizer, which cannot edit them; earlier note commands may still appear
-in the history it summarizes. Removing a pin is therefore not an erasure or a
-guarantee that a model cannot recall its old text. Notes are never promoted to
-system instructions. Both Chat Completions and Responses use the same policy.
+- `/memory [query]` inspects a bounded sample or searches shared facts.
+- `/remember project Keep the deployment read-only.` saves or corrects a fact.
+- `/forget project` removes a fact from recall and fences older capture jobs.
+- `/memory off` disables recall and capture for this conversation and its
+  descendants; `/memory on` removes this conversation's opt-out.
+- The `memory` tool supports search, read, save and forget. Changes require the
+  current revision, so delayed updates cannot overwrite a correction.
 
-Notes inherit the session's access scope. A new independent conversation starts
-empty; a fork carries notes at the selected history boundary and later changes
-are independent. An admitted participant can edit that session's notes, not
-another conversation's. Tlon actor isolation and hand authorization remain the
-boundary; pinned notes require no global memory grant. Clients inspect notes in session
-snapshots/views as `memory: [{name, body}]`. A `memory-set` event records each
-edit alongside the identified command input and acknowledgement.
+Settings → Memory shows 25 compact rows per page, word-prefix search, source
+attribution and recent revisions. Previous and Next replace the visible page.
+Collapsing an edited memory preserves its draft; expand to save or discard it
+before moving elsewhere. Owner edits use the current revision and preserve
+search aliases. Lists use bounded pages of the live lexical index. Dreaming uses
+the LCM model override, or the global default when unset. Compaction capture
+uses the compaction model. Both retain the conversation's provider privacy
+requirements. The dreaming toggle saves immediately and independently of the
+model settings. Its owner-only ACP methods are `harness/memory/dreaming` and
+`harness/memory/dreaming/configure`, with a boolean `enabled` parameter.
 
-Only human commands write pinned notes; printing a command does not execute it.
-Shared skills are an instruction library, not private memory. Note edits stay
-in the event history and search index even after unpinning.
+Each fact has a stable name, current revision, attributed source and revision
+history. Names use 1–64 lowercase letters, digits, hyphens or underscores;
+bodies fit in 1,024 UTF-8 bytes. Explicit edits are protected from automatic
+replacement. Forgetting leaves a tombstone and retained history; it does not
+erase source messages, checkpoints or backups.
+
+Recall selects at most six facts once per admitted input. The pack fits within
+4,096 UTF-8 bytes and a smaller model's context allowance. At most two general
+communication preferences follow the identified actor without a topic match.
+The editor labels this priority “Use across topics”; it does not change access
+and stays off for ordinary facts. Models with the memory tool can set it, and
+automatic capture requires a supporting user event. Other facts require query
+relevance. Corrections and forgetting apply when a selected identity is
+rendered on a subsequent tool round. Memory is user-level reference material,
+counts toward request estimates, and is excluded from the checkpoint source.
+Compaction capture receives a separate bounded selection of related facts for
+revision-aware deduplication; these are references, not fresh evidence.
+
+The lexical index uses native maps and ordered maps, removes superseded
+postings, and caps query terms, visited posting nodes and candidate scoring.
+Each fact stores its normalized search terms, so scoring reads a bounded term
+set instead of tokenizing the body. The owner browser uses the corpus search's
+prefix helpers, with one shared prefix bucket per term. It checks every full
+query prefix against cached terms, visits at most 128 candidate records per
+page, and resumes through a cursor. Automatic recall keeps exact-term scoring.
+Recall never scans the full fact store. Dreaming copies source excerpts on
+separate timer events, inspecting at most sixteen event cells per wake. It has
+independent request IDs, one retry, a two-minute timeout and token accounting.
+Each selected conversation makes one bounded extraction using at most twelve
+excerpts and 8 KiB of evidence, plus related facts and instructions. It does not
+drain the remaining transcript into extra requests. Buffered source boundaries
+coalesce per conversation and survive reloads. Dreaming output is capped at
+1,024 tokens; an empty result still uses model tokens. Recall and explicit
+`/remember` writes do not make an extraction call.
+
+Compaction collection inspects at most 256 event cells, with the same excerpt
+and byte bounds. It stops at recorded memory-control or forgetting boundaries.
+Both capture paths accept at most three facts and require an exact supporting
+quote from a supplied user or tool event. Assistant assertions and recalled
+history cannot support a fact. Requests are fenced against opting out,
+forgetting and newer record revisions; explicit corrections remain protected.
+Opting out discards buffered work without removing memories. Capture uses
+stateless summary providers and never sends a conversation reply.
+
+Memory is shared by default; a conversation is not a private memory partition.
+Sources retain their actor and conversation identity. Skills remain a separate
+instruction library. Snapshots expose the selected pack as
+`memory: [{name, body}]`; explicit command edits also record `memory-set` audit
+events. The read-only `/memory/<name>` JSON scry returns one fact with its
+revision and provenance, including tombstones. Source authorization still governs admission and live tool access.
 
 ## Verification
+
+`tests/harness-shared-memory.hoon`, `harness-memory-capture.hoon`,
+`harness-memory-dreaming.hoon`, `harness-memory.hoon`, and
+`harness-memory-migration.hoon` cover bounded recall, capture scheduling,
+corrections, opt-out, source validation and persistence. The native integration
+suite `harness-memory-worker.hoon` drives dreaming alongside an active reply
+and checks compaction capture, model routing, reloads, timeouts and late responses.
+`tests/harness-memory-browser.hoon` covers complete bounded pagination, sparse
+search, precise revisions and retained sources. The native integration suite
+`harness-memory-browser.hoon` verifies owner-only management, attribution and
+read-only access through ACP. `scripts/memory-benchmark.mjs`
+measures recall and rendering on a disposable Vere ship at 1,024, 8,192 and
+32,768 records; seeding occurs outside the measured events.
+
 
 Native tests exercise production hierarchy, index, corpus, JSON and persistence
 helpers. `scripts/lcm-conformance.mjs` uses a local model server through real

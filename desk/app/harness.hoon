@@ -13,6 +13,7 @@
 /-  wc=harness-work-control
 /-  hosted-types=harness-hosted
 /-  hn=harness-notes, native-notes=tlon-notes
+/-  memory-types=harness-memory
 /+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub,
     shadow=harness-shadow, hp=harness-provider, auth=harness-auth,
     oauth=harness-oauth, search=harness-search, ht=harness-tools,
@@ -49,6 +50,8 @@
 /+  tool-catalog=harness-tool-catalog, wire-json=harness-provider-wire
 /+  observe=harness-observe
 /+  run-report=harness-run-report
+/+  memory=harness-memory, memory-capture=harness-memory-capture, memory-json=harness-memory-json
+/+  memory-browser=harness-memory-browser
 |%
 +$  card  card:agent:gall
 +$  acp-request
@@ -66,6 +69,7 @@
       skills=(map @t skill:h)
       staged=(map @t skill:h)
       search-requests=search-requests:h
+      knowledge=state:memory-types
   ==
 --
 %-  agent:dbug
@@ -131,6 +135,8 @@
           (sync:workspace-index workspace-search before-workspace workspace now.bowl)
         =^  indexing  state  wake-corpus:hc
         =.  cards  (weld cards indexing)
+        =^  remembering  state  wake-memory:hc
+        =.  cards  (weld cards remembering)
         ::  Publish authority changes before notifying hands to read again.
         ::
         =^  announcements  state
@@ -170,6 +176,7 @@
     |=  old-vase=vase
     =/  new=state-0  (load:storage old-vase)
     =.  state  new(corpus-wake ~, schedule-wake ~)
+    =.  wake.knowledge  ~
     =.  runners
       runners(wake ~, registry (~(run by registry.runners) |=(r=runner:runner-types r(stream ~))))
     %-  finish-event
@@ -189,6 +196,9 @@
       %+  snoc
         base
       [%pass /schedules/(scot %da u.schedule-wake.new) %arvo %b %rest u.schedule-wake.new]
+    =?  base  ?=(^ wake.knowledge.new)
+      %+  snoc  base
+      [%pass /memory-work/(scot %da u.wake.knowledge.new) %arvo %b %rest u.wake.knowledge.new]
     =.  base
       (weld base (close-streams:runner-lib runners.new))
     =.  base  (weld base refresh-model-contexts:hc)
@@ -230,96 +240,104 @@
       [cards this]
     %-  finish-event
     ^-  (quip card _this)
-    ?+  mark  (on-poke:def mark vase)
-        %harness-runner-request
-      ?>  =(src.bowl our.bowl)
-      =^  cards  state  (runner-begin:hc !<(request:runner-types vase))
-      [cards this]
-        %harness-hosted
-      ?>  =(src.bowl our.bowl)
-      =/  request  !<(request:hosted-types vase)
-      =^  cards  state  (hosted-request:hc request)
-      [cards this]
-        %harness-work-result
-      ?>  =(src.bowl our.bowl)
-      =/  result  !<([id=@uv value=(each json @t)] vase)
-      =^  cards  state  (work-result:hc id.result value.result)
-      [cards this]
-        %harness-workspace
-      ?>  =(src.bowl our.bowl)
-      =/  request  !<(request:work vase)
-      =^  cards  state
-        (workspace-owner:hc [%native id.request] action.request args.request id.request)
-      [cards this]
-        %harness-cron
-      ?>  =(src.bowl our.bowl)
-      =/  request  !<(request:cr vase)
-      =/  handled  (schedule-call:hc act.request)
-      :_  this(state new.handled)
-      %+  snoc  cards.handled
-      [%give %fact ~[/crons/[id.request]] %noun !>(result.handled)]
-        %harness-tool
-      ?>  =(src.bowl our.bowl)
-      =/  request  !<(tool-request:adapter vase)
-      =^  cards  state
-        ?:  =('workspace' name.call.request)  (workspace-tool:hc request)
-        (schedule-tool:hc request)
-      [cards this]
-        %harness-action
-      ?>  =(src.bowl our.bowl)
-      =/  action  !<(action:h vase)
-      ?.  (dispatch-current:hc ~ action)  `this
-      =^  cards  state  (handle-action:hc action)
-      [cards this]
-    ::
-        %noun
-      ?>  =(src.bowl our.bowl)
-      =/  action  ;;(action:h q.vase)
-      ?.  (dispatch-current:hc ~ action)  `this
-      =^  cards  state  (handle-action:hc action)
-      [cards this]
-    ::
-        %harness-effect
-      ?>  =(src.bowl our.bowl)
-      =/  effect  !<(effect:h vase)
-      ?.  (dispatch-current:hc `generation.effect act.effect)  `this
-      =^  cards  state  (handle-action:hc act.effect)
-      [cards this]
-    ::
-        %harness-admin-result
-      ?>  =(src.bowl our.bowl)
-      =/  result  !<([connection=@t payload=@t] vase)
-      =^  cards  state  (admin-result:hc connection.result payload.result)
-      [cards this]
-    ::
-        %harness-hand
-      ?>  =(src.bowl our.bowl)
-      =/  request  !<(request:hh vase)
-      =/  handled  (hand-call:hc act.request)
-      :_  this(state new.handled)
-      %+  snoc  cards.handled
-      [%give %fact ~[/hands/[id.request]] %noun !>(result.handled)]
-    ::
-        %handle-http-request
-      =+  !<([eyre-id=@ta req=inbound-request:eyre] vase)
-      ?:  =('/harness/runners' (end [3 16] url.request.req))
-        =^  cards  state  (serve-runner:hc eyre-id req)
+    |^
+      ?+  mark  owner-request
+          %handle-http-request
+        =+  !<([eyre-id=@ta req=inbound-request:eyre] vase)
+        ?:  =('/harness/runners' (end [3 16] url.request.req))
+          =^  cards  state  (serve-runner:hc eyre-id req)
+          [cards this]
+        =^  cards  state  (serve:hc eyre-id req)
         [cards this]
-      =^  cards  state  (serve:hc eyre-id req)
-      [cards this]
-    ::
-        %harness-a2a-0
-      =^  cards  state  (handle-a2a:hc src.bowl !<(a2a:h vase))
-      [cards this]
-    ::
-        %harness-access-0
-      =^  cards  state  (handle-peer-access:hc src.bowl !<(peer-access-message:h vase))
-      [cards this]
-    ::
-        %harness-rpc-0
-      =^  cards  state  (handle-peer-rpc:hc src.bowl !<(peer-rpc:h vase))
-      [cards this]
-    ==
+      ::
+          %harness-a2a-0
+        =^  cards  state  (handle-a2a:hc src.bowl !<(a2a:h vase))
+        [cards this]
+      ::
+          %harness-access-0
+        =^  cards  state  (handle-peer-access:hc src.bowl !<(peer-access-message:h vase))
+        [cards this]
+      ::
+          %harness-rpc-0
+        =^  cards  state  (handle-peer-rpc:hc src.bowl !<(peer-rpc:h vase))
+        [cards this]
+      ==
+    ++  owner-request
+      ?+  mark  owner-action
+          %harness-runner-request
+        ?>  =(src.bowl our.bowl)
+        =^  cards  state  (runner-begin:hc !<(request:runner-types vase))
+        [cards this]
+          %harness-hosted
+        ?>  =(src.bowl our.bowl)
+        =/  request  !<(request:hosted-types vase)
+        =^  cards  state  (hosted-request:hc request)
+        [cards this]
+          %harness-work-result
+        ?>  =(src.bowl our.bowl)
+        =/  result  !<([id=@uv value=(each json @t)] vase)
+        =^  cards  state  (work-result:hc id.result value.result)
+        [cards this]
+          %harness-workspace
+        ?>  =(src.bowl our.bowl)
+        =/  request  !<(request:work vase)
+        =^  cards  state
+          (workspace-owner:hc [%native id.request] action.request args.request id.request)
+        [cards this]
+          %harness-cron
+        ?>  =(src.bowl our.bowl)
+        =/  request  !<(request:cr vase)
+        =/  handled  (schedule-call:hc act.request)
+        :_  this(state new.handled)
+        %+  snoc  cards.handled
+        [%give %fact ~[/crons/[id.request]] %noun !>(result.handled)]
+          %harness-tool
+        ?>  =(src.bowl our.bowl)
+        =/  request  !<(tool-request:adapter vase)
+        =^  cards  state
+          ?:  =('workspace' name.call.request)  (workspace-tool:hc request)
+          (schedule-tool:hc request)
+        [cards this]
+          %harness-admin-result
+        ?>  =(src.bowl our.bowl)
+        =/  result  !<([connection=@t payload=@t] vase)
+        =^  cards  state  (admin-result:hc connection.result payload.result)
+        [cards this]
+      ::
+          %harness-hand
+        ?>  =(src.bowl our.bowl)
+        =/  request  !<(request:hh vase)
+        =/  handled  (hand-call:hc act.request)
+        :_  this(state new.handled)
+        %+  snoc  cards.handled
+        [%give %fact ~[/hands/[id.request]] %noun !>(result.handled)]
+      ::
+      ==
+    ++  owner-action
+      ?+  mark  (on-poke:def mark vase)
+          %harness-action
+        ?>  =(src.bowl our.bowl)
+        =/  action  !<(action:h vase)
+        ?.  (dispatch-current:hc ~ action)  `this
+        =^  cards  state  (handle-action:hc action)
+        [cards this]
+      ::
+          %noun
+        ?>  =(src.bowl our.bowl)
+        =/  action  ;;(action:h q.vase)
+        ?.  (dispatch-current:hc ~ action)  `this
+        =^  cards  state  (handle-action:hc action)
+        [cards this]
+      ::
+          %harness-effect
+        ?>  =(src.bowl our.bowl)
+        =/  effect  !<(effect:h vase)
+        ?.  (dispatch-current:hc `generation.effect act.effect)  `this
+        =^  cards  state  (handle-action:hc act.effect)
+        [cards this]
+      ::
+      ==
+    --
   ::
   ++  on-watch
     |=  =path
@@ -358,132 +376,148 @@
     |=  =path
     ^-  (unit (unit cage))
     ?>  =(src.bowl our.bowl)
-    ?+  path  (on-peek:def path)
-        [%x %workspace ~]
-      ``noun+!>(workspace)
-        [%x %cron ~]
-      ``json+!>((list-json:schedule-lib schedules hands ~))
-        [%x %cron-session @ ~]
-      ``noun+!>((for-session:schedule-lib schedules i.t.t.path))
-        [%x %cron-authority @ ~]
-      =/  job  (for-session:schedule-lib schedules i.t.t.path)
-      ``noun+!>(?~(job | (schedule-live:hc u.job)))
-        [%x %hands @ ~]
-      ``json+!>((status-json:hd hands i.t.t.path))
-    ::
-        [%x %hand-outbox @ ~]
-      ``json+!>((outbox-json:hd hands i.t.t.path))
-    ::
-        [%x %hand-state ~]
-      ``noun+!>(hands)
-    ::
-        [%x %work-card @ ~]
-      ``noun+!>((work-card:hc (slav %uv i.t.t.path)))
-        [%x %run @ @ ~]
-      ``noun+!>((inspect-run:hc i.t.t.path (slav %uv i.t.t.t.path)))
-    ::
-        [%x %sessions ~]
-      :^  ~  ~  %json
-      !>  ^-  json
-          :-  %a
-          %+  turn  ~(tap in ~(key by sessions))
-          |=(sid=session-id:h `json`[%s sid])
-    ::
-        [%x %session @ ~]
-      =/  sid=session-id:h  i.t.t.path
-      =/  ses  (~(get by sessions) sid)
-      ?~  ses  [~ ~]
-      ``json+!>((view-json:hj (play:hl log.u.ses) (fall (~(get by js-timeouts) sid) js-timeout)))
-    ::
-        [%x %events @ ~]
-      =/  sid=session-id:h  i.t.t.path
-      =/  ses  (~(get by sessions) sid)
-      ?~  ses  [~ ~]
-      :^  ~  ~  %json
-      !>  ^-  json
-          [%a (turn (flop log.u.ses) event-json:hj)]
-    ::
-        [%x %snapshot @ ~]
-      =/  ses  (~(get by sessions) `session-id:h`i.t.t.path)
-      ?~  ses  [~ ~]
-      ``json+!>((snapshot:hs u.ses ~ (play:hl log.u.ses)))
-    ::
-        [%x %head @ ~]
-      =/  sid=session-id:h  i.t.t.path
-      =/  ses  (~(get by sessions) sid)
-      ?~  ses  [~ ~]
-      ``noun+!>((inspect:hs u.ses (skills-visible:hc sid skills)))
-    ::
-        [%x %verification @ ~]
-      ``json+!>((shadow-status:hc i.t.t.path))
-    ::
-        [%x %tool-call @ @ @ ~]
-      =/  sid=@t  i.t.t.path
-      =/  generation=@ud  (slav %ud i.t.t.t.path)
-      =/  call-id=@t  i.t.t.t.t.path
-      ``noun+!>((hand-tool-authority:hc sid generation call-id))
-    ::
-        [%x %status ~]
-      :^  ~  ~  %json
-      !>  ^-  json
-          (pairs:enjs:format ~[['has-key' %b !=('' api-key)]])
-    ::
-        [%x %tools ~]
-      :^  ~  ~  %json
-      !>  ^-  json
-          [%a (turn configurable-tools:ht |=(t=term `json`[%s t]))]
-    ::
-        [%x %defaults ~]
-      ``json+!>((config-json:hj defaults))
-        [%x %hosted %capabilities ~]
-      ``json+!>(capabilities:hosted-auth)
-    ::
-        [%x %admin-call @ @ @ ~]
-      ``noun+!>((admin-current:hc [i.t.t.path (slav %ud i.t.t.t.path) i.t.t.t.t.path]))
-    ::
-        [%x %search ~]
-      ``json+!>((config-json:search search-config))
-    ::
-        [%x %mcp ~]
-      :^  ~  ~  %json
-      !>  ^-  json
-          [%a (turn ~(tap by mcp-servers) mcp-server-json:hj)]
-    ::
-        [%x %skills ~]
-      ``json+!>((skills-json:hj skills))
-    ::
-        [%x %staged ~]
-      ``json+!>((skills-json:hj staged))
-    ::
-        [%x %peers ~]
-      :^  ~  ~  %json
-      !>  ^-  json
-          :-  %a
-          %+  turn  ~(tap by peers)
-          |=  [=ship g=peer-grant:h]
-          ^-  json
-          %-  pairs:enjs:format
-          :~  ['ship' %s (scot %p ship)]
-              ['tools' %a (turn tools.g grant-json:hj)]
-              ['budget' (numb:enjs:format budget.g)]
-              ['inflows' %a (turn ~(tap in inflows.g) |=(n=@t `json`[%s n]))]
-          ==
-    ::
-        [%x %timers ~]
-      :^  ~  ~  %json
-      !>  ^-  json
-          :-  %a
-          %+  turn  ~(tap by timers)
-          |=  [[sid=session-id:h name=@ta] t=timer:h]
-          ^-  json
-          %-  pairs:enjs:format
-          :~  ['sid' %s sid]
-              ['name' %s name]
-              ['at' %s (scot %da at.t)]
-              ['every' ?~(every.t ~ [%s (scot %dr u.every.t)])]
-              ['prompt' %s prompt.t]
-          ==
-    ==
+    |^
+      ?+  path  session-read
+          [%x %workspace ~]
+        ``noun+!>(workspace)
+          [%x %cron ~]
+        ``json+!>((list-json:schedule-lib schedules hands ~))
+          [%x %cron-session @ ~]
+        ``noun+!>((for-session:schedule-lib schedules i.t.t.path))
+          [%x %cron-authority @ ~]
+        =/  job  (for-session:schedule-lib schedules i.t.t.path)
+        ``noun+!>(?~(job | (schedule-live:hc u.job)))
+          [%x %hands @ ~]
+        ``json+!>((status-json:hd hands i.t.t.path))
+      ::
+          [%x %hand-outbox @ ~]
+        ``json+!>((outbox-json:hd hands i.t.t.path))
+      ::
+          [%x %hand-state ~]
+        ``noun+!>(hands)
+      ::
+          [%x %work-card @ ~]
+        ``noun+!>((work-card:hc (slav %uv i.t.t.path)))
+          [%x %run @ @ ~]
+        ``noun+!>((inspect-run:hc i.t.t.path (slav %uv i.t.t.t.path)))
+      ::
+      ==
+    ++  session-read
+      ?+  path  settings-read
+          [%x %sessions ~]
+        :^  ~  ~  %json
+        !>  ^-  json
+            :-  %a
+            %+  turn  ~(tap in ~(key by sessions))
+            |=(sid=session-id:h `json`[%s sid])
+      ::
+          [%x %memory @ ~]
+        =/  name  i.t.t.path
+        =/  record  (~(get by records.knowledge) name)
+        ?~  record  [~ ~]
+        ``json+!>((row:memory-json name u.record))
+      ::
+          [%x %session @ ~]
+        =/  sid=session-id:h  i.t.t.path
+        =/  ses  (~(get by sessions) sid)
+        ?~  ses  [~ ~]
+        =/  view  (memory-view:hc sid (play:hl log.u.ses))
+        ``json+!>((view-json:hj view (fall (~(get by js-timeouts) sid) js-timeout)))
+      ::
+          [%x %events @ ~]
+        =/  sid=session-id:h  i.t.t.path
+        =/  ses  (~(get by sessions) sid)
+        ?~  ses  [~ ~]
+        :^  ~  ~  %json
+        !>  ^-  json
+            [%a (turn (flop log.u.ses) event-json:hj)]
+      ::
+          [%x %snapshot @ ~]
+        =/  sid=session-id:h  i.t.t.path
+        =/  ses  (~(get by sessions) sid)
+        ?~  ses  [~ ~]
+        ``json+!>((snapshot:hs u.ses ~ (memory-view:hc sid (play:hl log.u.ses))))
+      ::
+          [%x %head @ ~]
+        =/  sid=session-id:h  i.t.t.path
+        =/  ses  (~(get by sessions) sid)
+        ?~  ses  [~ ~]
+        ``noun+!>((inspect:hs u.ses (skills-visible:hc sid skills)))
+      ::
+          [%x %verification @ ~]
+        ``json+!>((shadow-status:hc i.t.t.path))
+      ::
+          [%x %tool-call @ @ @ ~]
+        =/  sid=@t  i.t.t.path
+        =/  generation=@ud  (slav %ud i.t.t.t.path)
+        =/  call-id=@t  i.t.t.t.t.path
+        ``noun+!>((hand-tool-authority:hc sid generation call-id))
+      ::
+      ==
+    ++  settings-read
+      ?+  path  (on-peek:def path)
+          [%x %status ~]
+        :^  ~  ~  %json
+        !>  ^-  json
+            (pairs:enjs:format ~[['has-key' %b !=('' api-key)]])
+      ::
+          [%x %tools ~]
+        :^  ~  ~  %json
+        !>  ^-  json
+            [%a (turn configurable-tools:ht |=(t=term `json`[%s t]))]
+      ::
+          [%x %defaults ~]
+        ``json+!>((config-json:hj defaults))
+          [%x %hosted %capabilities ~]
+        ``json+!>(capabilities:hosted-auth)
+      ::
+          [%x %admin-call @ @ @ ~]
+        ``noun+!>((admin-current:hc [i.t.t.path (slav %ud i.t.t.t.path) i.t.t.t.t.path]))
+      ::
+          [%x %search ~]
+        ``json+!>((config-json:search search-config))
+      ::
+          [%x %mcp ~]
+        :^  ~  ~  %json
+        !>  ^-  json
+            [%a (turn ~(tap by mcp-servers) mcp-server-json:hj)]
+      ::
+          [%x %skills ~]
+        ``json+!>((skills-json:hj skills))
+      ::
+          [%x %staged ~]
+        ``json+!>((skills-json:hj staged))
+      ::
+          [%x %peers ~]
+        :^  ~  ~  %json
+        !>  ^-  json
+            :-  %a
+            %+  turn  ~(tap by peers)
+            |=  [=ship g=peer-grant:h]
+            ^-  json
+            %-  pairs:enjs:format
+            :~  ['ship' %s (scot %p ship)]
+                ['tools' %a (turn tools.g grant-json:hj)]
+                ['budget' (numb:enjs:format budget.g)]
+                ['inflows' %a (turn ~(tap in inflows.g) |=(n=@t `json`[%s n]))]
+            ==
+      ::
+          [%x %timers ~]
+        :^  ~  ~  %json
+        !>  ^-  json
+            :-  %a
+            %+  turn  ~(tap by timers)
+            |=  [[sid=session-id:h name=@ta] t=timer:h]
+            ^-  json
+            %-  pairs:enjs:format
+            :~  ['sid' %s sid]
+                ['name' %s name]
+                ['at' %s (scot %da at.t)]
+                ['every' ?~(every.t ~ [%s (scot %dr u.every.t)])]
+                ['prompt' %s prompt.t]
+            ==
+      ==
+    --
   ::
   ++  on-agent
     |=  [=wire =sign:agent:gall]
@@ -491,361 +525,394 @@
     ?:  =(/telemetry wire)  `this
     %-  finish-event
     ^-  (quip card _this)
-    ?+  wire  (on-agent:def wire sign)
-        ?([%artifact-notes %request @ ~] [%artifact-notes %send @ ~])
-      =^  cards  state  (notes-result:hc (slav %uv i.t.t.wire) sign)
-      [cards this]
-        [%artifact-notes %book ~]
-      ?:  ?=(%watch-ack -.sign)
-        `this(workspace-notes workspace-notes(connected ?=(~ p.sign)))
-      ?:  ?=(%kick -.sign)  `this(workspace-notes workspace-notes(connected |))
-      ?.  &(?=(%fact -.sign) ?=(^ book.workspace-notes))  `this
-      ?>  =(%notes-response p.cage.sign)
-      =/  response  !<(r-notes:native-notes q.cage.sign)
-      ?.  =(flag.response u.book.workspace-notes)  `this
-      =.  workspace
-        ?:  ?=(%snapshot -.response)
-          (project-book:notes-lib workspace workspace-notes notebook-state.response)
-        (project-update:notes-lib workspace workspace-notes u-notebook.update.response)
-      `this
-        [%hand-tool @ @ @ ~]
-      =/  sid=@t  i.t.wire
-      =/  generation=@ud  (slav %ud i.t.t.wire)
-      =/  call-id=@t  i.t.t.t.wire
-      ?:  ?=(%fact -.sign)
-        ?>  =(%noun p.cage.sign)
-        =^  cards  state  (finish-hand-tool:hc sid generation call-id !<(@t q.cage.sign))
-        [[[%pass wire %agent [our.bowl %harness-tlon] %leave ~] cards] this]
-      ?.  ?|  ?=(%kick -.sign)  &(?=(%poke-ack -.sign) ?=(^ p.sign))
-              &(?=(%watch-ack -.sign) ?=(^ p.sign))
-          ==
+    |^
+      ?+  wire  acp-sign
+          ?([%artifact-notes %request @ ~] [%artifact-notes %send @ ~])
+        =^  cards  state  (notes-result:hc (slav %uv i.t.t.wire) sign)
+        [cards this]
+          [%artifact-notes %book ~]
+        ?:  ?=(%watch-ack -.sign)
+          `this(workspace-notes workspace-notes(connected ?=(~ p.sign)))
+        ?:  ?=(%kick -.sign)  `this(workspace-notes workspace-notes(connected |))
+        ?.  &(?=(%fact -.sign) ?=(^ book.workspace-notes))  `this
+        ?>  =(%notes-response p.cage.sign)
+        =/  response  !<(r-notes:native-notes q.cage.sign)
+        ?.  =(flag.response u.book.workspace-notes)  `this
+        =.  workspace
+          ?:  ?=(%snapshot -.response)
+            (project-book:notes-lib workspace workspace-notes notebook-state.response)
+          (project-update:notes-lib workspace workspace-notes u-notebook.update.response)
         `this
-      =^  cards  state
-        %:  finish-hand-tool:hc
-          sid
-          generation
-          call-id
-          'error: tool hand unavailable; no automatic retry'
+          [%harness-grub @ ~]
+        ?+  -.sign  `this
+            %kick
+          [~[(watch:hg our.bowl shadow-channel:hc)] this]
+        ::
+            %watch-ack
+          ?~  p.sign  [shadow-all-cards:hc this]
+          [~[(watch:hg our.bowl shadow-channel:hc)] this]
+        ::
+            %fact
+          =/  fac  (take-fact:hg sign)
+          ?~  fac  `this
+          ?.  ?=(%ack -.res.u.fac)  `this
+          ?~  err.res.u.fac  `this
+          %-  (slog 'harness: session namespace rejected an update' u.err.res.u.fac)
+          `this
         ==
-      [cards this]
-    ::
-        [%adapter %tlon @ @ ~]
-      ?.  ?=(%poke-ack -.sign)  `this
-      ?~  p.sign  `this
-      =/  id=json  ;;(json (cue (slav %uv i.t.t.t.wire)))
-      :*  :~  %:  acp-error-card:wire-codec
-                i.t.t.wire
-                id
-                '-32603'
-                'Tlon hand unavailable; inspect adapter status on the ship'
-              ==
-          ==
-          this
+      ::
+          [%harness-grub-cmd @ ~]
+        ?.  ?=(%poke-ack -.sign)  (on-agent:def wire sign)
+        ?^  p.sign
+          %-  (slog 'harness: session namespace update failed' u.p.sign)
+          `this
+        `this
+      ::
       ==
-    ::
-        [%harness-grub @ ~]
-      ?+  -.sign  `this
-          %kick
-        [~[(watch:hg our.bowl shadow-channel:hc)] this]
-      ::
-          %watch-ack
-        ?~  p.sign  [shadow-all-cards:hc this]
-        [~[(watch:hg our.bowl shadow-channel:hc)] this]
-      ::
-          %fact
-        =/  fac  (take-fact:hg sign)
-        ?~  fac  `this
-        ?.  ?=(%ack -.res.u.fac)  `this
-        ?~  err.res.u.fac  `this
-        %-  (slog 'harness: session namespace rejected an update' u.err.res.u.fac)
-        `this
-      ==
-    ::
-        [%harness-grub-cmd @ ~]
-      ?.  ?=(%poke-ack -.sign)  (on-agent:def wire sign)
-      ?^  p.sign
-        %-  (slog 'harness: session namespace update failed' u.p.sign)
-        `this
-      `this
-    ::
-        [%acp %open ~]
-      ?.  ?=(%poke-ack -.sign)  (on-agent:def wire sign)
-      ?^  p.sign
-        %-  (slog 'harness: could not open ACP transport' u.p.sign)
-        `this
-      `this
-    ::
-        [%acp %send ~]
-      `this
-    ::
-        [%acp %ack ~]
-      `this
-    ::
-        [%acp %watch ~]
-      ?+  -.sign  (on-agent:def wire sign)
-          %kick
-        ::  Leave this event before reconnecting: replay can kick again.
-        [~[[%pass /acp/reconnect %arvo %b %wait (add now.bowl ~s5)]] this]
-      ::
-          %watch-ack
+    ++  acp-sign
+      ?+  wire  peer-sign
+          [%adapter %tlon @ @ ~]
+        ?.  ?=(%poke-ack -.sign)  `this
         ?~  p.sign  `this
-        ::  A rejected watch must not recursively retry in the same event.
-        %-  (slog 'harness: ACP subscription rejected; reconnect on reload' u.p.sign)
+        =/  id=json  ;;(json (cue (slav %uv i.t.t.t.wire)))
+        :*  :~  %:  acp-error-card:wire-codec
+                  i.t.t.wire
+                  id
+                  '-32603'
+                  'Tlon hand unavailable; inspect adapter status on the ship'
+                ==
+            ==
+            this
+        ==
+      ::
+          [%acp %open ~]
+        ?.  ?=(%poke-ack -.sign)  (on-agent:def wire sign)
+        ?^  p.sign
+          %-  (slog 'harness: could not open ACP transport' u.p.sign)
+          `this
         `this
       ::
-          %fact
-        ?.  ?=(%acp-update-1 p.cage.sign)  `this
-        =^  cards  state  (handle-acp-update:hc !<(update:v1:ac q.cage.sign))
-        [cards this]
-      ==
-    ::
-        [%a2a %ask @ ~]
-      ?.  ?=(%poke-ack -.sign)  (on-agent:def wire sign)
-      ?~  p.sign  `this
-      =^  cards  state
-        (fail-ask:hc (slav %uv i.t.t.wire) 'peer rejected the ask')
-      [cards this]
-    ::
-        [%a2a %answer @ ~]
-      `this
-    ::
-        [%peer-access %query @ ~]
-      ?.  &(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
-      =^  cards  state
-        %+  fail-ask:hc
-          (slav %uv i.t.t.wire)
-        'permission discovery unavailable; access is unknown, not denied'
-      [cards this]
-    ::
-        [%peer-access %status ~]
-      `this
-    ::
-        [%peer-access %refresh ~]
-      ?.  &(?=(%poke-ack -.sign) ?=(~ p.sign))  (on-agent:def wire sign)
-      =/  mirror  (~(get by wex.bowl) /harness-grub/sessions our.bowl %harness-grub)
-      ?.  &(?=(^ mirror) acked.u.mirror)  `this
-      [shadow-all-cards:hc this]
-    ::
-        [%peer-rpc %request @ ~]
-      ?.  &(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
-      =^  cards  state
-        (fail-ask:hc (slav %uv i.t.t.wire) 'direct tool RPC unavailable; no automatic retry')
-      [cards this]
-    ::
-        [%peer-rpc %result ~]
-      `this
-    ::
-        [%peer-rpc-request @ @ @ ~]
-      ?.  &(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
-      =^  cards  state
-        %:  finish-peer-client:hc
-          i.t.wire
-          (slav %ud i.t.t.wire)
-          i.t.t.t.wire
-          'error: peer tool dispatch failed; no automatic retry'
-        ==
-      [cards this]
-    ::
-        [%admin %result ~]
-      `this
-    ::
-        [%admin-request @ @ @ ~]
-      ?.  &(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
-      =^  cards  state
-        %+  finish-admin:hc
-          [i.t.wire (slav %ud i.t.t.wire) i.t.t.t.wire]
-        'error: administrative dispatch failed; inspect current settings before retrying'
-      [cards this]
-    ::
-        [%local-mcp-request @ @ @ ~]
-      ?.  &(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
-      =^  cards  state
-        %:  finish-local-mcp:hc
-          i.t.wire
-          (slav %ud i.t.t.wire)
-          i.t.t.t.wire
-          'error: local MCP dispatch failed; no automatic retry'
-        ==
-      [cards this]
-    ::
-        [%local-mcp @ @ @ ~]
-      =^  cards  state
-        (local-mcp-sign:hc i.t.wire (slav %ud i.t.t.wire) i.t.t.t.wire sign)
-      [cards this]
-    ::
-        [%jspoke @ ~]
-      ?.  ?=(%poke-ack -.sign)  (on-agent:def wire sign)
-      ?~  p.sign  `this
-      ::  spider refused to start the thread
+          [%acp %send ~]
+        `this
       ::
-      =^  cards  state  (finish-js:hc i.t.wire 'error: could not start js thread')
-      [cards this]
-    ::
-        [%jswatch @ ~]
-      =/  tid=@ta  i.t.wire
-      ?+  -.sign  (on-agent:def wire sign)
-        %kick  `this
-        %watch-ack  `this
-          %fact
-        =/  body=@t  (js-result:ht cage.sign)
-        =^  cards  state  (finish-js:hc tid body)
-        [cards this]
+          [%acp %ack ~]
+        `this
+      ::
+          [%acp %watch ~]
+        ?+  -.sign  (on-agent:def wire sign)
+            %kick
+          ::  Leave this event before reconnecting: replay can kick again.
+          [~[[%pass /acp/reconnect %arvo %b %wait (add now.bowl ~s5)]] this]
+        ::
+            %watch-ack
+          ?~  p.sign  `this
+          ::  A rejected watch must not recursively retry in the same event.
+          %-  (slog 'harness: ACP subscription rejected; reconnect on reload' u.p.sign)
+          `this
+        ::
+            %fact
+          ?.  ?=(%acp-update-1 p.cage.sign)  `this
+          =^  cards  state  (handle-acp-update:hc !<(update:v1:ac q.cage.sign))
+          [cards this]
+        ==
+      ::
       ==
-    ==
+    ++  peer-sign
+      ?+  wire  tool-sign
+          [%a2a %ask @ ~]
+        ?.  ?=(%poke-ack -.sign)  (on-agent:def wire sign)
+        ?~  p.sign  `this
+        =^  cards  state
+          (fail-ask:hc (slav %uv i.t.t.wire) 'peer rejected the ask')
+        [cards this]
+      ::
+          [%a2a %answer @ ~]
+        `this
+      ::
+          [%peer-access %query @ ~]
+        ?.  &(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
+        =^  cards  state
+          %+  fail-ask:hc
+            (slav %uv i.t.t.wire)
+          'permission discovery unavailable; access is unknown, not denied'
+        [cards this]
+      ::
+          [%peer-access %status ~]
+        `this
+      ::
+          [%peer-access %refresh ~]
+        ?.  &(?=(%poke-ack -.sign) ?=(~ p.sign))  (on-agent:def wire sign)
+        =/  mirror  (~(get by wex.bowl) /harness-grub/sessions our.bowl %harness-grub)
+        ?.  &(?=(^ mirror) acked.u.mirror)  `this
+        [shadow-all-cards:hc this]
+      ::
+          [%peer-rpc %request @ ~]
+        ?.  &(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
+        =^  cards  state
+          (fail-ask:hc (slav %uv i.t.t.wire) 'direct tool RPC unavailable; no automatic retry')
+        [cards this]
+      ::
+          [%peer-rpc %result ~]
+        `this
+      ::
+          [%peer-rpc-request @ @ @ ~]
+        ?.  &(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
+        =^  cards  state
+          %:  finish-peer-client:hc
+            i.t.wire
+            (slav %ud i.t.t.wire)
+            i.t.t.t.wire
+            'error: peer tool dispatch failed; no automatic retry'
+          ==
+        [cards this]
+      ::
+      ==
+    ++  tool-sign
+      ?+  wire  (on-agent:def wire sign)
+          [%hand-tool @ @ @ ~]
+        =/  sid=@t  i.t.wire
+        =/  generation=@ud  (slav %ud i.t.t.wire)
+        =/  call-id=@t  i.t.t.t.wire
+        ?:  ?=(%fact -.sign)
+          ?>  =(%noun p.cage.sign)
+          =^  cards  state  (finish-hand-tool:hc sid generation call-id !<(@t q.cage.sign))
+          [[[%pass wire %agent [our.bowl %harness-tlon] %leave ~] cards] this]
+        ?.  ?|  ?=(%kick -.sign)  &(?=(%poke-ack -.sign) ?=(^ p.sign))
+                &(?=(%watch-ack -.sign) ?=(^ p.sign))
+            ==
+          `this
+        =^  cards  state
+          %:  finish-hand-tool:hc
+            sid
+            generation
+            call-id
+            'error: tool hand unavailable; no automatic retry'
+          ==
+        [cards this]
+      ::
+          [%admin %result ~]
+        `this
+      ::
+          [%admin-request @ @ @ ~]
+        ?.  &(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
+        =^  cards  state
+          %+  finish-admin:hc
+            [i.t.wire (slav %ud i.t.t.wire) i.t.t.t.wire]
+          'error: administrative dispatch failed; inspect current settings before retrying'
+        [cards this]
+      ::
+          [%local-mcp-request @ @ @ ~]
+        ?.  &(?=(%poke-ack -.sign) ?=(^ p.sign))  `this
+        =^  cards  state
+          %:  finish-local-mcp:hc
+            i.t.wire
+            (slav %ud i.t.t.wire)
+            i.t.t.t.wire
+            'error: local MCP dispatch failed; no automatic retry'
+          ==
+        [cards this]
+      ::
+          [%local-mcp @ @ @ ~]
+        =^  cards  state
+          (local-mcp-sign:hc i.t.wire (slav %ud i.t.t.wire) i.t.t.t.wire sign)
+        [cards this]
+      ::
+          [%jspoke @ ~]
+        ?.  ?=(%poke-ack -.sign)  (on-agent:def wire sign)
+        ?~  p.sign  `this
+        ::  spider refused to start the thread
+        ::
+        =^  cards  state  (finish-js:hc i.t.wire 'error: could not start js thread')
+        [cards this]
+      ::
+          [%jswatch @ ~]
+        =/  tid=@ta  i.t.wire
+        ?+  -.sign  (on-agent:def wire sign)
+          %kick  `this
+          %watch-ack  `this
+            %fact
+          =/  body=@t  (js-result:ht cage.sign)
+          =^  cards  state  (finish-js:hc tid body)
+          [cards this]
+        ==
+      ==
+    --
   ::
   ++  on-arvo
     |=  [=wire sign=sign-arvo]
     %-  finish-event
     ^-  (quip card _this)
-    ?+  wire  (on-arvo:def wire sign)
-        [%runner-wake @ ~]
-      ?.  ?=([%behn %wake *] sign)  `this
-      ?.  =(`(slav %da i.t.wire) wake.runners)  `this
-      =.  wake.runners  ~
-      =^  cards  state  runner-tick:hc
-      [cards this]
-        [%hosted-auth @ @ ~]
-      ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
-      =/  out
-        %:  receive:hosted-auth
-          hosted
-          provider-keys
-          i.t.wire
-          (slav %ud i.t.t.wire)
-          client-response.sign
-          now.bowl
-        ==
-      [cards.out this(hosted db.out, provider-keys keys.out)]
-        [%hosted-auth-poll @ @ ~]
-      ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
-      =/  out  (wake:hosted-auth hosted provider-keys i.t.wire (slav %ud i.t.t.wire) | now.bowl)
-      [cards.out this(hosted db.out, provider-keys keys.out)]
-        [%hosted-auth-timeout @ @ ~]
-      ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
-      =/  out  (wake:hosted-auth hosted provider-keys i.t.wire (slav %ud i.t.t.wire) & now.bowl)
-      [cards.out this(hosted db.out, provider-keys keys.out)]
-        [%acp %reconnect ~]
-      ?.  ?=([%behn %wake ~] sign)  `this
-      [~[[%pass /acp/watch %agent [our.bowl %acp] %leave ~] acp-watch-card:wire-codec] this]
-        [%schedules @ ~]
-      ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
-      ?.  =(schedule-wake `(slav %da i.t.wire))  `this
-      `this(schedule-wake ~)
-        [%corpus-index @ ~]
-      ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
-      ?.  =(corpus-wake `(slav %da i.t.wire))  `this
-      =.  corpus-wake  ~
-      =.  corpus  (work:corpus-lib corpus 32 65.536)
-      =.  workspace-search  (work:workspace-index workspace-search workspace 8 65.536)
-      `this
-        [?(%openai-renew %xai-renew) @ ~]
-      ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
-      =/  provider  ?:(=(%xai-renew i.wire) 'xai' 'openai')
-      =/  out
-        %:  receive:oauth
-          ?:(=('xai' provider) xai-auth openai-auth)
-          provider-keys
-          now.bowl
-          (slav %ud i.t.wire)
-          client-response.sign
-          provider
-        ==
-      =^  cards  state  (accept-auth:hc out provider)
-      [cards this]
-    ::  The filter checks the persisted deadline; stale watchdogs are harmless.
-        [?(%openai-timeout %xai-timeout) @ ~]
-      `this
-        [%eyre %connect ~]
-      ?.  ?=([%eyre %bound *] sign)  (on-arvo:def wire sign)
-      ~?  !accepted.sign  [dap.bowl %eyre-bind-failed binding.sign]
-      `this
-    ::
-        [%llm @ @ @ ~]
-      =/  sid=session-id:h  i.t.wire
-      =/  req=@ud  (slav %ud i.t.t.wire)
-      =/  kind=request-kind:h  ;;(request-kind:h i.t.t.t.wire)
-      ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
-      =^  cards  state
-        (handle-llm-response:hc sid req kind client-response.sign)
-      [cards this]
-    ::
-        [%models @ ~]
-      =/  req=@ud  (slav %ud i.t.wire)
-      ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
-      =^  cards  state  (handle-model-response:hc req client-response.sign)
-      [cards this]
-    ::
-        [%model-context @ @ ~]
-      ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
-      =^  cards  state
-        (handle-model-context:hc i.t.wire (slav %uv i.t.t.wire) client-response.sign)
-      [cards this]
-    ::  Bounded summary lifetime; request identity makes a late wake harmless.
-        [%compact-timeout @ @ @ ~]
-      ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
-      =^  cards  state
-        (compact-timeout:hc i.t.wire (slav %ud i.t.t.wire) (slav %uv i.t.t.t.wire))
-      [cards this]
-    ::
-        [%tool @ @ ~]
-      =/  sid=session-id:h  i.t.wire
-      =/  call-id=@t  i.t.t.wire
-      ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
-      =^  cards  state
-        (handle-tool-response:hc sid ~ call-id client-response.sign)
-      [cards this]
-    ::
-        [%tool-2 @ @ @ ~]
-      ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
-      =^  cards  state
-        (handle-tool-response:hc i.t.wire `(slav %ud i.t.t.wire) i.t.t.t.wire client-response.sign)
-      [cards this]
-    ::
-        [%timer @ @ ~]
-      =/  sid=session-id:h  i.t.wire
-      =/  name=@ta  i.t.t.wire
-      ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
-      =^  cards  state  (handle-timer-fire:hc sid name error.sign)
-      [cards this]
-    ::
-        [%a2a-timeout @ ~]
-      ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
-      =^  cards  state
-        (fail-ask:hc (slav %uv i.t.wire) 'peer timed out')
-      [cards this]
-    ::
-        [%admin-timeout @ @ @ ~]
-      ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
-      =^  cards  state
-        %+  finish-admin:hc
-          [i.t.wire (slav %ud i.t.t.wire) i.t.t.t.wire]
-        'Administrative result timed out. The change may have applied; inspect current settings and do not retry automatically.'
-      [cards this]
-    ::
-        [%local-mcp-timeout @ @ @ ~]
-      ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
-      =^  cards  state
-        %:  finish-local-mcp:hc
-          i.t.wire
-          (slav %ud i.t.t.wire)
-          i.t.t.t.wire
-          'error: local MCP result timed out; the tool may have run, so do not retry automatically'
-        ==
-      [cards this]
-    ::
-        [%peer-tool-timeout @ @ ~]
-      ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
-      =/  sid=@t  i.t.wire
-      =/  active  (~(get by peer-active) sid)
-      ?.  &(?=(^ active) =((slav %uv i.t.t.wire) id.u.active))  `this
-      =^  cards  state  (handle-action:hc [%fence sid])
-      [cards this]
-    ::
-        [%jsdog @ ~]
-      ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
-      =^  cards  state  (watchdog-js:hc i.t.wire)
-      [cards this]
-    ==
+    |^
+      ?+  wire  auth-response
+          [%runner-wake @ ~]
+        ?.  ?=([%behn %wake *] sign)  `this
+        ?.  =(`(slav %da i.t.wire) wake.runners)  `this
+        =.  wake.runners  ~
+        =^  cards  state  runner-tick:hc
+        [cards this]
+          [%acp %reconnect ~]
+        ?.  ?=([%behn %wake ~] sign)  `this
+        [~[[%pass /acp/watch %agent [our.bowl %acp] %leave ~] acp-watch-card:wire-codec] this]
+          [%schedules @ ~]
+        ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+        ?.  =(schedule-wake `(slav %da i.t.wire))  `this
+        `this(schedule-wake ~)
+          [%corpus-index @ ~]
+        ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+        ?.  =(corpus-wake `(slav %da i.t.wire))  `this
+        =.  corpus-wake  ~
+        =.  corpus  (work:corpus-lib corpus 32 65.536)
+        =.  workspace-search  (work:workspace-index workspace-search workspace 8 65.536)
+        `this
+          [%memory-work @ ~]
+        ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+        ?.  =(wake.knowledge `(slav %da i.t.wire))  `this
+        =.  wake.knowledge  ~
+        =^  cards  state  memory-work:hc
+        [cards this]
+          [%eyre %connect ~]
+        ?.  ?=([%eyre %bound *] sign)  (on-arvo:def wire sign)
+        ~?  !accepted.sign  [dap.bowl %eyre-bind-failed binding.sign]
+        `this
+      ::
+      ==
+    ++  auth-response
+      ?+  wire  request-response
+          [%hosted-auth @ @ ~]
+        ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
+        =/  out
+          %:  receive:hosted-auth
+            hosted
+            provider-keys
+            i.t.wire
+            (slav %ud i.t.t.wire)
+            client-response.sign
+            now.bowl
+          ==
+        [cards.out this(hosted db.out, provider-keys keys.out)]
+          [%hosted-auth-poll @ @ ~]
+        ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+        =/  out  (wake:hosted-auth hosted provider-keys i.t.wire (slav %ud i.t.t.wire) | now.bowl)
+        [cards.out this(hosted db.out, provider-keys keys.out)]
+          [%hosted-auth-timeout @ @ ~]
+        ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+        =/  out  (wake:hosted-auth hosted provider-keys i.t.wire (slav %ud i.t.t.wire) & now.bowl)
+        [cards.out this(hosted db.out, provider-keys keys.out)]
+          [?(%openai-renew %xai-renew) @ ~]
+        ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
+        =/  provider  ?:(=(%xai-renew i.wire) 'xai' 'openai')
+        =/  out
+          %:  receive:oauth
+            ?:(=('xai' provider) xai-auth openai-auth)
+            provider-keys
+            now.bowl
+            (slav %ud i.t.wire)
+            client-response.sign
+            provider
+          ==
+        =^  cards  state  (accept-auth:hc out provider)
+        [cards this]
+      ::  The filter checks the persisted deadline; stale watchdogs are harmless.
+          [?(%openai-timeout %xai-timeout) @ ~]
+        `this
+      ==
+    ++  request-response
+      ?+  wire  deadline
+          [%llm @ @ @ ~]
+        =/  sid=session-id:h  i.t.wire
+        =/  req=@ud  (slav %ud i.t.t.wire)
+        =/  kind=request-kind:h  ;;(request-kind:h i.t.t.t.wire)
+        ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
+        =^  cards  state
+          (handle-llm-response:hc sid req kind client-response.sign)
+        [cards this]
+      ::
+          [%models @ ~]
+        =/  req=@ud  (slav %ud i.t.wire)
+        ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
+        =^  cards  state  (handle-model-response:hc req client-response.sign)
+        [cards this]
+      ::
+          [%model-context @ @ ~]
+        ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
+        =^  cards  state
+          (handle-model-context:hc i.t.wire (slav %uv i.t.t.wire) client-response.sign)
+        [cards this]
+          [%tool @ @ ~]
+        =/  sid=session-id:h  i.t.wire
+        =/  call-id=@t  i.t.t.wire
+        ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
+        =^  cards  state
+          (handle-tool-response:hc sid ~ call-id client-response.sign)
+        [cards this]
+      ::
+          [%tool-2 @ @ @ ~]
+        ?.  ?=([%iris %http-response *] sign)  (on-arvo:def wire sign)
+        =^  cards  state
+          %:  handle-tool-response:hc
+            i.t.wire
+            `(slav %ud i.t.t.wire)
+            i.t.t.t.wire
+            client-response.sign
+          ==
+        [cards this]
+      ::
+      ==
+    ++  deadline
+      ?+  wire  (on-arvo:def wire sign)
+      ::  Bounded summary lifetime; request identity makes a late wake harmless.
+          [%compact-timeout @ @ @ ~]
+        ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+        =^  cards  state
+          (compact-timeout:hc i.t.wire (slav %ud i.t.t.wire) (slav %uv i.t.t.t.wire))
+        [cards this]
+      ::
+          [%timer @ @ ~]
+        =/  sid=session-id:h  i.t.wire
+        =/  name=@ta  i.t.t.wire
+        ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+        =^  cards  state  (handle-timer-fire:hc sid name error.sign)
+        [cards this]
+      ::
+          [%a2a-timeout @ ~]
+        ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+        =^  cards  state
+          (fail-ask:hc (slav %uv i.t.wire) 'peer timed out')
+        [cards this]
+      ::
+          [%admin-timeout @ @ @ ~]
+        ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+        =^  cards  state
+          %+  finish-admin:hc
+            [i.t.wire (slav %ud i.t.t.wire) i.t.t.t.wire]
+          'Administrative result timed out. The change may have applied; inspect current settings and do not retry automatically.'
+        [cards this]
+      ::
+          [%local-mcp-timeout @ @ @ ~]
+        ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+        =^  cards  state
+          %:  finish-local-mcp:hc
+            i.t.wire
+            (slav %ud i.t.t.wire)
+            i.t.t.t.wire
+            'error: local MCP result timed out; the tool may have run, so do not retry automatically'
+          ==
+        [cards this]
+      ::
+          [%peer-tool-timeout @ @ ~]
+        ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+        =/  sid=@t  i.t.wire
+        =/  active  (~(get by peer-active) sid)
+        ?.  &(?=(^ active) =((slav %uv i.t.t.wire) id.u.active))  `this
+        =^  cards  state  (handle-action:hc [%fence sid])
+        [cards this]
+      ::
+          [%jsdog @ ~]
+        ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
+        =^  cards  state  (watchdog-js:hc i.t.wire)
+        [cards this]
+      ==
+    --
   ::
   ++  on-fail
     |=  [=term =tang]
@@ -2581,6 +2648,100 @@
   =.  corpus-wake  `deadline
   :_  state
   ~[[%pass /corpus-index/(scot %da deadline) %arvo %b %wait deadline]]
+::  Memory has its own paced worker. A normal event only schedules a wake;
+::  it does not collect source text, prepare a prompt or wait for inference.
+++  wake-memory
+  ^-  (quip card _state)
+  =/  deadline=(unit @da)
+    ?^  pending.knowledge  `(max (add now.bowl ~s1) deadline.u.pending.knowledge)
+    ?.  enabled.dreaming.maintenance.knowledge  ~
+    ?:  (lth head.knowledge next.knowledge)  `(add now.bowl (div ~s1 4))
+    `(max (add now.bowl (div ~s1 4)) (fall due.dreaming.maintenance.knowledge (add now.bowl ~d1)))
+  =?  due.dreaming.maintenance.knowledge
+    &(enabled.dreaming.maintenance.knowledge ?=(~ due.dreaming.maintenance.knowledge))
+    deadline
+  =?  deadline
+    &(?=(^ deadline) ?=(^ wake.knowledge))
+    `(min (need deadline) (need wake.knowledge))
+  ?:  =(deadline wake.knowledge)  `state
+  =/  cards=(list card)
+    ?~  wake.knowledge  ~
+    ~[[%pass /memory-work/(scot %da u.wake.knowledge) %arvo %b %rest u.wake.knowledge]]
+  =.  wake.knowledge  deadline
+  ?~  deadline  [cards state]
+  [(snoc cards [%pass /memory-work/(scot %da u.deadline) %arvo %b %wait u.deadline]) state]
+++  memory-view
+  |=  [sid=session-id:h view=view:h]
+  ^-  view:h
+  =/  budget  (div (mul 4 (input-budget:context max-context.config.view)) 20)
+  view(memory (selected:memory knowledge sid budget))
+++  memory-work
+  ^-  (quip card _state)
+  ?:  !=(~ pending.knowledge)
+    ?:  (lth now.bowl deadline:(need pending.knowledge))  `state
+    (memory-finished & 'Memory capture timed out.' [0 0])
+  ?.  enabled.dreaming.maintenance.knowledge  `state
+  =.  knowledge  (dream:memory-capture knowledge now.bowl)
+  =/  ready  (ready:memory-capture knowledge)
+  =.  knowledge  db.ready
+  ?~  ready.ready  `state
+  =/  [id=@ud job=job:memory-types]  u.ready.ready
+  =/  config  (fall lcm.summary-models defaults)
+  =?  config  &(zdr.config.job !=('openrouter' (provider-for-url:hp url.config)))  config.job
+  =.  config  config(zdr |(zdr.config zdr.config.job))
+  =?  config  !=(0 attempts.job)
+    (fall (next:routing config provider-keys model-contexts) config)
+  =.  config  (resolve:model-context config provider-keys model-contexts)
+  =/  plan  (plan:memory-capture knowledge id job config now.bowl)
+  =.  pending.knowledge  `plan
+  ?^  (route:runner-lib url.config)
+    (memory-finished | 'Memory capture requires a summary model with a stateless provider.' [0 0])
+  =/  missing  (missing:auth provider-keys config)
+  ?^  missing  (memory-finished & 'Memory capture provider is unavailable.' [0 0])
+  =/  request  (request:memory-capture knowledge plan)
+  ?:  (gth (estimate:hp request %memory ~) (input-budget:context max-context.config))
+    (memory-finished | 'Memory evidence exceeds the summary model input budget.' [0 0])
+  [~[(llm-card sid.job id %memory request (sham plan))] state]
+++  memory-finished
+  |=  [retry=? status=@t usage=usage:h]
+  ^-  (quip card _state)
+  ?:  =(~ pending.knowledge)  `state
+  =/  pending  (need pending.knowledge)
+  =/  wake  wake.knowledge
+  =.  knowledge  (finish:memory-capture knowledge retry status usage)
+  :_  state
+  :-  :*  %pass  `wire`[%llm sid.job.pending (scot %ud id.pending) %memory ~]
+          %arvo  %i  %cancel-request  ~
+      ==
+  ?~  wake  ~
+  ~[[%pass /memory-work/(scot %da u.wake) %arvo %b %rest u.wake]]
+++  memory-response
+  |=  [sid=session-id:h req=@ud response=client-response:iris]
+  ^-  (quip card _state)
+  ?:  =(~ pending.knowledge)  `state
+  =/  pending  (need pending.knowledge)
+  ?.  &(=(sid sid.job.pending) =(req id.pending))  `state
+  ?:  ?=(%progress -.response)  `state
+  ?:  ?=(%cancel -.response)  (memory-finished & 'Memory capture was cancelled.' [0 0])
+  =/  status  status-code.response-header.response
+  ?.  &((gte status 200) (lth status 300))
+    (memory-finished & 'Memory capture provider request failed.' [0 0])
+  ?~  full-file.response  (memory-finished & 'Memory capture returned an empty response.' [0 0])
+  =/  body  q.data.u.full-file.response
+  ?:  (gth (met 3 body) 131.072)
+    (memory-finished | 'Memory capture response exceeds its byte limit.' [0 0])
+  =/  parsed  (mole |.((digest:hp url.config.pending body)))
+  ?.  ?=([~ %& *] parsed)  (memory-finished & 'Memory capture response could not be decoded.' [0 0])
+  =/  result  p.u.parsed
+  ?.  &(=(%stop stop.result) ?=([%assistant * ~] it.result))
+    (memory-finished & 'Memory capture requires a complete text response.' u.result)
+  =/  accepted  (accept:memory-capture knowledge pending body.it.result)
+  ?.  enabled.dreaming.maintenance.knowledge  (memory-finished | 'Dreaming is off.' u.result)
+  ?:  ?=(%| -.accepted)  (memory-finished & p.accepted u.result)
+  =/  changes  (sub revision.p.accepted revision.knowledge)
+  =.  knowledge  p.accepted
+  =.  changes.dreaming.maintenance.knowledge  (add changes.dreaming.maintenance.knowledge changes)
+  (memory-finished | 'Dreaming complete.' u.result)
 ++  unified-request
   |=  [connection=@t id=json method=@t params=(unit json)]
   ^-  (quip card _state)
@@ -2712,33 +2873,74 @@
     |=  value=json
     ^-  card
     [%give %fact ~[/hosted/[id.request]] %json !>(value)]
-  ?:  =('soul' action.request)
-    =/  attempted  (mule |.((apply-soul:hosted-content defaults args.request)))
-    ?:  ?=(%| -.attempted)
-      [~[(reply (error:hosted-auth 400 'Invalid soul settings.'))] state]
-    =.  defaults  config.p.attempted
-    [~[(reply response.p.attempted)] state]
-  ?:  =('skills' action.request)
-    =/  attempted  (mule |.((apply-skills:hosted-content skills args.request)))
-    ?:  ?=(%| -.attempted)
-      [~[(reply (error:hosted-auth 400 'Invalid skill settings.'))] state]
-    =.  skills  skills.p.attempted
-    [~[(reply response.p.attempted)] state]
-  ?:  =('models' action.request)
-    ::  Model lists use the same validation and revision check as settings.
-    =/  parsed
-      %-  mole
-      |.
-      (models:hosted-settings defaults provider-keys args.request)
-    ?~  parsed
-      :*  ~[(reply (error:hosted-auth 400 'Expected a primary model and up to four fallbacks.'))]
+  |^
+    ?:  =('soul' action.request)
+      =/  attempted  (mule |.((apply-soul:hosted-content defaults args.request)))
+      ?:  ?=(%| -.attempted)
+        [~[(reply (error:hosted-auth 400 'Invalid soul settings.'))] state]
+      =.  defaults  config.p.attempted
+      [~[(reply response.p.attempted)] state]
+    ?:  =('skills' action.request)
+      =/  attempted  (mule |.((apply-skills:hosted-content skills args.request)))
+      ?:  ?=(%| -.attempted)
+        [~[(reply (error:hosted-auth 400 'Invalid skill settings.'))] state]
+      =.  skills  skills.p.attempted
+      [~[(reply response.p.attempted)] state]
+    ?:  =('models' action.request)
+      ::  Model lists use the same validation and revision check as settings.
+      =/  parsed
+        %-  mole
+        |.
+        (models:hosted-settings defaults provider-keys args.request)
+      ?~  parsed
+        :*  ~[(reply (error:hosted-auth 400 'Expected a primary model and up to four fallbacks.'))]
+            state
+        ==
+      $(request request(action 'settings', args u.parsed))
+    ?:  =('clear-credentials' action.request)
+      =.  state  (clear:hosted-cleanup state)
+      [~[(reply (envelope:hosted-auth 200 (pairs:enjs:format ~[['cleared' %b &]])))] state]
+    ?:  =('provision' action.request)  provision
+    ?:  =('settings' action.request)
+      =/  attempted
+        %-  mule
+        |.
+        (apply:hosted-settings defaults provider-keys args.request)
+      ?:  ?=(%| -.attempted)
+        [~[(reply (error:hosted-auth 400 'Invalid model settings.'))] state]
+      =/  result  p.attempted
+      ::  Only an accepted model selection prevents platform initialization.
+      =?  model-defaults-set
+        ?&  ?|  ?=(^ (get:workspace-json args.request 'model'))
+                ?=(^ (get:workspace-json args.request 'fallbacks'))
+            ==
+            =(200 (number:workspace-json response.result 'status' 0))
+        ==
+        &
+      =.  defaults  config.result
+      =?  api-key  !=((~(get by provider-keys) 'openrouter') (~(get by keys.result) 'openrouter'))
+        (fall (~(get by keys.result) 'openrouter') '')
+      =.  provider-keys  keys.result
+      :*  %+  snoc
+            ?:(=(200 (number:workspace-json response.result 'status' 0)) refresh-model-contexts ~)
+          (reply response.result)
           state
       ==
-    $(request request(action 'settings', args u.parsed))
-  ?:  =('clear-credentials' action.request)
-    =.  state  (clear:hosted-cleanup state)
-    [~[(reply (envelope:hosted-auth 200 (pairs:enjs:format ~[['cleared' %b &]])))] state]
-  ?:  =('provision' action.request)
+    =/  attempted
+      %-  mule
+      |.
+      ?:  =('status' action.request)
+        :*  hosted  provider-keys  ~
+            (status:hosted-auth hosted provider-keys openai-auth xai-auth now.bowl)
+        ==
+      (run:hosted-auth hosted provider-keys action.request args.request now.bowl)
+    =/  =result:hosted-auth
+      ?:  ?=(%& -.attempted)  p.attempted
+      [hosted provider-keys ~ (error:hosted-auth 400 'Invalid hosted request.')]
+    =.  hosted  db.result
+    =.  provider-keys  keys.result
+    [(snoc cards.result (reply response.result)) state]
+  ++  provision
     =.  state  discover-local-mcp
     =/  attempted
       %-  mule
@@ -2760,45 +2962,7 @@
         (reply (envelope:hosted-auth 200 (pairs:enjs:format ~[['ready' %b &]])))
         state
     ==
-  ?:  =('settings' action.request)
-    =/  attempted
-      %-  mule
-      |.
-      (apply:hosted-settings defaults provider-keys args.request)
-    ?:  ?=(%| -.attempted)
-      [~[(reply (error:hosted-auth 400 'Invalid model settings.'))] state]
-    =/  result  p.attempted
-    ::  Only an accepted model selection prevents platform initialization.
-    =?  model-defaults-set
-      ?&  ?|  ?=(^ (get:workspace-json args.request 'model'))
-              ?=(^ (get:workspace-json args.request 'fallbacks'))
-          ==
-          =(200 (number:workspace-json response.result 'status' 0))
-      ==
-      &
-    =.  defaults  config.result
-    =?  api-key  !=((~(get by provider-keys) 'openrouter') (~(get by keys.result) 'openrouter'))
-      (fall (~(get by keys.result) 'openrouter') '')
-    =.  provider-keys  keys.result
-    :*  %+  snoc
-          ?:(=(200 (number:workspace-json response.result 'status' 0)) refresh-model-contexts ~)
-        (reply response.result)
-        state
-    ==
-  =/  attempted
-    %-  mule
-    |.
-    ?:  =('status' action.request)
-      :*  hosted  provider-keys  ~
-          (status:hosted-auth hosted provider-keys openai-auth xai-auth now.bowl)
-      ==
-    (run:hosted-auth hosted provider-keys action.request args.request now.bowl)
-  =/  =result:hosted-auth
-    ?:  ?=(%& -.attempted)  p.attempted
-    [hosted provider-keys ~ (error:hosted-auth 400 'Invalid hosted request.')]
-  =.  hosted  db.result
-  =.  provider-keys  keys.result
-  [(snoc cards.result (reply response.result)) state]
+  --
 ::
 ++  accept-auth
   |=  [renewal=result:oauth provider=@t]
@@ -2843,6 +3007,15 @@
   ?.  ?=([%llm @ @ @ ~] wire)  $(failed t.failed)
   =/  sid=session-id:h  i.t.wire
   =/  request-id  (slav %ud i.t.t.wire)
+  ?:  =(%memory i.t.t.t.wire)
+    =/  pending  pending.knowledge
+    ?.  ?&  ?=(^ pending)
+            =(request-id id.u.pending)
+            =(sid sid.job.u.pending)
+        ==
+      $(failed t.failed)
+    =^  more  state  (memory-finished & 'Memory capture authentication failed.' [0 0])
+    $(failed t.failed, cards (weld cards more))
   =/  current  (~(get by sessions) sid)
   ?~  current  $(failed t.failed)
   =/  =session:h  u.current
@@ -3039,6 +3212,11 @@
     %'harness/peers/configure'  (acp-peers-configure rpc)
     %'harness/summary-models'  (acp-respond rpc ~ (models-json:corpus-json summary-models))
     %'harness/summary-models/configure'  (acp-summary-models-configure rpc)
+    ?(%'harness/memory/dreaming' %'harness/memory/dreaming/configure')  (acp-dreaming rpc)
+      $?  %'harness/memory/list'  %'harness/memory/read'
+          %'harness/memory/save'  %'harness/memory/forget'
+      ==
+    (acp-memory rpc)
     %'harness/corpus/rebuild'  (acp-corpus-rebuild rpc)
     %'harness/search/status'  (acp-search-status rpc)
       ?(%'harness/search/query' %'harness/search/versions' %'harness/search/read')
@@ -3387,6 +3565,61 @@
   =.  summary-models  p.decoded
   (acp-respond rpc refresh-model-contexts (models-json:corpus-json summary-models))
 ::
+++  acp-dreaming
+  |=  rpc=acp-request
+  ^-  (quip card _state)
+  ?^  (decode:admin connection.rpc)
+    (acp-fail rpc '-32602' 'Dreaming settings are owner-only.')
+  =/  enabled  (get:wire-json (fall params.rpc [%o ~]) 'enabled')
+  ?:  &(!?=([~ %b *] enabled) =('harness/memory/dreaming/configure' method.rpc))
+    (acp-fail rpc '-32602' 'Expected enabled to be a boolean.')
+  =?  state  =('harness/memory/dreaming/configure' method.rpc)
+    ?>  ?=([~ %b *] enabled)
+    =/  changed  !=(p.u.enabled enabled.dreaming.maintenance.knowledge)
+    =.  enabled.dreaming.maintenance.knowledge  p.u.enabled
+    =?  due.dreaming.maintenance.knowledge  changed
+      ?:(p.u.enabled `(add now.bowl ~d1) ~)
+    =?  jobs.knowledge  !p.u.enabled  ~
+    =?  queued.knowledge  !p.u.enabled  ~
+    =?  head.knowledge  !p.u.enabled  next.knowledge
+    state
+  =^  cancelled  state
+    ?:  ?|  !=('harness/memory/dreaming/configure' method.rpc)
+            enabled.dreaming.maintenance.knowledge
+            ?=(~ pending.knowledge)
+        ==
+      `state
+    (memory-finished | 'Dreaming is off.' [0 0])
+  =/  result
+    %-  pairs:enjs:format
+    :~  ['enabled' %b enabled.dreaming.maintenance.knowledge]
+        :-  'lastRun'
+        ?~  last.dreaming.maintenance.knowledge  ~
+        %-  numb:enjs:format
+        (div (mul 1.000 (sub (max ~1970.1.1 u.last.dreaming.maintenance.knowledge) ~1970.1.1)) ~s1)
+        ['changes' (numb:enjs:format changes.dreaming.maintenance.knowledge)]
+        ['status' %s status.knowledge]
+        ['running' %b |(?=(^ pending.knowledge) (lth head.knowledge next.knowledge))]
+        :-  'usage'
+        %-  pairs:enjs:format
+        :~  ['prompt' (numb:enjs:format prompt.usage.knowledge)]
+            ['completion' (numb:enjs:format completion.usage.knowledge)]
+        ==
+    ==
+  (acp-respond rpc cancelled result)
+::
+++  acp-memory
+  |=  rpc=acp-request
+  ^-  (quip card _state)
+  ?^  (decode:admin connection.rpc)
+    (acp-fail rpc '-32602' 'Memory management is owner-only.')
+  =/  =source:memory-types  ['' 0v0 0 now.bowl (scot %p our.bowl)]
+  =/  operation  (crip (slag 15 (trip method.rpc)))
+  =/  result  (operate:memory-browser knowledge source operation (fall params.rpc [%o ~]))
+  ?:  ?=(%| -.result)  (acp-fail rpc '-32602' p.result)
+  =.  knowledge  db.p.result
+  (acp-respond rpc ~ result.p.result)
+::
 ++  acp-corpus-rebuild
   |=  rpc=acp-request
   ^-  (quip card _state)
@@ -3479,7 +3712,7 @@
     (acp-fail rpc '-32602' 'Unknown session')
   =/  result=json
     %+  view-json:hj
-      (play:hl log.u.current)
+      (memory-view u.sid (play:hl log.u.current))
     (fall (~(get by js-timeouts) u.sid) js-timeout)
   (acp-respond rpc ~ result)
 ::
@@ -3532,7 +3765,7 @@
   ?~  current
     (acp-fail rpc '-32602' 'Unknown session')
   =/  since  (acp-param-number:wire-codec params 'since')
-  =/  view  (play:hl log.u.current)
+  =/  view  (memory-view u.sid (play:hl log.u.current))
   =/  streaming=@t
     ?~  pending.view  ''
     ?.  =(%turn kind.u.pending.view)  ''
@@ -3871,6 +4104,30 @@
   ?>  ?=(%input-received -.event)
   ?>  ?=(%user -.item.input.event)
   =/  parsed-command  (parse:command body.item.input.event)
+  ?:  ?&  ?=(^ parsed-command)
+          ?=(?(%memory %remember %forget) name.u.parsed-command)
+      ==
+    =/  view  (play:hl log.session)
+    =/  =source:memory-types
+      [sid id.input.event +(revision.view) at.input.event (actor:memory input.event)]
+    =/  result
+      (command:memory-json knowledge source name.u.parsed-command arg.u.parsed-command)
+    =.  knowledge  db.result
+    =/  edits=(list event:h)
+      ?~  edit.result  ~
+      ~[[%memory-set name.u.edit.result body.u.edit.result]]
+    =/  events
+      %+  weld
+        ~[event]
+      (snoc edits [%command-completed id.input.event name.u.parsed-command body.result])
+    =^  recorded  session  (record-all sid session events)
+    =?  cursors.knowledge
+      ?&  =('memory' name.u.parsed-command)
+          |(=('on' arg.u.parsed-command) =('off' arg.u.parsed-command))
+      ==
+      (~(put by cursors.knowledge) sid log.session)
+    =^  driven  state  (drive-put sid session)
+    [(weld recorded driven) state]
   ?:  &(?=(^ parsed-command) =('work' name.u.parsed-command))
     =^  recorded  session  (record-all sid session ~[event])
     =.  sessions  (~(put by sessions) sid session)
@@ -3883,7 +4140,10 @@
     [:(weld recorded cards.handled completed driven) state]
   ?:  =(`['compact' ''] parsed-command)
     =^  recorded  session  (record-all sid session ~[event])
-    =^  started  session  (start-compaction sid session `id.input.event)
+    =/  compacted  (start-compaction sid session `id.input.event)
+    =/  started  cards.compacted
+    =.  session  session.compacted
+    =.  knowledge  knowledge.compacted
     =^  driven  state  (drive-put sid session)
     [:(weld recorded started driven) state]
   =/  events=(list event:h)  ~[event]
@@ -3901,7 +4161,7 @@
     ?:  (gth (met 3 u.reference) 8.192)  events
     [[%context-received id.input.event u.reference] events]
   =?  events  ?=(^ parsed-command)
-    =/  view  (play:hl log.session)
+    =/  view  (memory-view sid (play:hl log.session))
     =/  result  (evaluate:command u.parsed-command view defaults (skills-visible sid skills))
     %+  snoc
       (weld events events.result)
@@ -4022,6 +4282,8 @@
   ^-  (quip card _state)
   ?>  ?=(%fork -.action)
   ?>  !(~(has by sessions) to.action)
+  =?  disabled.knowledge  !(enabled:memory knowledge from.action)
+    (~(put in disabled.knowledge) to.action)
   =/  session  (need-session from.action)
   =/  view  (play:hl log.session)
   =/  request=(unit @ud)  ?~(pending.view ~ `req.u.pending.view)
@@ -4036,6 +4298,8 @@
   ^-  (quip card _state)
   ?>  ?=(%fork-at -.action)
   ?>  !(~(has by sessions) to.action)
+  =?  disabled.knowledge  !(enabled:memory knowledge from.action)
+    (~(put in disabled.knowledge) to.action)
   =/  fork  (branch:hs from.action (need-session from.action) at.action)
   ?>  ?=(%& -.fork)
   =/  session  p.fork
@@ -4054,7 +4318,10 @@
   =/  session  (need-session sid.action)
   =/  view  (play:hl log.session)
   ?:  |(?=(^ pending.view) !=(~ wait.view))  `state
-  =^  cards  session  (start-compaction sid.action session ~)
+  =/  compacted  (start-compaction sid.action session ~)
+  =/  cards  cards.compacted
+  =.  session  session.compacted
+  =.  knowledge  knowledge.compacted
   =^  driven  state  (drive-put sid.action session)
   [(weld cards driven) state]
 ::
@@ -4062,6 +4329,7 @@
   |=  action=action:h
   ^-  (quip card _state)
   ?>  ?=(%fence -.action)
+  =.  barrier.knowledge  +(barrier.knowledge)
   ::  Revocation is wider than a user stop: retire descendant work and
   ::  scheduled continuations, retaining the source's transcript/config.
   =/  source  sid.action
@@ -4168,6 +4436,15 @@
     ?~  ship  peer-budget-resets
     (~(del by peer-budget-resets) u.ship)
   =.  corpus  (retire:corpus-lib corpus sid)
+  =.  knowledge
+    %=  knowledge
+      barrier  +(barrier.knowledge)
+      disabled  (~(del in disabled.knowledge) sid)
+      turns  (~(del by turns.knowledge) sid)
+      cursors  (~(del by cursors.knowledge) sid)
+      buffered.dreaming.maintenance  (~(del by buffered.dreaming.maintenance.knowledge) sid)
+      compactions.maintenance  (~(del by compactions.maintenance.knowledge) sid)
+    ==
   =.  search-requests  (forget-requests:search search-requests sid)
   =/  cards=(list card)  stopped
   =^  extra  state  (withdraw-auxiliary sid)
@@ -4625,38 +4902,51 @@
   ^-  drive-result
   |^
     =|  cards=(list card)
+    =.  knowledge  (prepare:memory knowledge sid log.session)
+    =?  cursors.knowledge  !(enabled:memory knowledge sid)
+      (~(put by cursors.knowledge) sid log.session)
     =/  projection  (play:hl log.session)
+    =/  capture  (~(get by compactions.maintenance.knowledge) sid)
+    =?  compactions.maintenance.knowledge
+      &(?=(^ capture) !=(pending.projection `[id.u.capture %compaction]))
+      (~(del by compactions.maintenance.knowledge) sid)
     |-
     ^-  drive-result
     ::  Authority follows this admitted input, not the previous turn's actor.
     =.  sessions  (~(put by sessions) sid session)
-    =/  view  projection
+    =/  view  (memory-view sid projection)
     =.  tools.config.view  (execution-tools sid tools.config.view)
     =/  decision
       ?:  (~(has by peer-active) sid)  (step:peer-rpc view)
       (next:hs view (skills-visible sid skills))
-    ?~  decision  [cards session skills staged search-requests]
+    ?~  decision
+      =.  knowledge  (enqueue:memory-capture knowledge sid session projection now.bowl)
+      [cards session skills staged search-requests knowledge]
     ?-  -.u.decision
         %tools
       =/  batch  (roll calls.u.decision (execute-tool view))
       =.  skills  skills.batch
       =.  staged  staged.batch
       =.  search-requests  search-requests.batch
+      =.  knowledge  knowledge.batch
       =^  recorded  session  (record-all sid session events.batch)
       $(projection (advance:hl events.batch projection), cards :(weld cards recorded cards.batch))
     ::
         %turn
       =^  requested  session  (issue-llm sid session %turn view)
-      [(weld cards requested) session skills staged search-requests]
+      [(weld cards requested) session skills staged search-requests knowledge]
     ::
         %compact
-      =^  requested  session  (start-compaction sid session ~)
-      [(weld cards requested) session skills staged search-requests]
+      =/  compacted  (start-compaction sid session ~)
+      =/  requested  cards.compacted
+      =.  session  session.compacted
+      =.  knowledge  knowledge.compacted
+      [(weld cards requested) session skills staged search-requests knowledge]
     ::
         %halt
       =^  recorded  session
         (record-all sid session ~[[%halted reason.u.decision]])
-      [(weld cards recorded) session skills staged search-requests]
+      [(weld cards recorded) session skills staged search-requests knowledge]
     ==
   ::  Synchronous calls complete here. Deferred calls record their request
   ::  identity and return cards; their results enter through another event.
@@ -4669,12 +4959,14 @@
                   skills=skills
                   staged=staged
                   search-requests=search-requests
+                  knowledge=knowledge
                 ]
         ]
     ^+  batch
     |^
       ?.  (call-granted:ht call tools.config.view)
         (complete 'rejected: tool is not granted for this session')
+      ?:  =('memory' name.call)  memory-tool
       ?:  |(=('lcm_search' name.call) =('lcm_read' name.call) =('lcm_expand' name.call))
         (complete (corpus-tool sid session call tools.config.view))
       ?:  =('list_peer_access' name.call)
@@ -4690,8 +4982,59 @@
         :~  [%pass wire %agent [our.bowl u.hand] %watch /tools/(scot %uv id)]
             [%pass wire %agent [our.bowl u.hand] %poke %harness-tool !>(request)]
         ==
-      ::  Skill bodies live in the library; the log records their tool receipts.
+      ?:  ?|  =('write_skill' name.call)  =('delete_skill' name.call)
+              =('propose_skill' name.call)  =('commit_skill' name.call)
+              =('discard_skill' name.call)  =('rehearse_skill' name.call)
+          ==
+        skill-tool
+      ::  Reject invalid JavaScript before starting a thread. The self-poke
+      ::  records the job and watchdog in the same event that starts execution.
       ::
+      ?:  =('run_js' name.call)  javascript-tool
+      ?:  =('web_search' name.call)
+        =/  request  (configured-request:search args.call (provider-key 'brave') search-config)
+        ?:  ?=(%| -.request)  (complete p.request)
+        =.  search-requests.batch
+          (~(put by search-requests.batch) [sid id.call] provider.search-config)
+        %-  defer
+        :_  ~
+        :*  %pass  `wire`[%tool-2 `@ta`sid (scot %ud next-req.session) `@ta`id.call ~]
+            %arvo  %i  %request  p.request  [0 0]
+        ==
+      ::  The outer unit identifies an asynchronous tool. The inner unit
+      ::  distinguishes a valid request card from invalid arguments.
+      ::
+      =/  async=(unit (unit card))
+        ?:  =('http_fetch' name.call)  `(fetch-card:effects sid next-req.session call)
+        ?:  =('curl' name.call)  `(request-card:curl:ht sid next-req.session call)
+        ?:  |(=('list_mcp_tools' name.call) =('call_mcp_tool' name.call))
+          `(mcp-card:effects sid next-req.session call tools.config.view)
+        ?:  =('run_subagent' name.call)  `(spawn-card:effects sid next-req.session call)
+        ?:  =('ask_peer' name.call)  `(ask-peer-card:effects sid next-req.session call)
+        ?:  =('check_peer' name.call)  `(check-peer-card:effects sid next-req.session call)
+        ?:  =('harness_admin' name.call)  `(admin-card:effects sid next-req.session call)
+        ?:  |(=('list_peer_tools' name.call) =('call_peer_tool' name.call))
+          `(peer-rpc-card:effects sid next-req.session call)
+        ~
+      ?~  async
+        %=  batch
+          events
+            %+  snoc  events.batch
+            (run-tool:effects call (skills-visible sid skills.batch) tools.config.view)
+        ==
+      ?~  u.async  (complete 'error: bad tool arguments')
+      (defer ~[u.u.async])
+    ::
+    ++  javascript-tool
+      =/  code  (tool-str:effects args.call 'code')
+      ?~  code  (complete 'error: need code argument')
+      ?:  (gth (met 3 u.code) 65.536)
+        (complete 'error: JavaScript source exceeds 64 KiB')
+      =/  rejection  (js-loop-guard:ht u.code)
+      ?^  rejection  (complete u.rejection)
+      (defer ~[(run-js-poke:effects sid next-req.session id.call u.code)])
+    ::
+    ++  skill-tool
       ?:  =('write_skill' name.call)
         =/  name  (tool-str:effects args.call 'name')
         =/  description  (tool-str:effects args.call 'description')
@@ -4731,57 +5074,23 @@
         ?~  name  (complete 'error: bad name argument')
         =.  staged.batch  (~(del by staged.batch) u.name)
         (complete (rap 3 'staged skill \'' u.name '\' discarded' ~))
-      ?:  =('rehearse_skill' name.call)
-        =/  name  (tool-str:effects args.call 'name')
-        =/  input  (tool-str:effects args.call 'input')
-        ?.  &(?=(^ name) ?=(^ input))
-          (complete 'error: need name and input')
-        (defer ~[(rehearse-poke:effects sid next-req.session id.call u.name u.input)])
-      ::  Reject invalid JavaScript before starting a thread. The self-poke
-      ::  records the job and watchdog in the same event that starts execution.
-      ::
-      ?:  =('run_js' name.call)
-        =/  code  (tool-str:effects args.call 'code')
-        ?~  code  (complete 'error: need code argument')
-        ?:  (gth (met 3 u.code) 65.536)
-          (complete 'error: JavaScript source exceeds 64 KiB')
-        =/  rejection  (js-loop-guard:ht u.code)
-        ?^  rejection  (complete u.rejection)
-        (defer ~[(run-js-poke:effects sid next-req.session id.call u.code)])
-      ?:  =('web_search' name.call)
-        =/  request  (configured-request:search args.call (provider-key 'brave') search-config)
-        ?:  ?=(%| -.request)  (complete p.request)
-        =.  search-requests.batch
-          (~(put by search-requests.batch) [sid id.call] provider.search-config)
-        %-  defer
-        :_  ~
-        :*  %pass  `wire`[%tool-2 `@ta`sid (scot %ud next-req.session) `@ta`id.call ~]
-            %arvo  %i  %request  p.request  [0 0]
-        ==
-      ::  The outer unit identifies an asynchronous tool. The inner unit
-      ::  distinguishes a valid request card from invalid arguments.
-      ::
-      =/  async=(unit (unit card))
-        ?:  =('http_fetch' name.call)  `(fetch-card:effects sid next-req.session call)
-        ?:  =('curl' name.call)  `(request-card:curl:ht sid next-req.session call)
-        ?:  |(=('list_mcp_tools' name.call) =('call_mcp_tool' name.call))
-          `(mcp-card:effects sid next-req.session call tools.config.view)
-        ?:  =('run_subagent' name.call)  `(spawn-card:effects sid next-req.session call)
-        ?:  =('ask_peer' name.call)  `(ask-peer-card:effects sid next-req.session call)
-        ?:  =('check_peer' name.call)  `(check-peer-card:effects sid next-req.session call)
-        ?:  =('harness_admin' name.call)  `(admin-card:effects sid next-req.session call)
-        ?:  |(=('list_peer_tools' name.call) =('call_peer_tool' name.call))
-          `(peer-rpc-card:effects sid next-req.session call)
-        ~
-      ?~  async
-        %=  batch
-          events
-            %+  snoc  events.batch
-            (run-tool:effects call (skills-visible sid skills.batch) tools.config.view)
-        ==
-      ?~  u.async  (complete 'error: bad tool arguments')
-      (defer ~[u.u.async])
+      =/  name  (tool-str:effects args.call 'name')
+      =/  input  (tool-str:effects args.call 'input')
+      ?.  &(?=(^ name) ?=(^ input))
+        (complete 'error: need name and input')
+      (defer ~[(rehearse-poke:effects sid next-req.session id.call u.name u.input)])
     ::
+    ++  memory-tool
+      ?:  (gth (met 3 args.call) 8.192)  (complete 'error: memory arguments exceed 8192 bytes')
+      =/  args  (de:json:html args.call)
+      ?~  args  (complete 'error: invalid memory JSON')
+      =/  turn  (~(get by turns.knowledge.batch) sid)
+      =/  =source:memory-types
+        [sid ?~(turn 0v0 input.u.turn) revision.view now.bowl ?~(turn 'agent' actor.u.turn)]
+      =/  result  (operate:memory-json knowledge.batch source u.args)
+      ?:  ?=(%| -.result)  (complete (cat 3 'error: ' p.result))
+      =.  knowledge.batch  db.p.result
+      (complete (en:json:html result.p.result))
     ++  complete
       |=  body=@t
       ^+  batch
@@ -4801,7 +5110,7 @@
 ::  Iris finishes. A command is acknowledged only after completion (or refusal).
 ++  start-compaction
   |=  [sid=session-id:h =session:h input=(unit input-id:h)]
-  ^-  [(list card) session:h]
+  ^-  [cards=(list card) session=session:h knowledge=state:memory-types]
   =/  view  (play:hl log.session)
   =/  visible  (skills-visible sid skills)
   =/  leaf  (fall compaction.summary-models defaults)
@@ -4820,17 +5129,38 @@
     =/  =event:h
       ?~  input  [%halted (cat 3 'context budget: ' p.planned)]
       [%command-completed u.input 'compact' p.planned]
-    (record-all sid session ~[event])
+    =^  cards  session  (record-all sid session ~[event])
+    [cards session knowledge]
   =/  config  ?~(children.p.planned leaf branch)
   =/  missing  (missing:auth provider-keys config)
-  ?^  missing  (record-all sid session ~[[%halted u.missing]])
+  ?^  missing
+    =^  cards  session  (record-all sid session ~[[%halted u.missing]])
+    [cards session knowledge]
   =/  req  next-req.session
+  =/  capture
+    ?^  children.p.planned  ~
+    (compact:memory-capture knowledge sid req session sources.p.planned config now.bowl)
   =.  next-req.session  +(req)
   =^  recorded  session
     (record-all sid session ~[[%lcm-planned req p.planned] [%llm-routed req config]])
   =/  checkpoint  (sham log.session)
   =/  request  (request:lcm-context view p.planned config)
-  :_  session
+  =?  capture  ?=(^ capture)
+    =/  payload
+      %:  payload-with-capture:hp
+        request
+        %compaction
+        visible
+        `(request-data:memory-capture knowledge u.capture)
+      ==
+    ?:  %+  gth
+          (div (add 3 (met 3 (en:json:html payload))) 4)
+        (input-budget:context max-context.config)  ~
+    capture
+  =.  compactions.maintenance.knowledge
+    ?~  capture  (~(del by compactions.maintenance.knowledge) sid)
+    (~(put by compactions.maintenance.knowledge) sid u.capture)
+  :_  [session knowledge]
   :+  (llm-card sid req %compaction request checkpoint)
     :*  %pass  `wire`[%compact-timeout `@ta`sid (scot %ud req) (scot %uv checkpoint) ~]
         %arvo  %b  %wait  (add now.bowl ~m3)
@@ -4900,7 +5230,7 @@
 ++  try-fallback
   |=  [sid=session-id:h =session:h req=@ud kind=request-kind:h]
   ^-  (unit [cards=(list card) =session:h])
-  =/  view  (play:hl log.session)
+  =/  view  (memory-view sid (play:hl log.session))
   =/  config  (active:routing view req)
   =/  selected  (next-fallback sid view kind config)
   ?~  selected  ~
@@ -5022,7 +5352,11 @@
       ?.(moon:~(. ownership bowl) ~ `(sein:title our.bowl now.bowl our.bowl))
     ==
   =/  payload=json
-    (payload:hp view kind (skills-visible sid skills))
+    =/  capture  (~(get by compactions.maintenance.knowledge) sid)
+    =/  evidence=(unit @t)
+      ?.  &(?=(^ capture) =(%compaction kind) =(req id.u.capture))  ~
+      `(request-data:memory-capture knowledge u.capture)
+    (payload-with-capture:hp view kind (skills-visible sid skills) evidence)
   =/  body=@t  (en:json:html payload)
   =/  runner  (route:runner-lib url.config.view)
   ?^  runner
@@ -5057,6 +5391,7 @@
           response=client-response:iris
       ==
   ^-  (quip card _state)
+  ?:  =(%memory kind)  (memory-response sid req response)
   =/  found  (~(get by sessions) sid)
   ?~  found  `state
   =/  session  u.found
@@ -5076,6 +5411,20 @@
       ?~  full-file.response  `''
       (mole |.((continuation:hp url.request-config q.data.u.full-file.response)))
     =/  event  (completion-event reasoning)
+    =/  capture  (~(get by compactions.maintenance.knowledge) sid)
+    =?  knowledge
+      &(?=(%checkpoint-completed -.event) ?=(^ capture) =(req id.u.capture))
+      ?>  ?=(%finished -.response)
+      =/  parsed  (digest:hp url.request-config q.data:(need full-file.response))
+      ?>  ?=(%& -.parsed)
+      ?>  ?=(%assistant -.it.p.parsed)
+      =/  output  (compact-output:memory-capture body.it.p.parsed)
+      ?~  memories.output  knowledge
+      =/  result  (accept:memory-capture knowledge u.capture u.memories.output)
+      ?:  ?=(%| -.result)  knowledge
+      p.result
+    =?  compactions.maintenance.knowledge  =(%compaction kind)
+      (~(del by compactions.maintenance.knowledge) sid)
     ::  No failover after user-visible output, explicit cancellation, or a
     ::  semantic completion. Each attempt gets a fresh fenced request ID.
     =/  fallback
@@ -5153,18 +5502,22 @@
             'Compaction has no source plan; the previous context was retained. Retry explicitly.'
             u.p.parsed
         ==
+      =/  capture  (~(get by compactions.maintenance.knowledge) sid)
+      =/  item  it.p.parsed
+      =?  item  &(?=(^ capture) =(req id.u.capture) ?=([%assistant * ~] item))
+        item(body summary:(compact-output:memory-capture body.item))
       =/  invalid
-        ?~  lcm-plan.view  (validate:context view u.compaction.view stop.p.parsed it.p.parsed)
-        (validate:lcm-context view u.lcm-plan.view stop.p.parsed it.p.parsed)
+        ?~  lcm-plan.view  (validate:context view u.compaction.view stop.p.parsed item)
+        (validate:lcm-context view u.lcm-plan.view stop.p.parsed item)
       ?^  invalid  [%compaction-failed req u.invalid u.p.parsed]
-      ?>  ?=([%assistant * ~] it.p.parsed)
+      ?>  ?=([%assistant * ~] item)
       =/  reply=(unit [input-id=input-id:h body=@t])
         ?~  command.u.compaction.view  ~
         :-  ~
         :*  u.command.u.compaction.view
             'Context compacted. The recent turn and full source transcript were retained.'
         ==
-      [%checkpoint-completed req body.it.p.parsed u.p.parsed reply]
+      [%checkpoint-completed req body.item u.p.parsed reply]
     [%llm-completed req stop.p.parsed u.p.parsed it.p.parsed]
   --
 ::
@@ -5301,6 +5654,7 @@
   ^-  (quip card _state)
   =/  found  (~(get by sessions) sid)
   ?~  found  `state
+  =.  cursors.knowledge  (~(put by cursors.knowledge) sid log.u.found)
   =/  view  (play:hl log.u.found)
   =^  cards  state
     ?.  ?|  ?=(^ pending.view)
@@ -5781,6 +6135,7 @@
   =.  skills  skills.result
   =.  staged  staged.result
   =.  search-requests  search-requests.result
+  =.  knowledge  knowledge.result
   =.  sessions  (~(put by sessions) sid session.result)
   =^  settled  state  (settle sid)
   [:(weld cards.result ~[(shadow-put-card sid session.result)] settled) state]

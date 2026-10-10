@@ -3,7 +3,7 @@
 // LIFECYCLE_ID must be a unique fixture name reused for each check.
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { Client } from './lib/ship-client.mjs'
+import { Client, base, cookie } from './lib/ship-client.mjs'
 import { HandClient } from '../acp/hand-client.mjs'
 
 const sessionId = process.env.LIFECYCLE_ID
@@ -19,7 +19,7 @@ try {
       url: 'http://127.0.0.1:1/never-dispatch', model: 'lifecycle-fixture', key: '', headers: [],
       system: 'Durable lifecycle fixture; no inference', 'max-context': 80000, tools: ['skills', 'curl'],
     } })
-    await client.call('session/prompt', { sessionId, prompt: [{ type: 'text', text: '/remember lifecycle KEEP_ACROSS_RESTART_AND_RESTORE' }] })
+    await client.call('session/prompt', { sessionId, prompt: [{ type: 'text', text: `/remember ${sessionId} KEEP_ACROSS_RESTART_AND_RESTORE` }] })
     await client.call('harness/skill/save', { name: sessionId, desc: 'Lifecycle fixture', body: 'Retain these literal instructions.', revision: '' })
     await hand.bind(sessionId, { address: 'fixture-only:never-publish', sessionId, actors: ['fixture-actor'] })
     await hand.action('notify', { binding: sessionId, event: 'pending', actor: 'fixture-actor', text: 'Pending literal notification' })
@@ -34,7 +34,10 @@ try {
   const records = await hand.records(sessionId, null, 16)
   assert.equal(config.model, 'lifecycle-fixture')
   assert.deepEqual(config.tools, ['skills', 'curl'])
-  assert.ok(JSON.stringify(snapshot.memory).includes('KEEP_ACROSS_RESTART_AND_RESTORE'))
+  const memoryResponse = await fetch(`${base}/~/scry/harness/memory/${sessionId}.json`, { headers: { cookie }, signal: AbortSignal.timeout(15000) })
+  assert.ok(memoryResponse.ok)
+  const memory = await memoryResponse.json()
+  assert.equal(memory.text, 'KEEP_ACROSS_RESTART_AND_RESTORE')
   assert.equal(skill.body, 'Retain these literal instructions.')
   assert.equal(status.enabled, false, 'external effects remain fenced')
   assert.equal(status.observations.length, 2)
@@ -44,7 +47,7 @@ try {
   assert.equal(publications.find((publication) => publication.status === 'claimed').attempt, 1)
   const defaults = await client.call('harness/defaults')
   const credentials = await client.call('harness/status', { provider: 'openrouter' })
-  const digest = createHash('sha256').update(JSON.stringify({ snapshot, config, skill, status, records, defaults, credentials })).digest('hex')
+  const digest = createHash('sha256').update(JSON.stringify({ snapshot, memory, config, skill, status, records, defaults, credentials })).digest('hex')
   console.log(JSON.stringify({ ok: true, mode, sessionId, digest, credentialPresent: credentials['has-key'],
-    checks: ['conversation config and grants', 'scoped note', 'shared skill', 'disabled binding', 'accepted literal work', 'pending and claimed publication evidence'] }))
+    checks: ['conversation config and grants', 'shared fact', 'shared skill', 'disabled binding', 'accepted literal work', 'pending and claimed publication evidence'] }))
 } finally { await client.close() }

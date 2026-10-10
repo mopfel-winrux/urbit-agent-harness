@@ -1,4 +1,4 @@
-// Admission-time public reference, private-note isolation and shared-library ceiling.
+// Admission-time public reference, memory opt-out and shared-library ceiling.
 // Uses uniquely marked native threads; restores Harness settings.
 import assert from 'node:assert/strict'
 import { text as readText } from 'node:stream/consumers'
@@ -63,7 +63,7 @@ const server = createServer(async (req, res) => {
     const raw = await readText(req)
     const body = JSON.parse(raw); requests++
     res.writeHead(200, { 'content-type': 'application/json' })
-    assert.ok(!raw.includes(secret), 'private DM notes never enter a channel request')
+    assert.ok(!raw.includes(secret), 'memory opt-out excludes shared facts from the request')
     assert.ok(!raw.includes(`${marker}-outside`), 'unrelated public top-level messages are excluded')
     const reference = body.messages.find((m) => m.role === 'user' && m.content.startsWith('Public thread reference captured at admission.'))
     assert.ok(reference, 'public native context is supplied without asking for a history tool')
@@ -125,8 +125,8 @@ try {
   await until('public source arrived', async () => (await replies(channel)).some((p) => JSON.stringify(p.content).includes(`${marker}-public-source`)))
   await client.call('harness/defaults/configure', { config: { ...originals.defaults, key: '', url: `http://127.0.0.1:${server.address().port}`, model: 'context-fixture', headers: [], tools: ['skills', 'skill-write', 'author'] } })
   await client.call('harness/tlon/configure', { enabled: true, owner: peer, trusted: [], response: 'mentions', allowed: [], channels: [] })
-  await command(dm, `/remember ${note} ${secret}`, /Note saved/)
-  await command(channel, '/memory', /No pinned notes/)
+  await command(dm, `/remember ${note} ${secret}`, /Memory saved/)
+  await command(channel, '/memory off', /Shared memory is off/)
   assert.equal(requests, 0, 'commands do not infer')
   assert.ok(!(await scry(`harness/events/${channel.sid}`)).some((e) => e.type === 'context-received'), 'commands do not capture public reference')
   await send(channel, `${marker}-probe`)
@@ -137,7 +137,7 @@ try {
   assert.deepEqual(await scry('harness/staged'), originals.staged)
   assert.deepEqual((await client.call('harness/session/snapshot', { sessionId: channel.sid })).memory, [])
   await command(dm, `/forget ${note}`, /forgotten|removed|unpinned/i)
-  console.log('PASS native public-thread attribution, private-note isolation, inert quoted commands, durable reference and shared-skill write denial')
+  console.log('PASS native public-thread attribution, memory opt-out, inert quoted commands, durable reference and shared-skill write denial')
   if (process.env.TEST_PANE) {
     async function restartAdapter(enabled) {
       adapterStopped = !enabled
@@ -145,6 +145,7 @@ try {
       await run('tmux', ['send-keys', '-t', process.env.TEST_PANE, 'Enter'])
       await sleep(800)
     }
+    await command(channel, '/memory on', /Shared memory is on/)
     const catchupNote = `c${randomUUID().slice(0, 8)}`, beforeRequests = requests
     const commands = Array.from({ length: 20 }, (_, i) => `/remember ${catchupNote} ${marker}-catchup-${i}`)
     await restartAdapter(false)
@@ -160,14 +161,15 @@ try {
     })
     const ordered = (await scry(`harness/events/${channel.sid}`)).filter((e) => e.type === 'input' && commands.includes(e.item?.body)).map((e) => e.item.body)
     assert.deepEqual(ordered, commands, 'catch-up is chronological across bounded pages and queue backpressure')
-    await until('final chronological memory update', async () => (await client.call('harness/session/snapshot', { sessionId: channel.sid })).memory.some((m) => m.name === catchupNote && m.body === `${marker}-catchup-19`))
+    await command(channel, `/memory ${catchupNote}`, new RegExp(`${marker}-catchup-19`))
     const checkpoint = (await client.call('harness/tlon')).activityThrough
     await restartAdapter(false); await restartAdapter(true)
     await until('cursor recovery settled', async () => !(await client.call('harness/tlon')).catchingUp)
     assert.ok((await client.call('harness/tlon')).activityThrough >= checkpoint)
     assert.equal((await scry(`harness/events/${channel.sid}`)).filter((e) => e.type === 'input' && commands.includes(e.item?.body)).length, 20, 'restart does not duplicate input')
     assert.equal(requests, beforeRequests, 'catch-up commands do not infer')
-    await command(channel, `/forget ${catchupNote}`, /forgotten|removed|unpinned/i)
+    await command(channel, `/forget ${catchupNote}`, /forgotten/i)
+    await command(channel, '/memory off', /Shared memory is off/)
     console.log('PASS durable Activity catch-up: 20 offline messages, chronological bounded pages, queue backpressure and restart deduplication')
   }
   async function schedule(scenario, patch = {}) {

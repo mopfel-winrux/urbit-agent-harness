@@ -353,150 +353,160 @@
     ==
   ?.  authorized
     (emit (fail '-32600' 'Administrative authority is no longer current'))
-  ?+  method.inbound
-    (emit (fail '-32601' 'Unknown Tlon method'))
-      %'harness/tlon'
-    (emit (reply status))
-      %'harness/tlon/permissions'
-    (permission-reply inbound 'permissions')
-      %'harness/tlon/channels'
-    (permission-reply inbound 'channels')
-      %'harness/tlon/owner'
-    (emit (reply owner-status))
-      %'harness/tlon/lens/configure'
-    =/  parsed
-      %-  mole
-      |.
-      =,  dejs:format
-      ((ot ~[['enabled' bo] ['expectedOwner' (mu (se %p))]]) (need params.inbound))
-    ?~  parsed  (emit (fail '-32602' 'Expected enabled and expectedOwner'))
-    ?.  =(owner.policy +.u.parsed)
-      (emit (fail '-32602' 'Owner changed; reload before enabling Context Lens'))
-    ?:  &(-.u.parsed ?=(~ owner.policy))
-      (emit (fail '-32602' 'Set an explicit owner before syncing Context Lens'))
-    =.  lens  [-.u.parsed owner.policy now.bowl ~ '']
-    =.  cor  boot-lens
-    (emit (reply status))
-      %'harness/tlon/lens/retry'
-    ?.  &(enabled.lens =(owner.lens owner.policy))
-      (emit (fail '-32602' 'Enable Context Lens for the current owner first'))
-    =.  records.lens
-      %-  ~(run by records.lens)
-      |=  record=lens-record:t
-      ?:  =(%sent stage.record)  record
-      record(attempts 0, next `now.bowl)
-    =.  error.lens  ''
-    =.  cor  send-lenses:boot-lens
-    (emit (reply status))
-      %'harness/tlon/owner/set'
-    =/  parsed
-      %-  mole
-      |.
-      =,  dejs:format
-      ^-  [owner=(unit @p) expected-owner=(unit @p) siblings=? expected-siblings=?]
-      =/  fields
-        :~  ['owner' (mu (se %p))]
-            ['expectedOwner' (mu (se %p))]
-            ['siblingMoonOwners' bo]
-            ['expectedSiblingMoonOwners' bo]
+  |^
+    ?+  method.inbound  owner-method
+        %'harness/tlon'
+      (emit (reply status))
+        %'harness/tlon/permissions'
+      (permission-reply inbound 'permissions')
+        %'harness/tlon/channels'
+      (permission-reply inbound 'channels')
+        %'harness/tlon/owner'
+      (emit (reply owner-status))
+        %'harness/tlon/watch'
+      ?>  |((~(has in listeners) connection.inbound) (lth ~(wyt in listeners) 32))
+      =.  listeners  (~(put in listeners) connection.inbound)
+      =.  cor
+        %-  emit
+        :*  %pass  /client/[connection.inbound]  %agent  [our.bowl %acp]  %watch
+            /v1/[connection.inbound]/client
         ==
-      ((ot fields) (need params.inbound))
-    ?~  parsed
+      (emit (reply status))
+        %'harness/tlon/contacts'
+      =/  found  (mule |.(contacts:messenger))
+      ?:  ?=(%| -.found)
+        (emit (fail '-32603' 'Contacts directory unavailable'))
+      (emit (reply p.found))
+        %'harness/tlon/profile'
+      (read-profile connection.inbound id.inbound)
+        %'harness/tlon/profile/set'
+      =/  parsed  (mule |.((decode:profile (need params.inbound))))
+      ?:  ?=(%| -.parsed)
+        %-  emit
+        %+  fail
+          '-32602'
+        'Use a nickname up to 64 bytes and an HTTP(S) avatar URL up to 2048 bytes, or leave either empty'
+      ::  Correlate with the Contacts acknowledgement, not mere dispatch. No
+      ::  duplicate profile cache or pending-request state is needed here.
       %-  emit
-      %+  fail
-        '-32602'
-      'Expected owner, expectedOwner, siblingMoonOwners and expectedSiblingMoonOwners'
-    ::  Ownership changes compare both settings before applying either.
-    ?.  ?&  =(owner.policy expected-owner.u.parsed)
-            =(sibling-moon-owners expected-siblings.u.parsed)
-        ==
-      (emit (fail '-32600' 'Owner changed; reload before saving'))
-    ?:  &(siblings.u.parsed !moon:~(. ownership bowl))
-      (emit (fail '-32602' 'Automatic sibling owners require this ship to be a moon'))
-    =/  updated-policy  policy(owner owner.u.parsed)
-    =?  enabled.updated-policy
-      &(?=(~ owner.updated-policy) !siblings.u.parsed)
-      |
-    =.  cor  (configure updated-policy siblings.u.parsed)
-    (emit (reply status))
-      %'harness/tlon/work'
-    =/  connected  head-live
-    =/  found
-      %-  mole
-      |.
-      =/  before  (argument:history-page (fall params.inbound [%o ~]) 'before')
-      =/  hands=state:hh
-        ?.  connected  *state:hh
-        ledger
-      (page:work state hands before)
-    ?~  found  (emit (fail '-32602' 'Invalid work-page cursor'))
-    ?>  ?=(%o -.u.found)
-    (emit (reply [%o (~(put by p.u.found) 'headConnected' [%b connected])]))
-      %'harness/tlon/admission/retry'
-    =/  parsed
-      %-  mole
-      |.
-      (slav %uv ((ot:dejs:format ~[id+so:dejs:format]) (need params.inbound)))
-    ?~  parsed  (emit (fail '-32602' 'Invalid admission ID'))
-    =/  job  (~(get by jobs) u.parsed)
-    ?~  job
-      %-  emit
-      (fail '-32602' 'Admission has already settled or been revoked; refresh its state')
-    =/  lane  (~(get by lanes) sid.u.job)
-    ?.  ?&  ?=(^ lane)
-            ?=(^ (lane-grants u.lane ~))
-        ==
-      (emit (fail '-32602' 'Admission no longer has current authority'))
-    =.  cor
-      ?:  (route-ready sid.u.job)  (bind-job u.parsed u.job)
-      (start-route sid.u.job)
-    (emit (reply (pairs:enjs:format ~[['accepted' %b &]])))
-      %'harness/tlon/contacts'
-    =/  found  (mule |.(contacts:messenger))
-    ?:  ?=(%| -.found)
-      (emit (fail '-32603' 'Contacts directory unavailable'))
-    (emit (reply p.found))
-      %'harness/tlon/profile'
-    (read-profile connection.inbound id.inbound)
-      %'harness/tlon/profile/set'
-    =/  parsed  (mule |.((decode:profile (need params.inbound))))
-    ?:  ?=(%| -.parsed)
-      %-  emit
-      %+  fail
-        '-32602'
-      'Use a nickname up to 64 bytes and an HTTP(S) avatar URL up to 2048 bytes, or leave either empty'
-    ::  Correlate with the Contacts acknowledgement, not mere dispatch. No
-    ::  duplicate profile cache or pending-request state is needed here.
-    %-  emit
-    (edit-profile:messenger /profile/[connection.inbound]/(scot %uv (jam id.inbound)) p.parsed)
-      %'harness/tlon/watch'
-    ?>  |((~(has in listeners) connection.inbound) (lth ~(wyt in listeners) 32))
-    =.  listeners  (~(put in listeners) connection.inbound)
-    =.  cor
-      %-  emit
-      :*  %pass  /client/[connection.inbound]  %agent  [our.bowl %acp]  %watch
-          /v1/[connection.inbound]/client
-      ==
-    (emit (reply status))
-      %'harness/tlon/configure'
-    =/  expected-revision  (acp-param-json:wire-codec params.inbound 'expectedRevision')
-    ?:  ?&  ?=(^ expected-revision)
-            !=(u.expected-revision [%s (revision:permissions policy epoch)])
-        ==
-      (emit (fail '-32602' 'Permissions changed; reload Tlon settings before saving.'))
-    =/  parsed  (mule |.((json-policy:p (need params.inbound))))
-    ?:  ?=(%| -.parsed)
-      (emit (fail '-32602' 'Invalid owner, trusted ships or tools'))
-    =/  expected  (acp-param-json:wire-codec params.inbound 'expectedOwner')
-    =/  owner-json=json  ?~(owner.policy ~ [%s (scot %p u.owner.policy)])
-    ?:  &(?=(^ expected) !=(u.expected owner-json))
-      %-  emit
-      %+  fail
-        '-32602'
-      'Owner changed; reload Tlon settings. Use the ownership endpoint to change administrators.'
-    =.  cor  (configure p.parsed sibling-moon-owners)
-    (emit (reply status))
-  ==
+      (edit-profile:messenger /profile/[connection.inbound]/(scot %uv (jam id.inbound)) p.parsed)
+    ==
+  ++  owner-method
+    ?+  method.inbound  lens-method
+        %'harness/tlon/owner/set'
+      =/  parsed
+        %-  mole
+        |.
+        =,  dejs:format
+        ^-  [owner=(unit @p) expected-owner=(unit @p) siblings=? expected-siblings=?]
+        =/  fields
+          :~  ['owner' (mu (se %p))]
+              ['expectedOwner' (mu (se %p))]
+              ['siblingMoonOwners' bo]
+              ['expectedSiblingMoonOwners' bo]
+          ==
+        ((ot fields) (need params.inbound))
+      ?~  parsed
+        %-  emit
+        %+  fail
+          '-32602'
+        'Expected owner, expectedOwner, siblingMoonOwners and expectedSiblingMoonOwners'
+      ::  Ownership changes compare both settings before applying either.
+      ?.  ?&  =(owner.policy expected-owner.u.parsed)
+              =(sibling-moon-owners expected-siblings.u.parsed)
+          ==
+        (emit (fail '-32600' 'Owner changed; reload before saving'))
+      ?:  &(siblings.u.parsed !moon:~(. ownership bowl))
+        (emit (fail '-32602' 'Automatic sibling owners require this ship to be a moon'))
+      =/  updated-policy  policy(owner owner.u.parsed)
+      =?  enabled.updated-policy
+        &(?=(~ owner.updated-policy) !siblings.u.parsed)
+        |
+      =.  cor  (configure updated-policy siblings.u.parsed)
+      (emit (reply status))
+        %'harness/tlon/configure'
+      =/  expected-revision  (acp-param-json:wire-codec params.inbound 'expectedRevision')
+      ?:  ?&  ?=(^ expected-revision)
+              !=(u.expected-revision [%s (revision:permissions policy epoch)])
+          ==
+        (emit (fail '-32602' 'Permissions changed; reload Tlon settings before saving.'))
+      =/  parsed  (mule |.((json-policy:p (need params.inbound))))
+      ?:  ?=(%| -.parsed)
+        (emit (fail '-32602' 'Invalid owner, trusted ships or tools'))
+      =/  expected  (acp-param-json:wire-codec params.inbound 'expectedOwner')
+      =/  owner-json=json  ?~(owner.policy ~ [%s (scot %p u.owner.policy)])
+      ?:  &(?=(^ expected) !=(u.expected owner-json))
+        %-  emit
+        %+  fail
+          '-32602'
+        'Owner changed; reload Tlon settings. Use the ownership endpoint to change administrators.'
+      =.  cor  (configure p.parsed sibling-moon-owners)
+      (emit (reply status))
+    ==
+  ++  lens-method
+    ?+  method.inbound  work-method
+        %'harness/tlon/lens/configure'
+      =/  parsed
+        %-  mole
+        |.
+        =,  dejs:format
+        ((ot ~[['enabled' bo] ['expectedOwner' (mu (se %p))]]) (need params.inbound))
+      ?~  parsed  (emit (fail '-32602' 'Expected enabled and expectedOwner'))
+      ?.  =(owner.policy +.u.parsed)
+        (emit (fail '-32602' 'Owner changed; reload before enabling Context Lens'))
+      ?:  &(-.u.parsed ?=(~ owner.policy))
+        (emit (fail '-32602' 'Set an explicit owner before syncing Context Lens'))
+      =.  lens  [-.u.parsed owner.policy now.bowl ~ '']
+      =.  cor  boot-lens
+      (emit (reply status))
+        %'harness/tlon/lens/retry'
+      ?.  &(enabled.lens =(owner.lens owner.policy))
+        (emit (fail '-32602' 'Enable Context Lens for the current owner first'))
+      =.  records.lens
+        %-  ~(run by records.lens)
+        |=  record=lens-record:t
+        ?:  =(%sent stage.record)  record
+        record(attempts 0, next `now.bowl)
+      =.  error.lens  ''
+      =.  cor  send-lenses:boot-lens
+      (emit (reply status))
+    ==
+  ++  work-method
+    ?+  method.inbound  (emit (fail '-32601' 'Unknown Tlon method'))
+        %'harness/tlon/work'
+      =/  connected  head-live
+      =/  found
+        %-  mole
+        |.
+        =/  before  (argument:history-page (fall params.inbound [%o ~]) 'before')
+        =/  hands=state:hh
+          ?.  connected  *state:hh
+          ledger
+        (page:work state hands before)
+      ?~  found  (emit (fail '-32602' 'Invalid work-page cursor'))
+      ?>  ?=(%o -.u.found)
+      (emit (reply [%o (~(put by p.u.found) 'headConnected' [%b connected])]))
+        %'harness/tlon/admission/retry'
+      =/  parsed
+        %-  mole
+        |.
+        (slav %uv ((ot:dejs:format ~[id+so:dejs:format]) (need params.inbound)))
+      ?~  parsed  (emit (fail '-32602' 'Invalid admission ID'))
+      =/  job  (~(get by jobs) u.parsed)
+      ?~  job
+        %-  emit
+        (fail '-32602' 'Admission has already settled or been revoked; refresh its state')
+      =/  lane  (~(get by lanes) sid.u.job)
+      ?.  ?&  ?=(^ lane)
+              ?=(^ (lane-grants u.lane ~))
+          ==
+        (emit (fail '-32602' 'Admission no longer has current authority'))
+      =.  cor
+        ?:  (route-ready sid.u.job)  (bind-job u.parsed u.job)
+        (start-route sid.u.job)
+      (emit (reply (pairs:enjs:format ~[['accepted' %b &]])))
+    ==
+  --
 ::
 ++  permission-reply
   |=  [inbound=request:ad action=@t]

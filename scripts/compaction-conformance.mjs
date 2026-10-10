@@ -26,6 +26,7 @@ const server = createServer(async (req, res) => {
   const raw = await readText(req)
   const body = JSON.parse(raw)
   const compact = body.messages?.[0]?.content?.startsWith('Produce a concise historical checkpoint')
+  if (body.messages?.[0]?.content?.startsWith('Extract reusable shared knowledge')) return respond(res, '[]')
   requests.push({ body, compact })
   if (!compact) return respond(res, 'ANSWER: ' + 'Useful project detail. '.repeat(40))
   if (mode === 'hold') { held.push(res); return }
@@ -181,7 +182,7 @@ try {
   await prompt(modelSid, 'Historical material. '.repeat(5000))
   await prompt(modelSid, 'Further source data. '.repeat(5000))
   await prompt(modelSid, 'Recent exchange')
-  await prompt(modelSid, '/remember project Exact pinned constraint.')
+  await prompt(modelSid, `/remember ${tag}-project Exact durable constraint.`)
   await prompt(modelSid, 'Continue within the larger model window')
   assert.equal((await snapshot(modelSid)).compactions, 0, 'large model does not compact at a fixed 48k')
   const modelConfig = await client.call('harness/session/config', { sessionId: modelSid })
@@ -189,13 +190,13 @@ try {
     ...modelConfig, key: '', model: 'smaller-fixture', 'max-context': 60000,
   } })
   const modelStart = requests.length
-  await prompt(modelSid, 'Continue with the pinned constraint')
+  await prompt(modelSid, 'Continue with the durable constraint')
   assert.deepEqual(requests.slice(modelStart).map((r) => r.compact), [true, false])
   assert.equal(requests.at(-1).body.model, 'smaller-fixture')
   const compactedModel = await snapshot(modelSid)
-  assert.deepEqual(compactedModel.memory, [{ name: 'project', body: 'Exact pinned constraint.' }])
-  assert.ok(requests.at(-1).body.messages.some((m) => m.role === 'user' && m.content?.includes('project: Exact pinned constraint.')))
-  assert.ok(!requests.at(-2).body.messages.some((m) => m.content?.startsWith('Current pinned notes')))
+  assert.ok(compactedModel.memory.some((note) => note.name === `${tag}-project` && note.body.startsWith('Exact durable constraint.')))
+  assert.ok(requests.at(-1).body.messages.some((m) => m.role === 'user' && m.content?.includes(`${tag}-project: Exact durable constraint.`)))
+  assert.ok(!requests.at(-2).body.messages.some((m) => m.content?.startsWith('Relevant shared memories')))
   await observer.call('harness/session/recheck', { sessionId: modelSid })
   await until('independent note and checkpoint replay', async () => {
     const v = await observer.call('harness/session/verify', { sessionId: modelSid })
@@ -270,7 +271,7 @@ try {
     'separate and cumulative summary usage', 'checkpoint authority', 'failure recovery',
     'no failure retry', 'cancellation and late result fencing', 'ACP and hand command parity',
     'concurrent input survives manual acknowledgement', 'automatic compaction resumes input',
-    'model-relative compaction after a model switch', 'pinned notes survive compaction verbatim',
+    'model-relative compaction after a model switch', 'selected shared facts survive compaction verbatim',
     'independent Grubbery checkpoint replay', 'provider switch keeps the dispatched codec',
     'irreducible request blocked before dispatch',
   ] }, null, 2))
@@ -285,6 +286,7 @@ try {
     await client.call('harness/summary-models/configure', { models: savedModels })
     assert.deepEqual(await client.call('harness/summary-models'), savedModels)
   })
+  if (sessions[0]) await clean('forget fixture memory', () => prompt(sessions[0], `/forget ${tag}-project`))
   for (const id of bindings) await clean(`disable fixture binding ${id}`, () => hand.enable(id, false))
   // Hand-bound sessions retain their audit records; unbound fixtures are removed.
   for (const sessionId of sessions.filter((id) => !bindings.includes(id))) {
