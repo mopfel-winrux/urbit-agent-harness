@@ -11,7 +11,7 @@ import HeaderEditor from './HeaderEditor'
 import MemoryLibrary from './MemoryLibrary'
 import DreamingSettings from './DreamingSettings'
 
-function ModelOverride({ name, title, description, value, defaults, onChange, disabled }) {
+function ModelOverride({ title, description, value, defaults, onChange, disabled }) {
   const config = value || defaults
   const provider = providerOf(config.url)
   const catalog = useProviderModels(provider, catalogEndpoint(provider, config), !disabled && !!value)
@@ -55,16 +55,15 @@ export default function MemorySettings() {
     } catch (cause) { setError(cause.message) } finally { setBusy(false) }
   }
   return <div className="settings-grid memory-settings">
-    <MemoryLibrary><DreamingSettings model={!unavailable ? (models.value.lcm || defaults.value).model : ''} /></MemoryLibrary>
+    <MemoryLibrary><DreamingSettings /></MemoryLibrary>
     <details className="memory-model-settings">
-      <summary>Model settings<span>Compaction, dreaming and summary hierarchy</span></summary>
+      <summary>Model settings</summary>
       <form className="settings-grid" onSubmit={save}>
-    <p className="field-note">Original content stays searchable after summarization. These models summarize history and capture durable shared facts. Changes apply to new requests; in-flight requests keep their selected model.</p>
     {(error || models.error || defaults.error) && <div className="inline-error" role="alert">{error || models.error || defaults.error}</div>}
     {(models.error || defaults.error) && <button type="button" className="button ghost" onClick={() => { models.refresh(); defaults.refresh() }}>Retry loading settings</button>}
-    <ModelOverride title="Compaction model" description="Summarizes older complete exchanges and can capture durable facts from their original evidence in the same request." value={form.compaction} defaults={defaults.value} onChange={(value) => change('compaction', value)} disabled={busy || unavailable} />
-    <ModelOverride title="LCM model" description="Reviews fresh evidence during scheduled dreaming and condenses summaries into a hierarchy. Memory capture respects each conversation’s provider privacy requirements." value={form.lcm} defaults={defaults.value} onChange={(value) => change('lcm', value)} disabled={busy || unavailable} />
-    <div className="save-bar"><span role="status">{saved ? 'Saved.' : dirty.current ? 'Unsaved changes.' : 'Unset overrides follow the global default.'}</span><button className="button primary" disabled={busy || unavailable}>{busy ? 'Saving…' : 'Save memory settings'}</button></div>
+    <ModelOverride title="Compaction model" description="Summarizes older exchanges." value={form.compaction} defaults={defaults.value} onChange={(value) => change('compaction', value)} disabled={busy || unavailable} />
+    <ModelOverride title="LCM model" description="Dreaming and summary hierarchy." value={form.lcm} defaults={defaults.value} onChange={(value) => change('lcm', value)} disabled={busy || unavailable} />
+    <div className="save-bar"><span role="status">{saved ? 'Saved.' : dirty.current ? 'Unsaved changes.' : ''}</span><button className="button primary" disabled={busy || unavailable}>{busy ? 'Saving…' : 'Save memory settings'}</button></div>
       </form>
     </details>
   </div>
