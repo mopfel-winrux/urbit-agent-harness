@@ -7,13 +7,58 @@
     w=harness-provider-wire, anthropic=harness-anthropic, text=harness-text
 |%
 +$  model-info  [id=@t context=(unit @ud)]
-::  Estimate the same encoding that dispatch uses, including tools and wrappers.
-::  Rounded bytes/4 is a heuristic; context policy reserves a separate margin.
+::  Reported prompt usage anchors the active context. Unmeasured additions
+::  reserve one token per encoded byte, including current instructions/tools
+::  and memory, whose contents can change outside the session log. Only an
+::  unmeasured context uses the full encoding estimate.
 ::
 ++  est-tokens
-  |=  [=view:h skills=(map @t skill:h)]
+  |=  [=view:h skills=(map @t skill:h) log=(list event:h)]
   ^-  @ud
-  (estimate view %turn skills)
+  =/  measured  (reported-usage log config.view)
+  ?~  measured  (estimate view %turn skills)
+  =/  additions
+    =/  items  items.view
+    =/  positions  positions.view
+    |-  ^-  (list item:h)
+        ?~  items  ~
+        ?~  positions  items
+        ?:  (gth i.positions at.u.measured)  items
+        $(items t.items, positions t.positions)
+  =/  growth  (encoded-bytes view(items additions, summary ~) %turn skills)
+  (add prompt.usage.u.measured (max completion.usage.u.measured growth))
+::  Read one successful turn and its matching dispatch boundary. Checkpoint
+::  usage measures summary work, not the retained conversation. A different
+::  provider/model has its own tokenizer and cannot lend its count here.
+::
+++  reported-usage
+  |=  [log=(list event:h) config=config:h]
+  ^-  (unit [at=@ud usage=usage:h])
+  =/  at  (lent log)
+  |-  ^-  (unit [at=@ud usage=usage:h])
+      ?~  log  ~
+      =/  event  i.log
+      ?:  ?=(?(%checkpoint-completed %compaction-completed) -.event)  ~
+      ?:  &(?=(%llm-completed -.event) (gth prompt.usage.event 0))
+        (request-usage t.log (dec at) req.event usage.event config)
+      $(log t.log, at (dec at))
+++  request-usage
+  |=  [log=(list event:h) at=@ud req=@ud usage=usage:h config=config:h]
+  ^-  (unit [at=@ud usage=usage:h])
+  =|  route=(unit config:h)
+  |-  ^-  (unit [at=@ud usage=usage:h])
+      ?~  log  ~
+      =/  event  i.log
+      ?:  ?=(?(%checkpoint-completed %compaction-completed) -.event)  ~
+      =?  route  &(?=(%llm-routed -.event) =(req req.event))  `config.event
+      ?:  &(?=(%llm-requested -.event) =(req req.event))
+        ?~  route  ~
+        ?.  ?&  =(%turn kind.event)  =(url.config url.u.route)
+                =(model.config model.u.route)
+            ==
+          ~
+        `[at usage]
+      $(log t.log, at (dec at))
 ++  completion-budget
   |=  [kind=request-kind:h window=@ud]
   =/  cap  (output-budget:context window)
@@ -21,7 +66,10 @@
 ::
 ++  estimate
   |=  [=view:h kind=request-kind:h skills=(map @t skill:h)]
-  (div (add 3 (met 3 (en:json:html (payload view kind skills)))) 4)
+  (div (add 3 (encoded-bytes view kind skills)) 4)
+++  encoded-bytes
+  |=  [=view:h kind=request-kind:h skills=(map @t skill:h)]
+  (met 3 (en:json:html (payload view kind skills)))
 ::
 ++  payload
   |=  [=view:h kind=request-kind:h skills=(map @t skill:h)]

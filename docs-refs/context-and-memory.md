@@ -73,10 +73,16 @@ model/endpoint, estimated input, output reserve and optional command identity.
 Replay recovers the exact source prefix or selected child summaries.
 
 The request budget reserves `min(4096, window / 4)` output tokens and a 10%
-margin. Estimates use rounded bytes/4, not exact tokenization. Chat Completions
-receives the output cap; the Codex subscription route manages its own output.
-`/context` labels the estimate and window as catalog-or-fallback without
-identifying a specific catalog source.
+margin. The latest successful turn's reported prompt usage anchors the next
+turn's budget. Items added after that request, plus current instructions, tools
+and memory, reserve one token per encoded byte; this reserve is at least the
+reported completion usage. The count comes from the matching request's route,
+not cumulative session usage. A checkpoint or a different provider/model
+invalidates the measurement. Without a matching report, the codec uses rounded
+bytes/4, not exact tokenization. Summary requests use that encoding estimate for
+their selected source spans. Chat Completions receives the output cap; the Codex
+subscription route manages its own output. `/context` identifies measured versus
+unmeasured budgeting and labels the window as catalog-or-fallback.
 
 Model catalogs supply the selected route's capacity. `max_context_window` takes
 precedence over a catalog's default `context_window`; the request budget still
@@ -95,7 +101,7 @@ default only when that candidate has no known capacity. A smaller reported limit
 always takes precedence. Credential changes invalidate cached capacity until
 metadata for the selected credentials arrives.
 
-Before inference, compaction compares the encoded request estimate with
+Before inference, compaction compares the usage-based context budget with
 `window - output-budget - floor(window / 10)`. Requests above this threshold
 are summarized first. The window follows the session's model configuration,
 so switching models changes the next decision.

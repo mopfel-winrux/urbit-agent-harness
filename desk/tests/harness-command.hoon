@@ -51,7 +51,7 @@
   =/  branch  (branch:hs 'fixture' [log 0] 3)
   =/  projected  (event-json:hj i.log)
   %-  expect
-  !>  ?&  =(~ (next:hs v ~))  =([0 0] total.v)  =(2 (lent (transcript:hl log)))
+  !>  ?&  =(~ (next:hs v ~ log))  =([0 0] total.v)  =(2 (lent (transcript:hl log)))
           ?=([~ %reply *] (outcome:hl v))  ?=(%& -.branch)  ?=(%o -.projected)
       ==
 --

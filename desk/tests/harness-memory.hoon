@@ -44,7 +44,7 @@
   =/  noted  v(memory (pack:mem db:saved ~['project'] 4.096))
   %-  expect
   !>  ?&  =((payload:hp v %compaction ~) (payload:hp noted %compaction ~))
-          (gth (est-tokens:hp noted ~) (est-tokens:hp v ~))
+          (gth (est-tokens:hp noted ~ ~) (est-tokens:hp v ~ ~))
       ==
 ++  test-provider-memory-stays-at-user-authority
   %+  roll

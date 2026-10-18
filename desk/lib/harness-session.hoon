@@ -10,7 +10,7 @@
 ::  evaluated only if replay says inference can run, preserving cheap polls.
 ::
 ++  next
-  |=  [=view:h skills=(map @t skill:h)]
+  |=  [=view:h skills=(map @t skill:h) log=(list event:h)]
   ^-  (unit step:h)
   ::  The current model's window determines the trigger, including after a
   ::  model switch. Idle polls and tool waits never evaluate the lazy estimate.
@@ -18,7 +18,7 @@
   =/  budget  (input-budget:context max-context.config.view)
   =/  next
     %+  decide:head  view(max-context.config budget)
-    |=(~ (est-tokens:provider view skills))
+    |=(~ (est-tokens:provider view skills log))
   ?.  ?=([~ %turn *] next)  next
   ::  Finish a ready hierarchy group before the next real model turn, never
   ::  on idle polling. The per-input attempt budget also bounds this work.
@@ -30,7 +30,7 @@
   |=  [=session:h skills=(map @t skill:h)]
   ^-  [revision=@ud =view:h next=(unit step:h)]
   =/  =view:h  (play:head log.session)
-  [(lent log.session) view (next view skills)]
+  [(lent log.session) view (next view skills log.session)]
 ::
 ++  branch
   |=  [from=session-id:h =session:h at=@ud]

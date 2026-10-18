@@ -4162,7 +4162,14 @@
     [[%context-received id.input.event u.reference] events]
   =?  events  ?=(^ parsed-command)
     =/  view  (memory-view sid (play:hl log.session))
-    =/  result  (evaluate:command u.parsed-command view defaults (skills-visible sid skills))
+    =/  result
+      %:  evaluate:command
+        u.parsed-command
+        view
+        defaults
+        (skills-visible sid skills)
+        log.session
+      ==
     %+  snoc
       (weld events events.result)
     [%command-completed id.input.event name.u.parsed-command body.result]
@@ -4918,7 +4925,7 @@
     =.  tools.config.view  (execution-tools sid tools.config.view)
     =/  decision
       ?:  (~(has by peer-active) sid)  (step:peer-rpc view)
-      (next:hs view (skills-visible sid skills))
+      (next:hs view (skills-visible sid skills) log.session)
     ?~  decision
       =.  knowledge  (enqueue:memory-capture knowledge sid session projection now.bowl)
       [cards session skills staged search-requests knowledge]

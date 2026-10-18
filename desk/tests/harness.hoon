@@ -89,7 +89,7 @@
   =/  view  (play:hl log.p.result)
   %-  expect
   !>  ?&  =(`[from='parent' at=3] origin.view)  =(2 (lent items.view))  =(~ pending.view)
-          =(~ (next:hs view ~))
+          =(~ (next:hs view ~ ~))
       ==
 ++  test-branch-rejects-invalid-point
   =/  out-of-range  (branch:hs 'parent' [history 4] 100)
@@ -164,7 +164,7 @@
   =/  results  (skim items.v |=(it=item:h ?=(%tool -.it)))
   %-  expect
   !>  ?&  =(3 (lent results))  =(~ wait.v)  =(~ pending.v)  =(~ (open-calls:hl items.v))
-          =(~ (next:hs v ~))  =(items.v (transcript-items:hl interrupted-tools))
+          =(~ (next:hs v ~ interrupted-tools))  =(items.v (transcript-items:hl interrupted-tools))
       ==
 ++  test-cancel-preserves-completed-results
   =/  v  (play:hl interrupted-tools)
@@ -176,21 +176,21 @@
   =.  max-context.cfg  100.000
   =/  log  [[%input-admitted [%user 'new request']] [%config-replaced cfg] interrupted-tools]
   =/  v  (play:hl log)
-  (expect-eq !>(`(unit step:h)`[~ %turn ~]) !>((next:hs v ~)))
+  (expect-eq !>(`(unit step:h)`[~ %turn ~]) !>((next:hs v ~ log)))
 ++  test-config-does-not-retry-provider-failure
   =/  log=(list event:h)
     :~  [%config-replaced *config:h]  [%llm-failed 0 'http error 401']
         [%input-admitted [%user 'hello']]
     ==
   =/  v  (play:hl log)
-  (expect !>(&(=(`'http error 401' err.v) =(~ (next:hs v ~)))))
+  (expect !>(&(=(`'http error 401' err.v) =(~ (next:hs v ~ log)))))
 ++  test-recorded-continuation-clears-prior-failure
   =/  log=(list event:h)
     ~[[%llm-requested 1 %turn] [%config-replaced *config:h] [%llm-failed 0 'http error 401']]
   (expect-eq !>(`(unit @t)`~) !>(err:(play:hl log)))
 ++  test-config-does-not-resume-cancelled-work
   =/  v  (play:hl [[%config-replaced *config:h] interrupted-tools])
-  (expect-eq !>(`(unit step:h)`~) !>((next:hs v ~)))
+  (expect-eq !>(`(unit step:h)`~) !>((next:hs v ~ ~)))
 ++  test-repeated-cancel-does-not-duplicate-receipts
   =/  log  [[%cancelled ~ ~ 'again'] interrupted-tools]
   (expect-eq !>((transcript-items:hl interrupted-tools)) !>((transcript-items:hl log)))

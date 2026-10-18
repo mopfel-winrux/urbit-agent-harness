@@ -59,12 +59,14 @@
       'Model changes preserve instructions and tool permissions.'
   ==
 ++  context-report
-  |=  [view=view:h skills=(map @t skill:h)]
+  |=  [view=view:h skills=(map @t skill:h) log=(list event:h)]
   ^-  @t
   %+  rap  3
   :~  'Context estimate: '
-      (scot %ud (est-tokens:hp view skills))
-      ' tokens (encoded bytes / 4, approximate)'
+      (scot %ud (est-tokens:hp view skills log))
+      ?:  ?=(^ (reported-usage:hp log config.view))
+        ' tokens (reported usage plus unmeasured context reserve)'
+      ' tokens (encoded bytes / 4; no matching usage report)'
       '\0aConfigured model window: '  (scot %ud max-context.config.view)  ' (catalog or fallback)'
       '\0aInput budget: '  (scot %ud (input-budget:context max-context.config.view))
       '\0aRetained-tail target: '
@@ -86,11 +88,11 @@
 ::  Command effects are nouns, not agent actions. The head records these and
 ::  the acknowledgement in one admission; all hands get the same semantics.
 ++  evaluate
-  |=  [parsed=command view=view:h defaults=config:h skills=(map @t skill:h)]
+  |=  [parsed=command view=view:h defaults=config:h skills=(map @t skill:h) log=(list event:h)]
   ^-  [events=(list event:h) body=@t]
   |^
     ?:  =('context' name.parsed)
-      [~ ?:(=('' arg.parsed) (context-report view skills) 'Usage: /context')]
+      [~ ?:(=('' arg.parsed) (context-report view skills log) 'Usage: /context')]
     ?:  =('compact' name.parsed)  [~ 'Usage: /compact']
     =/  result  (run parsed view defaults)
     [?~(config.result ~ ~[[%config-replaced u.config.result]]) body.result]
