@@ -9,7 +9,7 @@
     ==
   =/  migrated  (envelope:storage !>(old))
   ;:  weld
-      (expect-eq !>(+.old) !>(+.+>.migrated))
+      (expect-eq !>(+.old) !>(+.+.+>.migrated))
       (expect-eq !>(*state:r) !>(runners.migrated))
       (expect-eq !>(migrated) !>((envelope:storage !>(migrated))))
   ==

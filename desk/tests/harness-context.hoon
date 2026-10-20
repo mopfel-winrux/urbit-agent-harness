@@ -39,8 +39,9 @@
         ==
     ==
   %-  expect
-  !>  ?&  ?=([~ %turn ~] (next:hs v ~))  ?=([~ %compact ~] (next:hs v(max-context.config 60.000) ~))
-          ?=([~ %compact ~] (next:hs v(max-context.config 60.000, compact-attempts 1) ~))
+  !>  ?&  ?=([~ %turn ~] (next:hs v ~ ~))
+          ?=([~ %compact ~] (next:hs v(max-context.config 60.000) ~ ~))
+          ?=([~ %compact ~] (next:hs v(max-context.config 60.000, compact-attempts 1) ~ ~))
       ==
 ++  test-plan-protects-recent-exchange-and-current-input
   =/  p  planned
@@ -83,7 +84,7 @@
   =/  result  (plan:ctx v 20 ~ |=(candidate=view:h (estimate:hp candidate %compaction ~)))
   ?>  ?=(%& -.result)
   ;:  weld
-      (expect !>(?=([~ %compact ~] (next:hs v ~))))
+      (expect !>(?=([~ %compact ~] (next:hs v ~ ~))))
       (expect-eq !>(3) !>(count.p.result))
       (expect-eq !>(`(list @ud)`~[0]) !>((preserved-input:ctx items.v count.p.result)))
   ==
@@ -99,7 +100,7 @@
 ++  test-irreducible-input-does-not-proceed-over-budget
   =/  v  fixture
   =.  v  v(items ~[[%user 'huge']], max-context.config 1)
-  =/  next  (next:hs v ~)
+  =/  next  (next:hs v ~ ~)
   =/  result  (plan:ctx v 10 ~ |=(view:h 999.999))
   (expect !>(&(?=([~ %compact ~] next) ?=(%| -.result))))
 ++  test-attempt-limit-is-finite
@@ -170,7 +171,7 @@
     ==
   =/  v  (play:hl log)
   %-  expect
-  !>  ?&  =(`item:h`[%user 'new input'] (rear items.v))  ?=([~ %turn ~] (next:hs v ~))
+  !>  ?&  =(`item:h`[%user 'new input'] (rear items.v))  ?=([~ %turn ~] (next:hs v ~ log))
           =(7 (lent (transcript:hl log)))
       ==
 ++  test-replay-rejects-changed-source-coverage
@@ -185,7 +186,7 @@
   =/  v  (play:hl [[%compaction-failed 0 'failed' [12 3]] history])
   %-  expect
   !>  ?&  =(items.before items.v)  =(~ summary.v)  =([12 3] compact-usage.v)  =(`'failed' err.v)
-          =(~ pending.v)  =(~ (next:hs v ~))
+          =(~ pending.v)  =(~ (next:hs v ~ ~))
       ==
 ++  test-legacy-reduction-counts-the-selected-prior-summary
   =/  v  fixture
@@ -207,7 +208,7 @@
   =/  v  fixture
   =.  url.config.v  'https://chatgpt.com/backend-api/codex/responses'
   =/  encoded  (en:json:html (payload:hp v %turn ~))
-  (expect-eq !>((div (add 3 (met 3 encoded)) 4)) !>((est-tokens:hp v ~)))
+  (expect-eq !>((div (add 3 (met 3 encoded)) 4)) !>((est-tokens:hp v ~ ~)))
 ++  test-responses-requires-terminal-event-and-accounts-usage
   =/  item=@t
     'data: {"type":"response.output_item.done","item":{"type":"message","content":[{"text":"Small"}]}}\0a\0a'

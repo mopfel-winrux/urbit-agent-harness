@@ -237,33 +237,38 @@
             '/work task-create {"id":"more-work","title":"Independent work before delivery"}'
         ==
   =/  ready  !<(state-0 ~(on-save +.more bowl))
-  =/  changed
-    %+  ~(on-poke +.more bowl)
-      %harness-action
-    !>  ^-  action:h
-        :*  %send  'owner'
-            '/work task-update {"id":"task","version":1,"outcome":"Changed after approval"}'
-        ==
-  =/  denied
-    %+  ~(on-poke +.changed bowl)
-      %harness-hand
-    !>(`request:hh`['denied-claim' [%claim 'fixture' effect 'publisher']])
-  =/  withheld  !<(state-0 ~(on-save +.denied bowl))
-  ?>  =(%pending status:(~(got by outbox.hands.withheld) effect))
-  =/  claim
-    %+  ~(on-poke +.more bowl)
-      %harness-hand
-    !>(`request:hh`['claim' [%claim 'fixture' effect 'publisher']])
-  =/  claimed  !<(state-0 ~(on-save +.claim bowl))
-  =/  repeated
-    %+  ~(on-poke +.claim bowl)
-      %harness-hand
-    !>(`request:hh`['claim-again' [%claim 'fixture' effect 'publisher']])
-  =/  final  !<(state-0 ~(on-save +.repeated bowl))
-  ;:  weld
-      (expect-eq !>(%claimed) !>(status:(~(got by outbox.hands.claimed) effect)))
-      (expect-eq !>(hands.claimed) !>(hands.final))
-      (expect-eq !>(%done) !>(status:(~(got by requests.work-controls.final) id)))
-      (expect-eq !>(workspace.ready) !>(workspace.final))
-  ==
+  |^
+    (weld changed-task-is-withheld exclusive-claim)
+  ++  changed-task-is-withheld
+    =/  changed
+      %+  ~(on-poke +.more bowl)
+        %harness-action
+      !>  ^-  action:h
+          :*  %send  'owner'
+              '/work task-update {"id":"task","version":1,"outcome":"Changed after approval"}'
+          ==
+    =/  denied
+      %+  ~(on-poke +.changed bowl)
+        %harness-hand
+      !>(`request:hh`['denied-claim' [%claim 'fixture' effect 'publisher']])
+    =/  withheld  !<(state-0 ~(on-save +.denied bowl))
+    (expect-eq !>(%pending) !>(status:(~(got by outbox.hands.withheld) effect)))
+  ++  exclusive-claim
+    =/  claim
+      %+  ~(on-poke +.more bowl)
+        %harness-hand
+      !>(`request:hh`['claim' [%claim 'fixture' effect 'publisher']])
+    =/  claimed  !<(state-0 ~(on-save +.claim bowl))
+    =/  repeated
+      %+  ~(on-poke +.claim bowl)
+        %harness-hand
+      !>(`request:hh`['claim-again' [%claim 'fixture' effect 'publisher']])
+    =/  final  !<(state-0 ~(on-save +.repeated bowl))
+    ;:  weld
+        (expect-eq !>(%claimed) !>(status:(~(got by outbox.hands.claimed) effect)))
+        (expect-eq !>(hands.claimed) !>(hands.final))
+        (expect-eq !>(%done) !>(status:(~(got by requests.work-controls.final) id)))
+        (expect-eq !>(workspace.ready) !>(workspace.final))
+    ==
+  --
 --

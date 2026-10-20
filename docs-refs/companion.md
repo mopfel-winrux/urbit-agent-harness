@@ -1,14 +1,14 @@
 # Companion workflows
 
 A companion is an agent you can reach through the web app, Tlon, or another
-client. Each conversation has its own history, so private chats stay separate
-from community conversations.
+client. Each conversation has its own history; relevant durable facts are
+shared across conversations. Use `/memory off` to opt a conversation out.
 
 ## Set up a companion
 
 1. Configure the provider and model in Settings, then review default tools.
-2. Set reusable behavior in instructions or shared skills. Keep private
-   preferences in conversation notes.
+2. Set reusable behavior in instructions or shared skills. Memory retains
+   attributed preferences and durable facts automatically.
 3. For Tlon, select an owner, add trusted ships and grant only the resources
    each participant needs. Enable the reply hand and review mention policy.
 4. Edit the ship's public nickname/avatar through the Tlon page if desired.

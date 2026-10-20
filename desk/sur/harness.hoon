@@ -7,7 +7,7 @@
 /-  l=harness-lcm
 |%
 +$  session-id  @t
-+$  request-kind  ?(%turn %compaction)
++$  request-kind  ?(%turn %compaction %memory)
 +$  stop-reason  ?(%stop %tool-calls %length %error)
 ::  Meaning of a settled turn, independent of the recipient's wire format.
 +$  outcome
@@ -198,7 +198,7 @@
       compaction=(unit compaction-plan)
       compact-usage=usage
       compact-attempts=@ud
-      memory=(map @t @t)              ::  bounded, conversation-scoped notes
+      memory=(map @t @t)              ::  bounded shared reference for this request
       revision=@ud
       positions=(list @ud)            ::  event address parallel to each item
       lcm=forest:l

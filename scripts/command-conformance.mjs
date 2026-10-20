@@ -52,10 +52,10 @@ try {
     ['/help', /\/model default/], ['/status', /Recorded tokens: 0 input, 0 output/],
     ['/model', /fixture-model/], ['/model vendor\/other', /Model set to:.*vendor\/other/],
     ['/context', /Context estimate:.*approximate/], ['/compact later', /Usage: \/compact/],
-    ['/memory', /No pinned notes/], ['/remember project Keep it small.', /Note saved/],
-    ['/remember project Keep it modular.', /Note saved/], ['/memory', /project: Keep it modular\./],
-    ['/remember ../other bad', /Note names/], ['/forget project extra', /Usage:/],
-    ['/forget project', /Note unpinned.*not erased/], ['/memory', /No pinned notes/],
+    [`/memory ${tag}-project`, /No matching shared memories/], [`/remember ${tag}-project Keep it small.`, /Memory saved/],
+    [`/remember ${tag}-project Keep it modular.`, /Memory saved/], [`/memory ${tag}-project`, /project: Keep it modular\./],
+    ['/remember ../other bad', /Memory names/], [`/forget ${tag}-project extra`, /Usage:/],
+    [`/forget ${tag}-project`, /Memory forgotten/], [`/memory ${tag}-project`, /No matching shared memories/],
     ['/model two names', /Usage:/], ['/unknown', /Unknown command/], ['/stop', /Stopped/],
   ]) {
     assert.equal((await prompt(sid, text)).stopReason, 'end_turn')
@@ -80,10 +80,10 @@ try {
   await until('native command reply', async () => (await snapshot(sid)).entries.at(-1).body.startsWith('Model:'))
   assert.equal(requests.length, 0)
 
-  await client.pokeAgent('harness', 'harness-action', { send: { sid, text: '/remember native Note from native ingress.' } })
-  await until('native note saved', async () => (await snapshot(sid)).memory.some((n) => n.name === 'native'))
+  await client.pokeAgent('harness', 'harness-action', { send: { sid, text: `/remember ${tag}-native Note from native ingress.` } })
+  await until('native note saved', async () => /Memory saved/.test((await snapshot(sid)).entries.at(-1).body))
 
-  const running = prompt(sid, 'Hold this request')
+  const running = prompt(sid, 'Hold this request about native ingress')
   running.catch(() => {})
   await until('inference started', () => requests.length === 1)
   assert.ok(requests[0].body.messages.some((m) => m.role === 'user' && m.content?.includes('native: Note from native ingress.')))
@@ -102,10 +102,11 @@ try {
   const help = await observe('help', '/help')
   let pubs = await hand.outbox()
   assert.match(pubs.find((p) => p.inputId === help.inputId).text, /\/status/)
-  const note = await observe('note', '/remember project Hand-scoped note.')
-  assert.match((await hand.outbox()).find((p) => p.inputId === note.inputId).text, /Note saved/)
-  assert.deepEqual((await snapshot(handSid)).memory, [{ name: 'project', body: 'Hand-scoped note.' }])
-  await assert.rejects(observe('forbidden-note', '/remember project Intrusion.', 'mallory'), /Actor/)
+  const note = await observe('note', `/remember ${tag}-hand Shared hand note.`)
+  assert.match((await hand.outbox()).find((p) => p.inputId === note.inputId).text, /Memory saved/)
+  await prompt(sid, `/memory ${tag}-hand`)
+  assert.match((await snapshot(sid)).entries.at(-1).body, /Shared hand note/)
+  await assert.rejects(observe('forbidden-note', `/remember ${tag}-hand Intrusion.`, 'mallory'), /Actor/)
   await observe('work', 'Hold hand inference')
   await until('hand inference', () => requests.length === 2)
   await observe('queued', 'This must be cancelled, not started')
@@ -140,6 +141,7 @@ try {
     'model-only authority', 'zero command inference', 'active prompt interruption', 'hand publications',
     'queued cancellation', 'actor authorization', 'deduplicated stop', 'conflicting replay', 'late result fencing'] }, null, 2))
 } finally {
+  if (sessions[0]) for (const name of ['project', 'native', 'hand']) await prompt(sessions[0], `/forget ${tag}-${name}`).catch(() => {})
   for (const sid of sessions) await client.call('session/cancel', { sessionId: sid }).catch(() => {})
   if (binding) {
     for (const pub of await hand.outbox()) {

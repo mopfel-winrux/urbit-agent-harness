@@ -29,7 +29,8 @@ has its own model, instructions, context limit, and tools. Defaults apply when
 you create a conversation; changing them leaves existing settings alone.
 
 Long conversations are summarized automatically without deleting history.
-Pinned notes stay in context, and agents can search retained source material.
+Relevant shared facts enter context automatically, and agents can search
+retained source material.
 You can choose separate models for summarization.
 
 See [provider authentication](acp.md#provider-authentication) and

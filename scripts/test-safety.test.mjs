@@ -8,7 +8,7 @@ import { join } from 'node:path'
 
 const execute = promisify(execFile)
 test('live benchmarks and soak refuse before credentials or connections without explicit opt-in', async () => {
-  for (const script of ['hosting-benchmark', 'performance-turn-benchmark', 'performance-read-benchmark', 'reliability-soak']) {
+  for (const script of ['memory-benchmark', 'hosting-benchmark', 'performance-turn-benchmark', 'performance-read-benchmark', 'reliability-soak']) {
     for (const value of ['', 'true', '0']) {
       await assert.rejects(execute(process.execPath, [`scripts/${script}.mjs`], {
         cwd: new URL('../', import.meta.url), timeout: 5000,

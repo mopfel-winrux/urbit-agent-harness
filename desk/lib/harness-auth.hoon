@@ -74,8 +74,16 @@
       `'authentication_error: Connect an Anthropic subscription in provider settings.'
     `'authentication_error: Enter an Anthropic API key in provider settings.'
   ?:  (device-route url.config)
-    `'authentication_error: Device login is selected but no OpenAI device credential is saved. Sign in in OpenAI settings.'
-  `'authentication_error: API key is selected but no OpenAI API key is saved. Enter a key or select Device login in model settings.'
+    :-  ~
+    %+  rap  3
+    :~  'authentication_error: Device login is selected but no OpenAI device credential is saved. '
+        'Sign in in OpenAI settings.'
+    ==
+  :-  ~
+  %+  rap  3
+  :~  'authentication_error: API key is selected but no OpenAI API key is saved. '
+      'Enter a key or select Device login in model settings.'
+  ==
 ++  headers
   |=  [keys=(map @t @t) url=@t extra=(list [name=@t value=@t])]
   ^-  (list [name=@t value=@t])

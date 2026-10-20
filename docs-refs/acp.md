@@ -40,9 +40,10 @@ hands use the same command interpreter; adapters do not implement command logic.
 | `/model default` | Copy the current default provider/model settings into this conversation. |
 | `/context` | Inspect the encoded-request estimate, input/output budgets, retained context and compaction usage. |
 | `/compact` | Summarize older complete exchanges through the configured summary route; retain the recent turn and full transcript. |
-| `/memory` | List the current conversation's pinned notes. |
-| `/remember <name> <text>` | Save or replace a note, retained verbatim across compaction. |
-| `/forget <name>` | Unpin a note; earlier messages and checkpoints are not erased. |
+| `/memory [query]` | Inspect or search shared memories. |
+| `/memory off` / `/memory on` | Disable or enable shared memory for this conversation and its descendants. |
+| `/remember <name> <text>` | Save or correct a shared fact. |
+| `/forget <name>` | Forget a shared fact; earlier messages and checkpoints are retained. |
 | `/work` | Inspect and manage work; protected changes need confirmation. See [work commands](work-control.md). |
 | `/stop` | Cancel the current turn and queued hand work; acknowledge locally. |
 
@@ -53,9 +54,9 @@ name is not an access check; the provider may reject it on the next real prompt.
 Changing to an uncatalogued model uses the same 800,000-token context fallback as
 the settings client. `/model default` copies the default's context limit.
 
-Snapshots expose pinned notes as `memory: [{name, body}]`. Edits append
-`memory-set` events (`body: null` unpins) alongside the command reply.
-See [pinned notes](context-and-memory.md#pinned-conversation-notes) for limits.
+Snapshots expose selected shared memories as `memory: [{name, body}]`. Edits append
+`memory-set` events (`body: null` forgets) alongside the command reply.
+See [shared memory](context-and-memory.md#shared-memory) for limits.
 
 Only an exact `/stop` (ignoring surrounding whitespace) interrupts active work.
 Other commands submitted through ACP while busy get the normal busy error;
@@ -110,7 +111,7 @@ read bodies; **Search content** uses the separate indexed corpus methods below.
   tool-permission changes occur when saving.
 - `harness/skill/delete` — owner deletion by name and matching revision.
   Settings exposes these shared instructions in a themed plain-text editor;
-  conversation-scoped private notes remain a separate resource.
+  attributed shared facts remain a separate resource.
 - `harness/defaults`
 - `harness/defaults/configure`
 - `harness/summary-models` — `{compaction: config|null, lcm: config|null}`.

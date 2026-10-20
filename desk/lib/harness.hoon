@@ -94,12 +94,7 @@
     %input-received  (admit-item view item.input.event)
     %context-received  (append-item view [%user body.event])
     %command-completed  (append-item view [%assistant body.event ~])
-      %memory-set
-    %=  view
-      memory  ?~  body.event
-                (~(del by memory.view) name.event)
-              (~(put by memory.view) name.event u.body.event)
-    ==
+    %memory-set  view
     ::  A recorded request is an admitted continuation. Clearing the error
     ::  here also keeps already-recorded config/retry exchanges replayable.
     ::

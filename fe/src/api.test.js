@@ -37,8 +37,10 @@ test('the default context presents Harness as a durable, bounded agent', () => {
   assert.match(config.system, /When a task matches a skill catalog entry, read the skill/)
   assert.match(config.system, /list_mcp_tools before call_mcp_tool/)
   assert.match(config.system, /never retry blindly/)
-  assert.match(config.system, /survive compaction verbatim/)
-  assert.match(config.system, /Do not use shared skills to store private conversation facts/)
+  assert.match(config.system, /automatically recalls relevant durable facts across conversations and local subagents/)
+  assert.match(config.system, /Save important durable preferences, decisions and corrections when you learn them/)
+  assert.match(config.system, /update existing facts instead of duplicating them/)
+  assert.match(config.system, /Do not use shared skills to store conversation facts/)
   assert.match(config.system, /changing them is a separate, explicitly authorized task/)
   assert.doesNotMatch(config.system, /Prefer the staged/)
 })
@@ -130,5 +132,36 @@ test('owner updates fence both administrator settings and remote access stays se
     assert.deepEqual(seen.at(-1), ['harness/tlon/configure', { ...tlon, expectedOwner: '~nec', expectedRevision: 'draft-revision' }])
     await api.read('tlon/owner')
     assert.deepEqual(seen.at(-1), ['harness/tlon/owner'])
+  } finally { acp.start = start; acp.call = call }
+})
+
+test('memory management uses owner ACP methods and preserves string revisions', async () => {
+  const start = acp.start, call = acp.call, seen = []
+  acp.start = async () => {}
+  acp.call = async (...args) => { seen.push(args); return { acknowledged: true } }
+  try {
+    await api.memory('list', { query: 'project', cursor: '9007199254740993' })
+    await api.memory('read', { name: 'project' })
+    await api.memory('save', { name: 'project', text: 'Review with examples.', revision: '9007199254740993', general: false })
+    await api.memory('forget', { name: 'project', revision: '9007199254740994' })
+    await assert.rejects(api.memory('wipe'), /Unsupported/)
+    assert.deepEqual(seen, [
+      ['harness/memory/list', { query: 'project', cursor: '9007199254740993' }],
+      ['harness/memory/read', { name: 'project' }],
+      ['harness/memory/save', { name: 'project', text: 'Review with examples.', revision: '9007199254740993', general: false }],
+      ['harness/memory/forget', { name: 'project', revision: '9007199254740994' }],
+    ])
+  } finally { acp.start = start; acp.call = call }
+})
+
+test('dreaming has a global acknowledged control independent of memory records', async () => {
+  const start = acp.start, call = acp.call, seen = []
+  acp.start = async () => {}
+  acp.call = async (...args) => { seen.push(args); return { enabled: false, lastRun: null, changes: 0 } }
+  try {
+    assert.equal((await api.read('memory/dreaming')).enabled, false)
+    await api.action({ dreaming: { enabled: true } })
+    await api.action({ dreaming: { enabled: false } })
+    assert.deepEqual(seen, [['harness/memory/dreaming'], ['harness/memory/dreaming/configure', { enabled: true }], ['harness/memory/dreaming/configure', { enabled: false }]])
   } finally { acp.start = start; acp.call = call }
 })

@@ -177,8 +177,8 @@ Replies match the pending request ID and addressed peer.
 
 ## Published surface
 
-Private cross-chat memory is excluded from ordinary peer work. `inflows`
-names shared skills, not arbitrary conversations. Owners have explicit
+Shared memory supplies bounded, attributed facts; full transcript access still
+follows corpus grants. `inflows` names shared skills, not arbitrary conversations. Owners have explicit
 administrative authority; ordinary grants never become owner identities.
 
 ## Verification
