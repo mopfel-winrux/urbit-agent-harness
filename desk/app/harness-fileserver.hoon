@@ -2,6 +2,7 @@
 ::  The config core supplies +web-root (URL path) and +file-root (desk path).
 ::  Shells are read on every request; asset responses use Eyre's cache.
 ::
+/+  kernel=harness-kernel
 /+  dbug
 /=  config  /app/harness-fileserver/config
 ::
@@ -134,26 +135,25 @@
 ++  store  ::  set cache entry
   |=  [url=@t entry=(unit cache-entry:eyre)]
   ^-  card
-  [%pass /eyre/cache %arvo %e %set-response url entry]
+  [%pass /eyre/cache %arvo %eyre %set-response url entry]
 ::
 ++  read-next
   |=  [[our=@p =desk now=@da] foot=path]
   ^-  card
-  =;  =task:clay
-    [%pass [%clay %next foot] %arvo %c task]
-  [%warp our desk ~ %next %z da+now foot]
+  [%pass [%clay %next foot] %arvo %clay %read ~ our desk %next %z da+now foot]
 ::
 ++  set-norm
   |=  [[our=@p =desk] foot=path keep=?]
   ^-  card
-  =;  =task:clay
-    [%pass [%clay %norm foot] %arvo %c task]
-  [%tomb %norm our desk (~(put of *norm:clay) foot keep)]
+  :*  %pass  [%clay %norm foot]  %arvo  %clay
+      %tomb  %norm  our  desk  (~(put of *norm:clay) foot keep)
+  ==
 --
 ::
 =|  state-0
 =*  state  -
 ::
+%-  agent:kernel
 %-  agent:dbug
 ^-  agent:gall
 |_  =bowl:gall
@@ -168,8 +168,8 @@
   ::  the relevant tombstoning policy,
   ::  and await next file change
   ::
-  :~  [%pass /eyre/connect %arvo %e %connect [~ woot] dap.bowl]
-      [%pass /eyre/connect %arvo %e %connect [~ /harness] dap.bowl]
+  :~  [%pass /eyre/connect %arvo %eyre %connect woot dap.bowl]
+      [%pass /eyre/connect %arvo %eyre %connect /harness dap.bowl]
       (set-norm [our q.byk]:bowl foot |)
       (read-next [our q.byk now]:bowl foot)
       (store '/apps/harness' ~)
@@ -199,7 +199,7 @@
     :-  (read-next [our q.byk now]:bowl file-root)
     ::  always trigger clay tombstoning, for both old and new file roots.
     ::
-    :-  [%pass /clay/tomb %arvo %c %tomb %pick ~]
+    :-  [%pass /clay/tomb %arvo %clay %tomb %pick ~]
     ::  always clear old cache entries.
     ::
     (turn ~(tap in cash.old) (curr store ~))
@@ -226,14 +226,14 @@
     =/  root-cards=(list card)
       ?:  =(woot.old web-root)
       ::  same root: unconditional rebind
-        [[%pass /eyre/connect %arvo %e %connect [~ web-root] dap.bowl] ~]
+        [[%pass /eyre/connect %arvo %eyre %connect web-root dap.bowl] ~]
       ::  web-root changed: disconnect the old, bind the new
       ::NOTE  re-bind first to avoid duct shenanigans.
-      :~  [%pass /eyre/connect %arvo %e %connect [~ woot.old] dap.bowl]
-          [%pass /eyre/connect %arvo %e %disconnect [~ woot.old]]
-          [%pass /eyre/connect %arvo %e %connect [~ web-root] dap.bowl]
+      :~  [%pass /eyre/connect %arvo %eyre %connect woot.old dap.bowl]
+          [%pass /eyre/connect %arvo %eyre %disconnect woot.old]
+          [%pass /eyre/connect %arvo %eyre %connect web-root dap.bowl]
       ==
-    (snoc root-cards [%pass /eyre/connect %arvo %e %connect [~ /harness] dap.bowl])
+    (snoc root-cards [%pass /eyre/connect %arvo %eyre %connect /harness dap.bowl])
   ==
 ::
 ++  on-poke
@@ -262,18 +262,18 @@
   [~ this]
 ::
 ++  on-arvo
-  |=  [=wire sign=sign-arvo]
+  |=  [=wire sign=gift-user-v1:gall]
   ^-  (quip card _this)
   ~|  wire=wire
   ?+  wire  !!
       [%eyre %connect ~]
-    ~|  sign=+<.sign
-    ?>  ?=(%bound +<.sign)
-    ~?  !accepted.sign  [dap.bowl %binding-rejected binding.sign]
+    ~|  sign=sign
+    ?>  ?=([%eyre %bound *] sign)
+    ~?  !bound.sign  [dap.bowl %binding-rejected binding.sign]
     [~ this]
   ::
       [%eyre %cache ~]
-    ~|  sign=+<.sign
+    ~|  sign=sign
     ~|  %did-not-expect-gift
     !!
   ::
@@ -281,8 +281,8 @@
     ::  ignore if it's for a previous file-root
     ::
     ?.  =(t.t.wire foot)  [~ this]
-    ~|  sign=+<.sign
-    ?>  ?=(%writ +<.sign)
+    ~|  sign=sign
+    ?>  ?=([%clay %read *] sign)
     ::  request the next change, and clear the cache.
     ::  it will get refilled on first request for each file.
     ::
@@ -296,8 +296,8 @@
 ++  on-peek  |=(* ~)
 ::
 ++  on-fail
-  |=  [=term =tang]
+  |=  [=frag:agent:gall =call:agent:gall]
   ^-  (quip card _this)
-  %-  (slog (rap 3 dap.bowl ' +on-fail: ' term ~) tang)
+  %-  (slog (rap 3 dap.bowl ' +on-fail: ' -.call ~) tang.frag)
   [~ this]
 --

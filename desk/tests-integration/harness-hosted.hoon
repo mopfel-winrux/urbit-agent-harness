@@ -135,7 +135,7 @@
   =/  wake
     %+  ~(on-arvo +.responded bowl(now (add now.bowl ~s5)))
       /hosted-auth-poll/integration-login/1
-    [%behn %wake ~]
+    [%behn %wake (add now.bowl ~s5)]
   =/  polling  !<(state-0 ~(on-save +.wake bowl))
   =/  disconnected
     %+  ~(on-poke +.wake bowl)
@@ -155,7 +155,7 @@
       (expect-eq !>(2) !>(serial:(~(got by flows.hosted.polling) 'integration-login')))
       (expect !>(pending:(~(got by flows.hosted.polling) 'integration-login')))
       %-  expect
-      !>((lien -.wake |=(c=card:agent:gall ?=([%pass [%hosted-auth *] %arvo %i %request *] c))))
+      !>((lien -.wake |=(c=card:agent:gall ?=([%pass [%hosted-auth *] %arvo %iris %request *] c))))
   ==
 ++  test-hosted-access-rejects-remote-ships
   (isolated |=(ignored=* remote-access))
@@ -241,7 +241,7 @@
     %+  murn  -.sent
     |=  c=card:agent:gall
     ^-  (unit @t)
-    ?.  ?=([%pass [%llm *] %arvo %i %request *] c)  ~
+    ?.  ?=([%pass [%llm *] %arvo %iris %request *] c)  ~
     =/  sent=http-card:renew  c
     ?~  body.request.sent  ~
     `q.u.body.request.sent
@@ -280,7 +280,7 @@
         '{"device_code":"PRIVATE","user_code":"ABCD-1234","verification_uri":"https://accounts.x.ai/oauth2/device","expires_in":1800,"interval":5}'
     ==
   =.  now.bowl  (add now.bowl ~s5)
-  =/  polling  (~(on-arvo +.code bowl) /hosted-auth-poll/xai-integration/1 [%behn %wake ~])
+  =/  polling  (~(on-arvo +.code bowl) /hosted-auth-poll/xai-integration/1 [%behn %wake now.bowl])
   =/  tokens
     %+  ~(on-arvo +.polling bowl)
       /hosted-auth/xai-integration/2
@@ -312,7 +312,7 @@
     %+  murn  -.renewed
     |=  c=card:agent:gall
     ^-  (unit http-card:renew)
-    ?.  ?=([%pass [%models *] %arvo %i %request *] c)  ~
+    ?.  ?=([%pass [%models *] %arvo %iris %request *] c)  ~
     `c
   =/  sent  (snag 0 requests)
   ;:  weld

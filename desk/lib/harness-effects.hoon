@@ -30,7 +30,7 @@
   :+  [%pass `wire`[%jswatch tid ~] %agent [our.bowl %spider] %watch /thread-result/[tid]]
     [%pass `wire`[%jspoke tid ~] %agent [our.bowl %spider] %poke %spider-inline !>(args)]
   ?:  =(`@dr`0 gap)  ~
-  ~[[%pass `wire`[%jsdog tid ~] %arvo %b %wait deadline]]
+  ~[[%pass `wire`[%jsdog tid ~] %arvo %behn %wait deadline]]
 ::  +rehearse-poke: a rehearse_skill tool call becomes a poke to ourselves
 ::
 ++  rehearse-poke
@@ -44,12 +44,12 @@
 ++  wait-card
   |=  [sid=session-id:h name=@ta at=@da]
   ^-  card
-  [%pass `wire`[%timer `@ta`sid name ~] %arvo %b %wait at]
+  [%pass `wire`[%timer `@ta`sid name ~] %arvo %behn %wait at]
 ::
 ++  rest-card
   |=  [sid=session-id:h name=@ta at=@da]
   ^-  card
-  [%pass `wire`[%timer `@ta`sid name ~] %arvo %b %rest at]
+  [%pass `wire`[%timer `@ta`sid name ~] %arvo %behn %rest at]
 ::  Synchronous tools return their completion event immediately.
 ::  The supplied skill library includes earlier writes in the same batch.
 ::
@@ -232,7 +232,7 @@
     [%'POST' url.u.configured headers `(as-octs:mimes:html (en:json:html u.payload))]
   :-  ~
   :*  %pass  `wire`[%tool-2 `@ta`sid (scot %ud generation) `@ta`id.call ~]
-      %arvo  %i  %request  request  *outbound-config:iris
+      %arvo  %iris  %request  request  *outbound-config:iris
   ==
 ::  +fetch-card: an http_fetch tool call becomes an iris request
 ::
@@ -260,7 +260,7 @@
   =/  =request:http  [%'GET' p.u.url ~ ~]
   :-  ~
   :*  %pass  `wire`[%tool-2 `@ta`sid (scot %ud generation) `@ta`id.call ~]
-      %arvo  %i  %request  request  [0 0]
+      %arvo  %iris  %request  request  [0 0]
   ==
 ::  +answer-card: send a typed answer back over ames
 ::

@@ -13,7 +13,7 @@
   |=  body=@t
   ^-  inbound-request:eyre
   :*  |  |  [%ipv4 .127.0.0.1]
-      :*  %'POST'  '/harness-project/read'  ~[['authorization' (cat 3 'Bearer ' key:seed)]]
+      :*  %'POST'  '/harness-project/read'  ~[['x-harness-key' key:seed]]
           `(as-octs:mimes:html body)
       ==
   ==

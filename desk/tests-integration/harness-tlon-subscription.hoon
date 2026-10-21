@@ -30,7 +30,7 @@
     =/  out
       ?-  event
         %load  loaded
-        %wake  (~(on-arvo +.loaded bowl) /poll [%behn %wake ~])
+        %wake  (~(on-arvo +.loaded bowl) /poll [%behn %wake now.bowl])
         %kick  (~(on-agent +.loaded bowl) /activity [%kick ~])
           ?(%enable %disable)
         =/  params  (policy-json:policy policy.saved(enabled =(%enable event)))

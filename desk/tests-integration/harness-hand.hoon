@@ -83,6 +83,7 @@
       (expect-eq !>(hands.before) !>(hands.after))
       (expect-eq !>(sessions.before) !>(sessions.after))
       %-  expect
-      !>(!(lien -.replayed |=(card=card:agent:gall ?=([%pass * %arvo %i %cancel-request *] card))))
+      !>  ?!  %+  lien  -.replayed
+              |=(=card:agent:gall ?=([%pass * %arvo %iris %cancel-request *] card))
   ==
 --

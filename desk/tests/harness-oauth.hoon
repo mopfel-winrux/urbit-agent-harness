@@ -14,7 +14,7 @@
   ==
 ++  req
   ^-  http-card
-  :*  %pass  /llm/fixture/0/turn  %arvo  %i  %request
+  :*  %pass  /llm/fixture/0/turn  %arvo  %iris  %request
       [%'POST' device-url:auth ~[['authorization' 'Bearer stale']] `(as-octs:mimes:html '{}')]
       *outbound-config:iris
   ==
@@ -37,7 +37,7 @@
   =/  first  (filter:oa ~[req] *state keys ~2026.1.1 'openai')
   =/  next
     %:  filter:oa
-      ~[[%pass wire.request %arvo %i %cancel-request ~]]
+      ~[[%pass wire.request %arvo %iris %cancel-request ~]]
       oauth.first
       keys
       ~2026.1.1
@@ -160,7 +160,7 @@
   =/  cards  cards.out
   ?>  ?=([* * ~] cards)
   =/  refresh  i.cards
-  ?>  ?=([%pass * %arvo %i %request *] refresh)
+  ?>  ?=([%pass * %arvo %iris %request *] refresh)
   =/  refresh=http-card  refresh
   =/  body
     %:  rap
@@ -176,7 +176,7 @@
       (expect-eq !>(`outbound-config:iris`[0 0]) !>(outbound-config.refresh))
       (expect-eq !>(/[(cat 3 provider '-renew')]/1) !>(wire.refresh))
       %+  expect-eq
-        !>(`card:oa`[%pass /[(cat 3 provider '-timeout')]/1 %arvo %b %wait (add ~2026.1.1 ~s30)])
+        !>(`card:oa`[%pass /[(cat 3 provider '-timeout')]/1 %arvo %behn %wait (add ~2026.1.1 ~s30)])
       !>(i.t.cards)
   ==
 ++  test-invalid-refresh-responses-never-rotate-credentials

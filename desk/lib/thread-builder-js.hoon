@@ -352,8 +352,8 @@
           ^-  form:m
           ?.  ?=([desk=@tas rest=*] pax)  (pure:m ~)
           =/  wan=wain  (to-wain:format txt)
-          =/  not=note-arvo
-            [%c [%info desk.pax %& [rest.pax %ins %txt !>(wan)]~]]
+          =/  not=task-user-v1:rand
+            [%clay %rite desk.pax [rest.pax %ins %txt !>(wan)]~]
           ::
           (send-raw-card:sio [%pass / %arvo not])
         ::

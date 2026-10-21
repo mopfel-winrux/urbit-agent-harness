@@ -155,8 +155,8 @@
   =.  login  login(serial +(serial.login), pending &, deadline (add now ~s30))
   =/  http=request:http  [method url headers ?~(body ~ `(as-octs:mimes:html u.body))]
   =/  cards=(list card)
-    :~  [%pass /hosted-auth/[id]/(scot %ud serial.login) %arvo %i %request http [0 0]]
-        [%pass /hosted-auth-timeout/[id]/(scot %ud serial.login) %arvo %b %wait deadline.login]
+    :~  [%pass /hosted-auth/[id]/(scot %ud serial.login) %arvo %iris %request http [0 0]]
+        [%pass /hosted-auth-timeout/[id]/(scot %ud serial.login) %arvo %behn %wait deadline.login]
     ==
   out(flows.db (~(put by flows.db.out) id login), cards (weld cards.out cards))
 ++  poll-later
@@ -167,7 +167,7 @@
     :*  %pass
         /hosted-auth-poll/[id]/(scot %ud serial.login)
         %arvo
-        %b
+        %behn
         %wait
         (add now (mul interval.login ~s1))
     ==

@@ -12,12 +12,12 @@
       ==
 ++  test-curl-default-get-no-ambient-authority
   =/  expected=(unit card:agent:gall)
-    `[%pass /tool-2/s/7/call %arvo %i %request [%'GET' 'http://127.0.0.1/private' ~ ~] [0 0]]
+    `[%pass /tool-2/s/7/call %arvo %iris %request [%'GET' 'http://127.0.0.1/private' ~ ~] [0 0]]
   (expect-eq !>(expected) !>((request '{"url":"http://127.0.0.1/private"}')))
 ++  test-curl-explicit-mutation-headers-body-and-redirects
   =/  expected=(unit card:agent:gall)
     :-  ~
-    :*  %pass  /tool-2/s/7/call  %arvo  %i  %request
+    :*  %pass  /tool-2/s/7/call  %arvo  %iris  %request
         :*  %'PATCH'  'https://example.com/'  ~[['Authorization' 'Bearer explicit']]
             `(as-octs:mimes:html 'payload')
         ==

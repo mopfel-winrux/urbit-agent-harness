@@ -202,11 +202,10 @@
   =/  matches
     %+  skim  headers
     |=  [key=@t value=@t]
-    =('authorization' (crip (cass (trip key))))
+    =('x-harness-key' (crip (cass (trip key))))
   ?.  =(1 (lent matches))  ~
   =/  value  value:(snag 0 matches)
-  ?.  =('Bearer ' (end [3 7] value))  ~
-  =/  key  (rsh [3 7] value)
+  =/  key  value
   ?:((valid-key key) `key ~)
 ::
 ++  local-or-secure

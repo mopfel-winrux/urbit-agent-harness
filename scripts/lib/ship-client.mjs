@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { requestHeaders } from '../../acp/ship-auth.mjs'
 
 export const base = process.env.SHIP_URL || 'http://127.0.0.1'
 const cookiePath = process.env.SHIP_COOKIE
@@ -18,7 +19,8 @@ export class Client {
   constructor({ url = base, auth = cookie } = {}) {
     this.base = url
     this.cookie = auth
-    this.ship = auth.split('=')[0].slice('urbauth-~'.length)
+    this.ship = auth.match(/(?:__Host-)?urbauth-~([\w-]+)=/)?.[1]
+    if (!this.ship) throw new Error('Invalid ship cookie name.')
     this.connection = `conformance-${randomUUID()}`
     this.channel = this.connection
     this.event = 0; this.rpc = 0; this.through = 0; this.acknowledged = 0
@@ -29,7 +31,7 @@ export class Client {
   }
   async pokeAgent(app, mark, json) {
     const response = await fetch(`${this.base}/~/channel/${this.channel}`, {
-      method: 'PUT', headers: { cookie: this.cookie, 'content-type': 'application/json' },
+      method: 'PUT', headers: { ...requestHeaders(this.base), cookie: this.cookie, 'content-type': 'application/json' },
       body: JSON.stringify([{ id: ++this.event, action: 'poke', ship: this.ship, app, mark, json }]),
       signal: AbortSignal.timeout(15_000),
     })
@@ -60,7 +62,7 @@ export class Client {
   async poll() {
     while (this.running) {
       const response = await fetch(`${this.base}/~/scry/acp/v1/${this.connection}/client.json?_=${Date.now()}`, {
-        headers: { cookie: this.cookie, 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15_000),
+        headers: { ...requestHeaders(this.base), cookie: this.cookie, 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15_000),
       })
       assert.ok(response.ok, `queue HTTP ${response.status}`)
       for (const message of (await response.json()).messages || []) {

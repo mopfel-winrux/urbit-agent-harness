@@ -132,7 +132,7 @@
   :*  %pass
       `wire`[%tool-2 `@ta`sid (scot %ud generation) `@ta`id.call ~]
       %arvo
-      %i
+      %iris
       %request
       request
       [u.count 0]

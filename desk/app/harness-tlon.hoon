@@ -8,6 +8,7 @@
 /-  hooks=tlon-hooks
 /-  hosted=harness-hosted
 /-  steward=tlon-steward, steward-lens=tlon-steward-lens
+/+  kernel=harness-kernel
 /+  default-agent, dbug, p=harness-tlon-policy,
     continuity=harness-tlon-continuity, io=harness-tlon-io,
     publication=harness-tlon-publication, profile=harness-tlon-profile,
@@ -33,6 +34,7 @@
 +$  card  card:agent:gall
 +$  storage-source  $%([%credentials creds=credentials:s3] [%hosted token=@t config=json])
 --
+%-  agent:kernel
 %-  agent:dbug
 =|  state-2:t
 =*  state  -
@@ -119,7 +121,7 @@
     [cards this]
   ::
   ++  on-arvo
-    |=  [=wire sign=sign-arvo]
+    |=  [=wire sign=gift-user-v1:gall]
     ?:  &(?=([%media @ @ ~] wire) ?=([%iris %http-response *] sign))
       =^  cards  state
         abet:(receive-upload:cor (slav %uv i.t.wire) i.t.t.wire client-response.sign)
@@ -130,9 +132,9 @@
     [cards this]
   ::
   ++  on-fail
-    |=  [=term =tang]
-    %-  (slog 'harness-tlon: effect failed' tang)
-    :*  ~[(crash:observe bowl term tang)]
+    |=  [=frag:agent:gall =call:agent:gall]
+    %-  (slog 'harness-tlon: effect failed' tang.frag)
+    :*  ~[(crash:observe bowl -.call tang.frag)]
         this(error 'An adapter effect failed; inspect the ship log.')
     ==
   --
@@ -228,7 +230,7 @@
 ++  reset-wake
   ^+  cor
   ?:  =(~ wake)  cor
-  =.  cor  (emit [%pass /poll %arvo %b %rest (need wake)])
+  =.  cor  (emit [%pass /poll %arvo %behn %rest (need wake)])
   cor(wake ~)
 ::
 ++  schedule
@@ -242,7 +244,7 @@
   =.  cor  reset-wake
   =.  wake  deadline
   ?~  wake  cor
-  (emit [%pass /poll %arvo %b %wait (need wake)])
+  (emit [%pass /poll %arvo %behn %wait (need wake)])
 ::
 ++  head
   |=  [wire=wire act=action:h]
@@ -798,7 +800,7 @@
   ^+  cor
   =/  pending  (~(get by uploads) id)
   ?~  pending  cor
-  =.  cor  (emit [%pass /media/(scot %uv id)/[stage.u.pending] %arvo %i %cancel-request ~])
+  =.  cor  (emit [%pass /media/(scot %uv id)/[stage.u.pending] %arvo %iris %cancel-request ~])
   (end-upload id)
 ::
 ++  end-upload
@@ -859,7 +861,7 @@
   =?  u.request  =(`[%s 'upload_file'] (~(get by p.args) 'action'))
     u.request(header-list ~[['Accept' '*/*'] ['Accept-Encoding' 'identity']])
   =.  uploads  (~(put by uploads) id `upload:t`[%fetch (sham u.storage) '' '' '' [0 0]])
-  (emit [%pass /media/(scot %uv id)/fetch %arvo %i %request u.request [0 0]])
+  (emit [%pass /media/(scot %uv id)/fetch %arvo %iris %request u.request [0 0]])
 ::
 ++  start-file-upload
   |=  [id=@uv args=json]
@@ -940,7 +942,7 @@
         mime.pending
         p.bytes.pending
       ==
-    (emit [%pass /media/(scot %uv id)/grant %arvo %i %request request [0 0]])
+    (emit [%pass /media/(scot %uv id)/grant %arvo %iris %request request [0 0]])
   =/  signed
     %-  mole
     |.
@@ -959,7 +961,7 @@
   =.  uploads  (~(put by uploads) id pending)
   =/  =request:http
     [%'PUT' url.u.signed headers.u.signed `bytes.pending]
-  (emit [%pass /media/(scot %uv id)/[stage.pending] %arvo %i %request request [0 0]])
+  (emit [%pass /media/(scot %uv id)/[stage.pending] %arvo %iris %request request [0 0]])
 ::
 ++  receive-upload
   |=  [id=@uv phase=@t response=client-response:iris]
@@ -1023,7 +1025,7 @@
       ~[['Content-Type' mime.updated] ['Cache-Control' 'public, max-age=3600']]
     =/  =request:http
       [%'PUT' url.u.target headers `bytes.updated]
-    (emit [%pass /media/(scot %uv id)/hosted-put %arvo %i %request request [0 0]])
+    (emit [%pass /media/(scot %uv id)/hosted-put %arvo %iris %request request [0 0]])
   ?:  ?|  =(200 status-code.response-header.response)
           =(201 status-code.response-header.response)
           =(204 status-code.response-header.response)

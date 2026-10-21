@@ -83,7 +83,7 @@
       %-  expect
       !>(?=(^ (find (trip 'Answered in the conversation.') (trip i.replies))))
       %-  expect
-      !>(!(lien (weld -.noted -.updated) |=(c=card:agent:gall ?=([%pass * %arvo %i *] c))))
+      !>(!(lien (weld -.noted -.updated) |=(c=card:agent:gall ?=([%pass * %arvo %iris *] c))))
   ==
 ::
 ++  test-finish-shortcut-uses-current-version-and-keeps-the-result
@@ -111,6 +111,6 @@
       (expect-eq !>(~) !>(artifact.task))
       (expect-eq !>(~) !>(requests.work-controls.after))
       %-  expect
-      !>(!(lien -.finished |=(card=card:agent:gall ?=([%pass * %arvo %i *] card))))
+      !>(!(lien -.finished |=(card=card:agent:gall ?=([%pass * %arvo %iris *] card))))
   ==
 --

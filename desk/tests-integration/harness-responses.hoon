@@ -18,7 +18,7 @@
   %+  murn
     cards
   |=  c=card:agent:gall
-  ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %i %request *] c) `c ~))
+  ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %iris %request *] c) `c ~))
 ++  body
   |=  c=http-card:renew
   (need (de:json:html q:(need body.request.c)))

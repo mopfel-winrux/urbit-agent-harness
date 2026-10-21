@@ -1,3 +1,4 @@
+import { guestDeskHeaders } from '../acp/ship-auth.mjs'
 // Loopback-only credential conformance. Creates two uniquely named projects,
 // one task and one short-lived key; finally revokes that key and archives only
 // these projects. No Notes writes, model calls, publications or external sends.
@@ -9,20 +10,21 @@ import { options, deadline } from './lib/reliability.mjs'
 
 const config = options(process.env)
 const realFetch = globalThis.fetch, savedDocument = globalThis.document
+const guestHeaders = await guestDeskHeaders(config.base, realFetch)
 const host = await realFetch(`${config.base}/~/host`, { signal: AbortSignal.timeout(5000), redirect: 'error' })
 assert.ok(host.ok, 'Local ship unavailable')
 assert.equal((await host.text()).trim().replace(/^"|"$/g, '').replace(/^~/, ''), config.expectedShip.slice(1), 'Refusing another ship')
 const fields = (await readFile(config.cookiePath, 'utf8')).split('\n').find((line) => line.split('\t')[5] === `urbauth-${config.expectedShip}`)?.split('\t')
 assert.ok(fields?.[6], 'Expected ship cookie not found')
 const cookie = `${fields[5]}=${fields[6]}`
-const identity = await realFetch(`${config.base}/~/name`, { headers: { cookie }, signal: AbortSignal.timeout(5000), redirect: 'error' })
+const identity = await realFetch(`${config.base}/~/name`, { headers: { ...guestHeaders, cookie }, signal: AbortSignal.timeout(5000), redirect: 'error' })
 assert.ok(identity.ok, 'Owner authentication failed')
 assert.equal((await identity.text()).trim().replace(/^"|"$/g, '').replace(/^~/, ''), config.expectedShip.slice(1))
 globalThis.document = { hidden: false }
 globalThis.fetch = (path, init = {}) => {
   const url = new URL(path, config.base)
   assert.equal(url.origin, config.base)
-  return realFetch(url, { ...init, headers: { ...init.headers, cookie }, redirect: 'error', ...(init.keepalive ? { signal: AbortSignal.timeout(5000) } : {}) })
+  return realFetch(url, { ...init, headers: { ...guestHeaders, ...init.headers, cookie }, redirect: 'error', ...(init.keepalive ? { signal: AbortSignal.timeout(5000) } : {}) })
 }
 const owner = new AcpClient()
 const marker = `client-check-${randomUUID()}`
@@ -34,7 +36,7 @@ const work = (action, args = {}) => deadline(owner.call('harness/workspace', { a
 const read = async (body, status = 200, override = {}) => {
   // Intentionally uses the original fetch: no owner cookie accompanies a key.
   const response = await realFetch(`${config.base}/harness-project/read${override.suffix || ''}`, {
-    method: override.method || 'POST', headers: override.headers || { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+    method: override.method || 'POST', headers: override.headers || { ...guestHeaders, 'x-harness-key': key, 'content-type': 'application/json' },
     ...(override.method === 'GET' ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }),
     signal: AbortSignal.timeout(30_000), redirect: 'error',
   })
@@ -67,7 +69,7 @@ try {
   assert.deepEqual((await read({ action: 'projects' })).items.map((row) => row.id), [project])
   await read({ action: 'project', args: { id: other } }, 404)
   await read({ action: 'help' }, 401, { headers: { cookie, 'content-type': 'application/json' } })
-  await read({ action: 'help' }, 401, { headers: { authorization: `Bearer hpr_${'0'.repeat(64)}` } })
+  await read({ action: 'help' }, 401, { headers: { ...guestHeaders, 'x-harness-key': `hpr_${'0'.repeat(64)}` } })
   for (const action of ['client-create', 'client-revoke', 'member', 'task-update', 'artifact-create', 'review', 'publish', 'sessions', 'harness_admin', 'tlon']) await read({ action, args: {} }, 403)
   await read('{invalid', 400)
   await read({ action: 'help', args: [] }, 400)

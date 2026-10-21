@@ -415,7 +415,7 @@
   =/  out
     %+  ~(on-arvo +.loaded bowl)
       `wire`[%a2a-timeout (scot %uv id) ~]
-    [%behn %wake ~]
+    [%behn %wake now.bowl]
   =/  next  !<(state-0 ~(on-save +.out bowl))
   =/  replies
     %+  murn

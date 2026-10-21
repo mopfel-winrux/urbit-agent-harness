@@ -68,7 +68,7 @@
   :_  ~
   :*  %pass
       /model-context/[credential]/(scot %uv (identity keys credential))
-      %arvo  %i  %request
+      %arvo  %iris  %request
       [%'GET' u.url headers ~]
       *outbound-config:iris
   ==

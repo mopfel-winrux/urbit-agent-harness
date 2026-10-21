@@ -52,7 +52,7 @@ For clients that launch a local agent process and speak stdin/stdout, the
 optional dependency-free bridge exposes the same connection as NDJSON:
 
 ```sh
-SHIP_URL=http://localhost:8081 \
+SHIP_URL=https://harness.your-ship.example \
 SHIP_CODE=your-ship-code \
 ACP_CONNECTION=my-editor \
 node acp/harness-acp.mjs
@@ -60,6 +60,8 @@ node acp/harness-acp.mjs
 
 Its stdin and stdout carry only ACP frames. Use a distinct
 `ACP_CONNECTION` for each simultaneously running client.
+The URL is the Harness desk's origin: Eyre routes and authenticates each desk
+on its own hostname.
 
 The [ACP reference](acp.md#methods) lists session, configuration, provider,
 tool, and hand methods.

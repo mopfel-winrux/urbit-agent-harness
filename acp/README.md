@@ -17,11 +17,11 @@ ACP client <-- NDJSON --> harness-acp.mjs <-- authenticated Eyre --> %acp
 
 ## Run
 
-Requirements are Node 22 or newer, an installed `%harness` desk, the ship URL,
+Requirements are Node 22 or newer, an installed `%harness` desk, its HTTPS hostname,
 and the output of `+code`.
 
 ```sh
-SHIP_URL=http://localhost:8081 \
+SHIP_URL=https://harness.your-ship.example \
 SHIP_CODE=your-ship-code \
 node /path/to/urbit-agent-harness/acp/harness-acp.mjs
 ```
@@ -31,7 +31,7 @@ is deliberately no embedded login code.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `SHIP_URL` | `http://localhost:8081` | Ship HTTP origin |
+| `SHIP_URL` | `http://localhost:8081` | Set to the Harness desk's HTTP origin |
 | `SHIP_CODE` | required | Ship login code |
 | `ACP_CONNECTION` | random `harness-stdio-…` | Durable connection identifier |
 | `ACP_POLL_MS` | `100` | Queue polling interval |
@@ -39,6 +39,12 @@ is deliberately no embedded login code.
 Independent processes get distinct connections by default. Set a stable
 `ACP_CONNECTION` only when intentionally resuming the same ordered queue;
 do not share an active identifier between independent clients.
+
+Eyre isolates desks by hostname. Set `SHIP_URL` to the Harness desk hostname
+for a normal installation; the loopback default requires a development proxy
+that routes requests into that desk.
+The adapter authenticates at the root ship hostname, obtains a cookie scoped
+to `harness`, and sends same-origin headers with its requests.
 
 ## Behavior
 
@@ -166,7 +172,11 @@ already-running disconnected process discovers revocation on its next request.
 
 ### Runner protocol
 
-`GET /harness/runners/:id/events` takes `Authorization: Bearer hrr_…` and
+The client obtains an Eyre guest cookie on the Harness desk hostname through
+`guestDeskHeaders` in `ship-auth.mjs`. It sends that cookie and same-origin
+headers with requests; the guest session requires no ship login code.
+
+`GET /harness/runners/:id/events` takes `X-Harness-Key: hrr_…` and
 `Last-Event-ID`. It returns SSE `event: harness`, a decimal sequence `id`, and
 JSON `{version:1,type:"prompt"|"cancel",conversationId,turnId,attemptId,kind,request}`.
 Prompts contain ordinary Chat Completions messages and tool schemas. Cancellation

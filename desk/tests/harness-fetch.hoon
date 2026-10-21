@@ -7,7 +7,7 @@
 ++  test-fetch-is-get-with-no-body-headers-redirects-or-retries
   =/  got  (fetch '{"url":"https://example.com/"}')
   =/  expected=(unit card:agent:gall)
-    `[%pass /tool-2/s/1/call %arvo %i %request [%'GET' 'https://example.com/' ~ ~] [0 0]]
+    `[%pass /tool-2/s/1/call %arvo %iris %request [%'GET' 'https://example.com/' ~ ~] [0 0]]
   (expect-eq !>(expected) !>(got))
 ++  test-fetch-accepts-explicit-get-for-older-clients
   %+  expect-eq

@@ -19,7 +19,7 @@
   %+  murn
     cards
   |=  c=card:agent:gall
-  ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %i %request *] c) `c ~))
+  ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %iris %request *] c) `c ~))
 ++  test-failed-history-retries-with-valid-utf8-without-repeating-tools
   =/  attempt  |.(retry-text)
   =/  out  (mink [attempt %9 2 %0 1] |=([* *] ``%.n))
@@ -66,7 +66,7 @@
         !>(items:(play:hl log))
       !>(items:(play:hl log:(~(got by sessions.retained) 'fixture')))
       %-  expect
-      !>(!(lien -.retried |=(c=card:agent:gall ?=([%pass [%tool-2 *] %arvo %i %request *] c))))
+      !>(!(lien -.retried |=(c=card:agent:gall ?=([%pass [%tool-2 *] %arvo %iris %request *] c))))
   ==
 ++  body
   |=  c=http-card:renew

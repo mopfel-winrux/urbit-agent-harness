@@ -139,7 +139,7 @@
   =/  out  (~(on-load head bowl) !>(s))
   =/  next  !<(state-0 ~(on-save +.out bowl))
   =/  timers
-    (skim -.out |=(card=card:agent:gall ?=([%pass [%schedules *] %arvo %b *] card)))
+    (skim -.out |=(card=card:agent:gall ?=([%pass [%schedules *] %arvo %behn *] card)))
   ;:  weld
       (expect-eq !>(2) !>((lent timers)))
       (expect-eq !>(schedules.s) !>(schedules.next))
@@ -242,7 +242,7 @@
   %+  murn
     cards
   |=  c=card:agent:gall
-  ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %i %request *] c) `c ~))
+  ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %iris %request *] c) `c ~))
 ++  failed-fixture
   ^-  state-0
   =/  s  fixture

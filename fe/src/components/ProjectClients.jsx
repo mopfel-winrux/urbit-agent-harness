@@ -38,7 +38,7 @@ function NewClientKey({ project, onClose }) {
       <div className="work-actions project-key-actions"><button className="button ghost" onClick={() => setRevealed(!revealed)}>{revealed ? 'Hide key' : 'Reveal key'}</button><button className="button ghost" onClick={copy}>Copy key</button></div>
       {copyStatus && <p role="status">{copyStatus}</p>}
       <label><span>Read endpoint · POST JSON</span><input readOnly value={projectReadEndpoint(location.origin)} onFocus={(event) => event.target.select()} /></label>
-      <p className="field-note">Send the key in the Authorization: Bearer header, never in a URL. Use HTTPS for remote access. Request example:</p>
+      <p className="field-note">Send the key in the X-Harness-Key header, never in a URL. Use HTTPS for remote access. Request example:</p>
       <pre className="project-read-example">{JSON.stringify({ action: 'project', args: { id: project.id } }, null, 2)}</pre>
       <div className="form-actions"><button className="button primary" onClick={onClose}>Done</button></div>
     </> : <form onSubmit={attempt}>

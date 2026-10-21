@@ -7,6 +7,7 @@
 ::    the adapter's newline-delimited stdio stream.
 ::
 /-  ac=acp
+/+  kernel=harness-kernel
 /+  default-agent, dbug, queue-budget=harness-acp-queue
 |%
 +$  card  card:agent:gall
@@ -15,6 +16,7 @@
 ++  max-payload-bytes  1.048.576
 ++  max-id-bytes  128
 --
+%-  agent:kernel
 %-  agent:dbug
 =|  state-0
 =*  state  -
@@ -47,12 +49,12 @@
     ?>  =(src our):bowl
     (peek:cor path)
   ++  on-agent  |=([=wire =sign:agent:gall] `this)
-  ++  on-arvo  |=([=wire sign=sign-arvo] `this)
+  ++  on-arvo  |=([=wire sign=gift-user-v1:gall] `this)
   ++  on-leave  |=(path `this)
   ++  on-fail
-    |=  [=term =tang]
+    |=  [=frag:agent:gall =call:agent:gall]
     ^-  (quip card _this)
-    %-  (slog 'acp: on-fail' >term< tang)
+    %-  (slog 'acp: on-fail' >[-.call from.frag]< tang.frag)
     [~ this]
   --
 |_  [=bowl:gall cards=(list card)]

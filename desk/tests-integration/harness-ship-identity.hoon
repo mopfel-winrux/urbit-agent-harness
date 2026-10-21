@@ -41,7 +41,7 @@
   =/  requests=(list http-card:renew)
     %+  murn  -.sent
     |=  c=card:agent:gall
-    ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %i %request *] c) `c ~))
+    ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %iris %request *] c) `c ~))
   ?>  ?=([* ~] requests)
   =/  body  (need (de:json:html q:(need body.request.i.requests)))
   =/  messages  (need (get:w body 'messages'))

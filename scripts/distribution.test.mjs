@@ -63,8 +63,8 @@ test('namespaced Tlon imports include every dependency, including multiline hook
     }
   }
 })
-test('dynamic marks cover compiler bootstrap and the native noun exchange', async () => {
-  assert.deepEqual((await readdir(new URL('gub/mar/', desk))).sort(), ['hoon.hoon', 'kelvin.hoon', 'mime.hoon', 'noun.hoon', 'tang.hoon'])
+test('dynamic marks cover compiler bootstrap, noun exchange and HTTP registry persistence', async () => {
+  assert.deepEqual((await readdir(new URL('gub/mar/', desk))).sort(), ['hoon.hoon', 'kelvin.hoon', 'mime.hoon', 'noun.hoon', 'server-state.hoon', 'tang.hoon'])
 })
 test('runtime startup does not activate desktop-only bridges', async () => {
   const source = await readFile(new URL('app/harness-grub.hoon', desk), 'utf8')
@@ -73,7 +73,24 @@ test('runtime startup does not activate desktop-only bridges', async () => {
   for (const service of ['gub', 'clay', 'bowl', 'gall', 'lick', 'eyre']) assert.ok(startup.includes(`sync-${service}`), service)
   assert.ok(!source.includes('(ensure-dir /sys/clay/desks/base)'))
   assert.ok(source.includes('(ensure-dir /sys/clay/desks/harness)'))
-  assert.ok(!source.includes('%connect [~ /grubbery/push]'))
+  assert.ok(!source.includes('%connect /grubbery/push'))
+})
+test('the desk and its Gall support declare the userspace API and permissions', async () => {
+  assert.equal((await readFile(new URL('sys.kelvin', desk), 'utf8')).trim(), '[%zuse 407]')
+  const seal = await readFile(new URL('desk.seal', desk), 'utf8')
+  assert.doesNotMatch(seal, /%super/)
+  for (const permission of ['[%write ~]', '[%watch ~ /]', '[%behn %timer ~]', '[%iris %fetch ~]', '[%eyre %serve /]']) assert.ok(seal.includes(permission), permission)
+  await access(new URL('mar/seal.hoon', desk))
+  for (const file of ['lib/default-agent.hoon', 'lib/dbug.hoon', 'lib/skeleton.hoon', 'lib/verb.hoon']) {
+    const source = await readFile(new URL(file, desk), 'utf8')
+    assert.match(source, /gift-user-v1:gall/)
+    assert.match(source, /frag:agent:gall/)
+  }
+  for (const file of (await readdir(new URL('app/', desk))).filter((f) => f.endsWith('.hoon'))) {
+    const source = await readFile(new URL(`app/${file}`, desk), 'utf8')
+    assert.match(source, /agent:kernel/)
+    assert.doesNotMatch(source, /sign=sign-arvo|%arvo\s+%[abcdegijkl]\b|%connect \[~ /)
+  }
 })
 test('runtime prepares mark dispatch once while deferring extraction failures', async () => {
   const source = await readFile(new URL('lib/marks.hoon', desk), 'utf8')

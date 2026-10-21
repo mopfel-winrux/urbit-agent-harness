@@ -83,6 +83,7 @@ fn buildDesk(step: *std.Build.Step, install_path: []const u8, desk_path: ?[]cons
     // Tlon protocol and JSON dependencies share one pinned namespace.
     // No Groups applications, desk bill, UI or runtime are installed here.
     try run(step, &.{ "node", "scripts/stage-tlon.mjs", install_path });
+    try run(step, &.{ "node", "scripts/stage-kernel.mjs", install_path });
     try stageBootstrapMarks(allocator, install_path);
 
     if (desk_path) |raw_path| {
@@ -115,9 +116,14 @@ fn commitDesk(step: *std.Build.Step, target: []const u8) !void {
             "(pure:m !>(%harness-commit-sent))",
         .{desk},
     );
+    const request = try std.fmt.allocPrint(
+        allocator,
+        "[0 %fyrd %base %base %khan-eval %noun %ted-eval '{s}']",
+        .{command},
+    );
     const result = std.process.Child.run(.{
         .allocator = allocator,
-        .argv = &.{ "click", "-k", "-p", pier, command },
+        .argv = &.{ "click", "-c", "-p", pier, request },
         .max_output_bytes = 1024 * 1024,
     }) catch |err| {
         return step.fail("could not run click: {s}", .{@errorName(err)});
@@ -133,7 +139,8 @@ fn commitDesk(step: *std.Build.Step, target: []const u8) !void {
 
 // Four source marks bootstrap the dynamic-code index. The noun mark is also
 // required: the head and its verifier exchange noun grubs, whose writes must
-// validate before their processes can start on a fresh runtime.
+// validate before their processes can start on a fresh runtime. Product-owned
+// dynamic marks arrive through the desk overlay.
 fn stageBootstrapMarks(allocator: std.mem.Allocator, install_path: []const u8) !void {
     const mar_dir = try std.fs.path.join(allocator, &.{ install_path, "gub/mar" });
     try std.fs.cwd().makePath(mar_dir);

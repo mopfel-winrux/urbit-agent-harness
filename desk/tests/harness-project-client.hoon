@@ -56,17 +56,17 @@
   =/  out  (read:client fixture 'project' action args)
   ?>  ?=(%& -.out)
   p.out
-++  test-key-format-and-authorization-header-are-exact
+++  test-key-format-and-capability-header-are-exact
   ;:  weld
       (expect !>((valid-key:client key)))
       (expect !>(!(valid-key:client 'short')))
       (expect !>(!(valid-key:client (cat 3 key '0'))))
-      (expect-eq !>(`key) !>((header-key:client ~[['Authorization' (cat 3 'Bearer ' key)]])))
-      (expect-eq !>(`(unit @t)`~) !>((header-key:client ~[['cookie' (cat 3 'Bearer ' key)]])))
+      (expect-eq !>(`key) !>((header-key:client ~[['X-Harness-Key' key]])))
+      (expect-eq !>(`(unit @t)`~) !>((header-key:client ~[['cookie' key]])))
       %+  expect-eq
         !>(`(unit @t)`~)
       !>  %-  header-key:client
-          ~[['authorization' (cat 3 'Bearer ' key)] ['Authorization' (cat 3 'Bearer ' second-key)]]
+          ~[['x-harness-key' key] ['X-Harness-Key' second-key]]
   ==
 ++  test-creation-stores-a-digest-and-redacts-the-owner-response
   =/  out  (owner-request:client *state:pc fixture 'client-create' (args 'client' key 7) ~2026.9.13)

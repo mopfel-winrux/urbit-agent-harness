@@ -1,0 +1,416 @@
+--- a/app/harness-grub.hoon
++++ b/app/harness-grub.hoon
+@@ -1,4 +1,5 @@
+ /-  spider, push, grub
++/+  kernel=harness-kernel, kernel-migration=harness-runtime-migrate
+ /+  nexus, tarball, build, marks,
+     loader, fiberio, migrations, root,
+     default-agent, dbug,
+@@ -88,6 +89,7 @@
+ =*  state  -
+ ::
+ =<
++%-  agent:kernel
+ %-  agent:dbug
+ ^-  agent:gall
+ |_  =bowl:gall
+@@ -205,7 +207,7 @@
+     ::
+     ?>  =(src our):bowl
+     :_  this(upki [~ !<(rail:tarball vase)])
+-    [%pass /jael-listen %arvo %j %listen ~ [%| %grubbery]]~
++    [%pass /jael-listen %arvo %jael %listen ~ [%| %grubbery]]~
+     ::  Subscribe to a gall agent, materialize at /sys/gall/
+     ::
+       %gall-watch
+@@ -382,7 +384,7 @@
+   ==
+ ::
+ ++  on-arvo
+-  |=  [=wire sign=sign-arvo]
++  |=  [=wire sign=gift-user-v1:gall]
+   ^-  (quip card _this)
+   ?+    wire
+     ~&  >>>  "on-arvo: unhandled wire {<wire>}"
+@@ -398,7 +400,7 @@
+     ?>  ?=([%dill %blit *] sign)
+     =/  ses=@tas  i.t.t.wire
+     =^  cards  state
+-      abet:(save-file:hc [/sys/dill/sessions ses] [[/ %dill-blit] p.sign])
++      abet:(save-file:hc [/sys/dill/sessions ses] [[/ %dill-blit] biz.sign])
+     [cards this]
+     ::
+       [%lick *]
+@@ -408,10 +410,10 @@
+     [cards this]
+     ::
+       [%clay-desk @ ~]
+-    ?>  ?=([%clay %writ *] sign)
++    ?>  ?=([%clay %read *] sign)
+     =/  dek=desk  (slav %tas i.t.wire)
+     =^  cards  state
+-      abet:(on-clay-writ:hc dek +>.sign)
++      abet:(on-clay-writ:hc dek riot.sign)
+     [cards this]
+     ::
+       [%jael %public ~]
+@@ -429,13 +431,13 @@
+       [%behn %snap-pin @ @ ~]
+     ?>  ?=([%behn %wake *] sign)
+     =^  cards  state
+-      abet:(expire-snap:hc t.t.wire error.sign)
++      abet:(expire-snap:hc t.t.wire ~)
+     [cards this]
+     ::
+       [%behn %timer @ *]
+     ?>  ?=([%behn %wake *] sign)
+     =^  cards  state
+-      abet:(handle-timer-wake:hc t.t.wire error.sign)
++      abet:(handle-timer-wake:hc t.t.wire ~)
+     [cards this]
+     ::
+       [%iris %request @ *]
+@@ -476,7 +478,7 @@
+     ::
+       ?([%eyre ~] [%eyre-bind ~] [%eyre-api ~] [%eyre-push ~])
+     ::  surface rejected eyre bindings — silence here cost us dearly
+-    ~?  >>>  ?&(?=([%eyre %bound *] sign) !accepted.sign)
++    ~?  >>>  ?&(?=([%eyre %bound *] sign) !bound.sign)
+       [%eyre-rejected-binding path.binding.sign]
+     [~ this]
+   ==
+@@ -1043,7 +1045,7 @@
+     (~(put by snaps.remo) [snap-id src.bowl] [dest-lane refs.u.snap expiry])
+   =?  cards  &(?=(^ snap) pinned)
+     :_  cards
+-    [%pass /behn/snap-pin/[(scot %uv snap-id)]/[(scot %p src.bowl)] %arvo %b %wait expiry]
++    [%pass /behn/snap-pin/[(scot %uv snap-id)]/[(scot %p src.bowl)] %arvo %behn %wait expiry]
+   (respond-transfer %peek [wire.req %snap dest-lane snap-id snap inline])
+ ::  process-keep: register the caller as a remote watcher, unless the weir
+ ::  gate blocks it (a vetoed subscribe is silently dropped).
+@@ -1118,7 +1120,7 @@
+     :_  cards
+     :*  %pass
+         /behn/snap-pin/[(scot %uv snap-id.req)]/[(scot %p src.bowl)]
+-        %arvo  %b  %rest  expiry.u.pin
++        %arvo  %behn  %rest  expiry.u.pin
+     ==
+   (respond-transfer %want [/want %data send])
+ ::  merge-transfer-data: fold received content into the silo and
+@@ -4846,7 +4848,7 @@
+   ::  Subscribe to %next %z on desk root
+   ~&  >>  "sync-clay-desk: subscribing to {<dek>}"
+   %-  emit-card
+-  [%pass /clay-desk/[dek] %arvo %c %warp our.bowl dek `[%next %z da+now.bowl /]]
++  [%pass /clay-desk/[dek] %arvo %clay %read ~ our.bowl dek %next %z da+now.bowl /]
+ ::  +build-new-code-namespaces: register and build new %code directories
+ ::
+ ::    Walks a newly installed bole. Any directory carrying the %code
+@@ -5674,7 +5676,7 @@
+ ++  unmount-clay-desk
+   |=  dek=desk
+   ^+  this
+-  =.  this  (emit-card [%pass /clay-desk/[dek] %arvo %c %warp our.bowl dek ~])
++  =.  this  (emit-card [%pass /clay-desk/[dek] %arvo %clay %rest ~])
+   (cull [%| /sys/clay/desks/[dek]])
+ ::  Subscribe to dill logs and sessions, create grubs for both.
+ ::
+@@ -5683,7 +5685,7 @@
+   ::  Create dill/logs grub and subscribe
+   =.  this  (save-file [/sys/dill %'logs.dill-told'] [[/ %dill-told] *told:dill])
+   =.  this  (set-gain-lane [%& /sys/dill %'logs.dill-told'] %.y)
+-  =.  this  (emit-card [%pass /dill/logs %arvo %d %logs `~])
++  =.  this  (emit-card [%pass /dill/logs %arvo %dill %logs `~])
+   ::  Scry for sessions
+   =/  sessions=(list @tas)
+     ~(tap in .^((set @tas) %dy /(scot %p our.bowl)/$/(scot %da now.bowl)/sessions))
+@@ -5695,7 +5697,7 @@
+     %+  murn  old
+     |=  ses=@ta
+     ?:  (~(has in new) ses)  ~
+-    `[%pass /dill/session/[ses] %arvo %d %shot ses %flee ~]
++    `[%pass /dill/session/[ses] %arvo %dill %shot ses %flee ~]
+   ::  Create grubs and subscribe
+   =.  this
+     %+  roll  sessions
+@@ -5704,7 +5706,7 @@
+     (set-gain-lane:acc [%& /sys/dill/sessions ses] %.y)
+   %-  emit-cards
+   %+  turn  sessions
+-  |=(ses=@tas [%pass /dill/session/[ses] %arvo %d %shot ses %view ~])
++  |=(ses=@tas [%pass /dill/session/[ses] %arvo %dill %shot ses %view ~])
+ ::  +sync-jael: mirror our keys into /sys/jael and subscribe to jael
+ ::
+ ++  sync-jael
+@@ -5718,10 +5720,10 @@
+     (save-file [/sys/jael %'public-keys.jael-public-keys-result'] [[/ %jael-public-keys-result] *public-keys-result:jael])
+   ::  Subscribe to private keys
+   =.  this
+-    (emit-card [%pass /jael/private %arvo %j %private-keys ~])
++    (emit-card [%pass /jael/private %arvo %jael %private-keys `~])
+   ::  Subscribe to public keys for our ship
+   %-  emit-cards
+-  ~[[%pass /jael/public %arvo %j %public-keys (silt ~[our.bowl])]]
++  ~[[%pass /jael/public %arvo %jael %public-keys `(silt ~[our.bowl])]]
+ ::
+ ++  on-jael-public
+   |=  =public-keys-result:jael
+@@ -5933,21 +5935,21 @@
+   =?  this  gained
+     (set-gain-lane [%& dir %in] %.y)
+   ~&  >  "lick: spinning {(spud name)}"
+-  (emit-card [%pass (lick-wire name) %arvo %l %spin name])
++  (emit-card [%pass (lick-wire name) %arvo %lick %spin name])
+ ::
+ ++  handle-lick-shut
+   |=  name=path
+   ^+  this
+   =/  dir=path  (lick-dir name)
+   ~&  >  "lick: shutting {(spud name)}"
+-  =.  this  (emit-card [%pass (lick-wire name) %arvo %l %shut name])
++  =.  this  (emit-card [%pass (lick-wire name) %arvo %lick %shut name])
+   =.  pool  (~(lop of pool) dir)
+   (load-ball-changes dir *bole:tarball)
+ ::
+ ++  handle-lick-spit
+   |=  req=[name=path =mark noun=*]
+   ^+  this
+-  (emit-card [%pass (lick-wire name.req) %arvo %l %spit req])
++  (emit-card [%pass (lick-wire name.req) %arvo %lick %spit req])
+ ::  Handle a %soak gift: connection state to /live, data to /in
+ ::
+ ++  take-lick-soak
+@@ -5994,7 +5996,7 @@
+   =.  this
+     ?.  has-live  this
+     ~&  >  "sync-lick: respinning {(spud pax)}"
+-    (emit-card [%pass (lick-wire pax) %arvo %l %spin pax])
++    (emit-card [%pass (lick-wire pax) %arvo %lick %spin pax])
+   =/  kids=(list [@ta ball:tarball])  ~(tap by dir.sub)
+   |-
+   ?~  kids  this
+@@ -6251,16 +6253,17 @@
+   ::  binding in server-state with eyre — eyre's table and ours can
+   ::  drift (nukes, rejected connects), and ours is authoritative.
+   =/  st=server-state:nexus  get-server-state
++  =.  this  (save-server-state st)
+   %-  emit-cards
+   %+  weld
+     ^-  (list card)
+-    :~  [%pass /eyre-api %arvo %e %connect [~ /grubbery/api] dap.bowl]
++    :~  [%pass /eyre-api %arvo %eyre %connect /grubbery/api dap.bowl]
+     ==
+   ^-  (list card)
+   %+  turn  ~(tap by bindings.st)
+   |=  [=binding:eyre *]
+   ^-  card
+-  [%pass /eyre-bind %arvo %e %connect binding dap.bowl]
++  [%pass /eyre-bind %arvo %eyre %connect binding dap.bowl]
+ ::  /sys/eyre: read/write server state, find bindings
+ ::
+ ++  get-server-state
+@@ -6268,8 +6271,7 @@
+   =/  eyre-rail=rail:tarball  [/sys/eyre %'main.server-state']
+   =/  old=(unit sang:tarball)  (peek-grub-now eyre-rail)
+   ?~  old  *server-state:nexus
+-  ?:  (is-boom:tarball u.old)  *server-state:nexus
+-  !<(server-state:nexus (need-vase:tarball u.old))
++  (server-state:kernel-migration (sang-noun:tarball u.old))
+ ::
+ ++  save-server-state
+   |=  st=server-state:nexus
+@@ -6523,7 +6525,7 @@
+       (weld path.sender [name.sender sub-id notif-id ~])
+     =.  inflight.st  (~(put by inflight.st) push-wire sender)
+     =.  this  (save-push-state st)
+-    =.  this  (emit-card [%pass push-wire %arvo %i %request req *outbound-config:iris])
++    =.  this  (emit-card [%pass push-wire %arvo %iris %request req *outbound-config:iris])
+     $(target-subs t.target-subs)
+   ==
+ ::
+@@ -6767,7 +6769,7 @@
+       %dill
+     ?.  =([/ %dill-belt] p.sage)  ~
+     =/  [session=@tas =belt:dill]  !<([@tas belt:dill] q.sage)
+-    =.  this  (emit-card [%pass /dill/belt %arvo %d %shot session %belt belt])
++    =.  this  (emit-card [%pass /dill/belt %arvo %dill %shot session %belt belt])
+     `(enqu-take here ~ ~ %pack wir ~)
+   ::
+       %gall
+@@ -6849,7 +6851,7 @@
+       :-  (scot %da u.prev)
+       :-  (scot %ud (lent path.sender))
+       (weld path.sender [name.sender wire.req])
+-    (emit-card [%pass old-wire %arvo %b %rest u.prev])
++    (emit-card [%pass old-wire %arvo %behn %rest u.prev])
+   ::  Update state
+   =.  timers.st  (~(put by timers.st) [sender wire.req] when.req)
+   =.  this  (save-file timer-rail [[/ %behn-state] st])
+@@ -6860,7 +6862,7 @@
+     :-  (scot %da when.req)
+     :-  (scot %ud (lent path.sender))
+     (weld path.sender [name.sender wire.req])
+-  (emit-card [%pass timer-wire %arvo %b %wait when.req])
++  (emit-card [%pass timer-wire %arvo %behn %wait when.req])
+ ::  Cancel a timer previously set with %timer-set, keyed by [sender wire].
+ ::  No-op if no such timer is live (it already fired or was never set).
+ ::  %rest must carry the same wire and @da the %wait went out with, so
+@@ -6885,7 +6887,7 @@
+     :-  (scot %da u.when)
+     :-  (scot %ud (lent path.sender))
+     (weld path.sender [name.sender req])
+-  (emit-card [%pass timer-wire %arvo %b %rest u.when])
++  (emit-card [%pass timer-wire %arvo %behn %rest u.when])
+ ::  expire-snap: a snap-pin timer fired — release the snap's held refs and
+ ::  drop it. no-op if the snap was already released (a %want beat the timer).
+ ::  wire tail is [snap-id ship ~].
+@@ -6997,8 +6999,13 @@
+     :-  path
+     :-  (rear path)
+     .^(noun %cx (scot %p our.bowl) %base (scot %da now.bowl) path)
+-  =.  this  (emit-card [%pass /new-desk %arvo (new-desk:cloy dek ~ files)])
+-  (emit-card [%pass /desk-bill %arvo %c %info dek %& [/desk/bill %ins bill+!>(~[dek])]~])
++  ::  Clay creates the desk when its first edit inserts the source files.
++  =/  edits=soba:clay
++    %+  turn  ~(tap by files)
++    |=  [=path =page:clay]
++    [path %ins p.page !>(q.page)]
++  =.  this  (emit-card [%pass /new-desk %arvo %clay %rite dek edits])
++  (emit-card [%pass /desk-bill %arvo %clay %rite dek [/desk/bill %ins bill+!>(~[dek])]~])
+ ::  /sys/clay/ file write service
+ ::
+ ++  handle-clay-info
+@@ -7013,7 +7020,7 @@
+         %ins
+       [pax %ins +<.change !>(+>.change)]
+     ==
+-  (emit-card [%pass /clay-info %arvo %c %info dek %& mis])
++  (emit-card [%pass /clay-info %arvo %clay %rite dek mis])
+ ::  /sys/eyre/ HTTP server service
+ ::
+ ++  eyre-response-cards
+@@ -7044,7 +7051,7 @@
+     ::  through to docket's catch-all). Bind dot-free paths.
+     =.  bindings.st  (~(put by bindings.st) binding.act handler.act)
+     =.  this  (save-server-state st)
+-    (emit-card [%pass /eyre-bind %arvo %e %connect binding.act dap.bowl])
++    (emit-card [%pass /eyre-bind %arvo %eyre %connect binding.act dap.bowl])
+   ::
+       %bind-self
+     ::  bind requests to the SENDER — the kernel already knows who poked,
+@@ -7052,7 +7059,7 @@
+     ::  handler rail. This is the common case: a nexus serving its own UI.
+     =.  bindings.st  (~(put by bindings.st) binding.act sender)
+     =.  this  (save-server-state st)
+-    (emit-card [%pass /eyre-bind %arvo %e %connect binding.act dap.bowl])
++    (emit-card [%pass /eyre-bind %arvo %eyre %connect binding.act dap.bowl])
+   ::
+       %unbind
+     =/  orphans=(list @ta)
+@@ -7184,7 +7191,7 @@
+     !<(iris-state:nexus (need-vase:tarball u.old))
+   =.  requests.st  (~(put by requests.st) iris-wire [sender url.request])
+   =.  this  (save-file iris-rail [[/ %iris-state] st])
+-  (emit-card [%pass iris-wire %arvo %i %request request *outbound-config:iris])
++  (emit-card [%pass iris-wire %arvo %iris %request request *outbound-config:iris])
+ ::
+ ++  handle-iris-response
+   |=  [segs=wire =client-response:iris]
+@@ -7251,14 +7258,14 @@
+   ^+  this
+   =/  req=(unit [pax=path pag=page])  (mole |.(!<([path page] vaz)))
+   ?~  req  ~&(>>> %scry-grow-malformed this)
+-  (emit-card [%pass /scry-grow %grow pax.u.req pag.u.req])
++  (emit-card [%pass /scry-grow %arvo %ames %grow pax.u.req pag.u.req])
+ ::
+ ++  handle-scry-tomb
+   |=  vaz=vase
+   ^+  this
+   =/  req=(unit [case=@ud pax=path])  (mole |.(!<([@ud path] vaz)))
+   ?~  req  ~&(>>> %scry-tomb-malformed this)
+-  (emit-card [%pass /scry-tomb %tomb ud+case.u.req pax.u.req])
++  (emit-card [%pass /scry-tomb %arvo %ames %tomb ud+case.u.req pax.u.req])
+ ::  +handle-scry-cull: retract every case bound at spur. Only the
+ ::  spur's current top case clears it (gall's +ap-cull range-checks
+ ::  and no-ops outside the bound keys), so resolve that top here. A
+@@ -7271,7 +7278,7 @@
+   ?~  req  ~&(>>> %scry-cull-malformed this)
+   =/  top=(unit @ud)  (farm-top u.req)
+   ?~  top  this
+-  (emit-card [%pass /scry-cull %cull ud+u.top u.req])
++  (emit-card [%pass /scry-cull %arvo %ames %cull ud+u.top u.req])
+ ::  +farm-top: the highest case currently bound at spur in our own
+ ::  farm, ~ when nothing is published there. Ported from PR #41.
+ ::
+@@ -7310,10 +7317,10 @@
+   =/  todo=(list card)  (flop cards)
+   |-  ^-  (unit @ud)
+   ?~  todo  live
+-  ?:  &(?=([%pass * %grow * *] i.todo) =(pax spur.q.i.todo))
++  ?:  &(?=([%pass * %arvo %ames %grow * *] i.todo) =(pax spur.q.i.todo))
+     =/  nh=@ud  +(high)
+     $(todo t.todo, high nh, live `nh)
+-  ?:  &(?=([%pass * %cull * *] i.todo) =(pax spur.q.i.todo))
++  ?:  &(?=([%pass * %arvo %ames %cull * *] i.todo) =(pax spur.q.i.todo))
+     $(todo t.todo, live ~)
+   $(todo t.todo)
+ ::  +handle-scry-keen: read a path from a remote ship's farm. Nothing
+@@ -7335,17 +7342,9 @@
+   =/  st=scry-state:nexus  get-scry-state
+   =.  keens.st  (~(put by keens.st) keen-wire [who.u.req pax.u.req sender])
+   =.  this  (save-scry-state st)
+-  (emit-card [%pass keen-wire %keen %.n who.u.req pax.u.req])
+-::  +handle-scry-yawn: cancel the CALLER's outstanding keens at a spar,
+-::  precisely. ames %yawn cancels by duct, so the cancel must ride the
+-::  same wire the keen did — the service records every keen's wire in
+-::  scry-state (see +handle-scry-keen) and replays %yawn on each wire
+-::  the yawning grub holds at that spar. Other grubs' keens at the
+-::  same spar stay parked: the longpoll pattern has many grubs waiting
+-::  on one name, and a by-spar %wham would cancel them all (PR #44's
+-::  interim fix). %wham remains only as the fallback when bookkeeping
+-::  has no record — better a broad cancel than a keen that
+-::  retransmits forever.
++  (emit-card [%pass keen-wire %arvo %ames %keen %.n who.u.req pax.u.req])
++::  Cancel only this caller's recorded reads, using each original wire.
++::  Other grubs can read the same spar independently.
+ ::
+ ++  handle-scry-yawn
+   |=  [sender=rail:tarball vaz=vase]
+@@ -7357,14 +7356,13 @@
+     %+  skim  ~(tap by keens.st)
+     |=  [* rec=[=ship pax=path sender=rail:tarball]]
+     &(=(ship.rec who.u.req) =(pax.rec pax.u.req) =(sender.rec sender))
+-  ?:  =(~ mine)
+-    (emit-card [%pass /scry-yawn %arvo %a %wham who.u.req pax.u.req])
++  ?:  =(~ mine)  this
+   =.  keens.st
+     (roll mine |=([[=wire * * *] acc=_keens.st] (~(del by acc) wire)))
+   =.  this  (save-scry-state st)
+   %+  roll  mine
+   |=  [[=wire * * *] acc=_this]
+-  (emit-card:acc [%pass wire %arvo %a %yawn who.u.req pax.u.req])
++  (emit-card:acc [%pass wire %arvo %ames %yawn who.u.req pax.u.req])
+ ::  +take-keen-sage: an ames %sage answered a keen we passed for a
+ ::  fiber. Decode the return address from the wire, drop an answer
+ ::  whose spar names a different ship than the wire asked for, and
+--- a/lib/nexus.hoon
++++ b/lib/nexus.hoon
+@@ -133,7 +133,7 @@
+ ::  Stored as a grub at /sys/eyre/main.server-state.
+ ::
+ +$  server-state
+-  $:  %0
++  $:  %1
+       bindings=(map binding:eyre rail:tarball)
+       conns=(map @ta binding:eyre)
+   ==
+--- a/mar/dill-blit.hoon
++++ b/mar/dill-blit.hoon
+@@ -22,6 +22,7 @@
+   |=  =blit:dill
+   ^-  json
+   ?-  -.blit
++      %bye  (pairs:enjs:format ['type' s+%bye]~)
+       %bel  (pairs:enjs:format ['type' s+%bel]~)
+       %clr  (pairs:enjs:format ['type' s+%clr]~)
+       %nel  (pairs:enjs:format ['type' s+%nel]~)

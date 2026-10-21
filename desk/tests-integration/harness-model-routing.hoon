@@ -19,7 +19,7 @@
   %+  murn
     cards
   |=  c=card:agent:gall
-  ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %i %request *] c) `c ~))
+  ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %iris %request *] c) `c ~))
 ++  body
   |=  c=http-card:renew
   =/  octs  (need body.request.c)
@@ -153,7 +153,7 @@
     %+  murn  -.loaded
     |=  c=card:agent:gall
     ^-  (unit http-card:renew)
-    ?:(?=([%pass [%model-context *] %arvo %i %request *] c) `c ~)
+    ?:(?=([%pass [%model-context *] %arvo %iris %request *] c) `c ~)
   ?>  =(1 (lent catalogs))
   =/  catalog  (snag 0 catalogs)
   =/  response=client-response:iris

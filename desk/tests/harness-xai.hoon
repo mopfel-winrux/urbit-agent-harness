@@ -71,10 +71,10 @@
   ==
 ++  test-device-request-and-poll-use-xai-form-endpoints
   =/  raw  (snag 0 cards:started)
-  ?>  ?=([%pass * %arvo %i %request *] raw)
+  ?>  ?=([%pass * %arvo %iris %request *] raw)
   =/  request=http-card:renew  raw
   =/  raw  (snag 0 cards:poll)
-  ?>  ?=([%pass * %arvo %i %request *] raw)
+  ?>  ?=([%pass * %arvo %iris %request *] raw)
   =/  polling=http-card:renew  raw
   ;:  weld
       (expect-eq !>('https://auth.x.ai/oauth2/device/code') !>(url.request.request))
@@ -147,7 +147,7 @@
   ==
 ++  request
   ^-  http-card:renew
-  :*  %pass  /llm/xai/0/turn  %arvo  %i  %request
+  :*  %pass  /llm/xai/0/turn  %arvo  %iris  %request
       :*  %'POST'  xai-url:auth
           ~[['authorization' 'Bearer stale'] ['chatgpt-account-id' 'WRONG_ACCOUNT']]
           `(as-octs:mimes:html '{}')

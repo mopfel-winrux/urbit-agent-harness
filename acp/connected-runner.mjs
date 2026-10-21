@@ -7,6 +7,7 @@ import { parseArgs } from 'node:util'
 import { setTimeout as delay } from 'node:timers/promises'
 import { RunnerJournal } from './runner-journal.mjs'
 import { readSSE } from './sse.mjs'
+import { guestDeskHeaders } from './ship-auth.mjs'
 import { createProvider, validateAgentOptions } from './local-agent-provider.mjs'
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex')
@@ -16,7 +17,7 @@ const fatalHTTP = status => status >= 400 && status < 500 && status !== 408 && s
 export function runnerEndpoint(ship, runner) {
   const url = new URL(ship)
   if (url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error('Use the ship origin without a path, query, or credentials.')
-  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['127.0.0.1', '[::1]', 'localhost'].includes(url.hostname))) throw new Error('Runner connections require HTTPS, except on loopback.')
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['127.0.0.1', '[::1]', 'localhost', 'harness.localhost'].includes(url.hostname))) throw new Error('Runner connections require HTTPS, except on loopback.')
   if (!/^[a-z0-9-]{1,64}$/.test(runner)) throw new Error('Invalid runner ID.')
   return new URL(`/harness/runners/${runner}/events`, url).href
 }
@@ -42,7 +43,7 @@ export async function createRunner({ ship, runner, key, state, repo, agentType =
   const stop = new AbortController()
   const providers = new Map(), executions = new Map()
   let postChain = Promise.resolve(), running, failure, closing, heartbeat, heartbeatPending = false
-  const headers = { authorization: `Bearer ${key}` }
+  const headers = { ...await guestDeskHeaders(ship, fetchImpl), 'x-harness-key': key }
 
   function fail(error) { failure ??= error; stop.abort() }
 

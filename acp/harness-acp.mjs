@@ -6,6 +6,7 @@
 import { createInterface } from 'node:readline';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
+import { loginDesk, requestHeaders } from './ship-auth.mjs';
 
 const SHIP_URL = process.env.SHIP_URL || 'http://localhost:8081';
 const SHIP_CODE = process.env.SHIP_CODE;
@@ -29,18 +30,7 @@ let eventId = 0;
 let running = true;
 
 async function login() {
-  const res = await fetch(`${SHIP_URL}/~/login`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: `password=${encodeURIComponent(SHIP_CODE)}`,
-  });
-  if (!res.ok) throw new Error(`login failed: ${res.status}`);
-
-  const setCookie = res.headers.get('set-cookie') || '';
-  cookie = setCookie.split(';')[0];
-  const match = cookie.match(/urbauth-~([\w-]+)/);
-  if (match) shipName = match[1];
-  if (!cookie) throw new Error('login: no cookie');
+  ({ cookie, shipName } = await loginDesk(SHIP_URL, SHIP_CODE));
 }
 
 async function poke(action) {
@@ -56,7 +46,7 @@ async function poke(action) {
   ];
   const res = await fetch(`${SHIP_URL}/~/channel/${channelId}`, {
     method: 'PUT',
-    headers: { 'content-type': 'application/json', cookie },
+    headers: { ...requestHeaders(SHIP_URL), 'content-type': 'application/json', cookie },
     body: JSON.stringify(body),
   });
   if (res.status !== 204 && res.status !== 200) {
@@ -69,7 +59,7 @@ async function clientQueue() {
   // Eyre supplies Gall's leading %x namespace for HTTP scries.
   const path = `v1/${ACP_CONNECTION}/client`;
   const res = await fetch(`${SHIP_URL}/~/scry/acp/${path}.json`, {
-    headers: { cookie },
+    headers: { ...requestHeaders(SHIP_URL), cookie },
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`%acp scry failed: ${res.status}`);

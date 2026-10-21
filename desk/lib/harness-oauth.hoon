@@ -139,12 +139,12 @@
           renewable=?
       ==
   ^-  result
-  ?:  ?=([%pass * %arvo %i %cancel-request *] incoming-card)
+  ?:  ?=([%pass * %arvo %iris %cancel-request *] incoming-card)
     %=  out
       waiting.oauth  (~(del by waiting.oauth.out) p.incoming-card)
       cards  (snoc cards.out incoming-card)
     ==
-  ?.  ?=([%pass * %arvo %i %request *] incoming-card)
+  ?.  ?=([%pass * %arvo %iris %request *] incoming-card)
     out(cards (snoc cards.out incoming-card))
   =/  http=http-card  incoming-card
   =/  device-route
@@ -195,8 +195,8 @@
         ~[['content-type' 'application/x-www-form-urlencoded'] ['accept' 'application/json']]
         `(as-octs:mimes:html body)
     ==
-  :~  [%pass /[(cat 3 provider '-renew')]/(scot %ud nonce) %arvo %i %request request [0 0]]
-      [%pass /[(cat 3 provider '-timeout')]/(scot %ud nonce) %arvo %b %wait deadline]
+  :~  [%pass /[(cat 3 provider '-renew')]/(scot %ud nonce) %arvo %iris %request request [0 0]]
+      [%pass /[(cat 3 provider '-timeout')]/(scot %ud nonce) %arvo %behn %wait deadline]
   ==
 ++  failed-refresh
   |=  [out=result now=@da message=@t terminal=?]

@@ -96,11 +96,11 @@
   =/  watchdogs
     %+  skim
       -.deleted
-    |=(card=card:agent:gall ?=([%pass [%jsdog %source-job ~] %arvo %b %rest *] card))
+    |=(card=card:agent:gall ?=([%pass [%jsdog %source-job ~] %arvo %behn %rest *] card))
   =/  timers
     %+  skim
       -.deleted
-    |=(card=card:agent:gall ?=([%pass [%timer %source %wake ~] %arvo %b %rest *] card))
+    |=(card=card:agent:gall ?=([%pass [%timer %source %wake ~] %arvo %behn %rest *] card))
   =/  native
     %+  skim
       -.deleted

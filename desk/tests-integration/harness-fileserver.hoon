@@ -58,7 +58,7 @@
           [%give %kick ~[/http-response/fixture] ~]
       ==
     =?  expected  cached
-      (snoc expected [%pass /eyre/cache %arvo %e %set-response url ~ auth=| %payload payload])
+      (snoc expected [%pass /eyre/cache %arvo %eyre %set-response url ~ auth=| %payload payload])
     =/  state
       !<([%0 foot=path woot=path cash=(set @t)] saved)
     ;:  weld

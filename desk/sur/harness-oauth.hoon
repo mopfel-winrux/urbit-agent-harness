@@ -2,7 +2,7 @@
 ::  no credentials; one refresh serves all clients and holds at most 64 requests.
 |%
 +$  http-card
-  [%pass =wire %arvo %i %request =request:http =outbound-config:iris]
+  [%pass =wire %arvo %iris %request =request:http =outbound-config:iris]
 +$  state
   $:  identity=@uvH
       serial=@ud

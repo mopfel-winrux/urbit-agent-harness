@@ -31,6 +31,29 @@ runtime, names its Gall agent `%harness-grub` and overlays this desk. Tlon stagi
 includes only the required protocol source closure, not the Groups application.
 Build files and staging scripts define the dependency revisions.
 
+`scripts/stage-kernel.mjs` pins Gall wrappers, thread support and the `%seal`
+mark to the kernel API source. It applies the runtime integration patch with
+zero fuzz; a changed integration point fails the build. `/sys.kelvin` declares
+Zuse 407.
+
+The required permissions in `/desk.seal` cover all five agents. Local
+pokes, subscriptions and reads include same-desk calls. Their scope also supports
+configured MCP agents, Tlon, peer tools and user-authorized Clay paths, so these
+grants are intentionally broad. The desk does not request `%super`, private
+keys, permission administration or terminal control. Session and peer grants
+continue to gate individual tool operations inside the desk.
+
+Gall resource reconciliation uses `ras.bowl` and `rad.bowl`: a repeated read
+or request cancels its existing resource before replacement, and an unchanged
+HTTP binding stays live. It also accounts for cards emitted earlier in the same
+event. Saved app-state envelopes stay unchanged. The runtime's HTTP registry has
+one migration that preserves handlers and active connection IDs; a domain-bound
+registration stops migration instead of silently changing its meaning.
+
+Use the desk's HTTPS hostname for the web app and connected clients. Review the
+[kernel HTTP setup instructions](https://gist.github.com/Fang-/68ea225f9e6661035d557f0b8259f7eb)
+when configuring a reverse proxy and desk subdomains.
+
 For a fresh installation, use the [README instructions](../README.md#build-and-install).
 `zig build -Ddesk=/path/to/pier/harness` synchronizes the assembled desk into
 that mount, removing files absent from the output. Do not use a full sync over

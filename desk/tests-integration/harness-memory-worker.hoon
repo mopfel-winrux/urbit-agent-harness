@@ -17,7 +17,7 @@
   ^-  (list http-card:renew)
   %+  murn  cards
   |=  c=card:agent:gall
-  ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %i %request *] c) `c ~))
+  ^-((unit http-card:renew) ?:(?=([%pass [%llm *] %arvo %iris %request *] c) `c ~))
 ++  fixture
   ^-  state-0
   =/  s  *state-0
@@ -59,7 +59,7 @@
   =/  at  (need wake.knowledge.saved)
   =/  tick  bowl
   =.  tick  tick(now at)
-  =/  working  (~(on-arvo +.completed tick) /memory-work/(scot %da at) [%behn %wake ~])
+  =/  working  (~(on-arvo +.completed tick) /memory-work/(scot %da at) [%behn %wake at])
   =/  before  !<(state-0 ~(on-save +.working tick))
   =.  tick  tick(now (add (need wake.knowledge.before) ~s1))
   =/  concurrent
@@ -103,7 +103,7 @@
   =/  at  (need wake.knowledge.saved)
   =/  tick  bowl
   =.  tick  tick(now at)
-  =/  working  (~(on-arvo +.completed tick) /memory-work/(scot %da at) [%behn %wake ~])
+  =/  working  (~(on-arvo +.completed tick) /memory-work/(scot %da at) [%behn %wake at])
   =/  extraction  (snag 0 (requests -.working))
   =/  work-state  !<(state-0 ~(on-save +.working tick))
   =/  concurrent
@@ -159,14 +159,14 @@
   =/  at  (need wake.knowledge.saved)
   =/  tick  bowl
   =.  tick  tick(now at)
-  =/  working  (~(on-arvo +.completed tick) /memory-work/(scot %da at) [%behn %wake ~])
+  =/  working  (~(on-arvo +.completed tick) /memory-work/(scot %da at) [%behn %wake at])
   =/  extraction  (snag 0 (requests -.working))
   =/  pending  !<(state-0 ~(on-save +.working tick))
   =/  reloaded  (~(on-load head tick) !>(pending))
   =/  restored  !<(state-0 ~(on-save +.reloaded tick))
   =.  at  (need wake.knowledge.restored)
   =.  tick  tick(now at)
-  =/  expired  (~(on-arvo +.reloaded tick) /memory-work/(scot %da at) [%behn %wake ~])
+  =/  expired  (~(on-arvo +.reloaded tick) /memory-work/(scot %da at) [%behn %wake at])
   =/  retry  !<(state-0 ~(on-save +.expired tick))
   =/  late  (~(on-arvo +.expired tick) wire.extraction [%iris %http-response (response '[]')])
   =/  after  !<(state-0 ~(on-save +.late tick))
@@ -203,7 +203,7 @@
   =/  at  (need wake.knowledge.saved)
   =/  tick  bowl
   =.  tick  tick(now at)
-  =/  working  (~(on-arvo +.completed tick) /memory-work/(scot %da at) [%behn %wake ~])
+  =/  working  (~(on-arvo +.completed tick) /memory-work/(scot %da at) [%behn %wake at])
   =/  extraction  (snag 0 (requests -.working))
   =/  text  q:(need body.request.extraction)
   =/  private-found  (find "PRIVATE_OPT_OUT_EVIDENCE" (trip text))

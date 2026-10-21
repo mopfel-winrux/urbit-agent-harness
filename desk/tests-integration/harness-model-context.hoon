@@ -49,7 +49,7 @@
   %+  murn
     cards
   |=  c=card:agent:gall
-  ^-((unit http-card:renew) ?:(?=([%pass [%model-context *] %arvo %i %request *] c) `c ~))
+  ^-((unit http-card:renew) ?:(?=([%pass [%model-context *] %arvo %iris %request *] c) `c ~))
 ++  reply
   |=  raw=@t
   ^-  client-response:iris
@@ -100,7 +100,7 @@
       !>((~(got by sessions.saved) 'custom'))
       (expect-eq !>(saved) !>(repeated))
       %-  expect
-      !>(!(lien -.updated |=(c=card:agent:gall ?=([%pass * %arvo %i %request *] c))))
+      !>(!(lien -.updated |=(c=card:agent:gall ?=([%pass * %arvo %iris %request *] c))))
   ==
 ++  test-unavailable-or-invalid-metadata-preserves-saved-capacity
   %-  isolated

@@ -60,16 +60,26 @@
 ++  authenticate
   |=  [db=state:r id=@t headers=header-list:http]
   ^-  ?
-  =/  token  (header headers 'authorization')
+  =/  token  (header headers 'x-harness-key')
   =/  runner  (~(get by registry.db) id)
   ?~  token  |
   ?~  runner  |
-  ?.  =('Bearer ' (end [3 7] u.token))  |
-  =/  key  (rsh [3 7] u.token)
+  =/  key  u.token
   ?&  !revoked.u.runner
       (valid-key key)
       =((shax key) digest.u.runner)
   ==
+::
+++  same-origin
+  |=  inbound=inbound-request:eyre
+  ^-  ?
+  =/  headers  header-list.request.inbound
+  ?.  (lien headers |=([key=@t value=@t] =('origin' (crip (cass (trip key))))))  &
+  =/  origin  (header headers 'origin')
+  =/  host  (header headers 'host')
+  ?~  origin  |
+  ?~  host  |
+  =(u.origin (cat 3 ?:(secure.inbound 'https://' 'http://') u.host))
 ::
 ++  status
   |=  [id=@t runner=runner:r now=@da]

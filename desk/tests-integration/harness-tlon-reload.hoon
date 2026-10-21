@@ -32,7 +32,7 @@
     ~[[0v1 `tool-receipt:t`[['s' 1 ['call' 'tlon_upload_image' '{}']] %sending '' ~2026.9.6]]]
   =/  out  (load !>(state))
   ::  Reload may cancel the old duct and publish a result, never request HTTP.
-  ?>  !(lien -.out |=(c=card:agent:gall ?=([%pass * %arvo %i %request *] c)))
+  ?>  !(lien -.out |=(c=card:agent:gall ?=([%pass * %arvo %iris %request *] c)))
   +.out
 ++  test-native-download-reload-is-known-not-uploaded
   =/  state  (reload %fetch)

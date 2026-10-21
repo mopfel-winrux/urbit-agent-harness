@@ -22,7 +22,7 @@
   ^-  inbound-request:eyre
   :*  |  |  [%ipv4 .127.0.0.1]
       :*  %'POST'  '/harness/runners/laptop/events'
-          ~[['authorization' (cat 3 'Bearer ' key:seed)] ['content-type' 'application/json']]
+          ~[['x-harness-key' key:seed] ['content-type' 'application/json']]
           `(as-octs:mimes:html body)
       ==
   ==
@@ -41,8 +41,11 @@
   |=  ignored=*
   =/  loaded  (~(on-load head bowl) !>(saved))
   =/  req  (request '{"version":1,"sequence":1,"type":"ack","through":0}')
+  =/  headers
+    [['origin' 'http://harness.localhost'] ['host' 'harness.localhost'] header-list.request.req]
   =/  cases=(list [inbound-request:eyre @ud])
     :~  [req 200]
+        [req(header-list.request headers) 200]
         [req(header-list.request ~[['cookie' 'urbauth-~zod=not-a-key']]) 401]
         [req(header-list.request [['origin' 'null'] ['Origin' 'null'] header-list.request.req]) 403]
         [req(address [%ipv4 .10.0.0.1]) 403]
@@ -204,7 +207,7 @@
   =/  at  u.wake.runners.running
   =/  tick-bowl  initial-bowl(now at)
   =/  expired
-    (~(on-arvo +.loaded tick-bowl) /runner-wake/(scot %da at) [%behn %wake ~])
+    (~(on-arvo +.loaded tick-bowl) /runner-wake/(scot %da at) [%behn %wake at])
   =/  final  !<(state-0 ~(on-save +.expired tick-bowl))
   =/  notifications
     %+  skim  -.expired

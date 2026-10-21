@@ -14,6 +14,7 @@
 /-  hosted-types=harness-hosted
 /-  hn=harness-notes, native-notes=tlon-notes
 /-  memory-types=harness-memory
+/+  kernel=harness-kernel
 /+  hl=harness, hs=harness-session, hd=harness-hand, hg=harness-grub,
     shadow=harness-shadow, hp=harness-provider, auth=harness-auth,
     oauth=harness-oauth, search=harness-search, ht=harness-tools,
@@ -72,6 +73,7 @@
       knowledge=state:memory-types
   ==
 --
+%-  agent:kernel
 %-  agent:dbug
 =|  state-0
 =*  state  -
@@ -159,9 +161,9 @@
   ++  on-init
     ^-  (quip card _this)
     :_  this(defaults builtin-config:policy, search-config [%brave ''])
-    :~  [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
-        [%pass /eyre/connect %arvo %e %connect [~ /harness/runners] dap.bowl]
-        [%pass /eyre/connect %arvo %e %connect [~ /harness-project] dap.bowl]
+    :~  [%pass /eyre/connect %arvo %eyre %connect /harness-api dap.bowl]
+        [%pass /eyre/connect %arvo %eyre %connect /harness/runners dap.bowl]
+        [%pass /eyre/connect %arvo %eyre %connect /harness-project dap.bowl]
         :*  %pass  /peer-access/refresh  %agent  [our.bowl dap.bowl]  %poke  %harness-action
             !>(`action:h`[%peer-refresh ~])
         ==
@@ -187,18 +189,18 @@
       :~  :*  %pass  /peer-access/refresh  %agent  [our.bowl dap.bowl]  %poke  %harness-action
               !>(`action:h`[%peer-refresh ~])
           ==
-          [%pass /eyre/connect %arvo %e %connect [~ /harness-api] dap.bowl]
-          [%pass /eyre/connect %arvo %e %connect [~ /harness/runners] dap.bowl]
-          [%pass /eyre/connect %arvo %e %connect [~ /harness-project] dap.bowl]
+          [%pass /eyre/connect %arvo %eyre %connect /harness-api dap.bowl]
+          [%pass /eyre/connect %arvo %eyre %connect /harness/runners dap.bowl]
+          [%pass /eyre/connect %arvo %eyre %connect /harness-project dap.bowl]
           acp-open-card:wire-codec
       ==
     =?  base  ?=(^ schedule-wake.new)
       %+  snoc
         base
-      [%pass /schedules/(scot %da u.schedule-wake.new) %arvo %b %rest u.schedule-wake.new]
+      [%pass /schedules/(scot %da u.schedule-wake.new) %arvo %behn %rest u.schedule-wake.new]
     =?  base  ?=(^ wake.knowledge.new)
       %+  snoc  base
-      [%pass /memory-work/(scot %da u.wake.knowledge.new) %arvo %b %rest u.wake.knowledge.new]
+      [%pass /memory-work/(scot %da u.wake.knowledge.new) %arvo %behn %rest u.wake.knowledge.new]
     =.  base
       (weld base (close-streams:runner-lib runners.new))
     =.  base  (weld base refresh-model-contexts:hc)
@@ -602,7 +604,7 @@
         ?+  -.sign  (on-agent:def wire sign)
             %kick
           ::  Leave this event before reconnecting: replay can kick again.
-          [~[[%pass /acp/reconnect %arvo %b %wait (add now.bowl ~s5)]] this]
+          [~[[%pass /acp/reconnect %arvo %behn %wait (add now.bowl ~s5)]] this]
         ::
             %watch-ack
           ?~  p.sign  `this
@@ -739,7 +741,7 @@
     --
   ::
   ++  on-arvo
-    |=  [=wire sign=sign-arvo]
+    |=  [=wire sign=gift-user-v1:gall]
     %-  finish-event
     ^-  (quip card _this)
     |^
@@ -751,7 +753,7 @@
         =^  cards  state  runner-tick:hc
         [cards this]
           [%acp %reconnect ~]
-        ?.  ?=([%behn %wake ~] sign)  `this
+        ?.  ?=([%behn %wake *] sign)  `this
         [~[[%pass /acp/watch %agent [our.bowl %acp] %leave ~] acp-watch-card:wire-codec] this]
           [%schedules @ ~]
         ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
@@ -772,7 +774,7 @@
         [cards this]
           [%eyre %connect ~]
         ?.  ?=([%eyre %bound *] sign)  (on-arvo:def wire sign)
-        ~?  !accepted.sign  [dap.bowl %eyre-bind-failed binding.sign]
+        ~?  !bound.sign  [dap.bowl %eyre-bind-failed binding.sign]
         `this
       ::
       ==
@@ -871,7 +873,7 @@
         =/  sid=session-id:h  i.t.wire
         =/  name=@ta  i.t.t.wire
         ?.  ?=([%behn %wake *] sign)  (on-arvo:def wire sign)
-        =^  cards  state  (handle-timer-fire:hc sid name error.sign)
+        =^  cards  state  (handle-timer-fire:hc sid name ~)
         [cards this]
       ::
           [%a2a-timeout @ ~]
@@ -915,8 +917,8 @@
     --
   ::
   ++  on-fail
-    |=  [=term =tang]
-    [~[(crash:observe bowl term tang)] this]
+    |=  [=frag:agent:gall =call:agent:gall]
+    [~[(crash:observe bowl -.call tang.frag)] this]
   --
 ::  Stateful lifecycle. Keep state replacement and emitted cards together:
 ::  splitting this into independently driving adapters would create two owners.
@@ -2636,10 +2638,10 @@
   ?:  =(deadline schedule-wake)  `state
   =/  cards=(list card)
     ?~  schedule-wake  ~
-    ~[[%pass /schedules/(scot %da u.schedule-wake) %arvo %b %rest u.schedule-wake]]
+    ~[[%pass /schedules/(scot %da u.schedule-wake) %arvo %behn %rest u.schedule-wake]]
   =.  schedule-wake  deadline
   ?~  deadline  [cards state]
-  [(snoc cards [%pass /schedules/(scot %da u.deadline) %arvo %b %wait u.deadline]) state]
+  [(snoc cards [%pass /schedules/(scot %da u.deadline) %arvo %behn %wait u.deadline]) state]
 ++  wake-corpus
   ^-  (quip card _state)
   =/  waiting  ?=(^ corpus-wake)
@@ -2647,7 +2649,7 @@
   =/  deadline  (add now.bowl (div ~s1 10))
   =.  corpus-wake  `deadline
   :_  state
-  ~[[%pass /corpus-index/(scot %da deadline) %arvo %b %wait deadline]]
+  ~[[%pass /corpus-index/(scot %da deadline) %arvo %behn %wait deadline]]
 ::  Memory has its own paced worker. A normal event only schedules a wake;
 ::  it does not collect source text, prepare a prompt or wait for inference.
 ++  wake-memory
@@ -2666,10 +2668,10 @@
   ?:  =(deadline wake.knowledge)  `state
   =/  cards=(list card)
     ?~  wake.knowledge  ~
-    ~[[%pass /memory-work/(scot %da u.wake.knowledge) %arvo %b %rest u.wake.knowledge]]
+    ~[[%pass /memory-work/(scot %da u.wake.knowledge) %arvo %behn %rest u.wake.knowledge]]
   =.  wake.knowledge  deadline
   ?~  deadline  [cards state]
-  [(snoc cards [%pass /memory-work/(scot %da u.deadline) %arvo %b %wait u.deadline]) state]
+  [(snoc cards [%pass /memory-work/(scot %da u.deadline) %arvo %behn %wait u.deadline]) state]
 ++  memory-view
   |=  [sid=session-id:h view=view:h]
   ^-  view:h
@@ -2711,10 +2713,10 @@
   =.  knowledge  (finish:memory-capture knowledge retry status usage)
   :_  state
   :-  :*  %pass  `wire`[%llm sid.job.pending (scot %ud id.pending) %memory ~]
-          %arvo  %i  %cancel-request  ~
+          %arvo  %iris  %cancel-request  ~
       ==
   ?~  wake  ~
-  ~[[%pass /memory-work/(scot %da u.wake) %arvo %b %rest u.wake]]
+  ~[[%pass /memory-work/(scot %da u.wake) %arvo %behn %rest u.wake]]
 ++  memory-response
   |=  [sid=session-id:h req=@ud response=client-response:iris]
   ^-  (quip card _state)
@@ -4388,11 +4390,11 @@
     =/  =wire
       ?~  generation  [%tool `@ta`sid.action `@ta`call-id ~]
       [%tool-2 `@ta`sid.action (scot %ud u.generation) `@ta`call-id ~]
-    `[%pass wire %arvo %i %cancel-request ~]
+    `[%pass wire %arvo %iris %cancel-request ~]
   =?  withdrawn  ?=(^ pending.view)
     :_  withdrawn
     :*  %pass  `wire`[%llm `@ta`sid.action (scot %ud req.u.pending.view) kind.u.pending.view ~]
-        %arvo  %i  %cancel-request  ~
+        %arvo  %iris  %cancel-request  ~
     ==
   =/  request=(unit @ud)  ?~(pending.view ~ `req.u.pending.view)
   =/  =event:h
@@ -4728,7 +4730,7 @@
           %harness-a2a-0  !>(`a2a:h`[%ask id %text prompt.action])
       ==
       :*  %pass  `wire`[%a2a-timeout (scot %uv id) ~]
-          %arvo  %b  %wait  (add now.bowl ~m2)
+          %arvo  %behn  %wait  (add now.bowl ~m2)
       ==
   ==
 ::
@@ -4758,7 +4760,7 @@
   =^  cards  state  (handle-acp-message (connection:admin ticket) [0 now.bowl payload])
   :_  state
   %+  snoc  cards
-  :*  %pass  /admin-timeout/[sid.action]/(scot %ud generation.ticket)/[call-id.action]  %arvo  %b
+  :*  %pass  /admin-timeout/[sid.action]/(scot %ud generation.ticket)/[call-id.action]  %arvo  %behn
       %wait  (add now.bowl ~m1)
   ==
 ::
@@ -4787,7 +4789,7 @@
     ?~(name.action [%tools id args.action] [%invoke id now.bowl u.name.action args.action])
   :_  state
   :~  (peer-rpc-card ship.action message)
-      [%pass /a2a-timeout/(scot %uv id) %arvo %b %wait (add now.bowl ~m2)]
+      [%pass /a2a-timeout/(scot %uv id) %arvo %behn %wait (add now.bowl ~m2)]
   ==
 ::
 ++  action-check-peer
@@ -4799,7 +4801,7 @@
   =.  asks  (~(put by asks) id [sid.action call-id.action ship.action])
   :_  state
   :~  (peer-access-card ship.action [%query id])
-      [%pass /a2a-timeout/(scot %uv id) %arvo %b %wait (add now.bowl ~s30)]
+      [%pass /a2a-timeout/(scot %uv id) %arvo %behn %wait (add now.bowl ~s30)]
   ==
 ::
 ++  action-run-js
@@ -4849,7 +4851,7 @@
   =/  job  (~(get by jobs) tid)
   ?~  job  `state
   =.  jobs  (~(del by jobs) tid)
-  =/  cancel-watchdog=card  [%pass `wire`[%jsdog tid ~] %arvo %b %rest deadline.u.job]
+  =/  cancel-watchdog=card  [%pass `wire`[%jsdog tid ~] %arvo %behn %rest deadline.u.job]
   =/  session  (~(get by sessions) sid.u.job)
   ?~  session  [~[cancel-watchdog] state]
   ?.  (authorized-call sid.u.job call-id.u.job 'run_js')  [~[cancel-watchdog] state]
@@ -5006,7 +5008,7 @@
         %-  defer
         :_  ~
         :*  %pass  `wire`[%tool-2 `@ta`sid (scot %ud next-req.session) `@ta`id.call ~]
-            %arvo  %i  %request  p.request  [0 0]
+            %arvo  %iris  %request  p.request  [0 0]
         ==
       ::  The outer unit identifies an asynchronous tool. The inner unit
       ::  distinguishes a valid request card from invalid arguments.
@@ -5170,7 +5172,7 @@
   :_  [session knowledge]
   :+  (llm-card sid req %compaction request checkpoint)
     :*  %pass  `wire`[%compact-timeout `@ta`sid (scot %ud req) (scot %uv checkpoint) ~]
-        %arvo  %b  %wait  (add now.bowl ~m3)
+        %arvo  %behn  %wait  (add now.bowl ~m3)
     ==
   recorded
 ++  compact-timeout
@@ -5199,7 +5201,7 @@
     ~[[%compaction-failed req 'Compaction timed out; the previous context was retained.' [0 0]]]
   =^  settled  state  (drive-put sid session)
   :_  state
-  :-  [%pass `wire`[%llm `@ta`sid (scot %ud req) %compaction ~] %arvo %i %cancel-request ~]
+  :-  [%pass `wire`[%llm `@ta`sid (scot %ud req) %compaction ~] %arvo %iris %cancel-request ~]
   (weld recorded settled)
 ::
 ::  Reserve and record request identity before dispatch. Provider codecs receive
@@ -5263,7 +5265,7 @@
   =?  cards  =(%compaction kind)
     %+  snoc  cards
     :*  %pass  `wire`[%compact-timeout `@ta`sid (scot %ud request-id) (scot %uv checkpoint) ~]
-        %arvo  %b  %wait  (add now.bowl ~m3)
+        %arvo  %behn  %wait  (add now.bowl ~m3)
     ==
   `[(snoc cards (llm-card sid request-id kind candidate checkpoint)) session]
 ++  provider-key
@@ -5347,7 +5349,7 @@
   =?  headers  &(!=('' account) =('openai' provider) (device-route:auth url))
     [['chatgpt-account-id' account] headers]
   :*  %pass  `wire`[%models (scot %ud req) ~]
-      %arvo  %i  %request  [%'GET' url headers ~]  *outbound-config:iris
+      %arvo  %iris  %request  [%'GET' url headers ~]  *outbound-config:iris
   ==
 ::
 ++  llm-card
@@ -5386,7 +5388,7 @@
         `(as-octs:mimes:html body)
     ==
   :*  %pass  `wire`[%llm `@ta`sid (scot %ud req) kind ~]
-      %arvo  %i  %request  request  *outbound-config:iris
+      %arvo  %iris  %request  request  *outbound-config:iris
   ==
 ::  A response belongs to one pending request. Progress updates the transient
 ::  stream; terminal responses record events and resume the session loop.
@@ -5610,7 +5612,7 @@
     |=  [tid=@ta session=session-id:h call-id=@t deadline=@da]
     ^-  (list card)
     :~  [%pass `wire`[%jsstop tid ~] %agent [our.bowl %spider] %poke %spider-stop !>([tid &])]
-        [%pass `wire`[%jsdog tid ~] %arvo %b %rest deadline]
+        [%pass `wire`[%jsdog tid ~] %arvo %behn %rest deadline]
     ==
   =.  jobs
     %-  ~(gas by *(map @ta [session-id:h @t @da]))
@@ -5997,7 +5999,7 @@
       :*  %pass  wire  %agent  [our.bowl %mcp-proxy]  %poke  %handle-http-request
           !>([request-id u.inbound])
       ==
-      :*  %pass  /local-mcp-timeout/[sid]/(scot %ud generation)/[call-id]  %arvo  %b  %wait
+      :*  %pass  /local-mcp-timeout/[sid]/(scot %ud generation)/[call-id]  %arvo  %behn  %wait
           (add now.bowl ~m1)
       ==
   ==
@@ -6414,7 +6416,7 @@
   :_  state
   %+  snoc
     (weld recorded driven)
-  `card`[%pass /peer-tool-timeout/[sid]/(scot %uv id.message) %arvo %b %wait (add now.bowl ~m2)]
+  `card`[%pass /peer-tool-timeout/[sid]/(scot %uv id.message) %arvo %behn %wait (add now.bowl ~m2)]
 ::
 ++  settle-peer-tool
   |=  sid=session-id:h
@@ -6879,7 +6881,7 @@
     ?.  |(?=(^ jobs.runners) streaming)
       [cards state]
     =/  at  (add now.bowl ~s15)
-    :*  (snoc cards [%pass /runner-wake/(scot %da at) %arvo %b %wait at])
+    :*  (snoc cards [%pass /runner-wake/(scot %da at) %arvo %behn %wait at])
         state(runners runners(wake `at))
     ==
   =/  [attempt=@t job=job:runner-types]  i.active
@@ -6936,11 +6938,11 @@
   |=  [eyre-id=@ta inbound=inbound-request:eyre]
   ^-  (quip card _state)
   ?.  (local-or-secure:project-client inbound)  (runner-reply eyre-id 403 'Use HTTPS or loopback')
-  ?:  (lien header-list.request.inbound |=([key=@t value=@t] =('origin' (crip (cass (trip key))))))
+  ?.  (same-origin:runner-lib inbound)
     %^  runner-reply
       eyre-id
       403
-    'Runner endpoints do not accept browser origins'
+    'Runner request origin must match its host'
   =/  parsed=(unit [[ext=(unit @ta) site=(list @t)] args=(list [@t @t])])
     %+  rush  url.request.inbound
     ;~(plug apat:de-purl:html yque:de-purl:html)

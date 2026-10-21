@@ -40,7 +40,7 @@
   ?>  ?=(^ rows)
   ?>  =(~ requests.work-controls.after)
   ?>  =(workspace.saved workspace.after)
-  ?>  !(lien -.out |=(c=card:agent:gall ?=([%pass * %arvo %i *] c)))
+  ?>  !(lien -.out |=(c=card:agent:gall ?=([%pass * %arvo %iris *] c)))
   ?:  (lien `(list @t)`~['/work' '/work help' '/work help {}'] |=(t=@t =(t text)))
     (expect-eq !>(overview:help) !>(i.rows))
   ?:  =('/work help tasks' text)
@@ -105,7 +105,7 @@
             -.confirmed
           |=(c=card:agent:gall ?=([%pass * %agent * %poke %harness-work-result *] c))
       %-  expect
-      !>(!(lien (weld -.prepared -.confirmed) |=(c=card:agent:gall ?=([%pass * %arvo %i *] c))))
+      !>(!(lien (weld -.prepared -.confirmed) |=(c=card:agent:gall ?=([%pass * %arvo %iris *] c))))
   ==
 ++  test-plain-name-command-creates-a-project-without-approval
   %-  isolated
@@ -130,7 +130,7 @@
       %+  expect-eq
         !>('Weekend plans')
       !>(title.q:(snag 0 ~(tap by projects.workspace.before)))
-      (expect !>(!(lien -.prepared |=(c=card:agent:gall ?=([%pass * %arvo %i *] c)))))
+      (expect !>(!(lien -.prepared |=(c=card:agent:gall ?=([%pass * %arvo %iris *] c)))))
   ==
 ++  test-model-admin-cannot-inject-human-hand-commands
   %-  isolated

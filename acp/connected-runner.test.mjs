@@ -19,7 +19,9 @@ async function fixture(t, options = {}) {
   let stream, sequence = 0, receipt, next = 0, gets = 0, drop = options.dropResponse
   const events = [], posts = [], requests = [], clients = [], jobs = new Set()
   const server = createServer(async (req, res) => {
-    assert.equal(req.headers.authorization, `Bearer ${key}`)
+    assert.equal(req.headers['x-harness-key'], key)
+    assert.equal(req.headers.authorization, undefined)
+    assert.equal(req.headers.origin, `http://${req.headers.host}`)
     assert.equal(req.url, '/harness/runners/laptop/events')
     requests.push({ method: req.method, cursor: req.headers['last-event-id'] })
     if (req.method === 'GET') {

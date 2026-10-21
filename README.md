@@ -49,6 +49,8 @@ See the [capability guide](docs-refs/capabilities.md) for scope and limits, or
 
 ## Build and install
 
+Harness targets Zuse 407 and its Gall userspace API.
+
 Create and mount a desk in Dojo:
 
 ```text
@@ -67,10 +69,13 @@ Commit and install in Dojo:
 ```text
 |commit %harness
 |install our %harness
+|grant-perms
 ```
 
-Open `/apps/harness`. In Settings, configure a provider and model, review default
-tools and start a conversation. To enable Tlon replies, open Tlon in the sidebar,
+Grant the permissions requested by `%harness`, then open Harness from the launcher.
+The app serves `/apps/harness` on the desk's HTTPS hostname. In Settings, configure
+a provider and model, review default tools and start a conversation. To enable
+Tlon replies, open Tlon in the sidebar,
 select an owner and trusted ships, review their grants, then enable the hand.
 Unpermissioned senders are silently ignored.
 
@@ -97,12 +102,13 @@ Clients can connect directly to the ship's authenticated ACP API. For an editor
 that expects a local stdin/stdout executable, use the bridge:
 
 ```sh
-SHIP_URL=http://localhost:8081 \
+SHIP_URL=https://harness.your-ship.example \
 SHIP_CODE=your-ship-code \
 node acp/harness-acp.mjs
 ```
 
 Treat the ship login code as an owner credential.
+Use the Harness desk hostname for ACP clients and runners.
 See the [adapter setup](acp/README.md) and [integration guide](docs-refs/integrations.md).
 
 ## Documentation

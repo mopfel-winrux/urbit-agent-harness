@@ -11,15 +11,31 @@
   db.p.out
 ++  test-key-has-no-cookie-or-cross-runner-authority
   ;:  weld
-      (expect !>((authenticate:runner issued 'laptop' ~[['authorization' (cat 3 'Bearer ' key)]])))
+      (expect !>((authenticate:runner issued 'laptop' ~[['x-harness-key' key]])))
       %-  expect
-      !>(!(authenticate:runner issued 'another' ~[['authorization' (cat 3 'Bearer ' key)]]))
-      (expect !>(!(authenticate:runner issued 'laptop' ~[['cookie' (cat 3 'Bearer ' key)]])))
+      !>(!(authenticate:runner issued 'another' ~[['x-harness-key' key]]))
+      (expect !>(!(authenticate:runner issued 'laptop' ~[['cookie' key]])))
       %-  expect
       !>  ?!  %^  authenticate:runner
                 issued
                 'laptop'
-              ~[['authorization' (cat 3 'Bearer ' key)] ['Authorization' (cat 3 'Bearer ' key)]]
+              ~[['x-harness-key' key] ['X-Harness-Key' key]]
+  ==
+++  test-origin-matches-the-request-host
+  =/  req=inbound-request:eyre
+    [| | [%ipv4 .127.0.0.1] %'POST' '/harness/runners/laptop/events' ~ ~]
+  =/  origin  ['origin' 'http://harness.localhost:8080']
+  =/  host  ['host' 'harness.localhost:8080']
+  ;:  weld
+      (expect !>((same-origin:runner req)))
+      (expect !>((same-origin:runner req(header-list.request ~[origin host]))))
+      %-  expect
+      !>  ?!  %-  same-origin:runner
+              req(header-list.request ~[['origin' 'https://another.example'] host])
+      (expect !>(!(same-origin:runner req(header-list.request ~[['origin' 'null']]))))
+      %-  expect
+      !>  ?!  %-  same-origin:runner
+              req(header-list.request ~[origin ['Origin' 'http://harness.localhost:8080'] host])
   ==
 ++  test-create-retry-is-idempotent-and-revocation-is-final
   =/  again  (owner:runner issued 'create' args ~2026.10.2)
@@ -32,7 +48,7 @@
       (expect-eq !>(`(unit json)`~) !>((get:j result.p.again 'key')))
       (expect !>(?=(%| -.replay)))
       %-  expect
-      !>(!(authenticate:runner db.p.revoked 'laptop' ~[['authorization' (cat 3 'Bearer ' key)]]))
+      !>(!(authenticate:runner db.p.revoked 'laptop' ~[['x-harness-key' key]]))
   ==
 ++  test-route-and-sse-frame
   =/  value  (pairs:enjs:format ~[['text' %s 'hello\0aworld']])

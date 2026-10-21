@@ -45,9 +45,15 @@ URLs are shared project content; they do not grant access to their destinations.
 
 Keys permit reads only. Use this endpoint:
 
+Use the Harness desk's HTTPS hostname. A native HTTP client obtains an Eyre
+guest cookie first by following `/~/holm/jump/~/name` redirects and retaining
+cookies per hostname. Requests include that cookie, `Origin` matching the desk
+origin, and `Sec-Fetch-Site: same-origin`. The `guestDeskHeaders` helper in
+`acp/ship-auth.mjs` performs this handshake without a ship login code.
+
 ```http
 POST /harness-project/read
-Authorization: Bearer <project-key>
+X-Harness-Key: <project-key>
 Content-Type: application/json
 
 {"action":"project","args":{"id":"your-project-id"}}
