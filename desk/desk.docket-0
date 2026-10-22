@@ -2,7 +2,7 @@
   title+'Harness'
   info+'A fast, native agent harness for Urbit.'
   color+0x3a.7a4a
-  image+'/apps/harness/harness.png'
+  image+'https://ams3.digitaloceanspaces.com/urbits3/sitful-hatred/2026.10.22..02.46.27..6418.9374.bc6a.7ef9-ec71d68b-9ed8-421f-a7f5-89861ffb38f8.png'
   site+/apps/harness
   version+[0 2 0]
   website+'https://github.com/mopfel-winrux/urbit-agent-harness'
